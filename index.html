@@ -10,9 +10,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
-/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+/* ═══════════════════════════════════════════
    DESIGN TOKENS
-\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+═══════════════════════════════════════════ */
 :root {
   --bg:       #0d0e10;
   --surface:  #141618;
@@ -36,9 +36,9 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+/* ═══════════════════════════════════════════
    RESET & BASE
-\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+═══════════════════════════════════════════ */
 *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body {
   height: 100%; width: 100%;
@@ -49,9 +49,9 @@ html, body {
   overscroll-behavior: none;
 }
 
-/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+/* ═══════════════════════════════════════════
    APP SHELL
-\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+═══════════════════════════════════════════ */
 #app {
   height: 100dvh;
   display: flex;
@@ -97,9 +97,9 @@ html, body {
   gap: 14px;
 }
 
-/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+/* ═══════════════════════════════════════════
    NAV BAR
-\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+═══════════════════════════════════════════ */
 #nav {
   height: var(--nav-h);
   padding-bottom: var(--safe-bottom);
@@ -129,9 +129,9 @@ html, body {
 .nav-dot { width: 4px; height: 4px; border-radius: 50%; background: transparent; transition: background 0.2s; }
 .nav-item.active .nav-dot { background: var(--accent); }
 
-/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+/* ═══════════════════════════════════════════
    STATUS BAR SIMULATION (for installed PWA)
-\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+═══════════════════════════════════════════ */
 .status-bar {
   display: flex;
   justify-content: space-between;
@@ -142,9 +142,9 @@ html, body {
   flex-shrink: 0;
 }
 
-/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+/* ═══════════════════════════════════════════
    TYPOGRAPHY UTILITIES
-\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+═══════════════════════════════════════════ */
 .display-xl { font-family: var(--font-display); font-size: 64px; line-height: 0.88; letter-spacing: 3px; color: #fff; }
 .display-lg { font-family: var(--font-display); font-size: 36px; letter-spacing: 2px; color: #fff; line-height: 1; }
 .display-md { font-family: var(--font-display); font-size: 24px; letter-spacing: 2px; color: #fff; line-height: 1; }
@@ -154,9 +154,9 @@ html, body {
 .mono-md { font-family: var(--font-mono); font-size: 13px; color: var(--text); }
 .body-sm { font-size: 13px; color: var(--muted); line-height: 1.5; }
 
-/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+/* ═══════════════════════════════════════════
    COMPONENTS
-\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+═══════════════════════════════════════════ */
 
 /* Card */
 .card {
@@ -328,9 +328,9 @@ html, body {
 }
 .instruction-text { font-size: 13px; color: rgba(255,255,255,0.65); line-height: 1.5; }
 
-/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+/* ═══════════════════════════════════════════
    CANVAS SCREEN SPECIFIC
-\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+═══════════════════════════════════════════ */
 #screen-canvas {
   bottom: 0 !important;
   background: var(--bg);
@@ -441,9 +441,9 @@ html, body {
 }
 .stroke-option.active { background: #fff; }
 
-/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+/* ═══════════════════════════════════════════
    RESULTS SCREEN
-\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+═══════════════════════════════════════════ */
 .result-score-ring {
   display: flex; flex-direction: column; align-items: center;
   padding: 24px 0 20px;
@@ -515,9 +515,9 @@ html, body {
 @keyframes spin { to { transform: rotate(360deg); } }
 .grading-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
 
-/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+/* ═══════════════════════════════════════════
    HISTORY SCREEN
-\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+═══════════════════════════════════════════ */
 .session-card {
   background: var(--card); border: 1px solid var(--border); border-radius: 12px;
   display: flex; align-items: center; gap: 14px; padding: 14px;
@@ -544,13 +544,1000 @@ html, body {
 }
 .empty-icon { font-size: 40px; opacity: 0.3; }
 
-/* \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550
+/* ═══════════════════════════════════════════
    PROFILE / SETTINGS SCREEN
-\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550 */
+═══════════════════════════════════════════ */
 .profile-header {
   display: flex; align-items: center; gap: 16px;
   background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px;
 }
 .avatar {
   width: 56px; height: 56px; border-radius: 12px;
-  background: linear-gradient(135deg, rgba(74,240,200,0.2
+  background: linear-gradient(135deg, rgba(74,240,200,0.2), rgba(91,158,244,0.2));
+  border: 1px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display); font-size: 24px; color: var(--accent);
+  flex-shrink: 0;
+}
+.profile-info { flex: 1; }
+.seeker-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.seeker-id-lg { font-family: var(--font-mono); font-size: 16px; color: var(--text); margin-top: 2px; }
+
+.setting-row {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 16px; gap: 12px;
+}
+.setting-label { font-size: 14px; color: var(--text); }
+.setting-desc { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+/* Toggle */
+.toggle {
+  width: 44px; height: 26px; border-radius: 13px;
+  background: var(--card2); border: 1px solid var(--border2);
+  position: relative; cursor: pointer; transition: background 0.2s; flex-shrink: 0;
+}
+.toggle.on { background: var(--accent); }
+.toggle-knob {
+  position: absolute; top: 2px; left: 2px;
+  width: 20px; height: 20px; border-radius: 10px;
+  background: #fff; transition: transform 0.2s;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+}
+.toggle.on .toggle-knob { transform: translateX(18px); }
+
+/* Free tier banner */
+.free-banner {
+  background: linear-gradient(90deg, rgba(74,240,200,0.08), rgba(91,158,244,0.08));
+  border: 1px solid rgba(74,240,200,0.2);
+  border-radius: 12px; padding: 14px 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+.free-banner-text { flex: 1; }
+.free-banner-title { font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--accent); }
+.free-banner-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+.upgrade-btn {
+  background: var(--accent); color: #000;
+  font-family: var(--font-mono); font-size: 9px; font-weight: 500;
+  letter-spacing: 1px; text-transform: uppercase;
+  padding: 8px 14px; border-radius: 8px; border: none; cursor: pointer; white-space: nowrap;
+}
+
+/* ═══════════════════════════════════════════
+   MISC ANIMATIONS
+═══════════════════════════════════════════ */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 0.35s ease forwards; }
+.fade-in-delay-1 { animation: fadeIn 0.35s ease 0.05s both; }
+.fade-in-delay-2 { animation: fadeIn 0.35s ease 0.1s both; }
+.fade-in-delay-3 { animation: fadeIn 0.35s ease 0.15s both; }
+.fade-in-delay-4 { animation: fadeIn 0.35s ease 0.2s both; }
+.fade-in-delay-5 { animation: fadeIn 0.35s ease 0.25s both; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ══════════════════════════════════
+       SCREEN: HOME
+  ═══════════════════════════════════ -->
+  <div id="screen-home" class="screen active" role="main">
+    <div class="screen-inner">
+
+      <!-- Status bar -->
+      <div class="status-bar" style="padding:0 2px 0;">
+        <span id="time-display" class="mono-sm">9:41</span>
+        <div style="display:flex;gap:6px;align-items:center">
+          <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
+            <rect x="0.5" y="0.5" width="13" height="11" rx="2" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+            <rect x="14" y="3.5" width="1.5" height="5" rx="0.5" fill="rgba(255,255,255,0.3)"/>
+            <rect x="2" y="2" width="8" height="8" rx="1" fill="rgba(255,255,255,0.5)"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Brand -->
+      <div class="fade-in">
+        <div class="display-xl">ABLTY</div>
+        <div class="seeker-row">
+          <div class="seeker-badge">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <circle cx="6.5" cy="4.5" r="2.2" stroke="rgba(255,255,255,0.4)" stroke-width="1.1"/>
+              <path d="M2 11.5c0-2.5 2-4.5 4.5-4.5s4.5 2 4.5 4.5" stroke="rgba(255,255,255,0.4)" stroke-width="1.1"/>
+            </svg>
+          </div>
+          <span class="mono-sm">Welcome, Seeker ID: <span id="seeker-id" style="color:var(--text)">#–––––</span></span>
+          <div class="pulse-dot"></div>
+        </div>
+      </div>
+
+      <!-- REMOTE VIEWING CARD -->
+      <div class="module-card fade-in-delay-1" onclick="startRVSession()">
+        <div class="card-visual rv-bg">
+          <div class="reticle">
+            <div class="reticle-ring"></div>
+            <div class="reticle-ring"></div>
+            <div class="reticle-ring"></div>
+            <div class="reticle-cross h"></div>
+            <div class="reticle-cross v"></div>
+            <div class="reticle-dot"></div>
+          </div>
+        </div>
+        <div class="card-overlay">
+          <div class="card-tag">Feature Set 1</div>
+          <div class="display-md">REMOTE VIEWING</div>
+          <div class="mono-sm" style="margin-top:4px">AI-Graded Psi Sessions</div>
+        </div>
+      </div>
+
+      <!-- ASTRAL PROJECTION CARD (locked) -->
+      <div class="module-card fade-in-delay-2" onclick="showComingSoon('Astral Projection')">
+        <div class="card-visual nebula">
+          <div class="star" style="width:2px;height:2px;top:22%;left:18%;opacity:.8"></div>
+          <div class="star" style="width:1px;height:1px;top:40%;left:50%;opacity:.5"></div>
+          <div class="star" style="width:3px;height:3px;top:15%;left:72%;opacity:.6"></div>
+          <div class="star" style="width:1px;height:1px;top:65%;left:28%;opacity:.7"></div>
+          <div class="star" style="width:2px;height:2px;top:50%;left:88%;opacity:.4"></div>
+          <div class="star" style="width:2px;height:2px;top:12%;left:58%;opacity:.9"></div>
+          <!-- lock icon -->
+          <div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;padding:4px 8px;">
+            <span style="font-family:var(--font-mono);font-size:8px;letter-spacing:1px;color:var(--muted);text-transform:uppercase">Soon</span>
+          </div>
+        </div>
+        <div class="card-overlay">
+          <div class="card-tag">Feature Set 3</div>
+          <div class="display-md">ASTRAL PROJECTION</div>
+          <div class="mono-sm" style="margin-top:4px">OBE Induction &amp; Exit Protocols</div>
+        </div>
+      </div>
+
+      <!-- PSI TRAINING CARD (locked) -->
+      <div class="module-card fade-in-delay-3" onclick="showComingSoon('Psi Training')">
+        <div class="card-visual psi-bg">
+          <div class="circuit"></div>
+          <svg class="brain-svg" viewBox="0 0 56 56" fill="none" stroke="rgba(74,240,200,0.75)" stroke-width="1.2" stroke-linecap="round">
+            <path d="M28 18c0-5-4-9-9-9s-9 4-9 9c0 2.7 1.2 5.1 3 6.8C10.2 26.6 9 29.5 9 32.5c0 5.5 4.5 10 10 10h9"/>
+            <path d="M28 18c0-5 4-9 9-9s9 4 9 9c0 2.7-1.2 5.1-3 6.8C45.8 26.6 47 29.5 47 32.5c0 5.5-4.5 10-10 10H28"/>
+            <line x1="28" y1="18" x2="28" y2="42.5"/>
+            <line x1="18" y1="28" x2="38" y2="28"/>
+            <line x1="15" y1="35" x2="41" y2="35"/>
+          </svg>
+          <div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;padding:4px 8px;">
+            <span style="font-family:var(--font-mono);font-size:8px;letter-spacing:1px;color:var(--muted);text-transform:uppercase">Soon</span>
+          </div>
+        </div>
+        <div class="card-overlay">
+          <div class="card-tag">Feature Set 2</div>
+          <div class="display-md">PSI TRAINING</div>
+          <div class="mono-sm" style="margin-top:4px">Zener Protocol &amp; Focus Anchoring</div>
+        </div>
+      </div>
+
+    </div><!-- /screen-inner -->
+  </div><!-- /home -->
+
+  <!-- ══════════════════════════════════
+       SCREEN: RV – BRIEF
+  ═══════════════════════════════════ -->
+  <div id="screen-rv-brief" class="screen">
+    <div class="screen-inner">
+
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="tool-btn" onclick="goHome()" style="padding:7px 10px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div class="section-label">Remote Viewing Protocol</div>
+      </div>
+
+      <!-- TRN -->
+      <div class="trn-wrap fade-in">
+        <div class="trn-sub">Target Reference Number</div>
+        <div class="trn-number" id="trn-display">– – – – – – – –</div>
+        <div class="trn-sub" style="margin-top:4px;">Your focal anchor. Focus on this string.</div>
+      </div>
+
+      <!-- Stats row -->
+      <div class="stats-grid fade-in-delay-1">
+        <div class="stat-cell">
+          <div class="mono-label">Sessions</div>
+          <div class="stat-val" id="brief-session-count">0</div>
+        </div>
+        <div class="stat-cell">
+          <div class="mono-label">Avg Score</div>
+          <div class="stat-val accent" id="brief-avg-score">–</div>
+        </div>
+      </div>
+
+      <!-- Instructions -->
+      <div class="section-label fade-in-delay-2">Protocol</div>
+      <div class="instruction-list fade-in-delay-2">
+        <div class="instruction-item">
+          <div class="instruction-num">01</div>
+          <div class="instruction-text">Relax. Clear your mind. Stare at the TRN for 30 seconds before beginning.</div>
+        </div>
+        <div class="instruction-item">
+          <div class="instruction-num">02</div>
+          <div class="instruction-text">Draw raw shapes, textures, and impressions on the sketchpad. Do not try to interpret — just record.</div>
+        </div>
+        <div class="instruction-item">
+          <div class="instruction-num">03</div>
+          <div class="instruction-text">Log sensory data in the notepad: temperatures, textures, smells, emotions, movements.</div>
+        </div>
+        <div class="instruction-item">
+          <div class="instruction-num">04</div>
+          <div class="instruction-text">Submit when done. The AI analyst will grade your data against the hidden target.</div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary fade-in-delay-3" onclick="openCanvas()">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+        BEGIN SESSION
+      </button>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: RV – CANVAS
+  ═══════════════════════════════════ -->
+  <div id="screen-canvas" class="screen" style="bottom:0;">
+    <div class="canvas-shell">
+
+      <div class="canvas-header">
+        <div>
+          <div class="canvas-trn-badge">TRN <span id="canvas-trn">00000000</span></div>
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);margin-top:2px;" id="canvas-timer">00:00</div>
+        </div>
+        <div class="canvas-tools">
+          <div class="stroke-bar">
+            <div class="stroke-option active" style="width:8px;height:8px;" data-size="2" onclick="setStroke(2,this)"></div>
+            <div class="stroke-option" style="width:12px;height:12px;" data-size="5" onclick="setStroke(5,this)"></div>
+            <div class="stroke-option" style="width:16px;height:16px;" data-size="10" onclick="setStroke(10,this)"></div>
+          </div>
+          <div class="tool-btn erase" id="eraser-btn" onclick="toggleEraser()">Erase</div>
+          <div class="tool-btn" onclick="clearCanvas()">Clear</div>
+        </div>
+      </div>
+
+      <div class="canvas-tabs">
+        <div class="canvas-tab active" id="tab-sketch" onclick="switchTab('sketch')">Sketchpad</div>
+        <div class="canvas-tab" id="tab-notes" onclick="switchTab('notes')">Impressions</div>
+      </div>
+
+      <div class="canvas-area" id="sketch-area">
+        <canvas id="rv-canvas"></canvas>
+      </div>
+
+      <div id="notepad-area" class="hidden">
+        <div class="notepad-hint">Log sensory impressions — textures, temperatures, emotions, movement</div>
+        <textarea id="rv-notes" placeholder="e.g. cold / metallic / angular shapes / feeling of height / vast open space / smooth curved surface..."></textarea>
+      </div>
+
+      <div class="canvas-footer">
+        <button class="btn btn-ghost" style="flex:0 0 auto;width:auto;padding:14px 18px;font-size:14px;" onclick="goToBrief()">
+          <svg viewBox="0 0 24 24" style="width:16px;height:16px;"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <button class="btn btn-primary" style="flex:1;" onclick="submitSession()">
+          SUBMIT &amp; GRADE
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: RV – RESULTS
+  ═══════════════════════════════════ -->
+  <div id="screen-results" class="screen">
+    <div class="screen-inner">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div class="section-label">Session Analysis</div>
+        <div class="mono-sm" id="result-trn-label">TRN: ––––––––</div>
+      </div>
+
+      <!-- Score ring -->
+      <div class="result-score-ring card fade-in">
+        <svg class="ring-svg" viewBox="0 0 140 140">
+          <circle class="ring-track" cx="70" cy="70" r="58"/>
+          <circle class="ring-fill" id="score-ring" cx="70" cy="70" r="58" stroke-dasharray="364.4" stroke-dashoffset="364.4"/>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-pct" id="score-pct">0%</div>
+          <div class="ring-label">Gestalt Match</div>
+        </div>
+      </div>
+
+      <!-- Target reveal -->
+      <div class="result-target-row fade-in-delay-1">
+        <div class="result-thumb">
+          <div class="result-thumb-label">Your Sketch</div>
+          <canvas id="sketch-preview" class="sketch-preview"></canvas>
+        </div>
+        <div class="result-thumb">
+          <div class="result-thumb-label">Target</div>
+          <img id="target-reveal" src="" alt="Target" style="width:100%;aspect-ratio:1;object-fit:cover;display:block;background:#111;" />
+        </div>
+      </div>
+
+      <!-- AI Summary -->
+      <div class="summary-card fade-in-delay-2">
+        <div class="mono-label" style="margin-bottom:8px;">Analyst Summary</div>
+        <div class="summary-text" id="result-summary">Loading analysis...</div>
+      </div>
+
+      <!-- Hits & Noise -->
+      <div class="section-label fade-in-delay-3">Data Points</div>
+      <div class="hit-list fade-in-delay-3" id="hit-list"></div>
+
+      <!-- Actions -->
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px;" class="fade-in-delay-4">
+        <button class="btn btn-primary" onclick="startRVSession()">NEW SESSION</button>
+        <button class="btn btn-ghost" onclick="navigate('history')">VIEW SESSION LOG</button>
+      </div>
+
+    </div>
+    <!-- Grading overlay -->
+    <div class="grading-overlay" id="grading-overlay" style="display:none;">
+      <div class="grading-spinner"></div>
+      <div class="grading-label">AI Analyst Processing</div>
+      <div class="mono-sm" id="grading-status">Encoding sketch data...</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: HISTORY
+  ═══════════════════════════════════ -->
+  <div id="screen-history" class="screen">
+    <div class="screen-inner">
+
+      <div class="display-lg fade-in">SESSION LOG</div>
+      <div class="mono-sm fade-in-delay-1">All remote viewing attempts</div>
+
+      <div class="stats-grid fade-in-delay-1">
+        <div class="stat-cell">
+          <div class="mono-label">Total Sessions</div>
+          <div class="stat-val" id="hist-total">0</div>
+        </div>
+        <div class="stat-cell">
+          <div class="mono-label">Best Score</div>
+          <div class="stat-val accent" id="hist-best">–</div>
+        </div>
+      </div>
+
+      <div id="session-log-list" style="display:flex;flex-direction:column;gap:8px;">
+        <!-- populated by JS -->
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: PROFILE
+  ═══════════════════════════════════ -->
+  <div id="screen-profile" class="screen">
+    <div class="screen-inner">
+
+      <div class="display-lg fade-in">PROFILE</div>
+
+      <div class="profile-header card fade-in-delay-1">
+        <div class="avatar" id="profile-avatar">S</div>
+        <div class="profile-info">
+          <div class="seeker-label">Seeker ID</div>
+          <div class="seeker-id-lg" id="profile-seeker-id">#–––––</div>
+          <div class="mono-sm" style="margin-top:6px;">Free Tier</div>
+        </div>
+      </div>
+
+      <div class="free-banner fade-in-delay-2">
+        <div class="free-banner-text">
+          <div class="free-banner-title">⚡ Unlock Full Access</div>
+          <div class="free-banner-sub">Unlimited sessions, full analytics, all modules</div>
+        </div>
+        <button class="upgrade-btn">Upgrade</button>
+      </div>
+
+      <div class="section-label fade-in-delay-3">Settings</div>
+
+      <div style="display:flex;flex-direction:column;gap:8px;" class="fade-in-delay-3">
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Reality Check Pager</div>
+            <div class="setting-desc">Randomized waking notifications</div>
+          </div>
+          <div class="toggle" id="toggle-pager" onclick="toggleSetting('pager')">
+            <div class="toggle-knob"></div>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Dark Mode Only</div>
+            <div class="setting-desc">Always on</div>
+          </div>
+          <div class="toggle on" style="pointer-events:none;">
+            <div class="toggle-knob" style="transform:translateX(18px)"></div>
+          </div>
+        </div>
+
+        <div class="setting-row" onclick="clearAllData()" style="cursor:pointer;">
+          <div>
+            <div class="setting-label" style="color:var(--danger);">Clear All Session Data</div>
+            <div class="setting-desc">Cannot be undone</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      </div>
+
+      <div class="section-label" style="margin-top:4px;">About</div>
+      <div class="setting-row">
+        <div class="mono-sm">ABLTY v0.1.0 — Remote Viewing Module</div>
+        <div class="mono-sm" style="color:var(--dim);">Alpha</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       BOTTOM NAV
+  ═══════════════════════════════════ -->
+  <nav id="nav">
+    <div class="nav-item active" id="nav-home" onclick="navigate('home')">
+      <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
+      <span>Home</span>
+      <div class="nav-dot"></div>
+    </div>
+    <div class="nav-item" id="nav-rv" onclick="startRVSession()">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7" stroke-dasharray="2 3"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/></svg>
+      <span>View</span>
+      <div class="nav-dot"></div>
+    </div>
+    <div class="nav-item" id="nav-history" onclick="navigate('history')">
+      <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      <span>Log</span>
+      <div class="nav-dot"></div>
+    </div>
+    <div class="nav-item" id="nav-profile" onclick="navigate('profile')">
+      <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span>Profile</span>
+      <div class="nav-dot"></div>
+    </div>
+  </nav>
+
+</div><!-- /app -->
+
+<!-- ══════════════════════════════════════════════
+     TARGET POOL
+     Replace src values with real images.
+     IMPORTANT: The index is never sent to client
+     during a live session — only revealed post-submit.
+═══════════════════════════════════════════════ -->
+<script>
+// ─── TARGET POOL ──────────────────────────────
+// In production: target selection + reveal happens
+// server-side via Cloudflare Worker.
+// For local dev, using public domain images.
+const TARGET_POOL = [
+  { id: 'T001', src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/24701-nature-natural-beauty.jpg/320px-24701-nature-natural-beauty.jpg', label: 'Mountain Valley' },
+  { id: 'T002', src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Golden_Gate_Bridge_at_night_2010.jpg/320px-Golden_Gate_Bridge_at_night_2010.jpg', label: 'Bridge Structure' },
+  { id: 'T003', src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png', label: 'Geometric Form' },
+  { id: 'T004', src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Camponotus_flavomarginatus_ant.jpg/320px-Camponotus_flavomarginatus_ant.jpg', label: 'Organism' },
+  { id: 'T005', src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Sunset_by_the_sea.jpg/320px-Sunset_by_the_sea.jpg', label: 'Coastal Scene' },
+  { id: 'T006', src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Bikesgray.jpg/320px-Bikesgray.jpg', label: 'Man-made Object' },
+  { id: 'T007', src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Simple_Periodic_Table_Chart-en.svg/320px-Simple_Periodic_Table_Chart-en.svg.png', label: 'Data Grid' },
+  { id: 'T008', src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Simple_English_Wikipedia_favicon.svg/240px-Simple_English_Wikipedia_favicon.svg.png', label: 'Circular Form' },
+];
+
+// ─── APP STATE ────────────────────────────────
+const STATE = {
+  seekerId: null,
+  currentTRN: null,
+  currentTargetIndex: null,
+  sessions: [],
+  settings: { pager: false },
+  strokeSize: 2,
+  isErasing: false,
+  timerInterval: null,
+  timerSeconds: 0,
+  activeTab: 'sketch',
+};
+
+// ─── PERSISTENCE ──────────────────────────────
+// Safe localStorage wrapper — never throws
+const store = {
+  get(key) { try { return localStorage.getItem(key); } catch(e) { return null; } },
+  set(key, val) { try { localStorage.setItem(key, val); } catch(e) {} },
+  remove(key) { try { localStorage.removeItem(key); } catch(e) {} },
+};
+
+function saveState() {
+  store.set('ablty_sessions', JSON.stringify(STATE.sessions));
+  store.set('ablty_seeker', STATE.seekerId);
+  store.set('ablty_settings', JSON.stringify(STATE.settings));
+}
+
+function loadState() {
+  try {
+    const sessions = store.get('ablty_sessions');
+    if (sessions) STATE.sessions = JSON.parse(sessions);
+  } catch(e) { STATE.sessions = []; }
+
+  const seeker = store.get('ablty_seeker');
+  if (seeker) {
+    STATE.seekerId = seeker;
+  } else {
+    STATE.seekerId = '#' + Math.floor(10000 + Math.random() * 90000);
+    store.set('ablty_seeker', STATE.seekerId);
+  }
+
+  try {
+    const settings = store.get('ablty_settings');
+    if (settings) STATE.settings = { ...STATE.settings, ...JSON.parse(settings) };
+  } catch(e) {}
+}
+
+// ─── ROUTING ──────────────────────────────────
+const SCREENS = {
+  home:       'screen-home',
+  rv:         'screen-rv-brief',
+  canvas:     'screen-canvas',
+  results:    'screen-results',
+  history:    'screen-history',
+  profile:    'screen-profile',
+};
+const NAV_SCREENS = ['home', 'history', 'profile'];
+
+let currentScreen = 'home';
+
+function showScreen(name, hideNav = false) {
+  // Fade out current
+  const prev = document.getElementById(SCREENS[currentScreen]);
+  if (prev) {
+    prev.classList.remove('active');
+    prev.classList.add('slide-left');
+    setTimeout(() => prev.classList.remove('slide-left'), 300);
+  }
+
+  // Show new
+  const next = document.getElementById(SCREENS[name]);
+  if (next) {
+    next.classList.add('active');
+    next.classList.remove('slide-left');
+  }
+
+  // Nav
+  document.getElementById('nav').style.display = hideNav ? 'none' : 'flex';
+
+  // Nav active state
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  if (name === 'home') document.getElementById('nav-home').classList.add('active');
+  else if (name === 'rv') document.getElementById('nav-rv').classList.add('active');
+  else if (name === 'history') document.getElementById('nav-history').classList.add('active');
+  else if (name === 'profile') document.getElementById('nav-profile').classList.add('active');
+
+  currentScreen = name;
+}
+
+function navigate(name) {
+  showScreen(name, false);
+  if (name === 'history') renderHistory();
+  if (name === 'profile') renderProfile();
+}
+
+function goHome() { navigate('home'); }
+function goToBrief() {
+  stopTimer();
+  showScreen('rv', false);
+}
+
+// ─── CLOCK ────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  let h = now.getHours(), m = now.getMinutes();
+  document.getElementById('time-display').textContent =
+    `${h}:${m.toString().padStart(2,'0')}`;
+}
+
+// ─── TRN GENERATOR ────────────────────────────
+function generateTRN() {
+  const digits = Array.from({length: 8}, () => Math.floor(Math.random() * 10));
+  return digits.slice(0,4).join('') + '-' + digits.slice(4).join('');
+}
+
+// ─── SESSION FLOW ─────────────────────────────
+function startRVSession() {
+  STATE.currentTRN = generateTRN();
+  // Select target - NOT exposed to user during session
+  STATE.currentTargetIndex = Math.floor(Math.random() * TARGET_POOL.length);
+
+  document.getElementById('trn-display').textContent = STATE.currentTRN;
+  document.getElementById('canvas-trn').textContent = STATE.currentTRN;
+
+  // Update brief stats
+  document.getElementById('brief-session-count').textContent = STATE.sessions.length;
+  const avgScore = STATE.sessions.length
+    ? Math.round(STATE.sessions.reduce((a, s) => a + s.score, 0) / STATE.sessions.length)
+    : null;
+  document.getElementById('brief-avg-score').textContent = avgScore !== null ? avgScore + '%' : '–';
+
+  showScreen('rv', false);
+  document.getElementById('nav-rv').classList.add('active');
+}
+
+function openCanvas() {
+  showScreen('canvas', true);
+  initCanvas();
+  startTimer();
+  // Reset notepad
+  document.getElementById('rv-notes').value = '';
+  switchTab('sketch');
+}
+
+// ─── CANVAS ───────────────────────────────────
+let ctx, isDrawing = false, lastX = 0, lastY = 0;
+
+function initCanvas() {
+  const canvas = document.getElementById('rv-canvas');
+  const area = document.getElementById('sketch-area');
+  canvas.width = area.offsetWidth * window.devicePixelRatio;
+  canvas.height = area.offsetHeight * window.devicePixelRatio;
+  canvas.style.width = area.offsetWidth + 'px';
+  canvas.style.height = area.offsetHeight + 'px';
+
+  ctx = canvas.getContext('2d');
+  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+  ctx.fillStyle = '#111214';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = STATE.strokeSize;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+}
+
+function getPos(e, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  const client = e.touches ? e.touches[0] : e;
+  return [
+    (client.clientX - rect.left),
+    (client.clientY - rect.top)
+  ];
+}
+
+function startDraw(e) {
+  e.preventDefault();
+  isDrawing = true;
+  const canvas = document.getElementById('rv-canvas');
+  [lastX, lastY] = getPos(e, canvas);
+  ctx.beginPath();
+  ctx.moveTo(lastX, lastY);
+}
+
+function draw(e) {
+  if (!isDrawing) return;
+  e.preventDefault();
+  const canvas = document.getElementById('rv-canvas');
+  const [x, y] = getPos(e, canvas);
+  ctx.globalCompositeOperation = STATE.isErasing ? 'destination-out' : 'source-over';
+  ctx.strokeStyle = STATE.isErasing ? 'rgba(0,0,0,1)' : '#ffffff';
+  ctx.lineWidth = STATE.isErasing ? STATE.strokeSize * 4 : STATE.strokeSize;
+  ctx.lineTo(x, y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  lastX = x; lastY = y;
+}
+
+function stopDraw(e) {
+  isDrawing = false;
+  ctx && ctx.beginPath();
+}
+
+function clearCanvas() {
+  if (!ctx) return;
+  const canvas = document.getElementById('rv-canvas');
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#111214';
+  ctx.fillRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
+}
+
+function setStroke(size, el) {
+  STATE.strokeSize = size;
+  document.querySelectorAll('.stroke-option').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function toggleEraser() {
+  STATE.isErasing = !STATE.isErasing;
+  document.getElementById('eraser-btn').classList.toggle('active', STATE.isErasing);
+}
+
+// Attach canvas events after DOM ready
+function attachCanvasEvents() {
+  const canvas = document.getElementById('rv-canvas');
+  canvas.addEventListener('mousedown', startDraw, { passive: false });
+  canvas.addEventListener('mousemove', draw, { passive: false });
+  canvas.addEventListener('mouseup', stopDraw);
+  canvas.addEventListener('touchstart', startDraw, { passive: false });
+  canvas.addEventListener('touchmove', draw, { passive: false });
+  canvas.addEventListener('touchend', stopDraw, { passive: false });
+  canvas.addEventListener('touchcancel', stopDraw, { passive: false });
+}
+
+function switchTab(tab) {
+  STATE.activeTab = tab;
+  document.getElementById('tab-sketch').classList.toggle('active', tab === 'sketch');
+  document.getElementById('tab-notes').classList.toggle('active', tab === 'notes');
+  document.getElementById('sketch-area').classList.toggle('hidden', tab !== 'sketch');
+  document.getElementById('notepad-area').classList.toggle('hidden', tab !== 'notes');
+}
+
+// ─── TIMER ────────────────────────────────────
+function startTimer() {
+  STATE.timerSeconds = 0;
+  clearInterval(STATE.timerInterval);
+  STATE.timerInterval = setInterval(() => {
+    STATE.timerSeconds++;
+    const m = Math.floor(STATE.timerSeconds / 60).toString().padStart(2,'0');
+    const s = (STATE.timerSeconds % 60).toString().padStart(2,'0');
+    const el = document.getElementById('canvas-timer');
+    if (el) el.textContent = `${m}:${s}`;
+  }, 1000);
+}
+function stopTimer() { clearInterval(STATE.timerInterval); }
+
+// ─── SUBMIT & GRADE ───────────────────────────
+async function submitSession() {
+  stopTimer();
+  const canvas = document.getElementById('rv-canvas');
+  const sketchB64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
+  const notes = document.getElementById('rv-notes').value.trim();
+  const target = TARGET_POOL[STATE.currentTargetIndex];
+
+  showScreen('results', false);
+  document.getElementById('grading-overlay').style.display = 'flex';
+  document.getElementById('result-trn-label').textContent = 'TRN: ' + STATE.currentTRN;
+
+  // Copy sketch to preview
+  setTimeout(() => {
+    const preview = document.getElementById('sketch-preview');
+    preview.width = canvas.width;
+    preview.height = canvas.height;
+    const pCtx = preview.getContext('2d');
+    pCtx.drawImage(canvas, 0, 0);
+  }, 50);
+
+  // Reveal target image
+  document.getElementById('target-reveal').src = target.src;
+
+  try {
+    updateGradingStatus('Encoding sketch data...');
+    await delay(600);
+    updateGradingStatus('Contacting AI analyst...');
+
+    const result = await gradeSession(sketchB64, notes, target);
+
+    updateGradingStatus('Compiling report...');
+    await delay(400);
+
+    // Hide overlay
+    document.getElementById('grading-overlay').style.display = 'none';
+    renderResults(result, target);
+
+    // Save session
+    const session = {
+      id: Date.now(),
+      trn: STATE.currentTRN,
+      targetId: target.id,
+      targetSrc: target.src,
+      targetLabel: target.label,
+      score: result.gestalt_score,
+      hits: result.hits,
+      noise: result.noise,
+      summary: result.summary,
+      duration: STATE.timerSeconds,
+      timestamp: new Date().toISOString(),
+    };
+    STATE.sessions.unshift(session);
+    saveState();
+
+  } catch(err) {
+    document.getElementById('grading-overlay').style.display = 'none';
+    document.getElementById('result-summary').textContent =
+      'Analysis unavailable. Configure your Cloudflare Worker endpoint to enable AI grading.';
+    renderResults(mockGrade(), target);
+  }
+}
+
+function updateGradingStatus(msg) {
+  const el = document.getElementById('grading-status');
+  if (el) el.textContent = msg;
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ─── AI GRADING ───────────────────────────────
+// PRODUCTION: replace this URL with your Cloudflare Worker endpoint
+const WORKER_URL = 'https://your-worker.your-subdomain.workers.dev/grade';
+
+async function gradeSession(sketchB64, notes, target) {
+  // TODO: swap in Cloudflare Worker URL above
+  // For now: falls through to mockGrade() in catch
+  const resp = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sketch: sketchB64,
+      notes: notes,
+      target_url: target.src,
+      target_label: target.label,
+      trn: STATE.currentTRN,
+    }),
+  });
+  if (!resp.ok) throw new Error('Worker error');
+  return await resp.json();
+}
+
+function mockGrade() {
+  // Realistic mock result for dev/demo before Worker is wired
+  const score = Math.floor(15 + Math.random() * 65);
+  const allHits = [
+    'Detected horizontal banding / layered structure',
+    'Impression of open space or vastness',
+    'Noted water or fluid-like element',
+    'Angular or geometric shapes present in sketch',
+    'Temperature impression: cool / cold',
+    'Motion or flow quality in strokes',
+  ];
+  const allNoise = [
+    'Architectural detail not present in target',
+    'Human figure overlay — not in target',
+    'Color impression: red/warm — target is predominantly cool',
+    'Grid or lattice pattern: imaginative overlay',
+    'Text or symbol impression: AOL (Analytical Overlay)',
+  ];
+  const hits = allHits.sort(() => .5 - Math.random()).slice(0, 2 + Math.floor(Math.random() * 2));
+  const noise = allNoise.sort(() => .5 - Math.random()).slice(0, 1 + Math.floor(Math.random() * 2));
+  return {
+    gestalt_score: score,
+    hits,
+    noise,
+    summary: `Session produced ${hits.length} verifiable data point${hits.length !== 1 ? 's' : ''} against target. Signal-to-noise ratio is ${score > 50 ? 'above' : 'below'} baseline. Recommend reviewing AOL contamination in notepad entries.`,
+  };
+}
+
+// ─── RENDER RESULTS ───────────────────────────
+function renderResults(result, target) {
+  const score = result.gestalt_score;
+
+  // Ring animation
+  const circumference = 364.4;
+  const offset = circumference - (score / 100) * circumference;
+  const ring = document.getElementById('score-ring');
+  const pctEl = document.getElementById('score-pct');
+
+  // Color ring based on score
+  ring.style.stroke = score >= 60 ? 'var(--accent)' : score >= 35 ? 'var(--warn)' : 'var(--danger)';
+
+  setTimeout(() => {
+    ring.style.strokeDashoffset = offset;
+    let count = 0;
+    const interval = setInterval(() => {
+      count += 2;
+      if (count >= score) { pctEl.textContent = score + '%'; clearInterval(interval); }
+      else pctEl.textContent = count + '%';
+    }, 20);
+  }, 200);
+
+  // Summary
+  document.getElementById('result-summary').textContent = result.summary;
+
+  // Hit list
+  const hitList = document.getElementById('hit-list');
+  hitList.innerHTML = '';
+  (result.hits || []).forEach(h => {
+    hitList.innerHTML += `<div class="hit-item"><div class="hit-badge hit">Hit</div><div class="hit-text">${h}</div></div>`;
+  });
+  (result.noise || []).forEach(n => {
+    hitList.innerHTML += `<div class="hit-item"><div class="hit-badge noise">Noise</div><div class="hit-text">${n}</div></div>`;
+  });
+}
+
+// ─── HISTORY RENDER ───────────────────────────
+function renderHistory() {
+  document.getElementById('hist-total').textContent = STATE.sessions.length;
+  const best = STATE.sessions.length
+    ? Math.max(...STATE.sessions.map(s => s.score)) + '%'
+    : '–';
+  document.getElementById('hist-best').textContent = best;
+
+  const list = document.getElementById('session-log-list');
+  if (!STATE.sessions.length) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">◎</div><div class="mono-label">No sessions yet</div><div class="body-sm" style="margin-top:6px;">Complete your first Remote Viewing session to begin building your log.</div></div>`;
+    return;
+  }
+  list.innerHTML = STATE.sessions.map(s => {
+    const d = new Date(s.timestamp);
+    const dateStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
+    const cls = s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low';
+    return `<div class="session-card">
+      <div class="session-thumb"><img src="${s.targetSrc}" alt="" onerror="this.style.display='none'"></div>
+      <div class="session-info">
+        <div class="display-sm">TRN ${s.trn}</div>
+        <div class="mono-sm" style="margin-top:4px;">${dateStr} &bull; ${Math.floor(s.duration/60)}:${(s.duration%60).toString().padStart(2,'0')}</div>
+        <div class="mono-sm" style="margin-top:2px;color:var(--dim);">${s.targetLabel}</div>
+      </div>
+      <div class="session-score ${cls}">${s.score}%</div>
+    </div>`;
+  }).join('');
+}
+
+// ─── PROFILE RENDER ───────────────────────────
+function renderProfile() {
+  document.getElementById('profile-seeker-id').textContent = STATE.seekerId;
+  document.getElementById('profile-avatar').textContent = STATE.seekerId.replace('#','').charAt(0);
+  const pager = document.getElementById('toggle-pager');
+  pager.classList.toggle('on', STATE.settings.pager);
+  pager.querySelector('.toggle-knob').style.transform = STATE.settings.pager ? 'translateX(18px)' : '';
+}
+
+function toggleSetting(key) {
+  STATE.settings[key] = !STATE.settings[key];
+  saveState();
+  renderProfile();
+}
+
+function clearAllData() {
+  if (confirm('Clear all session data? This cannot be undone.')) {
+    STATE.sessions = [];
+    saveState();
+    renderHistory();
+  }
+}
+
+function showComingSoon(name) {
+  alert(`${name} module — coming soon.`);
+}
+
+// ─── INIT ─────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  try { loadState(); } catch(e) {
+    STATE.seekerId = '#' + Math.floor(10000 + Math.random() * 90000);
+  }
+
+  // Force home screen visible immediately — safety net
+  const homeScreen = document.getElementById('screen-home');
+  if (homeScreen) {
+    homeScreen.style.opacity = '1';
+    homeScreen.style.pointerEvents = 'all';
+    homeScreen.style.transform = 'translateX(0)';
+    homeScreen.classList.add('active');
+  }
+
+  try { updateClock(); } catch(e) {}
+  setInterval(() => { try { updateClock(); } catch(e) {} }, 10000);
+
+  try { document.getElementById('seeker-id').textContent = STATE.seekerId; } catch(e) {}
+
+  try {
+    const pager = document.getElementById('toggle-pager');
+    if (STATE.settings.pager) {
+      pager.classList.add('on');
+      pager.querySelector('.toggle-knob').style.transform = 'translateX(18px)';
+    }
+  } catch(e) {}
+
+  try { attachCanvasEvents(); } catch(e) {}
+
+  window.addEventListener('resize', () => {
+    try { if (currentScreen === 'canvas') initCanvas(); } catch(e) {}
+  });
+});
+
+window.addEventListener('error', (e) => {
+  console.error('[ABLTY ERROR]', e.message, e.filename, e.lineno);
+});
+</script>
+</body>
+</html>
