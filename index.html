@@ -971,6 +971,113 @@ html, body {
 .fade-in-delay-3 { animation: fadeIn 0.35s ease 0.15s both; }
 .fade-in-delay-4 { animation: fadeIn 0.35s ease 0.2s both; }
 .fade-in-delay-5 { animation: fadeIn 0.35s ease 0.25s both; }
+
+/* ═══════════════════════════════════════════
+   SESSION DETAIL SCREEN
+═══════════════════════════════════════════ */
+.detail-back-row {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+.detail-images {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.detail-thumb-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+}
+.detail-thumb-label {
+  font-family: var(--font-mono); font-size: 8px;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--muted); padding: 10px 12px 6px;
+}
+.detail-thumb-card img {
+  width: 100%; aspect-ratio: 1; object-fit: cover; display: block;
+}
+.dimension-grid {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.dimension-row {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 14px;
+}
+.dimension-label {
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 1px; text-transform: uppercase;
+  color: var(--muted); flex: 1;
+}
+.dimension-bar-wrap {
+  flex: 2; height: 5px; background: var(--card2); border-radius: 3px;
+}
+.dimension-bar-fill {
+  height: 100%; border-radius: 3px; background: var(--accent);
+  transition: width 0.5s ease;
+}
+.dimension-val {
+  font-family: var(--font-display); font-size: 18px;
+  color: var(--text); width: 24px; text-align: right; flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════
+   STREAK BANNER
+═══════════════════════════════════════════ */
+.streak-banner {
+  border-radius: 14px; padding: 16px 18px;
+  display: flex; align-items: center; gap: 14px;
+  border: 1px solid var(--border);
+}
+.streak-banner.active {
+  background: linear-gradient(90deg, rgba(74,240,200,0.08), rgba(91,158,244,0.06));
+  border-color: rgba(74,240,200,0.25);
+}
+.streak-banner.broken {
+  background: rgba(240,90,74,0.06);
+  border-color: rgba(240,90,74,0.2);
+}
+.streak-banner.cold {
+  background: var(--card);
+}
+.streak-icon {
+  font-size: 28px; flex-shrink: 0; line-height: 1;
+}
+.streak-info { flex: 1; }
+.streak-title {
+  font-family: var(--font-display); font-size: 20px;
+  letter-spacing: 1px; color: var(--text); line-height: 1;
+}
+.streak-sub {
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 1px; color: var(--muted); margin-top: 4px;
+}
+
+/* ═══════════════════════════════════════════
+   CALIBRATION SCORE
+═══════════════════════════════════════════ */
+.calibration-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px;
+}
+.calibration-trend {
+  display: flex; align-items: center; gap: 8px; margin-top: 6px;
+}
+.trend-arrow {
+  font-size: 18px; font-family: var(--font-display);
+}
+.trend-arrow.up    { color: var(--accent); }
+.trend-arrow.down  { color: var(--danger); }
+.trend-arrow.flat  { color: var(--muted); }
+.calibration-bars {
+  display: flex; align-items: flex-end; gap: 3px;
+  height: 40px; margin-top: 10px;
+}
+.cal-bar {
+  flex: 1; border-radius: 2px 2px 0 0;
+  background: var(--accent); opacity: 0.7;
+  transition: height 0.4s ease;
+  min-height: 3px;
+}
+.cal-bar.old { background: var(--dim); opacity: 1; }
+
 </style>
 </head>
 <body>
@@ -985,13 +1092,7 @@ html, body {
       <!-- Status bar -->
       <div class="status-bar" style="padding:0 2px 0;">
         <span id="time-display" class="mono-sm">9:41</span>
-        <div style="display:flex;gap:6px;align-items:center">
-          <svg width="16" height="12" viewBox="0 0 16 12" fill="none">
-            <rect x="0.5" y="0.5" width="13" height="11" rx="2" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
-            <rect x="14" y="3.5" width="1.5" height="5" rx="0.5" fill="rgba(255,255,255,0.3)"/>
-            <rect x="2" y="2" width="8" height="8" rx="1" fill="rgba(255,255,255,0.5)"/>
-          </svg>
-        </div>
+
       </div>
 
       <!-- Brand -->
@@ -1575,6 +1676,21 @@ html, body {
           </div>
         </div>
 
+        <!-- Streak Banner -->
+        <div id="streak-banner-wrap"></div>
+
+        <!-- Calibration Score -->
+        <div class="calibration-card" id="calibration-card">
+          <div class="mono-label">RV Calibration Score</div>
+          <div class="calibration-trend" id="calibration-trend">
+            <span class="trend-arrow flat" id="cal-arrow">—</span>
+            <span style="font-family:var(--font-display);font-size:32px;color:var(--text);" id="cal-score">–</span>
+            <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted);" id="cal-label">Need 5+ sessions</span>
+          </div>
+          <div class="calibration-bars" id="cal-bars"></div>
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--dim);margin-top:8px;" id="cal-desc">Complete more sessions to track trend</div>
+        </div>
+
       </div>
 
       <!-- PERFORMANCE PANEL -->
@@ -1629,6 +1745,74 @@ html, body {
         </div>
 
       </div>
+
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════
+       SCREEN: SESSION DETAIL
+  ═══════════════════════════════════ -->
+  <div id="screen-detail" class="screen">
+    <div class="screen-inner">
+
+      <div class="detail-back-row">
+        <button class="tool-btn" onclick="navigate('analytics')" style="padding:7px 10px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div class="section-label" id="detail-type-label">Session Detail</div>
+        <div class="mono-sm" id="detail-date" style="margin-left:auto;">––</div>
+      </div>
+
+      <!-- Score ring -->
+      <div class="result-score-ring card fade-in" id="detail-score-ring-wrap">
+        <svg class="ring-svg" viewBox="0 0 140 140">
+          <circle class="ring-track" cx="70" cy="70" r="58"/>
+          <circle class="ring-fill" id="detail-score-ring" cx="70" cy="70" r="58" stroke-dasharray="364.4" stroke-dashoffset="364.4"/>
+        </svg>
+        <div class="ring-center">
+          <div class="ring-pct" id="detail-score-pct">0%</div>
+          <div class="ring-label" id="detail-score-label">Gestalt Match</div>
+        </div>
+      </div>
+
+      <!-- Images row (RV only) -->
+      <div class="detail-images fade-in-delay-1" id="detail-images-row">
+        <div class="detail-thumb-card">
+          <div class="detail-thumb-label">Sketch</div>
+          <img id="detail-sketch-img" src="" alt="sketch" />
+        </div>
+        <div class="detail-thumb-card">
+          <div class="detail-thumb-label">Target</div>
+          <img id="detail-target-img" src="" alt="target" />
+        </div>
+      </div>
+
+      <!-- Summary -->
+      <div class="summary-card fade-in-delay-1" id="detail-summary-card">
+        <div class="mono-label" style="margin-bottom:8px;">Analyst Summary</div>
+        <div class="summary-text" id="detail-summary"></div>
+      </div>
+
+      <!-- Dimension scores (RV only) -->
+      <div id="detail-dimensions-wrap" class="fade-in-delay-2">
+        <div class="section-label" style="margin-bottom:8px;">Dimension Scores</div>
+        <div class="dimension-grid" id="detail-dimensions"></div>
+      </div>
+
+      <!-- Data points -->
+      <div class="fade-in-delay-2">
+        <div class="section-label" style="margin-bottom:8px;">Data Points</div>
+        <div class="hit-list" id="detail-hit-list"></div>
+      </div>
+
+      <!-- Zener symbol breakdown (Zener only) -->
+      <div id="detail-zener-wrap" class="fade-in-delay-2" style="display:none;">
+        <div class="section-label" style="margin-bottom:8px;">Symbol Breakdown</div>
+        <div class="symbol-breakdown" id="detail-zener-symbols"></div>
+      </div>
+
+      <button class="btn btn-ghost fade-in-delay-3" onclick="navigate('analytics')" style="margin-top:4px;">Back to Log</button>
 
     </div>
   </div>
@@ -1772,6 +1956,7 @@ const SCREENS = {
   'zener-results':'screen-zener-results',
   analytics:      'screen-analytics',
   history:        'screen-analytics', // legacy alias
+  detail:         'screen-detail',
   profile:        'screen-profile',
 };
 const NAV_SCREENS = ['home', 'analytics', 'profile'];
@@ -1809,6 +1994,7 @@ function showScreen(name, hideNav = false) {
     'zener-results':'nav-zener',
     analytics:      'nav-analytics',
     history:        'nav-analytics',
+    detail:         'nav-analytics',
     profile:        'nav-profile',
   };
   const activeNav = document.getElementById(navMap[name]);
@@ -1857,16 +2043,6 @@ function setCategory(cat) {
 function startRVSession() {
   STATE.currentTRN = generateTRN();
 
-  // Filter pool by selected category
-  const pool = STATE.currentCategory === 'all'
-    ? TARGET_POOL
-    : TARGET_POOL.filter(t => t.category === STATE.currentCategory);
-
-  // Fallback to full pool if category has no targets yet
-  const activePool = pool.length ? pool : TARGET_POOL;
-  const picked = activePool[Math.floor(Math.random() * activePool.length)];
-  STATE.currentTargetIndex = TARGET_POOL.indexOf(picked);
-
   const trnEl     = document.getElementById('trn-display');
   const canvasTrn = document.getElementById('canvas-trn');
   const countEl   = document.getElementById('brief-session-count');
@@ -1881,12 +2057,21 @@ function startRVSession() {
     : null;
   if (avgEl) avgEl.textContent = avgScore !== null ? avgScore + '%' : '–';
 
+  setCategory('all');
   showScreen('rv', false);
   const navRv = document.getElementById('nav-rv');
   if (navRv) navRv.classList.add('active');
 }
 
 function openCanvas() {
+  // Pick target NOW, after category has been selected on the brief screen
+  const pool = STATE.currentCategory === 'all'
+    ? TARGET_POOL
+    : TARGET_POOL.filter(t => t.category === STATE.currentCategory);
+  const activePool = pool.length ? pool : TARGET_POOL;
+  const picked = activePool[Math.floor(Math.random() * activePool.length)];
+  STATE.currentTargetIndex = TARGET_POOL.indexOf(picked);
+
   showScreen('canvas', true);
   STATE.isErasing = false;
   const eraseBtn = document.getElementById('eraser-btn');
@@ -2042,6 +2227,9 @@ async function submitSession() {
   const target = TARGET_POOL[STATE.currentTargetIndex];
 
   showScreen('results', false);
+  // Scroll results screen to top so grading overlay is visible
+  const resultsScreen = document.getElementById('screen-results');
+  if (resultsScreen) resultsScreen.scrollTop = 0;
   const gradingEl = document.getElementById('grading-overlay');
   if (gradingEl) gradingEl.style.display = 'flex';
   const trnLabel = document.getElementById('result-trn-label');
@@ -2582,6 +2770,8 @@ function renderAnalytics() {
   if (logBestEl)  logBestEl.textContent  = rvBest !== null ? rvBest + '%' : '–';
 
   buildCombinedLog(rvSessions, zenerRuns);
+  renderStreakBanner(rvSessions, zenerRuns);
+  renderCalibration(rvSessions);
 }
 
 function setEl(id, val) {
@@ -2718,15 +2908,17 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   const ze = zenerRuns.map(r => ({ ...r, type: 'zener', score: r.hitPct }));
   const all = [...rv, ...ze].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-  el.innerHTML = all.map(s => {
+  el.innerHTML = all.map((s, idx) => {
     const d       = new Date(s.timestamp);
     const dateStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
     const cls     = s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low';
     const typeTag = s.type === 'rv' ? 'RV' : 'ZNR';
     const label   = s.type === 'rv' ? (s.targetLabel || '–') : `${s.hits}/25 hits`;
     const thumb   = s.type === 'rv' ? (s.sketchData || s.targetSrc || '') : '';
+    const sessionId = s.id;
+    const sessionType = s.type;
 
-    return `<div class="session-card">
+    return `<div class="session-card" onclick="openSessionDetail('${sessionType}', ${sessionId})" style="cursor:pointer;">
       <div class="session-thumb">
         ${thumb ? `<img src="${thumb}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:8px;color:var(--dim);">${typeTag}</div>`}
       </div>
@@ -2741,6 +2933,277 @@ function buildCombinedLog(rvSessions, zenerRuns) {
       <div class="session-score ${cls}">${s.score}%</div>
     </div>`;
   }).join('');
+}
+
+
+// ═══════════════════════════════════════════════════════
+//  SESSION DETAIL
+// ═══════════════════════════════════════════════════════
+
+const SYMBOL_SVG_DETAIL = {
+  circle: `<circle cx="40" cy="40" r="24"/>`,
+  cross:  `<line x1="40" y1="14" x2="40" y2="66"/><line x1="14" y1="40" x2="66" y2="40"/>`,
+  waves:  `<path d="M14 28 Q23 20 32 28 Q41 36 50 28 Q59 20 66 28"/><path d="M14 40 Q23 32 32 40 Q41 48 50 40 Q59 32 66 40"/><path d="M14 52 Q23 44 32 52 Q41 60 50 52 Q59 44 66 52"/>`,
+  square: `<rect x="16" y="16" width="48" height="48" rx="2"/>`,
+  star:   `<polygon points="40,12 47,33 70,33 52,46 59,68 40,55 21,68 28,46 10,33 33,33"/>`,
+};
+
+function openSessionDetail(type, id) {
+  showScreen('detail', false);
+  const screenEl = document.getElementById('screen-detail');
+  if (screenEl) screenEl.scrollTop = 0;
+
+  if (type === 'rv') {
+    const session = STATE.sessions.find(s => s.id === id);
+    if (!session) return;
+    renderRVDetail(session);
+  } else {
+    const runs = loadZenerSessions();
+    const run = runs.find(r => r.id === id);
+    if (!run) return;
+    renderZenerDetail(run);
+  }
+}
+
+function renderRVDetail(s) {
+  const d = new Date(s.timestamp);
+  const dateStr = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
+
+  setEl('detail-type-label', 'RV SESSION');
+  setEl('detail-date', dateStr);
+
+  // Score ring
+  const ring = document.getElementById('detail-score-ring');
+  const pctEl = document.getElementById('detail-score-pct');
+  setEl('detail-score-label', 'Gestalt Match');
+  if (ring) {
+    const score = s.score || 0;
+    ring.style.stroke = score >= 60 ? 'var(--accent)' : score >= 35 ? 'var(--warn)' : 'var(--danger)';
+    setTimeout(() => { ring.style.strokeDashoffset = 364.4 - (score / 100) * 364.4; }, 100);
+  }
+  if (pctEl) pctEl.textContent = (s.score || 0) + '%';
+
+  // Images
+  const imagesRow = document.getElementById('detail-images-row');
+  if (imagesRow) imagesRow.style.display = 'grid';
+  const sketchImg = document.getElementById('detail-sketch-img');
+  const targetImg = document.getElementById('detail-target-img');
+  if (sketchImg) sketchImg.src = s.sketchData || '';
+  if (targetImg) targetImg.src = s.targetSrc || '';
+
+  // Summary
+  setEl('detail-summary', s.summary || 'No summary available.');
+
+  // Dimension scores
+  const dimWrap = document.getElementById('detail-dimensions-wrap');
+  const dimGrid = document.getElementById('detail-dimensions');
+  if (s.dimension_scores && dimGrid) {
+    dimWrap.style.display = 'block';
+    const dims = s.dimension_scores;
+    const labels = {
+      geometric_form:    'Geometric Form',
+      spatial_impression:'Spatial Impression',
+      texture_surface:   'Texture / Surface',
+      emotional_tone:    'Emotional Tone',
+      movement_impression:'Movement',
+      color_light:       'Color / Light',
+    };
+    dimGrid.innerHTML = Object.entries(dims).map(([key, val]) => `
+      <div class="dimension-row">
+        <div class="dimension-label">${labels[key] || key}</div>
+        <div class="dimension-bar-wrap">
+          <div class="dimension-bar-fill" style="width:${(val/5)*100}%;background:${val>=4?'var(--accent)':val>=2?'var(--warn)':'var(--danger)'}"></div>
+        </div>
+        <div class="dimension-val">${val}</div>
+      </div>`).join('');
+  } else if (dimWrap) {
+    dimWrap.style.display = 'none';
+  }
+
+  // Data points
+  const hitList = document.getElementById('detail-hit-list');
+  if (hitList) {
+    hitList.innerHTML = '';
+    (s.hits  || []).forEach(h => { hitList.innerHTML += `<div class="hit-item"><div class="hit-badge hit">Hit</div><div class="hit-text">${h}</div></div>`; });
+    (s.noise || []).forEach(n => { hitList.innerHTML += `<div class="hit-item"><div class="hit-badge noise">Noise</div><div class="hit-text">${n}</div></div>`; });
+    (s.aol   || []).forEach(a => { hitList.innerHTML += `<div class="hit-item"><div class="hit-badge aol">AOL</div><div class="hit-text">${a}</div></div>`; });
+  }
+
+  // Hide Zener section
+  const zWrap = document.getElementById('detail-zener-wrap');
+  if (zWrap) zWrap.style.display = 'none';
+}
+
+function renderZenerDetail(run) {
+  const d = new Date(run.timestamp);
+  const dateStr = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
+
+  setEl('detail-type-label', 'ZENER RUN');
+  setEl('detail-date', dateStr);
+
+  // Score ring
+  const ring = document.getElementById('detail-score-ring');
+  const pctEl = document.getElementById('detail-score-pct');
+  setEl('detail-score-label', 'Hit Rate');
+  const pct = run.hitPct || 0;
+  if (ring) {
+    ring.style.stroke = pct > 28 ? 'var(--accent)' : pct < 12 ? 'var(--danger)' : 'var(--warn)';
+    setTimeout(() => { ring.style.strokeDashoffset = 364.4 - (pct / 100) * 364.4; }, 100);
+  }
+  if (pctEl) pctEl.textContent = pct + '%';
+
+  // Hide RV-specific elements
+  const imagesRow = document.getElementById('detail-images-row');
+  if (imagesRow) imagesRow.style.display = 'none';
+  const dimWrap = document.getElementById('detail-dimensions-wrap');
+  if (dimWrap) dimWrap.style.display = 'none';
+  const summaryCard = document.getElementById('detail-summary-card');
+  if (summaryCard) summaryCard.style.display = 'none';
+
+  // Hit list: per-trial summary
+  const hitList = document.getElementById('detail-hit-list');
+  if (hitList) {
+    hitList.innerHTML = `<div class="hit-item"><div class="hit-badge hit">Total</div><div class="hit-text">${run.hits} hits out of 25 trials (${pct}%)</div></div>
+    <div class="hit-item"><div class="hit-badge ${pct>20?'hit':'noise'}">${pct>20?'Above':'Below'} Chance</div><div class="hit-text">Baseline is 20% (5/25). Your score: ${run.hits}/25.</div></div>`;
+  }
+
+  // Symbol breakdown
+  const zWrap = document.getElementById('detail-zener-wrap');
+  const zSymbols = document.getElementById('detail-zener-symbols');
+  if (zWrap && zSymbols && run.symbolStats) {
+    zWrap.style.display = 'block';
+    const ZENER_SYMS = ['circle','cross','waves','square','star'];
+    zSymbols.innerHTML = ZENER_SYMS.map(s => {
+      const st = run.symbolStats[s] || {appeared:0,hit:0};
+      const hitPct = st.appeared ? Math.round((st.hit/st.appeared)*100) : 0;
+      const isGood = st.hit >= 2;
+      return `<div class="symbol-row">
+        <div class="symbol-row-icon"><svg viewBox="0 0 80 80">${SYMBOL_SVG_DETAIL[s]}</svg></div>
+        <div class="symbol-row-info">
+          <div class="symbol-row-label">${s} — ${st.appeared} trials</div>
+          <div class="symbol-bar-wrap"><div class="symbol-bar-fill ${isGood?'':'miss-bar'}" style="width:${hitPct}%"></div></div>
+        </div>
+        <div class="symbol-row-stat ${isGood?'hit-stat':'miss-stat'}">${st.hit}/${st.appeared}</div>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  STREAK BANNER
+// ═══════════════════════════════════════════════════════
+
+function renderStreakBanner(rvSessions, zenerRuns) {
+  const wrap = document.getElementById('streak-banner-wrap');
+  if (!wrap) return;
+
+  const streak = calcStreak(rvSessions, zenerRuns);
+
+  // Check if user trained yesterday (to detect broken streak)
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yKey = `${yesterday.getFullYear()}-${yesterday.getMonth()}-${yesterday.getDate()}`;
+  const allDates = new Set([...rvSessions, ...zenerRuns].map(s => {
+    const d = new Date(s.timestamp);
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+  }));
+
+  const today = new Date();
+  const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+  const trainedToday = allDates.has(todayKey);
+  const trainedYesterday = allDates.has(yKey);
+
+  let icon, title, sub, cls;
+
+  if (streak >= 3) {
+    icon = '🔥';
+    title = `${streak}-DAY STREAK`;
+    sub = trainedToday ? 'Active today. Keep it going.' : 'Train today to maintain your streak.';
+    cls = 'active';
+  } else if (streak === 1 || streak === 2) {
+    icon = '⚡';
+    title = `${streak}-DAY STREAK`;
+    sub = trainedToday ? 'Good. Train again tomorrow.' : 'Train today to build momentum.';
+    cls = 'active';
+  } else if (!trainedToday && trainedYesterday) {
+    icon = '💀';
+    title = 'STREAK BROKEN';
+    sub = 'You missed yesterday. Start a new streak today.';
+    cls = 'broken';
+  } else {
+    icon = '○';
+    title = 'NO ACTIVE STREAK';
+    sub = 'Train daily to build a streak.';
+    cls = 'cold';
+  }
+
+  wrap.innerHTML = `<div class="streak-banner ${cls}">
+    <div class="streak-icon">${icon}</div>
+    <div class="streak-info">
+      <div class="streak-title">${title}</div>
+      <div class="streak-sub">${sub}</div>
+    </div>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════
+//  CALIBRATION SCORE
+// ═══════════════════════════════════════════════════════
+
+function renderCalibration(rvSessions) {
+  const arrowEl = document.getElementById('cal-arrow');
+  const scoreEl = document.getElementById('cal-score');
+  const labelEl = document.getElementById('cal-label');
+  const descEl  = document.getElementById('cal-desc');
+  const barsEl  = document.getElementById('cal-bars');
+
+  if (!rvSessions || rvSessions.length < 3) {
+    if (scoreEl) scoreEl.textContent = '–';
+    if (labelEl) labelEl.textContent = `Need ${Math.max(0, 3 - (rvSessions||[]).length)} more sessions`;
+    if (descEl)  descEl.textContent  = 'Complete more RV sessions to see your calibration trend.';
+    if (barsEl)  barsEl.innerHTML    = '';
+    return;
+  }
+
+  // Split sessions into two halves — early vs recent
+  const sorted = [...rvSessions].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  const half = Math.floor(sorted.length / 2);
+  const early  = sorted.slice(0, half);
+  const recent = sorted.slice(half);
+
+  const earlyAvg  = Math.round(early.reduce((a,s)  => a + s.score, 0) / early.length);
+  const recentAvg = Math.round(recent.reduce((a,s) => a + s.score, 0) / recent.length);
+  const delta = recentAvg - earlyAvg;
+
+  // Current calibration score = weighted recent avg
+  const calScore = recentAvg;
+
+  if (scoreEl) scoreEl.textContent = calScore + '%';
+
+  if (delta > 3) {
+    if (arrowEl) { arrowEl.textContent = '↑'; arrowEl.className = 'trend-arrow up'; }
+    if (labelEl) labelEl.textContent = `+${delta}% vs early sessions`;
+    if (descEl)  descEl.textContent  = 'Signal quality is improving. Recent sessions outperform your baseline.';
+  } else if (delta < -3) {
+    if (arrowEl) { arrowEl.textContent = '↓'; arrowEl.className = 'trend-arrow down'; }
+    if (labelEl) labelEl.textContent = `${delta}% vs early sessions`;
+    if (descEl)  descEl.textContent  = 'Recent performance is below your early baseline. Review session conditions.';
+  } else {
+    if (arrowEl) { arrowEl.textContent = '→'; arrowEl.className = 'trend-arrow flat'; }
+    if (labelEl) labelEl.textContent = 'Stable trend';
+    if (descEl)  descEl.textContent  = 'Performance is consistent. Continue building your session history.';
+  }
+
+  // Mini bar chart of all scores
+  if (barsEl && sorted.length) {
+    const maxScore = 100;
+    const cutoff = sorted.length - recent.length;
+    barsEl.innerHTML = sorted.map((s, i) => {
+      const h = Math.max(4, Math.round((s.score / maxScore) * 40));
+      const isRecent = i >= cutoff;
+      return `<div class="cal-bar ${isRecent ? '' : 'old'}" style="height:${h}px;" title="${s.score}%"></div>`;
+    }).join('');
+  }
 }
 
 window.addEventListener('error', (e) => {
