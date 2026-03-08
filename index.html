@@ -2154,7 +2154,7 @@ async function gradeSession(sketchB64, notes, target) {
   // Resolve relative target path to full URL so the Worker can fetch it
   const targetUrl = target.src.startsWith('http')
     ? target.src
-    : `${window.location.origin}/${target.src.replace(/^\//, '')}`;
+    : new URL(target.src, window.location.href).href;
 
   const resp = await fetch(WORKER_URL, {
     method: 'POST',
