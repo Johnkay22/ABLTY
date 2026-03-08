@@ -1862,38 +1862,47 @@ html, body {
 // server-side via Cloudflare Worker.
 // For local dev, using public domain images.
 const TARGET_POOL = [
-  // LANDSCAPES
-  {
-    id: 'T001',
-    src: 'targets/4821-9037.jpg',
-    label: 'Cascading Water',
-    category: 'landscapes',
-    descriptor: `temperature: cool, humid, misting\nscale: vast, open, plunging depth\nmovement: strong downward flow, constant motion\ntexture: rushing water, wet rock, dense foliage\nsound impression: loud roar, white noise\nemotional tone: awe, power, wilderness\ndominant colors: deep green, white, grey-blue, earth brown`,
-  },
-  // STRUCTURES
-  {
-    id: 'T002',
-    src: 'targets/7163-2548.jpg',
-    label: 'Vertical Beacon',
-    category: 'structures',
-    descriptor: `temperature: cold, coastal, stormy\nscale: tall, isolated, elevated\nmovement: beam of light sweeping outward, static structure\ntexture: rough stone, masonry, metal lantern housing\nsound impression: wind, crashing waves, distant\nemotional tone: solitary, dramatic, warning\ndominant colors: grey stone, deep blue-grey sky, amber light, orange glow`,
-  },
-  // OBJECTS
-  {
-    id: 'T003',
-    src: 'targets/3392-8814.jpg',
-    label: 'Metal Cluster',
-    category: 'objects',
-    descriptor: `temperature: room temperature, neutral\nscale: small, intimate, handheld\nmovement: still, resting on surface\ntexture: smooth metal, serrated edges, circular ring, warm wood grain background\nsound impression: quiet, faint metallic clink\nemotional tone: mundane, familiar, functional\ndominant colors: silver-grey metal, warm brown wood`,
-  },
   // ANIMALS
-  {
-    id: 'T004',
-    src: 'targets/6047-5129.jpg',
-    label: 'Aquatic Predator',
-    category: 'animals',
-    descriptor: `temperature: cool, underwater, submerged\nscale: large, elongated, open water\nmovement: smooth gliding, lateral motion, fluid\ntexture: smooth skin, tapered form, light patterns on surface\nsound impression: silence, water pressure, deep\nemotional tone: primal, focused, suspended\ndominant colors: deep blue, grey-white, dappled light from above`,
-  },
+  { id:'T001', src:'targets/6047-5129.jpg',  label:'Aquatic Predator', category:'animals',    descriptors:['streamlined','underwater','blue','predator','fins','movement'] },
+  { id:'T002', src:'targets/2847-5031.jpg',  label:'Arid Wanderer',    category:'animals',    descriptors:['large','single form','dunes','warm tones','isolation','arid'] },
+  { id:'T003', src:'targets/6193-8420.jpg',  label:'Swamp Predator',   category:'animals',    descriptors:['reptile','flat','dark water','textured','still','low profile'] },
+  { id:'T004', src:'targets/3756-1294.jpg',  label:'Wading Form',      category:'animals',    descriptors:['pink','curved neck','water','thin legs','standing','soft'] },
+  { id:'T005', src:'targets/9042-6371.jpg',  label:'Elevated Hunter',  category:'animals',    descriptors:['bird','perched','brown','feathers','claws','alert'] },
+  { id:'T006', src:'targets/5518-2983.jpg',  label:'Drifting Bell',    category:'animals',    descriptors:['translucent','glowing','underwater','tendrils','dark blue','floating'] },
+  { id:'T007', src:'targets/7284-4056.jpg',  label:'Display Plumage',  category:'animals',    descriptors:['radial','blue-green','fan','eye pattern','symmetrical','ornate'] },
+  { id:'T008', src:'targets/1639-7812.jpg',  label:'Arctic Mass',      category:'animals',    descriptors:['white','large','ice','standing','fur','cold'] },
+  { id:'T009', src:'targets/4907-3265.jpg',  label:'Crossing Giant',   category:'animals',    descriptors:['large','water','splashing','tusks','grey','powerful'] },
+  { id:'T010', src:'targets/8321-5749.jpg',  label:'Surface Breach',   category:'animals',    descriptors:['massive','ocean','airborne','spray','dark','curved'] },
+  // OBJECTS
+  { id:'T011', src:'targets/2163-9047.jpg',  label:'Stemmed Vessel',   category:'objects',    descriptors:['glass','transparent','stem','dark liquid','bar','bokeh'] },
+  { id:'T012', src:'targets/7836-4512.jpg',  label:'Vertical Stack',   category:'objects',    descriptors:['tall','cylindrical','vertical','metallic','dark sky','launch pad'] },
+  { id:'T013', src:'targets/3271-8064.jpg',  label:'Suspended Light',  category:'objects',    descriptors:['warm glow','dark','hanging','ornate','wood','night'] },
+  { id:'T014', src:'targets/9458-2317.jpg',  label:'Hollow Instrument',category:'objects',    descriptors:['curved','wooden','strings','f-holes','case','brown'] },
+  { id:'T015', src:'targets/1847-6093.jpg',  label:'Heat Vessel',      category:'objects',    descriptors:['round','metallic','handle','stove','kitchen','warm light'] },
+  { id:'T016', src:'targets/6024-3851.jpg',  label:'Corroded Anchor',  category:'objects',    descriptors:['rust','curved','heavy','beach','wet sand','metal'] },
+  { id:'T017', src:'targets/4382-7619.jpg',  label:'Navigation Tool',  category:'objects',    descriptors:['circular','brass','old map','directional','ornate','parchment'] },
+  { id:'T018', src:'targets/5093-7241.jpg',  label:'Key Cluster',      category:'objects',    descriptors:['metal','multiple','ring','serrated','wood surface','small'] },
+  { id:'T018b',src:'targets/5490-1738.jpg',  label:'Carousel Form',    category:'objects',    descriptors:['ornate','painted horse','pole','lights','warm tones','decorative'] },
+  // STRUCTURES
+  { id:'T019', src:'targets/8073-5246.jpg',  label:'Dome Observatory', category:'structures', descriptors:['dome','night sky','stars','glowing','isolated','round'] },
+  { id:'T020', src:'targets/2956-8130.jpg',  label:'Night Wheel',      category:'structures', descriptors:['circular','lit','radial spokes','carnival','dark sky','colorful'] },
+  { id:'T021', src:'targets/5714-3089.jpg',  label:'Signal Array',     category:'structures', descriptors:['dish','white','concave','angled','mechanical','open sky'] },
+  { id:'T022', src:'targets/3628-9471.jpg',  label:'Hilltop Fortress', category:'structures', descriptors:['stone','towers','battlements','green hill','medieval','blue sky'] },
+  { id:'T023', src:'targets/7195-4302.jpg',  label:'Sacred Interior',  category:'structures', descriptors:['arched ceiling','stained glass','light rays','stone','pews','tall'] },
+  { id:'T024', src:'targets/9067-1548.jpg',  label:'Spanning Structure',category:'structures', descriptors:['cables','towers','water below','orange','horizontal','linear'] },
+  { id:'T025', src:'targets/7163-2548.jpg',  label:'Vertical Beacon',  category:'structures', descriptors:['tower','cylindrical','isolated','storm','light beam','stone'] },
+  // LANDSCAPES
+  { id:'T026', src:'targets/4821-9037.jpg',  label:'Cascading Water',  category:'landscapes', descriptors:['flowing','vertical drop','mist','green','movement','rainforest'] },
+  { id:'T027', src:'targets/4531-7826.jpg',  label:'Urban Horizon',    category:'landscapes', descriptors:['skyscrapers','sunset','orange sky','city','street','silhouette'] },
+  { id:'T028', src:'targets/1293-6047.jpg',  label:'Coastal Shore',    category:'landscapes', descriptors:['palm trees','turquoise water','white sand','tropical','sunny','island'] },
+  { id:'T029', src:'targets/6840-2193.jpg',  label:'Dark Wetland',     category:'landscapes', descriptors:['cypress trees','hanging moss','still water','dark','misty','roots'] },
+  { id:'T030', src:'targets/3847-6120.jpg',  label:'Frozen Lake',      category:'landscapes', descriptors:['ice','reflective','pine trees','snow','blue sky','flat'] },
+  { id:'T031', src:'targets/5962-8347.jpg',  label:'Lava Crater',      category:'landscapes', descriptors:['orange glow','circular','dark rock','smoke','heat','molten'] },
+  { id:'T032', src:'targets/2419-7083.jpg',  label:'Arctic Expanse',   category:'landscapes', descriptors:['ice shards','white','vast','jagged peaks','cold','overcast'] },
+  { id:'T033', src:'targets/7530-1648.jpg',  label:'Layered Canyon',   category:'landscapes', descriptors:['red rock','layered','vast','warm tones','carved','cliffs'] },
+  { id:'T034', src:'targets/9184-3725.jpg',  label:'Storm Coast',      category:'landscapes', descriptors:['black rock','waves crashing','spray','grey sky','rough','violent'] },
+  { id:'T035', src:'targets/6371-4908.jpg',  label:'Sand Dunes',       category:'landscapes', descriptors:['rippled sand','beige','open sky','soft curves','minimal','arid'] },
+  { id:'T036', src:'targets/1758-9034.jpg',  label:'Summit Cloud',     category:'landscapes', descriptors:['snow peak','triangular','clouds','grey-blue','cold','high altitude'] },
 ];
 
 // ─── APP STATE ────────────────────────────────
