@@ -62,30 +62,37 @@ html, body {
 
 /* SCREENS */
 .screen {
-  position: absolute;
-  inset: 0;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
   bottom: var(--nav-h);
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
   scrollbar-width: none;
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
   transform: translateX(20px);
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transition: opacity 0.25s ease, transform 0.25s ease, visibility 0s linear 0.25s;
   padding: 0;
+  background: var(--bg);
+  z-index: 10;
 }
 .screen::-webkit-scrollbar { display: none; }
 .screen.active {
   opacity: 1;
+  visibility: visible;
   pointer-events: all;
   transform: translateX(0);
+  transition: opacity 0.25s ease, transform 0.25s ease, visibility 0s linear 0s;
+  z-index: 20;
 }
-.screen.slide-left { transform: translateX(-20px); }
-
-/* When canvas is open, extend to full height */
-.screen.no-nav {
-  bottom: 0;
+.screen.slide-left {
+  transform: translateX(-20px);
+  opacity: 0;
+  visibility: hidden;
 }
 
 /* SCREEN INNER PADDING */
@@ -108,9 +115,11 @@ html, body {
   display: flex;
   justify-content: space-around;
   align-items: center;
-  position: relative;
-  z-index: 50;
-  flex-shrink: 0;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
 }
 
 .nav-item {
@@ -264,7 +273,38 @@ html, body {
   letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
 }
 
-/* Stats grid */
+/* Category selector */
+.category-selector {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cat-btn {
+  flex: 1;
+  min-width: calc(50% - 4px);
+  padding: 10px 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  user-select: none;
+}
+.cat-btn.all {
+  min-width: 100%;
+  flex: none;
+}
+.cat-btn.active {
+  background: rgba(108,224,182,0.12);
+  color: var(--accent);
+  border-color: rgba(108,224,182,0.4);
+}
 .stats-grid {
   display: grid; grid-template-columns: 1fr 1fr;
   gap: 1px; background: var(--border);
@@ -329,105 +369,144 @@ html, body {
 .instruction-text { font-size: 13px; color: rgba(255,255,255,0.65); line-height: 1.5; }
 
 /* ═══════════════════════════════════════════
-   CANVAS SCREEN SPECIFIC
+   CANVAS SCREEN
 ═══════════════════════════════════════════ */
 #screen-canvas {
   bottom: 0 !important;
   background: var(--bg);
+  overflow: hidden; /* no scrolling on this screen */
 }
+
+/* Shell fills full viewport height, rigid flex column */
 .canvas-shell {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 100dvh;
+  height: 100dvh;
+  overflow: hidden;
 }
+
 .canvas-header {
+  flex-shrink: 0;
   padding: 14px 18px 10px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
+  background: var(--bg);
+  z-index: 10;
 }
-.canvas-trn-badge {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 2px;
-  color: var(--muted);
-}
+.canvas-trn-badge { font-family: var(--font-mono); font-size: 11px; letter-spacing: 2px; color: var(--muted); }
 .canvas-trn-badge span { color: var(--accent); letter-spacing: 4px; }
-.canvas-tools {
-  display: flex; gap: 8px;
-}
+.canvas-tools { display: flex; gap: 8px; align-items: center; }
+
 .tool-btn {
   background: var(--card); border: 1px solid var(--border);
   border-radius: 8px; padding: 7px 12px;
   font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
-  color: var(--muted); cursor: pointer; transition: background 0.15s, color 0.15s;
+  color: var(--muted); cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  user-select: none;
 }
-.tool-btn:active, .tool-btn.active { background: var(--card2); color: var(--text); border-color: var(--border2); }
-.tool-btn.erase { color: var(--warn); border-color: rgba(240,169,74,0.2); }
+.tool-btn.erase { color: var(--muted); border-color: var(--border); }
+.tool-btn.erase.active {
+  background: rgba(240,169,74,0.18); color: var(--warn);
+  border-color: rgba(240,169,74,0.5); box-shadow: 0 0 8px rgba(240,169,74,0.15);
+}
 
+/* Tabs row */
 .canvas-tabs {
+  flex-shrink: 0;
   display: flex;
   border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
+  background: var(--bg);
 }
 .canvas-tab {
-  flex: 1; padding: 12px;
+  flex: 1; padding: 11px;
   font-family: var(--font-mono); font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
   color: var(--muted); cursor: pointer; text-align: center;
   border-bottom: 2px solid transparent;
-  transition: color 0.2s, border-color 0.2s;
+  transition: color 0.15s, border-color 0.15s;
+  user-select: none;
 }
 .canvas-tab.active { color: var(--text); border-bottom-color: var(--accent); }
 
-.canvas-area {
+/*
+ * PANEL CONTAINER — the key to everything.
+ * Takes all remaining height. Both panels are
+ * position:absolute inside here so nothing ever
+ * reflowing or resizing the canvas.
+ */
+.panel-container {
   flex: 1;
   position: relative;
   overflow: hidden;
+  min-height: 0;
+}
+
+/* Sketch panel — always in DOM, always same size */
+#sketch-panel {
+  position: absolute;
+  inset: 0;
+  background: #111214;
+  touch-action: none;
+  /* visible by default */
 }
 #rv-canvas {
-  display: block;
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  cursor: crosshair;
+  display: block;
   touch-action: none;
+  cursor: crosshair;
 }
-.canvas-area.hidden { display: none; }
 
-#notepad-area {
-  flex: 1;
-  padding: 16px;
+/* Notes panel — overlays sketch, hidden by default */
+#notes-panel {
+  position: absolute;
+  inset: 0;
+  background: var(--bg);
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  padding: 16px 18px;
+  gap: 8px;
+  overflow-y: auto;
+  /* hidden state */
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(8px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
 }
-#notepad-area.hidden { display: none; }
-#rv-notes {
-  flex: 1;
-  background: transparent;
-  border: none;
-  outline: none;
-  resize: none;
-  font-family: var(--font-mono);
-  font-size: 14px;
-  line-height: 1.7;
-  color: var(--text);
-  caret-color: var(--accent);
-}
-#rv-notes::placeholder { color: var(--dim); }
-.notepad-hint {
-  font-family: var(--font-mono);
-  font-size: 10px; letter-spacing: 1px;
-  color: var(--dim); text-transform: uppercase;
+#notes-panel.panel-visible {
+  opacity: 1;
+  pointer-events: all;
+  transform: translateX(0);
 }
 
+.notes-panel-label {
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 2px; text-transform: uppercase; color: var(--muted);
+  flex-shrink: 0;
+}
+#rv-notes {
+  flex: 1;
+  width: 100%;
+  background: transparent;
+  border: none; outline: none; resize: none;
+  font-family: var(--font-mono);
+  font-size: 14px; line-height: 1.7;
+  color: var(--text);
+  caret-color: var(--accent);
+  min-height: 0;
+}
+#rv-notes::placeholder { color: var(--dim); }
+
 .canvas-footer {
+  flex-shrink: 0;
   padding: 12px 16px calc(16px + var(--safe-bottom));
   display: flex; gap: 10px;
   border-top: 1px solid var(--border);
-  flex-shrink: 0;
+  background: var(--bg);
 }
 
 /* Stroke size indicator */
@@ -490,6 +569,7 @@ html, body {
 }
 .hit-badge.hit { background: rgba(74,240,200,0.1); color: var(--hit); border: 1px solid rgba(74,240,200,0.2); }
 .hit-badge.noise { background: rgba(240,90,74,0.1); color: var(--noise); border: 1px solid rgba(240,90,74,0.2); }
+.hit-badge.aol { background: rgba(240,169,74,0.1); color: var(--warn); border: 1px solid rgba(240,169,74,0.2); }
 .hit-text { font-size: 13px; color: rgba(255,255,255,0.65); line-height: 1.4; }
 
 .summary-card {
@@ -604,8 +684,283 @@ html, body {
 }
 
 /* ═══════════════════════════════════════════
-   MISC ANIMATIONS
+   ZENER PROTOCOL
 ═══════════════════════════════════════════ */
+.zener-brief-stats {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+}
+.zener-stat-cell {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px 10px; text-align: center;
+}
+.zener-stat-val {
+  font-family: var(--font-display); font-size: 26px;
+  color: var(--text); line-height: 1; margin-top: 4px;
+}
+.zener-stat-val.accent { color: var(--accent); }
+.zener-stat-val.dim { color: var(--muted); }
+.chance-note {
+  background: rgba(240,169,74,0.08); border: 1px solid rgba(240,169,74,0.2);
+  border-radius: 10px; padding: 12px 14px;
+  font-family: var(--font-mono); font-size: 10px; line-height: 1.6;
+  color: var(--warn); letter-spacing: 0.5px;
+}
+
+/* Session screen */
+.zener-session-shell {
+  display: flex; flex-direction: column;
+  height: 100dvh; overflow: hidden;
+}
+.zener-session-header {
+  flex-shrink: 0; padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.zener-progress-bar-wrap {
+  flex-shrink: 0; height: 3px; background: var(--card2);
+}
+.zener-progress-bar {
+  height: 100%; background: var(--accent);
+  transition: width 0.3s ease;
+}
+.zener-main {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 28px; padding: 20px 24px;
+  overflow: hidden;
+}
+
+/* Card flip */
+.zener-card-wrap {
+  width: 180px; height: 180px;
+  perspective: 700px;
+  flex-shrink: 0;
+}
+.zener-card-inner {
+  width: 100%; height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(0.4,0,0.2,1);
+}
+.zener-card-inner.flipped { transform: rotateY(180deg); }
+.zener-card-face {
+  position: absolute; inset: 0;
+  border-radius: 20px;
+  display: flex; align-items: center; justify-content: center;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+.zener-card-front {
+  background: var(--card);
+  border: 1px solid var(--border2);
+}
+.zener-card-back {
+  transform: rotateY(180deg);
+  border: 2px solid var(--border);
+}
+.zener-card-back.hit-card  { border-color: var(--accent); background: rgba(74,240,200,0.06); }
+.zener-card-back.miss-card { border-color: var(--danger); background: rgba(240,90,74,0.06); }
+
+/* Front face design — reticle */
+.card-reticle {
+  width: 60px; height: 60px; position: relative; opacity: 0.2;
+}
+.card-reticle::before, .card-reticle::after {
+  content: ''; position: absolute;
+}
+.card-reticle::before {
+  inset: 0; border: 1.5px solid var(--text); border-radius: 50%;
+}
+.card-reticle::after {
+  top: 50%; left: 0; right: 0; height: 1px; background: var(--text);
+}
+
+/* Symbol styles on back */
+.zener-symbol-back {
+  color: var(--text);
+}
+.zener-symbol-back.hit-sym  { color: var(--accent); }
+.zener-symbol-back.miss-sym { color: var(--danger); }
+
+/* Feedback label below card */
+.zener-feedback {
+  font-family: var(--font-display); font-size: 28px; letter-spacing: 3px;
+  min-height: 36px; text-align: center;
+  transition: opacity 0.2s;
+}
+.zener-feedback.hit  { color: var(--accent); }
+.zener-feedback.miss { color: var(--danger); }
+.zener-feedback.hidden { opacity: 0; }
+
+/* Symbol choice buttons */
+.zener-choices {
+  display: flex; gap: 10px;
+  width: 100%; max-width: 320px;
+}
+.zener-choice-btn {
+  flex: 1; aspect-ratio: 1;
+  background: var(--card); border: 1.5px solid var(--border);
+  border-radius: 14px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.12s, border-color 0.12s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.zener-choice-btn:active { transform: scale(0.92); }
+.zener-choice-btn.selected {
+  background: var(--card2); border-color: var(--border2);
+}
+.zener-choice-btn svg {
+  width: 34px; height: 34px;
+  stroke: var(--muted); fill: none;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+  transition: stroke 0.12s;
+}
+.zener-choice-btn.selected svg { stroke: var(--text); }
+
+/* Results screen */
+.zener-score-hero {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 24px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.zener-score-big {
+  font-family: var(--font-display); font-size: 72px;
+  line-height: 1; letter-spacing: 2px; color: var(--text);
+}
+.zener-score-big.above { color: var(--accent); }
+.zener-score-big.below { color: var(--danger); }
+.zener-verdict {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 2px; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 6px; margin-top: 6px;
+}
+.zener-verdict.above { background: rgba(74,240,200,0.1); color: var(--accent); }
+.zener-verdict.at    { background: rgba(107,114,128,0.15); color: var(--muted); }
+.zener-verdict.below { background: rgba(240,90,74,0.1); color: var(--danger); }
+
+.symbol-breakdown {
+  display: flex; flex-direction: column; gap: 8px;
+}
+.symbol-row {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 14px;
+}
+.symbol-row-icon { width: 28px; height: 28px; flex-shrink: 0; }
+.symbol-row-icon svg {
+  width: 28px; height: 28px; stroke: var(--muted); fill: none;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.symbol-row-info { flex: 1; }
+.symbol-row-label {
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted);
+}
+.symbol-bar-wrap {
+  height: 4px; background: var(--card2); border-radius: 2px; margin-top: 5px;
+}
+.symbol-bar-fill {
+  height: 100%; border-radius: 2px;
+  background: var(--accent); transition: width 0.5s ease;
+}
+.symbol-bar-fill.miss-bar { background: var(--danger); }
+.symbol-row-stat {
+  font-family: var(--font-display); font-size: 20px; color: var(--text); flex-shrink: 0;
+}
+.symbol-row-stat.hit-stat  { color: var(--accent); }
+.symbol-row-stat.miss-stat { color: var(--danger); }
+
+/* ═══════════════════════════════════════════
+   ANALYTICS SCREEN
+═══════════════════════════════════════════ */
+.analytics-tabs {
+  display: flex; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--bg); z-index: 5;
+  flex-shrink: 0; margin: 0 -18px; padding: 0 18px;
+}
+.analytics-tab {
+  flex: 1; padding: 12px 4px;
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--muted); cursor: pointer; text-align: center;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  user-select: none;
+}
+.analytics-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.analytics-panel { display: none; flex-direction: column; gap: 14px; padding-top: 4px; }
+.analytics-panel.panel-active { display: flex; }
+
+/* Stat row cards */
+.kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.kpi-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px 12px;
+}
+.kpi-val {
+  font-family: var(--font-display); font-size: 32px;
+  line-height: 1; color: var(--text); margin-top: 4px;
+}
+.kpi-val.accent { color: var(--accent); }
+.kpi-val.warn   { color: var(--warn); }
+.kpi-val.danger { color: var(--danger); }
+.kpi-delta {
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 1px; margin-top: 3px; color: var(--muted);
+}
+
+/* Chart */
+.chart-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px;
+}
+.chart-title {
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 14px;
+}
+.chart-svg-wrap { width: 100%; overflow: hidden; }
+
+/* Category breakdown bars */
+.cat-breakdown { display: flex; flex-direction: column; gap: 10px; }
+.cat-row { display: flex; flex-direction: column; gap: 5px; }
+.cat-row-header { display: flex; justify-content: space-between; align-items: center; }
+.cat-row-label {
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted);
+}
+.cat-row-val {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text);
+}
+.cat-bar-track {
+  height: 6px; background: var(--card2); border-radius: 3px;
+}
+.cat-bar-fill {
+  height: 100%; border-radius: 3px; background: var(--accent);
+  transition: width 0.6s ease;
+}
+
+/* Zener symbol accuracy in analytics */
+.symbol-acc-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 8px; }
+.symbol-acc-cell {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 6px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+}
+.symbol-acc-cell svg {
+  width: 24px; height: 24px; stroke: var(--muted); fill: none;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.symbol-acc-pct {
+  font-family: var(--font-display); font-size: 16px; color: var(--text);
+}
+.symbol-acc-pct.good { color: var(--accent); }
+.no-data-note {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 24px; text-align: center;
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 1px; color: var(--dim); text-transform: uppercase;
+}
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
@@ -694,8 +1049,8 @@ html, body {
         </div>
       </div>
 
-      <!-- PSI TRAINING CARD (locked) -->
-      <div class="module-card fade-in-delay-3" onclick="showComingSoon('Psi Training')">
+      <!-- PSI TRAINING / ZENER CARD -->
+      <div class="module-card fade-in-delay-3" onclick="navigate('zener')">
         <div class="card-visual psi-bg">
           <div class="circuit"></div>
           <svg class="brain-svg" viewBox="0 0 56 56" fill="none" stroke="rgba(74,240,200,0.75)" stroke-width="1.2" stroke-linecap="round">
@@ -705,14 +1060,11 @@ html, body {
             <line x1="18" y1="28" x2="38" y2="28"/>
             <line x1="15" y1="35" x2="41" y2="35"/>
           </svg>
-          <div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;padding:4px 8px;">
-            <span style="font-family:var(--font-mono);font-size:8px;letter-spacing:1px;color:var(--muted);text-transform:uppercase">Soon</span>
-          </div>
         </div>
         <div class="card-overlay">
-          <div class="card-tag">Feature Set 2</div>
+          <div class="card-tag">Feature Set 2 — Active</div>
           <div class="display-md">PSI TRAINING</div>
-          <div class="mono-sm" style="margin-top:4px">Zener Protocol &amp; Focus Anchoring</div>
+          <div class="mono-sm" style="margin-top:4px">Zener Protocol · 25 Trial ESP Test</div>
         </div>
       </div>
 
@@ -751,6 +1103,16 @@ html, body {
         </div>
       </div>
 
+      <!-- Category selector -->
+      <div class="section-label fade-in-delay-1">Target Category</div>
+      <div class="category-selector fade-in-delay-1">
+        <div class="cat-btn all active" id="cat-all"        onclick="setCategory('all')">All Categories</div>
+        <div class="cat-btn" id="cat-landscapes" onclick="setCategory('landscapes')">Landscapes</div>
+        <div class="cat-btn" id="cat-structures" onclick="setCategory('structures')">Structures</div>
+        <div class="cat-btn" id="cat-objects"    onclick="setCategory('objects')">Objects</div>
+        <div class="cat-btn" id="cat-animals"    onclick="setCategory('animals')">Animals</div>
+      </div>
+
       <!-- Instructions -->
       <div class="section-label fade-in-delay-2">Protocol</div>
       <div class="instruction-list fade-in-delay-2">
@@ -786,6 +1148,7 @@ html, body {
   <div id="screen-canvas" class="screen" style="bottom:0;">
     <div class="canvas-shell">
 
+      <!-- Header -->
       <div class="canvas-header">
         <div>
           <div class="canvas-trn-badge">TRN <span id="canvas-trn">00000000</span></div>
@@ -802,20 +1165,29 @@ html, body {
         </div>
       </div>
 
+      <!-- Tabs -->
       <div class="canvas-tabs">
         <div class="canvas-tab active" id="tab-sketch" onclick="switchTab('sketch')">Sketchpad</div>
         <div class="canvas-tab" id="tab-notes" onclick="switchTab('notes')">Impressions</div>
       </div>
 
-      <div class="canvas-area" id="sketch-area">
-        <canvas id="rv-canvas"></canvas>
+      <!-- Panel container — both panels live here, absolutely positioned -->
+      <div class="panel-container" id="panel-container">
+
+        <!-- Sketch panel — never removed, never resized after init -->
+        <div id="sketch-panel">
+          <canvas id="rv-canvas"></canvas>
+        </div>
+
+        <!-- Notes panel — overlays sketch, toggled via opacity only -->
+        <div id="notes-panel">
+          <div class="notes-panel-label">Sensory Impressions</div>
+          <textarea id="rv-notes" placeholder="Log sensory data: textures, temperatures, smells, emotions, movements, shapes..."></textarea>
+        </div>
+
       </div>
 
-      <div id="notepad-area" class="hidden">
-        <div class="notepad-hint">Log sensory impressions — textures, temperatures, emotions, movement</div>
-        <textarea id="rv-notes" placeholder="e.g. cold / metallic / angular shapes / feeling of height / vast open space / smooth curved surface..."></textarea>
-      </div>
-
+      <!-- Footer -->
       <div class="canvas-footer">
         <button class="btn btn-ghost" style="flex:0 0 auto;width:auto;padding:14px 18px;font-size:14px;" onclick="goToBrief()">
           <svg viewBox="0 0 24 24" style="width:16px;height:16px;"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
@@ -824,6 +1196,7 @@ html, body {
           SUBMIT &amp; GRADE
         </button>
       </div>
+
     </div>
   </div>
 
@@ -854,7 +1227,7 @@ html, body {
       <div class="result-target-row fade-in-delay-1">
         <div class="result-thumb">
           <div class="result-thumb-label">Your Sketch</div>
-          <canvas id="sketch-preview" class="sketch-preview"></canvas>
+          <img id="sketch-preview" src="" alt="Your sketch" style="width:100%;aspect-ratio:1;object-fit:cover;display:block;background:#111214;" />
         </div>
         <div class="result-thumb">
           <div class="result-thumb-label">Target</div>
@@ -890,30 +1263,6 @@ html, body {
   <!-- ══════════════════════════════════
        SCREEN: HISTORY
   ═══════════════════════════════════ -->
-  <div id="screen-history" class="screen">
-    <div class="screen-inner">
-
-      <div class="display-lg fade-in">SESSION LOG</div>
-      <div class="mono-sm fade-in-delay-1">All remote viewing attempts</div>
-
-      <div class="stats-grid fade-in-delay-1">
-        <div class="stat-cell">
-          <div class="mono-label">Total Sessions</div>
-          <div class="stat-val" id="hist-total">0</div>
-        </div>
-        <div class="stat-cell">
-          <div class="mono-label">Best Score</div>
-          <div class="stat-val accent" id="hist-best">–</div>
-        </div>
-      </div>
-
-      <div id="session-log-list" style="display:flex;flex-direction:column;gap:8px;">
-        <!-- populated by JS -->
-      </div>
-
-    </div>
-  </div>
-
   <!-- ══════════════════════════════════
        SCREEN: PROFILE
   ═══════════════════════════════════ -->
@@ -981,6 +1330,310 @@ html, body {
   </div>
 
   <!-- ══════════════════════════════════
+       SCREEN: ZENER – BRIEF
+  ═══════════════════════════════════ -->
+  <div id="screen-zener-brief" class="screen">
+    <div class="screen-inner">
+
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="tool-btn" onclick="goHome()" style="padding:7px 10px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div class="section-label">Zener Protocol</div>
+      </div>
+
+      <div class="trn-wrap fade-in" style="text-align:center;">
+        <div class="trn-sub">Psi Training — ESP Card Test</div>
+        <div style="font-family:var(--font-display);font-size:48px;letter-spacing:4px;color:var(--text);margin-top:6px;">25 TRIALS</div>
+        <div class="trn-sub" style="margin-top:4px;">5 symbols · Guess before reveal · Track over time</div>
+      </div>
+
+      <div class="zener-brief-stats fade-in-delay-1">
+        <div class="zener-stat-cell">
+          <div class="mono-label">Runs</div>
+          <div class="zener-stat-val" id="zener-brief-runs">0</div>
+        </div>
+        <div class="zener-stat-cell">
+          <div class="mono-label">Avg Hit%</div>
+          <div class="zener-stat-val accent" id="zener-brief-avg">–</div>
+        </div>
+        <div class="zener-stat-cell">
+          <div class="mono-label">Chance</div>
+          <div class="zener-stat-val dim">20%</div>
+        </div>
+      </div>
+
+      <div class="chance-note fade-in-delay-2">
+        ⚠ Baseline chance is 20% (1 in 5). Consistent scores above 25–30% across many runs suggest signal above noise. Single runs are not statistically significant.
+      </div>
+
+      <div class="section-label fade-in-delay-2">Protocol</div>
+      <div class="instruction-list fade-in-delay-2">
+        <div class="instruction-item">
+          <div class="instruction-num">01</div>
+          <div class="instruction-text">Relax and clear your mind. Each trial presents a hidden card.</div>
+        </div>
+        <div class="instruction-item">
+          <div class="instruction-num">02</div>
+          <div class="instruction-text">Sense the symbol on the card. Tap your impression immediately — do not deliberate.</div>
+        </div>
+        <div class="instruction-item">
+          <div class="instruction-num">03</div>
+          <div class="instruction-text">The card reveals after each guess. 25 trials per run. Results are saved automatically.</div>
+        </div>
+        <div class="instruction-item">
+          <div class="instruction-num">04</div>
+          <div class="instruction-text">Analytical guessing inflates noise. Trust first impression only.</div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary fade-in-delay-3" onclick="openZenerSession()">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13,2 3,14 12,14 11,22 21,10 12,10"/></svg>
+        BEGIN 25 TRIALS
+      </button>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: ZENER – SESSION
+  ═══════════════════════════════════ -->
+  <div id="screen-zener-session" class="screen" style="bottom:0;">
+    <div class="zener-session-shell">
+
+      <div class="zener-session-header">
+        <div>
+          <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;">Trial</div>
+          <div style="font-family:var(--font-display);font-size:28px;line-height:1;color:var(--text);" id="zener-trial-num">1 / 25</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;">Hits</div>
+          <div style="font-family:var(--font-display);font-size:28px;line-height:1;color:var(--accent);" id="zener-hit-count">0</div>
+        </div>
+      </div>
+
+      <div class="zener-progress-bar-wrap">
+        <div class="zener-progress-bar" id="zener-progress-bar" style="width:0%"></div>
+      </div>
+
+      <div class="zener-main">
+
+        <!-- Card -->
+        <div class="zener-card-wrap">
+          <div class="zener-card-inner" id="zener-card-inner">
+            <div class="zener-card-face zener-card-front">
+              <div class="card-reticle"></div>
+            </div>
+            <div class="zener-card-face zener-card-back" id="zener-card-back">
+              <svg id="zener-reveal-symbol" viewBox="0 0 80 80" width="90" height="90"
+                   fill="none" stroke="currentColor" stroke-width="2.5"
+                   stroke-linecap="round" stroke-linejoin="round">
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Feedback -->
+        <div class="zener-feedback hidden" id="zener-feedback"></div>
+
+        <!-- Symbol choice buttons -->
+        <div class="zener-choices" id="zener-choices">
+          <!-- Circle -->
+          <button class="zener-choice-btn" onclick="submitZenerGuess('circle')" id="zbtn-circle">
+            <svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="24"/></svg>
+          </button>
+          <!-- Cross -->
+          <button class="zener-choice-btn" onclick="submitZenerGuess('cross')" id="zbtn-cross">
+            <svg viewBox="0 0 80 80"><line x1="40" y1="14" x2="40" y2="66"/><line x1="14" y1="40" x2="66" y2="40"/></svg>
+          </button>
+          <!-- Waves -->
+          <button class="zener-choice-btn" onclick="submitZenerGuess('waves')" id="zbtn-waves">
+            <svg viewBox="0 0 80 80"><path d="M14 28 Q23 20 32 28 Q41 36 50 28 Q59 20 66 28"/><path d="M14 40 Q23 32 32 40 Q41 48 50 40 Q59 32 66 40"/><path d="M14 52 Q23 44 32 52 Q41 60 50 52 Q59 44 66 52"/></svg>
+          </button>
+          <!-- Square -->
+          <button class="zener-choice-btn" onclick="submitZenerGuess('square')" id="zbtn-square">
+            <svg viewBox="0 0 80 80"><rect x="16" y="16" width="48" height="48" rx="2"/></svg>
+          </button>
+          <!-- Star -->
+          <button class="zener-choice-btn" onclick="submitZenerGuess('star')" id="zbtn-star">
+            <svg viewBox="0 0 80 80"><polygon points="40,12 47,33 70,33 52,46 59,68 40,55 21,68 28,46 10,33 33,33"/></svg>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: ZENER – RESULTS
+  ═══════════════════════════════════ -->
+  <div id="screen-zener-results" class="screen">
+    <div class="screen-inner">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div class="section-label">Run Analysis</div>
+        <div class="mono-sm" id="zener-result-date">––</div>
+      </div>
+
+      <div class="zener-score-hero fade-in">
+        <div class="mono-label">Hits out of 25</div>
+        <div class="zener-score-big" id="zener-result-score">–</div>
+        <div class="mono-sm" id="zener-result-pct">– %</div>
+        <div class="zener-verdict" id="zener-verdict"></div>
+        <div class="mono-sm" style="margin-top:8px;text-align:center;" id="zener-sig-note"></div>
+      </div>
+
+      <div class="section-label fade-in-delay-1">Symbol Breakdown</div>
+      <div class="symbol-breakdown fade-in-delay-1" id="zener-symbol-breakdown">
+        <!-- populated by JS -->
+      </div>
+
+      <div class="section-label fade-in-delay-2">Cumulative Stats</div>
+      <div class="zener-brief-stats fade-in-delay-2">
+        <div class="zener-stat-cell">
+          <div class="mono-label">Total Runs</div>
+          <div class="zener-stat-val" id="zener-result-runs">–</div>
+        </div>
+        <div class="zener-stat-cell">
+          <div class="mono-label">Overall Hit%</div>
+          <div class="zener-stat-val accent" id="zener-result-overall">–</div>
+        </div>
+        <div class="zener-stat-cell">
+          <div class="mono-label">Baseline</div>
+          <div class="zener-stat-val dim">20%</div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;" class="fade-in-delay-3">
+        <button class="btn btn-ghost" style="flex:1;" onclick="navigate('zener')">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+          Back
+        </button>
+        <button class="btn btn-primary" style="flex:2;" onclick="openZenerSession()">Run Again</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: ANALYTICS
+  ═══════════════════════════════════ -->
+  <div id="screen-analytics" class="screen">
+    <div class="screen-inner" style="gap:0;">
+
+      <div class="display-lg fade-in" style="margin-bottom:12px;">ANALYTICS</div>
+
+      <div class="analytics-tabs">
+        <div class="analytics-tab active" id="atab-overview"    onclick="switchAnalyticsTab('overview')">Overview</div>
+        <div class="analytics-tab"        id="atab-performance" onclick="switchAnalyticsTab('performance')">Performance</div>
+        <div class="analytics-tab"        id="atab-log"         onclick="switchAnalyticsTab('log')">Log</div>
+      </div>
+
+      <!-- OVERVIEW PANEL -->
+      <div class="analytics-panel panel-active" id="apanel-overview" style="margin-top:16px;">
+
+        <div class="kpi-grid">
+          <div class="kpi-card">
+            <div class="mono-label">RV Sessions</div>
+            <div class="kpi-val" id="kpi-rv-sessions">0</div>
+            <div class="kpi-delta" id="kpi-rv-avg">Avg: –</div>
+          </div>
+          <div class="kpi-card">
+            <div class="mono-label">Zener Runs</div>
+            <div class="kpi-val" id="kpi-z-runs">0</div>
+            <div class="kpi-delta" id="kpi-z-avg">Avg: –%</div>
+          </div>
+          <div class="kpi-card">
+            <div class="mono-label">Best RV Score</div>
+            <div class="kpi-val accent" id="kpi-rv-best">–</div>
+            <div class="kpi-delta">All time</div>
+          </div>
+          <div class="kpi-card">
+            <div class="mono-label">Training Streak</div>
+            <div class="kpi-val warn" id="kpi-streak">0</div>
+            <div class="kpi-delta">Days active</div>
+          </div>
+        </div>
+
+        <div class="kpi-card" style="border-radius:14px;padding:16px;">
+          <div class="mono-label" style="margin-bottom:10px;">Zener vs Chance Baseline</div>
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="flex:1;">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);">YOUR AVG</span>
+                <span style="font-family:var(--font-mono);font-size:9px;color:var(--accent);" id="baseline-your-pct">–%</span>
+              </div>
+              <div class="cat-bar-track"><div class="cat-bar-fill" id="baseline-your-bar" style="width:0%"></div></div>
+            </div>
+            <div style="flex:1;">
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);">CHANCE</span>
+                <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);">20%</span>
+              </div>
+              <div class="cat-bar-track"><div class="cat-bar-fill" style="width:20%;background:var(--dim)"></div></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- PERFORMANCE PANEL -->
+      <div class="analytics-panel" id="apanel-performance" style="margin-top:16px;">
+
+        <div class="chart-card" id="rv-chart-card">
+          <div class="chart-title">RV Score Trend — Last 10 Sessions</div>
+          <div class="chart-svg-wrap" id="rv-chart-wrap">
+            <!-- SVG injected by JS -->
+          </div>
+        </div>
+
+        <div class="chart-card" id="zener-chart-card">
+          <div class="chart-title">Zener Hit Rate Trend — Last 10 Runs</div>
+          <div class="chart-svg-wrap" id="zener-chart-wrap">
+            <!-- SVG injected by JS -->
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">RV Accuracy by Category</div>
+          <div class="cat-breakdown" id="cat-breakdown">
+            <!-- populated by JS -->
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">Zener Symbol Accuracy</div>
+          <div class="symbol-acc-grid" id="symbol-acc-grid">
+            <!-- populated by JS -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- LOG PANEL -->
+      <div class="analytics-panel" id="apanel-log" style="margin-top:16px;">
+
+        <div class="stats-grid">
+          <div class="stat-cell">
+            <div class="mono-label">Total Sessions</div>
+            <div class="stat-val" id="log-total">0</div>
+          </div>
+          <div class="stat-cell">
+            <div class="mono-label">Best RV Score</div>
+            <div class="stat-val accent" id="log-best">–</div>
+          </div>
+        </div>
+
+        <div id="combined-log-list" style="display:flex;flex-direction:column;gap:8px;">
+          <!-- populated by JS -->
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
        BOTTOM NAV
   ═══════════════════════════════════ -->
   <nav id="nav">
@@ -994,9 +1647,14 @@ html, body {
       <span>View</span>
       <div class="nav-dot"></div>
     </div>
-    <div class="nav-item" id="nav-history" onclick="navigate('history')">
+    <div class="nav-item" id="nav-zener" onclick="navigate('zener')">
+      <svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+      <span>Zener</span>
+      <div class="nav-dot"></div>
+    </div>
+    <div class="nav-item" id="nav-analytics" onclick="navigate('analytics')">
       <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-      <span>Log</span>
+      <span>Stats</span>
       <div class="nav-dot"></div>
     </div>
     <div class="nav-item" id="nav-profile" onclick="navigate('profile')">
@@ -1020,14 +1678,26 @@ html, body {
 // server-side via Cloudflare Worker.
 // For local dev, using public domain images.
 const TARGET_POOL = [
-  { id: 'T001', src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/24701-nature-natural-beauty.jpg/320px-24701-nature-natural-beauty.jpg', label: 'Mountain Valley' },
-  { id: 'T002', src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Golden_Gate_Bridge_at_night_2010.jpg/320px-Golden_Gate_Bridge_at_night_2010.jpg', label: 'Bridge Structure' },
-  { id: 'T003', src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/PNG_transparency_demonstration_1.png/280px-PNG_transparency_demonstration_1.png', label: 'Geometric Form' },
-  { id: 'T004', src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Camponotus_flavomarginatus_ant.jpg/320px-Camponotus_flavomarginatus_ant.jpg', label: 'Organism' },
-  { id: 'T005', src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/e/e7/Sunset_by_the_sea.jpg/320px-Sunset_by_the_sea.jpg', label: 'Coastal Scene' },
-  { id: 'T006', src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Bikesgray.jpg/320px-Bikesgray.jpg', label: 'Man-made Object' },
-  { id: 'T007', src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/41/Simple_Periodic_Table_Chart-en.svg/320px-Simple_Periodic_Table_Chart-en.svg.png', label: 'Data Grid' },
-  { id: 'T008', src: 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Simple_English_Wikipedia_favicon.svg/240px-Simple_English_Wikipedia_favicon.svg.png', label: 'Circular Form' },
+  // LANDSCAPES
+  { id: 'T001', src: 'targets/landscape_01.jpg', label: 'Natural Expanse',  category: 'landscapes' },
+  { id: 'T002', src: 'targets/landscape_02.jpg', label: 'Open Terrain',     category: 'landscapes' },
+  { id: 'T003', src: 'targets/landscape_03.jpg', label: 'Water Feature',    category: 'landscapes' },
+  { id: 'T004', src: 'targets/landscape_04.jpg', label: 'Elevated Form',    category: 'landscapes' },
+  // STRUCTURES
+  { id: 'T005', src: 'targets/structure_01.jpg', label: 'Built Environment', category: 'structures' },
+  { id: 'T006', src: 'targets/structure_02.jpg', label: 'Interior Space',    category: 'structures' },
+  { id: 'T007', src: 'targets/structure_03.jpg', label: 'Tall Form',         category: 'structures' },
+  { id: 'T008', src: 'targets/structure_04.jpg', label: 'Enclosed Space',    category: 'structures' },
+  // OBJECTS
+  { id: 'T009', src: 'targets/object_01.jpg', label: 'Functional Object', category: 'objects' },
+  { id: 'T010', src: 'targets/object_02.jpg', label: 'Geometric Form',    category: 'objects' },
+  { id: 'T011', src: 'targets/object_03.jpg', label: 'Organic Shape',     category: 'objects' },
+  { id: 'T012', src: 'targets/object_04.jpg', label: 'Composite Form',    category: 'objects' },
+  // ANIMALS
+  { id: 'T013', src: 'targets/animal_01.jpg', label: 'Living Creature',  category: 'animals' },
+  { id: 'T014', src: 'targets/animal_02.jpg', label: 'Large Organism',   category: 'animals' },
+  { id: 'T015', src: 'targets/animal_03.jpg', label: 'Small Organism',   category: 'animals' },
+  { id: 'T016', src: 'targets/animal_04.jpg', label: 'Aerial Creature',  category: 'animals' },
 ];
 
 // ─── APP STATE ────────────────────────────────
@@ -1035,6 +1705,7 @@ const STATE = {
   seekerId: null,
   currentTRN: null,
   currentTargetIndex: null,
+  currentCategory: 'all',
   sessions: [],
   settings: { pager: false },
   strokeSize: 2,
@@ -1080,19 +1751,22 @@ function loadState() {
 
 // ─── ROUTING ──────────────────────────────────
 const SCREENS = {
-  home:       'screen-home',
-  rv:         'screen-rv-brief',
-  canvas:     'screen-canvas',
-  results:    'screen-results',
-  history:    'screen-history',
-  profile:    'screen-profile',
+  home:           'screen-home',
+  rv:             'screen-rv-brief',
+  canvas:         'screen-canvas',
+  results:        'screen-results',
+  zener:          'screen-zener-brief',
+  'zener-session':'screen-zener-session',
+  'zener-results':'screen-zener-results',
+  analytics:      'screen-analytics',
+  history:        'screen-analytics', // legacy alias
+  profile:        'screen-profile',
 };
-const NAV_SCREENS = ['home', 'history', 'profile'];
+const NAV_SCREENS = ['home', 'analytics', 'profile'];
 
 let currentScreen = 'home';
 
 function showScreen(name, hideNav = false) {
-  // Fade out current
   const prev = document.getElementById(SCREENS[currentScreen]);
   if (prev) {
     prev.classList.remove('active');
@@ -1100,36 +1774,50 @@ function showScreen(name, hideNav = false) {
     setTimeout(() => prev.classList.remove('slide-left'), 300);
   }
 
-  // Show new
   const next = document.getElementById(SCREENS[name]);
   if (next) {
     next.classList.add('active');
     next.classList.remove('slide-left');
   }
 
-  // Nav
-  document.getElementById('nav').style.display = hideNav ? 'none' : 'flex';
+  const nav = document.getElementById('nav');
+  if (nav) {
+    nav.style.visibility = hideNav ? 'hidden' : 'visible';
+    nav.style.opacity    = hideNav ? '0' : '1';
+  }
 
-  // Nav active state
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  if (name === 'home') document.getElementById('nav-home').classList.add('active');
-  else if (name === 'rv') document.getElementById('nav-rv').classList.add('active');
-  else if (name === 'history') document.getElementById('nav-history').classList.add('active');
-  else if (name === 'profile') document.getElementById('nav-profile').classList.add('active');
+  const navMap = {
+    home:           'nav-home',
+    rv:             'nav-rv',
+    canvas:         'nav-rv',
+    results:        'nav-rv',
+    zener:          'nav-zener',
+    'zener-session':'nav-zener',
+    'zener-results':'nav-zener',
+    analytics:      'nav-analytics',
+    history:        'nav-analytics',
+    profile:        'nav-profile',
+  };
+  const activeNav = document.getElementById(navMap[name]);
+  if (activeNav) activeNav.classList.add('active');
 
   currentScreen = name;
 }
 
 function navigate(name) {
   showScreen(name, false);
-  if (name === 'history') renderHistory();
-  if (name === 'profile') renderProfile();
+  if (name === 'analytics' || name === 'history') renderAnalytics();
+  if (name === 'profile')  renderProfile();
+  if (name === 'zener')    renderZenerBrief();
 }
 
 function goHome() { navigate('home'); }
 function goToBrief() {
   stopTimer();
   showScreen('rv', false);
+  // Restore category button UI to match current STATE
+  setCategory(STATE.currentCategory);
 }
 
 // ─── CLOCK ────────────────────────────────────
@@ -1147,66 +1835,96 @@ function generateTRN() {
 }
 
 // ─── SESSION FLOW ─────────────────────────────
+function setCategory(cat) {
+  STATE.currentCategory = cat;
+  document.querySelectorAll('.cat-btn').forEach(el => el.classList.remove('active'));
+  const btn = document.getElementById('cat-' + cat);
+  if (btn) btn.classList.add('active');
+}
+
 function startRVSession() {
   STATE.currentTRN = generateTRN();
-  // Select target - NOT exposed to user during session
-  STATE.currentTargetIndex = Math.floor(Math.random() * TARGET_POOL.length);
 
-  document.getElementById('trn-display').textContent = STATE.currentTRN;
-  document.getElementById('canvas-trn').textContent = STATE.currentTRN;
+  // Filter pool by selected category
+  const pool = STATE.currentCategory === 'all'
+    ? TARGET_POOL
+    : TARGET_POOL.filter(t => t.category === STATE.currentCategory);
 
-  // Update brief stats
-  document.getElementById('brief-session-count').textContent = STATE.sessions.length;
+  // Fallback to full pool if category has no targets yet
+  const activePool = pool.length ? pool : TARGET_POOL;
+  const picked = activePool[Math.floor(Math.random() * activePool.length)];
+  STATE.currentTargetIndex = TARGET_POOL.indexOf(picked);
+
+  const trnEl     = document.getElementById('trn-display');
+  const canvasTrn = document.getElementById('canvas-trn');
+  const countEl   = document.getElementById('brief-session-count');
+  const avgEl     = document.getElementById('brief-avg-score');
+
+  if (trnEl)     trnEl.textContent     = STATE.currentTRN;
+  if (canvasTrn) canvasTrn.textContent = STATE.currentTRN;
+  if (countEl)   countEl.textContent   = STATE.sessions.length;
+
   const avgScore = STATE.sessions.length
     ? Math.round(STATE.sessions.reduce((a, s) => a + s.score, 0) / STATE.sessions.length)
     : null;
-  document.getElementById('brief-avg-score').textContent = avgScore !== null ? avgScore + '%' : '–';
+  if (avgEl) avgEl.textContent = avgScore !== null ? avgScore + '%' : '–';
 
   showScreen('rv', false);
-  document.getElementById('nav-rv').classList.add('active');
+  const navRv = document.getElementById('nav-rv');
+  if (navRv) navRv.classList.add('active');
 }
 
 function openCanvas() {
   showScreen('canvas', true);
-  initCanvas();
-  startTimer();
-  // Reset notepad
-  document.getElementById('rv-notes').value = '';
+  STATE.isErasing = false;
+  const eraseBtn = document.getElementById('eraser-btn');
+  if (eraseBtn) eraseBtn.classList.remove('active');
+  const notes = document.getElementById('rv-notes');
+  if (notes) notes.value = '';
   switchTab('sketch');
+  startTimer();
+  // Double rAF — let screen transition finish before measuring
+  requestAnimationFrame(() => requestAnimationFrame(() => initCanvas()));
 }
 
 // ─── CANVAS ───────────────────────────────────
-let ctx, isDrawing = false, lastX = 0, lastY = 0;
+let ctx = null;
+let isDrawing = false;
+let lastX = 0, lastY = 0;
+const CANVAS_BG = '#111214';
 
 function initCanvas() {
-  const canvas = document.getElementById('rv-canvas');
-  const area = document.getElementById('sketch-area');
-  canvas.width = area.offsetWidth * window.devicePixelRatio;
-  canvas.height = area.offsetHeight * window.devicePixelRatio;
-  canvas.style.width = area.offsetWidth + 'px';
-  canvas.style.height = area.offsetHeight + 'px';
+  const canvas    = document.getElementById('rv-canvas');
+  const container = document.getElementById('panel-container');
+  if (!container) { requestAnimationFrame(initCanvas); return; }
+
+  const w = container.offsetWidth;
+  const h = container.offsetHeight;
+  if (!w || !h) { requestAnimationFrame(initCanvas); return; }
+
+  const dpr = window.devicePixelRatio || 1;
+
+  // Set pixel dimensions ONCE — never touch them again
+  canvas.width  = Math.floor(w * dpr);
+  canvas.height = Math.floor(h * dpr);
 
   ctx = canvas.getContext('2d');
-  ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-  ctx.fillStyle = '#111214';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.strokeStyle = '#ffffff';
-  ctx.lineWidth = STATE.strokeSize;
-  ctx.lineCap = 'round';
+  ctx.scale(dpr, dpr);
+  ctx.lineCap  = 'round';
   ctx.lineJoin = 'round';
+  ctx.fillStyle = CANVAS_BG;
+  ctx.fillRect(0, 0, w, h);
 }
 
 function getPos(e, canvas) {
-  const rect = canvas.getBoundingClientRect();
+  const rect   = canvas.getBoundingClientRect();
   const client = e.touches ? e.touches[0] : e;
-  return [
-    (client.clientX - rect.left),
-    (client.clientY - rect.top)
-  ];
+  return [client.clientX - rect.left, client.clientY - rect.top];
 }
 
 function startDraw(e) {
   e.preventDefault();
+  if (!ctx) return;
   isDrawing = true;
   const canvas = document.getElementById('rv-canvas');
   [lastX, lastY] = getPos(e, canvas);
@@ -1215,13 +1933,13 @@ function startDraw(e) {
 }
 
 function draw(e) {
-  if (!isDrawing) return;
+  if (!isDrawing || !ctx) return;
   e.preventDefault();
   const canvas = document.getElementById('rv-canvas');
   const [x, y] = getPos(e, canvas);
-  ctx.globalCompositeOperation = STATE.isErasing ? 'destination-out' : 'source-over';
-  ctx.strokeStyle = STATE.isErasing ? 'rgba(0,0,0,1)' : '#ffffff';
-  ctx.lineWidth = STATE.isErasing ? STATE.strokeSize * 4 : STATE.strokeSize;
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.strokeStyle = STATE.isErasing ? CANVAS_BG : '#ffffff';
+  ctx.lineWidth   = STATE.isErasing ? STATE.strokeSize * 4 : STATE.strokeSize;
   ctx.lineTo(x, y);
   ctx.stroke();
   ctx.beginPath();
@@ -1229,48 +1947,54 @@ function draw(e) {
   lastX = x; lastY = y;
 }
 
-function stopDraw(e) {
+function stopDraw() {
   isDrawing = false;
-  ctx && ctx.beginPath();
+  if (ctx) ctx.beginPath();
 }
 
 function clearCanvas() {
   if (!ctx) return;
   const canvas = document.getElementById('rv-canvas');
-  ctx.globalCompositeOperation = 'source-over';
-  ctx.fillStyle = '#111214';
-  ctx.fillRect(0, 0, canvas.width / window.devicePixelRatio, canvas.height / window.devicePixelRatio);
+  const dpr = window.devicePixelRatio || 1;
+  ctx.fillStyle = CANVAS_BG;
+  ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
 }
 
 function setStroke(size, el) {
   STATE.strokeSize = size;
   document.querySelectorAll('.stroke-option').forEach(s => s.classList.remove('active'));
-  el.classList.add('active');
+  if (el) el.classList.add('active');
 }
 
 function toggleEraser() {
   STATE.isErasing = !STATE.isErasing;
-  document.getElementById('eraser-btn').classList.toggle('active', STATE.isErasing);
+  const btn = document.getElementById('eraser-btn');
+  if (btn) btn.classList.toggle('active', STATE.isErasing);
 }
 
-// Attach canvas events after DOM ready
 function attachCanvasEvents() {
   const canvas = document.getElementById('rv-canvas');
-  canvas.addEventListener('mousedown', startDraw, { passive: false });
-  canvas.addEventListener('mousemove', draw, { passive: false });
-  canvas.addEventListener('mouseup', stopDraw);
-  canvas.addEventListener('touchstart', startDraw, { passive: false });
-  canvas.addEventListener('touchmove', draw, { passive: false });
-  canvas.addEventListener('touchend', stopDraw, { passive: false });
-  canvas.addEventListener('touchcancel', stopDraw, { passive: false });
+  if (!canvas) return;
+  canvas.addEventListener('mousedown',   startDraw, { passive: false });
+  canvas.addEventListener('mousemove',   draw,      { passive: false });
+  canvas.addEventListener('mouseup',     stopDraw);
+  canvas.addEventListener('mouseleave',  stopDraw);
+  canvas.addEventListener('touchstart',  startDraw, { passive: false });
+  canvas.addEventListener('touchmove',   draw,      { passive: false });
+  canvas.addEventListener('touchend',    stopDraw,  { passive: false });
+  canvas.addEventListener('touchcancel', stopDraw,  { passive: false });
 }
 
+// Tab switching — ONLY touches notes-panel opacity/pointer-events
+// Canvas element is never hidden, moved, or reflowed
 function switchTab(tab) {
-  STATE.activeTab = tab;
-  document.getElementById('tab-sketch').classList.toggle('active', tab === 'sketch');
-  document.getElementById('tab-notes').classList.toggle('active', tab === 'notes');
-  document.getElementById('sketch-area').classList.toggle('hidden', tab !== 'sketch');
-  document.getElementById('notepad-area').classList.toggle('hidden', tab !== 'notes');
+  const tabSketch = document.getElementById('tab-sketch');
+  const tabNotes  = document.getElementById('tab-notes');
+  const notesPanel = document.getElementById('notes-panel');
+
+  if (tabSketch) tabSketch.classList.toggle('active', tab === 'sketch');
+  if (tabNotes)  tabNotes.classList.toggle('active',  tab === 'notes');
+  if (notesPanel) notesPanel.classList.toggle('panel-visible', tab === 'notes');
 }
 
 // ─── TIMER ────────────────────────────────────
@@ -1290,64 +2014,77 @@ function stopTimer() { clearInterval(STATE.timerInterval); }
 // ─── SUBMIT & GRADE ───────────────────────────
 async function submitSession() {
   stopTimer();
+
+  // Switch to sketch tab first so canvas is guaranteed to be the active context
+  switchTab('sketch');
+
+  // Yield one frame so any pending paints complete
+  await new Promise(r => requestAnimationFrame(r));
+
   const canvas = document.getElementById('rv-canvas');
-  const sketchB64 = canvas.toDataURL('image/jpeg', 0.7).split(',')[1];
-  const notes = document.getElementById('rv-notes').value.trim();
+
+  // Capture sketch as data URL — must happen before ANY screen transition
+  const sketchDataURL = canvas ? canvas.toDataURL('image/jpeg', 0.85) : '';
+  const sketchB64     = sketchDataURL.split(',')[1] || '';
+  const notes  = (document.getElementById('rv-notes') || {}).value || '';
   const target = TARGET_POOL[STATE.currentTargetIndex];
 
   showScreen('results', false);
-  document.getElementById('grading-overlay').style.display = 'flex';
-  document.getElementById('result-trn-label').textContent = 'TRN: ' + STATE.currentTRN;
+  const gradingEl = document.getElementById('grading-overlay');
+  if (gradingEl) gradingEl.style.display = 'flex';
+  const trnLabel = document.getElementById('result-trn-label');
+  if (trnLabel) trnLabel.textContent = 'TRN: ' + STATE.currentTRN;
 
-  // Copy sketch to preview
-  setTimeout(() => {
-    const preview = document.getElementById('sketch-preview');
-    preview.width = canvas.width;
-    preview.height = canvas.height;
-    const pCtx = preview.getContext('2d');
-    pCtx.drawImage(canvas, 0, 0);
-  }, 50);
+  // Use data URL directly as img src
+  const sketchPreview = document.getElementById('sketch-preview');
+  if (sketchPreview) {
+    sketchPreview.src = sketchDataURL;
+    sketchPreview.style.width = '100%';
+    sketchPreview.style.aspectRatio = '1';
+    sketchPreview.style.objectFit = 'cover';
+    sketchPreview.style.display = 'block';
+  }
 
   // Reveal target image
-  document.getElementById('target-reveal').src = target.src;
+  const targetReveal = document.getElementById('target-reveal');
+  if (targetReveal) targetReveal.src = target.src;
 
+  let result;
   try {
     updateGradingStatus('Encoding sketch data...');
     await delay(600);
     updateGradingStatus('Contacting AI analyst...');
-
-    const result = await gradeSession(sketchB64, notes, target);
-
+    result = await gradeSession(sketchB64, notes, target);
     updateGradingStatus('Compiling report...');
     await delay(400);
-
-    // Hide overlay
-    document.getElementById('grading-overlay').style.display = 'none';
-    renderResults(result, target);
-
-    // Save session
-    const session = {
-      id: Date.now(),
-      trn: STATE.currentTRN,
-      targetId: target.id,
-      targetSrc: target.src,
-      targetLabel: target.label,
-      score: result.gestalt_score,
-      hits: result.hits,
-      noise: result.noise,
-      summary: result.summary,
-      duration: STATE.timerSeconds,
-      timestamp: new Date().toISOString(),
-    };
-    STATE.sessions.unshift(session);
-    saveState();
-
   } catch(err) {
-    document.getElementById('grading-overlay').style.display = 'none';
-    document.getElementById('result-summary').textContent =
-      'Analysis unavailable. Configure your Cloudflare Worker endpoint to enable AI grading.';
-    renderResults(mockGrade(), target);
+    result = mockGrade();
   }
+
+  const gradingOverlay = document.getElementById('grading-overlay');
+  if (gradingOverlay) gradingOverlay.style.display = 'none';
+  renderResults(result, target);
+
+  // Always save session
+  const session = {
+    id: Date.now(),
+    trn: STATE.currentTRN,
+    targetId: target.id,
+    targetSrc: target.src,
+    targetLabel: target.label,
+    category: target.category,
+    score: result.gestalt_score,
+    dimension_scores: result.dimension_scores || null,
+    hits: result.hits || [],
+    noise: result.noise || [],
+    aol: result.aol || [],
+    summary: result.summary,
+    duration: STATE.timerSeconds,
+    timestamp: new Date().toISOString(),
+    sketchData: sketchDataURL,
+  };
+  STATE.sessions.unshift(session);
+  saveState();
 }
 
 function updateGradingStatus(msg) {
@@ -1355,28 +2092,72 @@ function updateGradingStatus(msg) {
   if (el) el.textContent = msg;
 }
 
-function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+function renderResults(result, target) {
+  const score   = result.gestalt_score || 0;
+  const ring    = document.getElementById('score-ring');
+  const pctEl   = document.getElementById('score-pct');
+  const summary = document.getElementById('result-summary');
+  const hitList = document.getElementById('hit-list');
+
+  if (ring) {
+    const circumference = 364.4;
+    ring.style.stroke = score >= 60 ? 'var(--accent)' : score >= 35 ? 'var(--warn)' : 'var(--danger)';
+    setTimeout(() => {
+      ring.style.strokeDashoffset = circumference - (score / 100) * circumference;
+    }, 200);
+  }
+
+  if (pctEl) {
+    let count = 0;
+    const interval = setInterval(() => {
+      count += 2;
+      if (count >= score) { pctEl.textContent = score + '%'; clearInterval(interval); }
+      else pctEl.textContent = count + '%';
+    }, 20);
+  }
+
+  if (summary) summary.textContent = result.summary || '';
+
+  if (hitList) {
+    hitList.innerHTML = '';
+    (result.hits  || []).forEach(h => {
+      hitList.innerHTML += `<div class="hit-item"><div class="hit-badge hit">Hit</div><div class="hit-text">${h}</div></div>`;
+    });
+    (result.noise || []).forEach(n => {
+      hitList.innerHTML += `<div class="hit-item"><div class="hit-badge noise">Noise</div><div class="hit-text">${n}</div></div>`;
+    });
+    (result.aol   || []).forEach(a => {
+      hitList.innerHTML += `<div class="hit-item"><div class="hit-badge aol">AOL</div><div class="hit-text">${a}</div></div>`;
+    });
+  }
+}
 
 // ─── AI GRADING ───────────────────────────────
 // PRODUCTION: replace this URL with your Cloudflare Worker endpoint
-const WORKER_URL = 'https://your-worker.your-subdomain.workers.dev/grade';
+const WORKER_URL = 'https://abltygrader.kayvideoproductions.workers.dev/grade';
 
 async function gradeSession(sketchB64, notes, target) {
-  // TODO: swap in Cloudflare Worker URL above
-  // For now: falls through to mockGrade() in catch
+  // Resolve relative target path to full URL so the Worker can fetch it
+  const targetUrl = target.src.startsWith('http')
+    ? target.src
+    : `${window.location.origin}/${target.src.replace(/^\//, '')}`;
+
   const resp = await fetch(WORKER_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      sketch: sketchB64,
-      notes: notes,
-      target_url: target.src,
+      sketch:       sketchB64,
+      notes:        notes,
+      target_url:   targetUrl,
       target_label: target.label,
-      trn: STATE.currentTRN,
+      descriptor:   target.descriptor || null,
+      trn:          STATE.currentTRN,
     }),
   });
-  if (!resp.ok) throw new Error('Worker error');
-  return await resp.json();
+  if (!resp.ok) throw new Error('Worker error ' + resp.status);
+  const data = await resp.json();
+  if (data.error) throw new Error(data.error);
+  return data;
 }
 
 function mockGrade() {
@@ -1407,79 +2188,19 @@ function mockGrade() {
   };
 }
 
-// ─── RENDER RESULTS ───────────────────────────
-function renderResults(result, target) {
-  const score = result.gestalt_score;
-
-  // Ring animation
-  const circumference = 364.4;
-  const offset = circumference - (score / 100) * circumference;
-  const ring = document.getElementById('score-ring');
-  const pctEl = document.getElementById('score-pct');
-
-  // Color ring based on score
-  ring.style.stroke = score >= 60 ? 'var(--accent)' : score >= 35 ? 'var(--warn)' : 'var(--danger)';
-
-  setTimeout(() => {
-    ring.style.strokeDashoffset = offset;
-    let count = 0;
-    const interval = setInterval(() => {
-      count += 2;
-      if (count >= score) { pctEl.textContent = score + '%'; clearInterval(interval); }
-      else pctEl.textContent = count + '%';
-    }, 20);
-  }, 200);
-
-  // Summary
-  document.getElementById('result-summary').textContent = result.summary;
-
-  // Hit list
-  const hitList = document.getElementById('hit-list');
-  hitList.innerHTML = '';
-  (result.hits || []).forEach(h => {
-    hitList.innerHTML += `<div class="hit-item"><div class="hit-badge hit">Hit</div><div class="hit-text">${h}</div></div>`;
-  });
-  (result.noise || []).forEach(n => {
-    hitList.innerHTML += `<div class="hit-item"><div class="hit-badge noise">Noise</div><div class="hit-text">${n}</div></div>`;
-  });
-}
-
-// ─── HISTORY RENDER ───────────────────────────
-function renderHistory() {
-  document.getElementById('hist-total').textContent = STATE.sessions.length;
-  const best = STATE.sessions.length
-    ? Math.max(...STATE.sessions.map(s => s.score)) + '%'
-    : '–';
-  document.getElementById('hist-best').textContent = best;
-
-  const list = document.getElementById('session-log-list');
-  if (!STATE.sessions.length) {
-    list.innerHTML = `<div class="empty-state"><div class="empty-icon">◎</div><div class="mono-label">No sessions yet</div><div class="body-sm" style="margin-top:6px;">Complete your first Remote Viewing session to begin building your log.</div></div>`;
-    return;
-  }
-  list.innerHTML = STATE.sessions.map(s => {
-    const d = new Date(s.timestamp);
-    const dateStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
-    const cls = s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low';
-    return `<div class="session-card">
-      <div class="session-thumb"><img src="${s.targetSrc}" alt="" onerror="this.style.display='none'"></div>
-      <div class="session-info">
-        <div class="display-sm">TRN ${s.trn}</div>
-        <div class="mono-sm" style="margin-top:4px;">${dateStr} &bull; ${Math.floor(s.duration/60)}:${(s.duration%60).toString().padStart(2,'0')}</div>
-        <div class="mono-sm" style="margin-top:2px;color:var(--dim);">${s.targetLabel}</div>
-      </div>
-      <div class="session-score ${cls}">${s.score}%</div>
-    </div>`;
-  }).join('');
-}
-
 // ─── PROFILE RENDER ───────────────────────────
 function renderProfile() {
-  document.getElementById('profile-seeker-id').textContent = STATE.seekerId;
-  document.getElementById('profile-avatar').textContent = STATE.seekerId.replace('#','').charAt(0);
-  const pager = document.getElementById('toggle-pager');
-  pager.classList.toggle('on', STATE.settings.pager);
-  pager.querySelector('.toggle-knob').style.transform = STATE.settings.pager ? 'translateX(18px)' : '';
+  const seekerEl = document.getElementById('profile-seeker-id');
+  const avatarEl = document.getElementById('profile-avatar');
+  const pager    = document.getElementById('toggle-pager');
+
+  if (seekerEl) seekerEl.textContent = STATE.seekerId;
+  if (avatarEl) avatarEl.textContent = (STATE.seekerId || '#0').replace('#','').charAt(0);
+  if (pager) {
+    pager.classList.toggle('on', !!STATE.settings.pager);
+    const knob = pager.querySelector('.toggle-knob');
+    if (knob) knob.style.transform = STATE.settings.pager ? 'translateX(18px)' : '';
+  }
 }
 
 function toggleSetting(key) {
@@ -1492,7 +2213,8 @@ function clearAllData() {
   if (confirm('Clear all session data? This cannot be undone.')) {
     STATE.sessions = [];
     saveState();
-    renderHistory();
+    try { localStorage.removeItem('ablty_zener'); } catch(e) {}
+    renderAnalytics();
   }
 }
 
@@ -1530,10 +2252,482 @@ document.addEventListener('DOMContentLoaded', () => {
 
   try { attachCanvasEvents(); } catch(e) {}
 
-  window.addEventListener('resize', () => {
-    try { if (currentScreen === 'canvas') initCanvas(); } catch(e) {}
-  });
+  // Do NOT re-init canvas on resize — keyboard open/close fires resize
+  // and would wipe the drawing. Canvas is initialized once on session open.
+  window.addEventListener('resize', () => {});
 });
+
+// ═══════════════════════════════════════════════════════
+//  ZENER PROTOCOL
+// ═══════════════════════════════════════════════════════
+
+const ZENER_SYMBOLS = ['circle', 'cross', 'waves', 'square', 'star'];
+
+const SYMBOL_SVG = {
+  circle: `<circle cx="40" cy="40" r="24"/>`,
+  cross:  `<line x1="40" y1="14" x2="40" y2="66"/><line x1="14" y1="40" x2="66" y2="40"/>`,
+  waves:  `<path d="M14 28 Q23 20 32 28 Q41 36 50 28 Q59 20 66 28"/><path d="M14 40 Q23 32 32 40 Q41 48 50 40 Q59 32 66 40"/><path d="M14 52 Q23 44 32 52 Q41 60 50 52 Q59 44 66 52"/>`,
+  square: `<rect x="16" y="16" width="48" height="48" rx="2"/>`,
+  star:   `<polygon points="40,12 47,33 70,33 52,46 59,68 40,55 21,68 28,46 10,33 33,33"/>`,
+};
+
+const ZENER_STATE = {
+  deck:       [],   // 25 cards (5 of each, shuffled)
+  trial:      0,    // current trial index 0-24
+  hits:       0,
+  guesses:    [],   // [{symbol, guess, hit}]
+  waiting:    false,// true while card is revealed, preventing extra taps
+};
+
+function generateDeck() {
+  // 5 of each symbol = 25 cards, shuffled
+  const deck = [];
+  ZENER_SYMBOLS.forEach(s => { for (let i = 0; i < 5; i++) deck.push(s); });
+  for (let i = deck.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [deck[i], deck[j]] = [deck[j], deck[i]];
+  }
+  return deck;
+}
+
+function renderZenerBrief() {
+  const runs = loadZenerSessions();
+  const runsEl = document.getElementById('zener-brief-runs');
+  const avgEl  = document.getElementById('zener-brief-avg');
+  if (runsEl) runsEl.textContent = runs.length;
+  if (avgEl) {
+    if (runs.length) {
+      const avg = Math.round(runs.reduce((a, r) => a + r.hitPct, 0) / runs.length);
+      avgEl.textContent = avg + '%';
+    } else {
+      avgEl.textContent = '–';
+    }
+  }
+}
+
+function openZenerSession() {
+  // Reset state
+  ZENER_STATE.deck    = generateDeck();
+  ZENER_STATE.trial   = 0;
+  ZENER_STATE.hits    = 0;
+  ZENER_STATE.guesses = [];
+  ZENER_STATE.waiting = false;
+
+  showScreen('zener-session', true);
+  renderZenerTrial();
+}
+
+function renderZenerTrial() {
+  const t = ZENER_STATE.trial;
+  const trialEl   = document.getElementById('zener-trial-num');
+  const hitEl     = document.getElementById('zener-hit-count');
+  const progressEl = document.getElementById('zener-progress-bar');
+  const cardInner  = document.getElementById('zener-card-inner');
+  const cardBack   = document.getElementById('zener-card-back');
+  const feedback   = document.getElementById('zener-feedback');
+  const choices    = document.getElementById('zener-choices');
+
+  if (trialEl) trialEl.textContent = `${t + 1} / 25`;
+  if (hitEl)   hitEl.textContent   = ZENER_STATE.hits;
+  if (progressEl) progressEl.style.width = (t / 25 * 100) + '%';
+
+  // Reset card to face-down
+  if (cardInner) cardInner.classList.remove('flipped');
+  if (cardBack) {
+    cardBack.classList.remove('hit-card', 'miss-card');
+    const sym = document.getElementById('zener-reveal-symbol');
+    if (sym) { sym.innerHTML = ''; sym.className = 'zener-symbol-back'; }
+  }
+  if (feedback) { feedback.textContent = ''; feedback.className = 'zener-feedback hidden'; }
+
+  // Re-enable choice buttons
+  if (choices) {
+    choices.querySelectorAll('.zener-choice-btn').forEach(btn => {
+      btn.classList.remove('selected');
+      btn.style.pointerEvents = 'all';
+    });
+  }
+
+  ZENER_STATE.waiting = false;
+}
+
+function submitZenerGuess(guess) {
+  if (ZENER_STATE.waiting) return;
+  if (ZENER_STATE.trial >= 25) return;
+  ZENER_STATE.waiting = true;
+
+  const actual = ZENER_STATE.deck[ZENER_STATE.trial];
+  const isHit  = guess === actual;
+  if (isHit) ZENER_STATE.hits++;
+
+  ZENER_STATE.guesses.push({ symbol: actual, guess, hit: isHit });
+
+  // Highlight selected button
+  const selectedBtn = document.getElementById('zbtn-' + guess);
+  if (selectedBtn) selectedBtn.classList.add('selected');
+
+  // Disable all buttons
+  document.querySelectorAll('.zener-choice-btn').forEach(btn => {
+    btn.style.pointerEvents = 'none';
+  });
+
+  // Reveal card
+  const cardInner = document.getElementById('zener-card-inner');
+  const cardBack  = document.getElementById('zener-card-back');
+  const sym       = document.getElementById('zener-reveal-symbol');
+  const feedback  = document.getElementById('zener-feedback');
+
+  if (sym) {
+    sym.innerHTML   = SYMBOL_SVG[actual];
+    sym.className   = 'zener-symbol-back ' + (isHit ? 'hit-sym' : 'miss-sym');
+  }
+  if (cardBack) cardBack.classList.add(isHit ? 'hit-card' : 'miss-card');
+  if (cardInner) cardInner.classList.add('flipped');
+  if (feedback) {
+    feedback.textContent = isHit ? 'HIT' : 'MISS';
+    feedback.className   = 'zener-feedback ' + (isHit ? 'hit' : 'miss');
+  }
+
+  // Advance after 900ms
+  setTimeout(() => {
+    ZENER_STATE.trial++;
+    if (ZENER_STATE.trial >= 25) {
+      finishZenerRun();
+    } else {
+      renderZenerTrial();
+    }
+  }, 900);
+}
+
+function finishZenerRun() {
+  const hits   = ZENER_STATE.hits;
+  const hitPct = Math.round((hits / 25) * 100);
+
+  // Per-symbol stats
+  const symbolStats = {};
+  ZENER_SYMBOLS.forEach(s => { symbolStats[s] = { appeared: 0, hit: 0 }; });
+  ZENER_STATE.guesses.forEach(g => {
+    symbolStats[g.symbol].appeared++;
+    if (g.hit) symbolStats[g.symbol].hit++;
+  });
+
+  // Save run
+  const run = {
+    id: Date.now(),
+    hits,
+    hitPct,
+    symbolStats,
+    timestamp: new Date().toISOString(),
+  };
+  saveZenerSession(run);
+
+  // Show results
+  showScreen('zener-results', false);
+  renderZenerResults(run);
+}
+
+function renderZenerResults(run) {
+  const scoreEl   = document.getElementById('zener-result-score');
+  const pctEl     = document.getElementById('zener-result-pct');
+  const verdictEl = document.getElementById('zener-verdict');
+  const sigEl     = document.getElementById('zener-sig-note');
+  const dateEl    = document.getElementById('zener-result-date');
+  const runsEl    = document.getElementById('zener-result-runs');
+  const overallEl = document.getElementById('zener-result-overall');
+  const breakdownEl = document.getElementById('zener-symbol-breakdown');
+
+  const pct = run.hitPct;
+  const verdict = pct > 28 ? 'above' : pct < 12 ? 'below' : 'at';
+
+  if (scoreEl) {
+    scoreEl.textContent = run.hits + '/25';
+    scoreEl.className   = 'zener-score-big ' + (verdict === 'above' ? 'above' : verdict === 'below' ? 'below' : '');
+  }
+  if (pctEl)     pctEl.textContent     = pct + '% hit rate';
+  if (verdictEl) {
+    const labels = { above: 'Above Chance', at: 'At Chance', below: 'Below Chance' };
+    verdictEl.textContent = labels[verdict];
+    verdictEl.className   = 'zener-verdict ' + verdict;
+  }
+
+  const allRuns = loadZenerSessions();
+  if (sigEl) {
+    if (allRuns.length < 5) {
+      sigEl.textContent = `Complete ${5 - allRuns.length} more run${allRuns.length === 4 ? '' : 's'} for statistical baseline.`;
+    } else {
+      const overallPct = Math.round(allRuns.reduce((a, r) => a + r.hitPct, 0) / allRuns.length);
+      sigEl.textContent = overallPct > 25
+        ? `Cumulative avg ${overallPct}% across ${allRuns.length} runs — consistently above chance baseline.`
+        : `Cumulative avg ${overallPct}% across ${allRuns.length} runs — within chance range.`;
+    }
+  }
+  if (dateEl) {
+    const d = new Date(run.timestamp);
+    dateEl.textContent = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
+  }
+  if (runsEl)    runsEl.textContent    = allRuns.length;
+  if (overallEl && allRuns.length) {
+    overallEl.textContent = Math.round(allRuns.reduce((a, r) => a + r.hitPct, 0) / allRuns.length) + '%';
+  }
+
+  // Symbol breakdown
+  if (breakdownEl) {
+    breakdownEl.innerHTML = ZENER_SYMBOLS.map(s => {
+      const st      = run.symbolStats[s];
+      const hitPct  = st.appeared ? Math.round((st.hit / st.appeared) * 100) : 0;
+      const isGood  = st.hit >= 2;
+      return `<div class="symbol-row">
+        <div class="symbol-row-icon">
+          <svg viewBox="0 0 80 80">${SYMBOL_SVG[s]}</svg>
+        </div>
+        <div class="symbol-row-info">
+          <div class="symbol-row-label">${s} — appeared ${st.appeared}×</div>
+          <div class="symbol-bar-wrap">
+            <div class="symbol-bar-fill ${isGood ? '' : 'miss-bar'}" style="width:${hitPct}%"></div>
+          </div>
+        </div>
+        <div class="symbol-row-stat ${isGood ? 'hit-stat' : 'miss-stat'}">${st.hit}/${st.appeared}</div>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ─── ZENER PERSISTENCE ─────────────────────────
+function loadZenerSessions() {
+  try { return JSON.parse(localStorage.getItem('ablty_zener') || '[]'); } catch(e) { return []; }
+}
+function saveZenerSession(run) {
+  const runs = loadZenerSessions();
+  runs.unshift(run);
+  try { localStorage.setItem('ablty_zener', JSON.stringify(runs)); } catch(e) {}
+}
+
+// ═══════════════════════════════════════════════════════
+//  ANALYTICS
+// ═══════════════════════════════════════════════════════
+
+let currentAnalyticsTab = 'overview';
+
+function switchAnalyticsTab(tab) {
+  currentAnalyticsTab = tab;
+  document.querySelectorAll('.analytics-tab').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.analytics-panel').forEach(el => el.classList.remove('panel-active'));
+  const tabEl   = document.getElementById('atab-' + tab);
+  const panelEl = document.getElementById('apanel-' + tab);
+  if (tabEl)   tabEl.classList.add('active');
+  if (panelEl) panelEl.classList.add('panel-active');
+}
+
+function renderAnalytics() {
+  const rvSessions  = STATE.sessions || [];
+  const zenerRuns   = loadZenerSessions();
+
+  // ── Overview ──────────────────────────────────
+  const rvAvg = rvSessions.length
+    ? Math.round(rvSessions.reduce((a, s) => a + s.score, 0) / rvSessions.length)
+    : null;
+  const rvBest = rvSessions.length
+    ? Math.max(...rvSessions.map(s => s.score))
+    : null;
+  const zAvg = zenerRuns.length
+    ? Math.round(zenerRuns.reduce((a, r) => a + r.hitPct, 0) / zenerRuns.length)
+    : null;
+
+  setEl('kpi-rv-sessions', rvSessions.length);
+  setEl('kpi-rv-avg',      rvAvg !== null ? 'Avg: ' + rvAvg + '%' : 'Avg: –');
+  setEl('kpi-z-runs',      zenerRuns.length);
+  setEl('kpi-z-avg',       zAvg !== null ? 'Avg: ' + zAvg + '%' : 'Avg: –%');
+  setEl('kpi-rv-best',     rvBest !== null ? rvBest + '%' : '–');
+
+  // Training streak
+  const streak = calcStreak(rvSessions, zenerRuns);
+  setEl('kpi-streak', streak);
+
+  // Zener vs chance bar
+  setEl('baseline-your-pct', zAvg !== null ? zAvg + '%' : '–%');
+  const baselineBar = document.getElementById('baseline-your-bar');
+  if (baselineBar) {
+    baselineBar.style.width = (zAvg || 0) + '%';
+    baselineBar.style.background = (zAvg || 0) > 20 ? 'var(--accent)' : 'var(--danger)';
+  }
+
+  // ── Performance charts ─────────────────────────
+  buildBarChart('rv-chart-wrap', rvSessions.slice(0, 10).reverse(), s => s.score, 100, '%');
+  buildBarChart('zener-chart-wrap', zenerRuns.slice(0, 10).reverse(), r => r.hitPct, 100, '%', 20);
+
+  // Category breakdown
+  buildCatBreakdown(rvSessions);
+
+  // Symbol accuracy
+  buildSymbolAccuracy(zenerRuns);
+
+  // ── Log ───────────────────────────────────────
+  const logTotalEl = document.getElementById('log-total');
+  const logBestEl  = document.getElementById('log-best');
+  if (logTotalEl) logTotalEl.textContent = rvSessions.length + zenerRuns.length;
+  if (logBestEl)  logBestEl.textContent  = rvBest !== null ? rvBest + '%' : '–';
+
+  buildCombinedLog(rvSessions, zenerRuns);
+}
+
+function setEl(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+function calcStreak(rvSessions, zenerRuns) {
+  // Collect all unique active dates
+  const dates = new Set();
+  [...rvSessions, ...zenerRuns].forEach(s => {
+    const d = new Date(s.timestamp);
+    dates.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
+  });
+  let streak = 0;
+  const now = new Date();
+  for (let i = 0; i < 365; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    if (dates.has(key)) streak++;
+    else break;
+  }
+  return streak;
+}
+
+function buildBarChart(wrapId, data, valFn, maxVal, suffix, baselinePct) {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap) return;
+  if (!data.length) {
+    wrap.innerHTML = `<div class="no-data-note">No data yet</div>`;
+    return;
+  }
+
+  const W = 280, H = 80, barW = Math.floor((W - (data.length - 1) * 4) / data.length);
+  const bars = data.map((item, i) => {
+    const val    = valFn(item);
+    const barH   = Math.max(3, Math.round((val / maxVal) * (H - 16)));
+    const x      = i * (barW + 4);
+    const y      = H - barH - 16;
+    const color  = val >= 60 ? 'var(--accent)' : val >= 35 ? 'var(--warn)' : 'var(--danger)';
+    return `<rect x="${x}" y="${y}" width="${barW}" height="${barH}" rx="2" fill="${color}" opacity="0.85"/>
+            <text x="${x + barW/2}" y="${H - 2}" text-anchor="middle" font-family="DM Mono,monospace" font-size="8" fill="rgba(255,255,255,0.35)">${val}${suffix}</text>`;
+  }).join('');
+
+  // Optional baseline line (for Zener chance = 20%)
+  let baseLine = '';
+  if (baselinePct !== undefined) {
+    const baseY = H - Math.round((baselinePct / maxVal) * (H - 16)) - 16;
+    baseLine = `<line x1="0" y1="${baseY}" x2="${W}" y2="${baseY}" stroke="rgba(255,255,255,0.15)" stroke-width="1" stroke-dasharray="3 3"/>
+                <text x="${W}" y="${baseY - 2}" text-anchor="end" font-family="DM Mono,monospace" font-size="7" fill="rgba(255,255,255,0.25)">CHANCE</text>`;
+  }
+
+  wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;">${bars}${baseLine}</svg>`;
+}
+
+function buildCatBreakdown(rvSessions) {
+  const el = document.getElementById('cat-breakdown');
+  if (!el) return;
+  if (!rvSessions.length) {
+    el.innerHTML = `<div class="no-data-note">No RV sessions yet</div>`;
+    return;
+  }
+
+  const cats = {};
+  rvSessions.forEach(s => {
+    if (!s.category) return;
+    if (!cats[s.category]) cats[s.category] = { total: 0, sum: 0 };
+    cats[s.category].total++;
+    cats[s.category].sum += s.score;
+  });
+
+  const catNames = Object.keys(cats);
+  if (!catNames.length) {
+    el.innerHTML = `<div class="no-data-note">No categorized sessions yet</div>`;
+    return;
+  }
+
+  const maxAvg = Math.max(...catNames.map(c => cats[c].sum / cats[c].total));
+  el.innerHTML = catNames.map(c => {
+    const avg = Math.round(cats[c].sum / cats[c].total);
+    const pct = Math.round((avg / 100) * 100);
+    return `<div class="cat-row">
+      <div class="cat-row-header">
+        <span class="cat-row-label">${c} (${cats[c].total} sessions)</span>
+        <span class="cat-row-val">${avg}%</span>
+      </div>
+      <div class="cat-bar-track"><div class="cat-bar-fill" style="width:${pct}%"></div></div>
+    </div>`;
+  }).join('');
+}
+
+function buildSymbolAccuracy(zenerRuns) {
+  const el = document.getElementById('symbol-acc-grid');
+  if (!el) return;
+  if (!zenerRuns.length) {
+    el.innerHTML = `<div class="no-data-note" style="grid-column:1/-1;">No Zener runs yet</div>`;
+    return;
+  }
+
+  // Aggregate across all runs
+  const totals = {};
+  ZENER_SYMBOLS.forEach(s => { totals[s] = { appeared: 0, hit: 0 }; });
+  zenerRuns.forEach(run => {
+    if (!run.symbolStats) return;
+    ZENER_SYMBOLS.forEach(s => {
+      totals[s].appeared += run.symbolStats[s]?.appeared || 0;
+      totals[s].hit      += run.symbolStats[s]?.hit      || 0;
+    });
+  });
+
+  el.innerHTML = ZENER_SYMBOLS.map(s => {
+    const t   = totals[s];
+    const pct = t.appeared ? Math.round((t.hit / t.appeared) * 100) : 0;
+    const good = pct > 20;
+    return `<div class="symbol-acc-cell">
+      <svg viewBox="0 0 80 80">${SYMBOL_SVG[s]}</svg>
+      <div class="symbol-acc-pct ${good ? 'good' : ''}">${pct}%</div>
+    </div>`;
+  }).join('');
+}
+
+function buildCombinedLog(rvSessions, zenerRuns) {
+  const el = document.getElementById('combined-log-list');
+  if (!el) return;
+
+  if (!rvSessions.length && !zenerRuns.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">◎</div><div class="mono-label">No sessions yet</div><div class="body-sm" style="margin-top:6px;">Complete your first session to begin building your log.</div></div>`;
+    return;
+  }
+
+  // Merge and sort by timestamp descending
+  const rv = rvSessions.map(s => ({ ...s, type: 'rv' }));
+  const ze = zenerRuns.map(r => ({ ...r, type: 'zener', score: r.hitPct }));
+  const all = [...rv, ...ze].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  el.innerHTML = all.map(s => {
+    const d       = new Date(s.timestamp);
+    const dateStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
+    const cls     = s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low';
+    const typeTag = s.type === 'rv' ? 'RV' : 'ZNR';
+    const label   = s.type === 'rv' ? (s.targetLabel || '–') : `${s.hits}/25 hits`;
+    const thumb   = s.type === 'rv' ? (s.sketchData || s.targetSrc || '') : '';
+
+    return `<div class="session-card">
+      <div class="session-thumb">
+        ${thumb ? `<img src="${thumb}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:8px;color:var(--dim);">${typeTag}</div>`}
+      </div>
+      <div class="session-info">
+        <div style="display:flex;align-items:center;gap:6px;">
+          <div class="display-sm">${s.type === 'rv' ? 'TRN ' + (s.trn || '') : 'ZENER'}</div>
+          <span style="font-family:var(--font-mono);font-size:8px;letter-spacing:1px;background:var(--card2);border:1px solid var(--border);border-radius:4px;padding:2px 5px;color:var(--muted);">${typeTag}</span>
+        </div>
+        <div class="mono-sm" style="margin-top:4px;">${dateStr}</div>
+        <div class="mono-sm" style="margin-top:2px;color:var(--dim);">${label}</div>
+      </div>
+      <div class="session-score ${cls}">${s.score}%</div>
+    </div>`;
+  }).join('');
+}
 
 window.addEventListener('error', (e) => {
   console.error('[ABLTY ERROR]', e.message, e.filename, e.lineno);
