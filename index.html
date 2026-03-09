@@ -1078,6 +1078,131 @@ html, body {
 }
 .cal-bar.old { background: var(--dim); opacity: 1; }
 
+
+/* ═══════════════════════════════════════════
+   COMING SOON MODAL
+═══════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,0.75);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  animation: fadeIn 0.2s ease;
+}
+.modal-box {
+  background: var(--card); border: 1px solid var(--border2);
+  border-radius: 18px; padding: 28px 24px;
+  max-width: 360px; width: 100%;
+}
+.modal-tag {
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 3px; color: var(--accent);
+  text-transform: uppercase; margin-bottom: 10px;
+}
+.modal-title {
+  font-family: var(--font-display); font-size: 28px;
+  letter-spacing: 1px; color: var(--text);
+  line-height: 1; margin-bottom: 12px;
+}
+.modal-body {
+  font-family: var(--font-body); font-size: 13px;
+  color: var(--muted); line-height: 1.6;
+}
+.modal-expand-btn {
+  background: none; border: none; padding: 0;
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--accent); cursor: pointer;
+  margin-top: 12px; display: block;
+  letter-spacing: 1px;
+}
+.modal-expand-btn:hover { opacity: 0.8; }
+.modal-expanded {
+  font-family: var(--font-body); font-size: 13px;
+  color: var(--muted); line-height: 1.6;
+  margin-top: 14px; padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: none;
+}
+.modal-expanded.open { display: block; }
+.modal-close-btn {
+  width: 100%; margin-top: 20px;
+  padding: 12px; border-radius: 10px;
+  background: var(--card2); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--font-mono);
+  font-size: 11px; letter-spacing: 2px;
+  cursor: pointer; text-transform: uppercase;
+}
+.modal-close-btn:hover { border-color: var(--border2); }
+
+
+/* ═══════════════════════════════════════════
+   ADMIN / LIMIT MODALS
+═══════════════════════════════════════════ */
+.admin-btn {
+  width: 100%; margin-top: 8px; padding: 12px;
+  border-radius: 10px; background: transparent;
+  border: 1px solid var(--border);
+  color: var(--dim); font-family: var(--font-mono);
+  font-size: 10px; letter-spacing: 2px;
+  cursor: pointer; text-transform: uppercase;
+  text-align: left;
+}
+.admin-btn:hover { border-color: var(--border2); color: var(--muted); }
+.admin-input {
+  width: 100%; padding: 12px 14px;
+  background: var(--card2); border: 1px solid var(--border2);
+  border-radius: 10px; color: var(--text);
+  font-family: var(--font-mono); font-size: 14px;
+  letter-spacing: 4px; margin-top: 12px;
+  outline: none; text-align: center;
+}
+.admin-input:focus { border-color: var(--accent); }
+.admin-error { color: var(--danger); font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; margin-top: 8px; text-align: center; display:none; }
+.limit-icon { font-size: 36px; text-align: center; margin-bottom: 12px; }
+.dev-badge {
+  display: inline-block; background: rgba(74,240,200,0.12);
+  border: 1px solid rgba(74,240,200,0.3); border-radius: 6px;
+  padding: 2px 8px; font-family: var(--font-mono); font-size: 9px;
+  color: var(--accent); letter-spacing: 2px; margin-top: 6px;
+}
+
+
+/* ═══════════════════════════════════════════
+   TRN REVEAL
+═══════════════════════════════════════════ */
+.trn-reveal-wrap {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 20px;
+  text-align: center; display: none;
+}
+.trn-reveal-wrap.visible { display: block; animation: fadeIn 0.4s ease; }
+.trn-reveal-number {
+  font-family: var(--font-display); font-size: 38px;
+  letter-spacing: 6px; color: var(--accent);
+  margin: 10px 0 8px;
+  opacity: 0; transition: opacity 0.8s ease;
+}
+.trn-reveal-number.shown { opacity: 1; }
+.trn-reveal-sub {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 1px; color: var(--muted);
+  line-height: 1.5;
+}
+.btn-reveal {
+  width: 100%; padding: 14px;
+  background: var(--card); border: 1px solid var(--border2);
+  border-radius: 12px; color: var(--text);
+  font-family: var(--font-display); font-size: 18px;
+  letter-spacing: 2px; cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.btn-reveal:hover { border-color: var(--accent); background: rgba(74,240,200,0.05); }
+#begin-session-btn {
+  display: none;
+  animation: fadeIn 0.5s ease;
+}
+#begin-session-btn.visible { display: flex; }
+
 </style>
 </head>
 <body>
@@ -1185,11 +1310,24 @@ html, body {
         <div class="section-label">Remote Viewing Protocol</div>
       </div>
 
-      <!-- TRN -->
-      <div class="trn-wrap fade-in">
-        <div class="trn-sub">Target Reference Number</div>
-        <div class="trn-number" id="trn-display">– – – – – – – –</div>
-        <div class="trn-sub" style="margin-top:4px;">Your focal anchor. Focus on this string.</div>
+      <!-- Protocol steps -->
+      <div class="instruction-list fade-in">
+        <div class="instruction-item">
+          <div class="instruction-num">01</div>
+          <div class="instruction-text">Relax. Clear your mind. When your TRN is revealed, hold it in focus for 30 seconds before beginning.</div>
+        </div>
+        <div class="instruction-item">
+          <div class="instruction-num">02</div>
+          <div class="instruction-text">Draw raw shapes, textures, and impressions on the sketchpad. Do not try to interpret — just record.</div>
+        </div>
+        <div class="instruction-item">
+          <div class="instruction-num">03</div>
+          <div class="instruction-text">Log sensory data in the notepad: temperatures, textures, smells, emotions, movements.</div>
+        </div>
+        <div class="instruction-item">
+          <div class="instruction-num">04</div>
+          <div class="instruction-text">Submit when done. The AI analyst will grade your data against the hidden target.</div>
+        </div>
       </div>
 
       <!-- Stats row -->
@@ -1214,28 +1352,20 @@ html, body {
         <div class="cat-btn" id="cat-animals"    onclick="setCategory('animals')">Animals</div>
       </div>
 
-      <!-- Instructions -->
-      <div class="section-label fade-in-delay-2">Protocol</div>
-      <div class="instruction-list fade-in-delay-2">
-        <div class="instruction-item">
-          <div class="instruction-num">01</div>
-          <div class="instruction-text">Relax. Clear your mind. Stare at the TRN for 30 seconds before beginning.</div>
-        </div>
-        <div class="instruction-item">
-          <div class="instruction-num">02</div>
-          <div class="instruction-text">Draw raw shapes, textures, and impressions on the sketchpad. Do not try to interpret — just record.</div>
-        </div>
-        <div class="instruction-item">
-          <div class="instruction-num">03</div>
-          <div class="instruction-text">Log sensory data in the notepad: temperatures, textures, smells, emotions, movements.</div>
-        </div>
-        <div class="instruction-item">
-          <div class="instruction-num">04</div>
-          <div class="instruction-text">Submit when done. The AI analyst will grade your data against the hidden target.</div>
-        </div>
+      <!-- Reveal button -->
+      <button class="btn-reveal fade-in-delay-2" id="reveal-trn-btn" onclick="revealTRN()">
+        REVEAL TARGET REFERENCE NUMBER
+      </button>
+
+      <!-- TRN reveal block (hidden until reveal is pressed) -->
+      <div class="trn-reveal-wrap" id="trn-reveal-wrap">
+        <div class="trn-sub" style="letter-spacing:3px;">TARGET REFERENCE NUMBER</div>
+        <div class="trn-reveal-number" id="trn-display">–––– ––––</div>
+        <div class="trn-reveal-sub">Your focal anchor. Hold this number in mind.<br>Clear all other thoughts before beginning.</div>
       </div>
 
-      <button class="btn btn-primary fade-in-delay-3" onclick="openCanvas()">
+      <!-- Begin session (hidden until TRN revealed) -->
+      <button class="btn btn-primary" id="begin-session-btn" onclick="openCanvas()">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
         BEGIN SESSION
       </button>
@@ -1424,8 +1554,10 @@ html, body {
       <div class="section-label" style="margin-top:4px;">About</div>
       <div class="setting-row">
         <div class="mono-sm">ABLTY v0.1.0 — Remote Viewing Module</div>
-        <div class="mono-sm" style="color:var(--dim);">Alpha</div>
+        <div class="mono-sm" style="color:var(--dim);">Alpha <span class="dev-badge" id="dev-badge" style="display:none;">DEV</span></div>
       </div>
+
+      <button class="admin-btn" onclick="showAdminModal()">⚙ Admin Access</button>
 
     </div>
   </div>
@@ -2049,15 +2181,57 @@ function setCategory(cat) {
   if (btn) btn.classList.add('active');
 }
 
+const RV_DAILY_LIMIT = 2;
+const ADMIN_PASSWORD = 'ablty2025';
+
+function getTodayKey() {
+  const d = new Date();
+  return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+}
+
+function getDailyCount() {
+  try {
+    const data = JSON.parse(localStorage.getItem('ablty_daily') || '{}');
+    return data.date === getTodayKey() ? (data.count || 0) : 0;
+  } catch(e) { return 0; }
+}
+
+function incrementDailyCount() {
+  try {
+    const today = getTodayKey();
+    const data = JSON.parse(localStorage.getItem('ablty_daily') || '{}');
+    const count = data.date === today ? (data.count || 0) + 1 : 1;
+    localStorage.setItem('ablty_daily', JSON.stringify({ date: today, count }));
+  } catch(e) {}
+}
+
+function isDevMode() {
+  try { return localStorage.getItem('ablty_dev') === '1'; } catch(e) { return false; }
+}
+
 function startRVSession() {
+  // Check daily limit (skip if dev mode)
+  if (!isDevMode() && getDailyCount() >= RV_DAILY_LIMIT) {
+    document.getElementById('limit-modal').style.display = 'flex';
+    return;
+  }
+
   STATE.currentTRN = generateTRN();
 
-  const trnEl     = document.getElementById('trn-display');
-  const canvasTrn = document.getElementById('canvas-trn');
-  const countEl   = document.getElementById('brief-session-count');
-  const avgEl     = document.getElementById('brief-avg-score');
+  // Reset brief screen state
+  const trnEl      = document.getElementById('trn-display');
+  const trnWrap    = document.getElementById('trn-reveal-wrap');
+  const revealBtn  = document.getElementById('reveal-trn-btn');
+  const beginBtn   = document.getElementById('begin-session-btn');
+  const canvasTrn  = document.getElementById('canvas-trn');
+  const countEl    = document.getElementById('brief-session-count');
+  const avgEl      = document.getElementById('brief-avg-score');
 
-  if (trnEl)     trnEl.textContent     = STATE.currentTRN;
+  // Reset reveal state
+  if (trnEl)     { trnEl.textContent = '–––– ––––'; trnEl.classList.remove('shown'); }
+  if (trnWrap)   trnWrap.classList.remove('visible');
+  if (revealBtn) revealBtn.style.display = '';
+  if (beginBtn)  beginBtn.classList.remove('visible');
   if (canvasTrn) canvasTrn.textContent = STATE.currentTRN;
   if (countEl)   countEl.textContent   = STATE.sessions.length;
 
@@ -2070,6 +2244,35 @@ function startRVSession() {
   showScreen('rv', false);
   const navRv = document.getElementById('nav-rv');
   if (navRv) navRv.classList.add('active');
+}
+
+function revealTRN() {
+  const trnEl     = document.getElementById('trn-display');
+  const trnWrap   = document.getElementById('trn-reveal-wrap');
+  const revealBtn = document.getElementById('reveal-trn-btn');
+  const beginBtn  = document.getElementById('begin-session-btn');
+
+  // Format TRN as XXXX XXXX
+  const raw = STATE.currentTRN || generateTRN();
+  STATE.currentTRN = raw;
+  const formatted = raw.replace('-', ' ');
+
+  // Show the wrap
+  if (trnWrap)   trnWrap.classList.add('visible');
+  if (revealBtn) revealBtn.style.display = 'none';
+
+  // Animate number in after short delay
+  setTimeout(() => {
+    if (trnEl) { trnEl.textContent = formatted; trnEl.classList.add('shown'); }
+  }, 150);
+
+  // Fade in begin button after TRN appears
+  setTimeout(() => {
+    if (beginBtn) beginBtn.classList.add('visible');
+    // Scroll to bottom so Begin Session is visible
+    const screen = document.getElementById('screen-rv-brief');
+    if (screen) screen.scrollTo({ top: screen.scrollHeight, behavior: 'smooth' });
+  }, 700);
 }
 
 function openCanvas() {
@@ -2407,6 +2610,8 @@ function renderProfile() {
 
   if (seekerEl) seekerEl.textContent = STATE.seekerId;
   if (avatarEl) avatarEl.textContent = (STATE.seekerId || '#0').replace('#','').charAt(0);
+  const devBadge = document.getElementById('dev-badge');
+  if (devBadge) devBadge.style.display = isDevMode() ? 'inline-block' : 'none';
   if (pager) {
     pager.classList.toggle('on', !!STATE.settings.pager);
     const knob = pager.querySelector('.toggle-knob');
@@ -2415,9 +2620,37 @@ function renderProfile() {
 }
 
 function toggleSetting(key) {
+  if (key === 'pager') {
+    showPagerModal();
+    return;
+  }
   STATE.settings[key] = !STATE.settings[key];
   saveState();
   renderProfile();
+}
+
+function showPagerModal() {
+  const modal = document.getElementById('pager-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closePagerModal(e) {
+  if (e && e.target !== document.getElementById('pager-modal') && !e.target.classList.contains('modal-close-btn')) return;
+  const modal = document.getElementById('pager-modal');
+  if (modal) modal.style.display = 'none';
+  // Reset expand state
+  const expanded = document.getElementById('pager-expanded');
+  const btn = document.getElementById('pager-expand-btn');
+  if (expanded) expanded.classList.remove('open');
+  if (btn) btn.textContent = 'Read more ↓';
+}
+
+function togglePagerExpand() {
+  const expanded = document.getElementById('pager-expanded');
+  const btn = document.getElementById('pager-expand-btn');
+  if (!expanded) return;
+  const isOpen = expanded.classList.toggle('open');
+  if (btn) btn.textContent = isOpen ? 'Read less ↑' : 'Read more ↓';
 }
 
 function clearAllData() {
@@ -3215,9 +3448,97 @@ function renderCalibration(rvSessions) {
   }
 }
 
+
+// ═══════════════════════════════════════════════════════
+//  ADMIN + LIMIT MODALS
+// ═══════════════════════════════════════════════════════
+
+function showAdminModal() {
+  const input = document.getElementById('admin-password-input');
+  const err   = document.getElementById('admin-error');
+  if (input) input.value = '';
+  if (err)   err.style.display = 'none';
+  document.getElementById('admin-modal').style.display = 'flex';
+  setTimeout(() => { if (input) input.focus(); }, 100);
+}
+
+function closeAdminModal(e) {
+  if (e && e.target !== document.getElementById('admin-modal')) return;
+  document.getElementById('admin-modal').style.display = 'none';
+}
+
+function submitAdminPassword() {
+  const input = document.getElementById('admin-password-input');
+  const err   = document.getElementById('admin-error');
+  if (!input) return;
+  if (input.value === ADMIN_PASSWORD) {
+    localStorage.setItem('ablty_dev', '1');
+    document.getElementById('admin-modal').style.display = 'none';
+    const badge = document.getElementById('dev-badge');
+    if (badge) badge.style.display = 'inline-block';
+    // Show confirmation
+    const box = document.querySelector('#admin-modal .modal-box');
+    alert('Dev mode enabled. Session limits removed.');
+  } else {
+    if (err) { err.style.display = 'block'; err.textContent = 'Incorrect password'; }
+    input.value = '';
+  }
+}
+
+function closeLimitModal(e) {
+  if (e && e.target !== document.getElementById('limit-modal') && !e.target.classList.contains('modal-close-btn')) return;
+  document.getElementById('limit-modal').style.display = 'none';
+}
+
 window.addEventListener('error', (e) => {
   console.error('[ABLTY ERROR]', e.message, e.filename, e.lineno);
 });
 </script>
+
+  <!-- REALITY CHECK PAGER MODAL -->
+  <div class="modal-overlay" id="pager-modal" style="display:none;" onclick="closePagerModal(event)">
+    <div class="modal-box">
+      <div class="modal-tag">Coming Soon</div>
+      <div class="modal-title">Reality Check Pager</div>
+      <div class="modal-body">
+        Sends randomized notifications throughout your day prompting you to stop and verify your reality — a core technique for triggering lucid dreams.
+      </div>
+      <button class="modal-expand-btn" id="pager-expand-btn" onclick="togglePagerExpand()">Read more ↓</button>
+      <div class="modal-expanded" id="pager-expanded">
+        Reality checks work because your dreaming mind mirrors your waking habits. Ask "am I dreaming?" enough times while awake and you'll eventually ask it while asleep — and know the answer.<br><br>
+        When enabled, ABLTY sends randomized daily prompts. Each takes under 10 seconds. Look at your hands, try to read text twice, pinch your nose and breathe, or ask how you got where you are. Dreams fail all four.
+      </div>
+      <button class="modal-close-btn" onclick="closePagerModal()">Got It</button>
+    </div>
+  </div>
+
+
+  <!-- ADMIN MODAL -->
+  <div class="modal-overlay" id="admin-modal" style="display:none;" onclick="closeAdminModal(event)">
+    <div class="modal-box">
+      <div class="modal-tag">Admin</div>
+      <div class="modal-title">Dev Access</div>
+      <div class="modal-body">Enter the admin password to unlock unlimited sessions on this device.</div>
+      <input class="admin-input" id="admin-password-input" type="password" placeholder="••••••••" maxlength="32" onkeydown="if(event.key==='Enter')submitAdminPassword()" />
+      <div class="admin-error" id="admin-error">Incorrect password</div>
+      <button class="modal-close-btn" style="margin-top:12px;" onclick="submitAdminPassword()">Unlock</button>
+      <button class="modal-close-btn" style="margin-top:8px;background:transparent;border-color:transparent;color:var(--muted);" onclick="closeAdminModal()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- DAILY LIMIT MODAL -->
+  <div class="modal-overlay" id="limit-modal" style="display:none;" onclick="closeLimitModal(event)">
+    <div class="modal-box" style="text-align:center;">
+      <div class="limit-icon">◎</div>
+      <div class="modal-tag" style="text-align:center;">Session Limit</div>
+      <div class="modal-title" style="text-align:center;">Daily Limit Reached</div>
+      <div class="modal-body" style="text-align:center;margin-top:8px;">
+        Come back tomorrow.<br><br>
+        <span style="color:var(--accent);font-family:var(--font-mono);font-size:11px;letter-spacing:1px;">Premium Access Coming Soon</span>
+      </div>
+      <button class="modal-close-btn" onclick="closeLimitModal()">Got It</button>
+    </div>
+  </div>
+
 </body>
 </html>
