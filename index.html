@@ -2730,8 +2730,6 @@ function startRVSession() {
     return;
   }
 
-  STATE.currentTRN = generateTRN();
-
   // Reset to step 1
   document.querySelectorAll('.rv-step').forEach(s => s.classList.remove('active'));
   const step1 = document.getElementById('rv-step-1');
@@ -3951,14 +3949,18 @@ function rvAssignTarget() {
   const picked = activePool[Math.floor(Math.random() * activePool.length)];
   STATE.currentTargetIndex = TARGET_POOL.indexOf(picked);
 
-  // Format and display TRN immediately
-  const formatted = (STATE.currentTRN || '0000-0000').replace('-', '  ');
+  // TRN is derived from the filename: "targets/6047-5129.jpg" -> "6047-5129"
+  const filename = picked.src.replace('targets/', '').replace('.jpg', '');
+  STATE.currentTRN = filename;
+
+  // Display with space: "6047 5129"
+  const formatted = filename.replace('-', '  ');
   const trnEl = document.getElementById('trn-display');
   if (trnEl) trnEl.textContent = formatted;
 
-  // Sync canvas TRN
+  // Sync canvas TRN badge
   const canvasTrn = document.getElementById('canvas-trn');
-  if (canvasTrn) canvasTrn.textContent = STATE.currentTRN;
+  if (canvasTrn) canvasTrn.textContent = filename;
 }
 
 function showProtocolModal() {
