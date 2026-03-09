@@ -6,6 +6,10 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0d0e10">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="ABLTY">
 <title>ABLTY</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -2027,11 +2031,9 @@ html, body {
         <div class="setting-row">
           <div>
             <div class="setting-label">Reality Check Pager</div>
-            <div class="setting-desc">Randomized waking notifications</div>
+            <div class="setting-desc" id="push-status-desc">Randomized waking notifications</div>
           </div>
-          <div class="toggle" id="toggle-pager" onclick="toggleSetting('pager')">
-            <div class="toggle-knob"></div>
-          </div>
+          <button id="push-enable-btn" onclick="handlePushToggle()" style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-family:var(--font-mono);font-size:9px;letter-spacing:1px;color:var(--muted);cursor:pointer;text-transform:uppercase;">Enable</button>
         </div>
 
         <div class="setting-row">
@@ -3008,7 +3010,7 @@ function renderResults(result, target) {
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 // ─── AI GRADING ───────────────────────────────
-const WORKER_URL = 'https://abltygrader.kayvideoproductions.workers.dev/grade';
+const WORKER_URL = 'https://abltygrader.kayvideoproductions.workers.dev';
 
 async function gradeSession(sketchB64, notes, target) {
   // Resolve relative target path to full URL so the Worker can fetch it
@@ -3016,7 +3018,7 @@ async function gradeSession(sketchB64, notes, target) {
     ? target.src
     : new URL(target.src, window.location.href).href;
 
-  const resp = await fetch(WORKER_URL, {
+  const resp = await fetch(WORKER_URL + '/grade', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -3066,17 +3068,12 @@ function mockGrade() {
 function renderProfile() {
   const seekerEl = document.getElementById('profile-seeker-id');
   const avatarEl = document.getElementById('profile-avatar');
-  const pager    = document.getElementById('toggle-pager');
 
   if (seekerEl) seekerEl.textContent = STATE.seekerId;
   if (avatarEl) avatarEl.textContent = (STATE.seekerId || '#0').replace('#','').charAt(0);
   const devBadge = document.getElementById('dev-badge');
   if (devBadge) devBadge.style.display = isDevMode() ? 'inline-block' : 'none';
-  if (pager) {
-    pager.classList.toggle('on', !!STATE.settings.pager);
-    const knob = pager.querySelector('.toggle-knob');
-    if (knob) knob.style.transform = STATE.settings.pager ? 'translateX(18px)' : '';
-  }
+  refreshPushUI();
 }
 
 function toggleSetting(key) {
@@ -4406,6 +4403,114 @@ function saveEditModal() {
   renderAnalytics();
 }
 
+// ═══════════════════════════════════════════════════════
+//  SERVICE WORKER + PUSH NOTIFICATIONS
+// ═══════════════════════════════════════════════════════
+
+// Paste your VAPID public key from vapidkeys.com here:
+const VAPID_PUBLIC_KEY = 'YOUR_VAPID_PUBLIC_KEY_HERE';
+
+async function registerSW() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const reg = await navigator.serviceWorker.register('/sw.js');
+    console.log('[ABLTY] Service worker registered');
+    window._swRegistration = reg;
+  } catch(e) {
+    console.warn('[ABLTY] SW registration failed:', e);
+  }
+}
+
+async function requestPushPermission() {
+  if (!('Notification' in window)) return false;
+  if (!('serviceWorker' in navigator)) return false;
+
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') return false;
+
+  try {
+    const reg = window._swRegistration || await navigator.serviceWorker.ready;
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) { await sendSubToServer(existing); return true; }
+
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+    });
+
+    await sendSubToServer(sub);
+    return true;
+  } catch(e) {
+    console.warn('[ABLTY] Push subscription failed:', e);
+    return false;
+  }
+}
+
+async function sendSubToServer(sub) {
+  try {
+    await fetch(WORKER_URL + '/subscribe', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(sub)
+    });
+  } catch(e) {}
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding  = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64   = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData  = atob(base64);
+  return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+}
+
+function getPushStatus() {
+  if (!('Notification' in window)) return 'unsupported';
+  return Notification.permission; // 'default' | 'granted' | 'denied'
+}
+
+// Register SW on load
+registerSW();
+
+async function handlePushToggle() {
+  const status = getPushStatus();
+  if (status === 'granted') return; // already on
+  if (status === 'denied') {
+    updatePushUI('denied');
+    return;
+  }
+  updatePushUI('requesting');
+  const success = await requestPushPermission();
+  updatePushUI(success ? 'granted' : 'denied');
+}
+
+function updatePushUI(status) {
+  const btn  = document.getElementById('push-enable-btn');
+  const desc = document.getElementById('push-status-desc');
+  if (!btn || !desc) return;
+  if (status === 'granted') {
+    btn.textContent  = 'On';
+    btn.style.color  = 'var(--accent)';
+    btn.style.borderColor = 'var(--accent)';
+    desc.textContent = 'Notifications active';
+  } else if (status === 'denied') {
+    btn.textContent  = 'Blocked';
+    btn.style.color  = 'var(--danger)';
+    btn.style.borderColor = 'var(--danger)';
+    desc.textContent = 'Enable in browser settings';
+  } else if (status === 'requesting') {
+    btn.textContent  = '...';
+  }
+}
+
+// Reflect current status on profile load
+function refreshPushUI() {
+  const status = getPushStatus();
+  if (status === 'granted') updatePushUI('granted');
+  else if (status === 'denied') updatePushUI('denied');
+}
+
+
+
 window.addEventListener('error', (e) => {
   console.error('[ABLTY ERROR]', e.message, e.filename, e.lineno);
 });
@@ -4545,7 +4650,7 @@ window.addEventListener('error', (e) => {
             <div class="ob-icon">↗</div>
             <div class="ob-row-text">
               <div class="ob-row-label">AI scores your session</div>
-              <div class="ob-row-sub">Gemini compares your data against the target across 6 dimensions. Trends emerge over time.</div>
+              <div class="ob-row-sub">Advanced AI compares your data against the target across 6 dimensions. Trends emerge over time.</div>
             </div>
           </div>
           <div class="ob-row">
