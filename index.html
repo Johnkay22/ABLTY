@@ -1897,6 +1897,12 @@ html, body {
             <div class="stroke-option" style="width:12px;height:12px;" data-size="5" onclick="setStroke(5,this)"></div>
             <div class="stroke-option" style="width:16px;height:16px;" data-size="10" onclick="setStroke(10,this)"></div>
           </div>
+          <button class="tool-btn" onclick="undoStroke()" id="undo-btn" title="Undo" style="padding:7px 9px;display:flex;align-items:center;justify-content:center;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M3 7v6h6"/><path d="M3 13C5 7 10 4 16 6s8 8 5 13"/></svg>
+          </button>
+          <button class="tool-btn" onclick="redoStroke()" id="redo-btn" title="Redo" style="padding:7px 9px;display:flex;align-items:center;justify-content:center;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M21 7v6h-6"/><path d="M21 13C19 7 14 4 8 6S0 14 3 19"/></svg>
+          </button>
           <div class="tool-btn erase" id="eraser-btn" onclick="toggleEraser()">Erase</div>
           <div class="tool-btn" onclick="clearCanvas()">Clear</div>
         </div>
@@ -2754,7 +2760,9 @@ function openCanvas() {
   if (notes) notes.value = '';
   switchTab('sketch');
   startTimer();
-  // Double rAF — let screen transition finish before measuring
+  // Reset undo/redo history
+  canvasHistory = [];
+  canvasRedo    = [];
   requestAnimationFrame(() => requestAnimationFrame(() => initCanvas()));
 }
 
@@ -2763,6 +2771,36 @@ let ctx = null;
 let isDrawing = false;
 let lastX = 0, lastY = 0;
 const CANVAS_BG = '#111214';
+
+// Undo/redo stacks — store raw pixel data snapshots
+let canvasHistory = [];
+let canvasRedo    = [];
+
+function saveSnapshot() {
+  const canvas = document.getElementById('rv-canvas');
+  if (!canvas || !ctx) return;
+  canvasHistory.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+  canvasRedo = [];
+  if (canvasHistory.length > 30) canvasHistory.shift();
+}
+
+function undoStroke() {
+  if (canvasHistory.length === 0) return;
+  const canvas = document.getElementById('rv-canvas');
+  if (!canvas || !ctx) return;
+  // Push current state to redo stack
+  canvasRedo.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+  // Restore previous state
+  ctx.putImageData(canvasHistory.pop(), 0, 0);
+}
+
+function redoStroke() {
+  if (canvasRedo.length === 0) return;
+  const canvas = document.getElementById('rv-canvas');
+  if (!canvas || !ctx) return;
+  canvasHistory.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+  ctx.putImageData(canvasRedo.pop(), 0, 0);
+}
 
 function initCanvas() {
   const canvas    = document.getElementById('rv-canvas');
@@ -2785,6 +2823,10 @@ function initCanvas() {
   ctx.lineJoin = 'round';
   ctx.fillStyle = CANVAS_BG;
   ctx.fillRect(0, 0, w, h);
+
+  // Reset undo/redo history
+  canvasHistory = [];
+  canvasRedo    = [];
 }
 
 function getPos(e, canvas) {
@@ -2796,6 +2838,8 @@ function getPos(e, canvas) {
 function startDraw(e) {
   e.preventDefault();
   if (!ctx) return;
+  // Save snapshot BEFORE the new stroke begins — reliable undo point
+  if (!isDrawing) saveSnapshot();
   isDrawing = true;
   const canvas = document.getElementById('rv-canvas');
   [lastX, lastY] = getPos(e, canvas);
@@ -4408,7 +4452,7 @@ function saveEditModal() {
 // ═══════════════════════════════════════════════════════
 
 // Paste your VAPID public key from vapidkeys.com here:
-const VAPID_PUBLIC_KEY = 'YOUR_VAPID_PUBLIC_KEY_HERE';
+const VAPID_PUBLIC_KEY = 'BCjkwZ4gwf4d9mJwkR2rp-elkN07IUe1HdaOH1FcUInG8El8Vz_piRV7cfq51bCWSbvPgNrIkW-Z7Co8tSs700Q';
 
 async function registerSW() {
   if (!('serviceWorker' in navigator)) return;
