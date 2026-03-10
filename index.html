@@ -1623,6 +1623,215 @@ html, body {
 }
 .edit-note-input:focus { border-color: var(--accent); }
 
+/* ═══════════════════════════════════════════
+   TIMESTAMP PREDICTION MODULE
+═══════════════════════════════════════════ */
+
+/* Home card visual */
+.card-visual.ts-bg {
+  background:
+    radial-gradient(ellipse at 40% 50%, rgba(74,240,200,0.15) 0%, transparent 60%),
+    radial-gradient(ellipse at 70% 30%, rgba(91,158,244,0.1) 0%, transparent 50%),
+    #0a0c0e;
+}
+.ts-waveform {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center; gap: 3px;
+  padding: 0 40px;
+}
+.ts-bar {
+  width: 3px; border-radius: 2px;
+  background: rgba(74,240,200,0.5);
+  animation: tsBarPulse 1.8s ease-in-out infinite;
+}
+@keyframes tsBarPulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+
+/* Session shell */
+.ts-session-shell {
+  display: flex; flex-direction: column;
+  height: 100dvh; overflow: hidden;
+  position: relative;
+}
+.ts-session-header {
+  flex-shrink: 0; padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--bg); z-index: 10;
+}
+.ts-progress-bar-wrap {
+  flex-shrink: 0; height: 3px; background: var(--card2);
+}
+.ts-progress-bar {
+  height: 100%; background: var(--accent);
+  transition: width 0.15s linear;
+}
+
+/* Trial area */
+.ts-trial-area {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 24px; padding: 20px 24px;
+  position: relative; overflow: hidden;
+  cursor: pointer; user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Countdown ring */
+.ts-countdown-wrap {
+  position: relative; width: 180px; height: 180px;
+}
+.ts-countdown-svg {
+  width: 180px; height: 180px; transform: rotate(-90deg);
+}
+.ts-ring-track { fill: none; stroke: var(--card2); stroke-width: 6; }
+.ts-ring-fill {
+  fill: none; stroke: var(--accent); stroke-width: 6;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.15s linear;
+}
+.ts-ring-fill.fast-forward {
+  transition: stroke-dashoffset 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.ts-countdown-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+.ts-countdown-num {
+  font-family: var(--font-display); font-size: 56px;
+  color: #fff; line-height: 1; letter-spacing: 2px;
+}
+.ts-countdown-label {
+  font-family: var(--font-mono); font-size: 8px;
+  letter-spacing: 2px; color: var(--muted);
+  text-transform: uppercase; margin-top: 4px;
+}
+
+/* Tap prompt */
+.ts-tap-prompt {
+  font-family: var(--font-display); font-size: 22px;
+  letter-spacing: 3px; color: var(--muted);
+  transition: color 0.2s, opacity 0.2s;
+}
+.ts-tap-prompt.tapped { color: var(--accent); opacity: 0.5; }
+
+/* Trial state: waiting for event after tap */
+.ts-state-label {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 2px; color: var(--dim);
+  text-transform: uppercase;
+  min-height: 18px;
+}
+
+/* Flash event overlay */
+.ts-flash-overlay {
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at center, rgba(74,240,200,0.6), rgba(74,240,200,0.15));
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.08s ease;
+  z-index: 5;
+}
+.ts-flash-overlay.firing {
+  opacity: 1;
+  animation: tsFlash 0.5s ease-out forwards;
+}
+@keyframes tsFlash {
+  0% { opacity: 1; }
+  30% { opacity: 0.8; }
+  100% { opacity: 0; }
+}
+
+/* Delta feedback */
+.ts-delta-feedback {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 8px; z-index: 10;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+.ts-delta-feedback.visible { opacity: 1; }
+.ts-delta-value {
+  font-family: var(--font-display); font-size: 48px;
+  letter-spacing: 2px; line-height: 1;
+}
+.ts-delta-value.good { color: var(--accent); }
+.ts-delta-value.ok { color: var(--warn); }
+.ts-delta-value.far { color: var(--danger); }
+.ts-delta-value.miss { color: var(--danger); }
+.ts-delta-unit {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 2px; color: var(--muted); text-transform: uppercase;
+}
+
+/* Brief screen stats */
+.ts-brief-stats {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+}
+.ts-stat-cell {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px 10px; text-align: center;
+}
+.ts-stat-val {
+  font-family: var(--font-display); font-size: 26px;
+  color: var(--text); line-height: 1; margin-top: 4px;
+}
+
+/* Results screen */
+.ts-results-hero {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 24px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.ts-results-big {
+  font-family: var(--font-display); font-size: 64px;
+  line-height: 1; letter-spacing: 2px; color: var(--text);
+}
+.ts-sigma-badge {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 2px; text-transform: uppercase;
+  padding: 4px 10px; border-radius: 6px; margin-top: 6px;
+}
+.ts-sigma-badge.sig {
+  background: rgba(74,240,200,0.1); color: var(--accent);
+}
+.ts-sigma-badge.nosig {
+  background: rgba(107,114,128,0.15); color: var(--muted);
+}
+
+/* Distribution chart */
+.ts-dist-chart {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px;
+}
+.ts-trial-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0;
+}
+.ts-trial-num {
+  font-family: var(--font-mono); font-size: 9px;
+  color: var(--dim); width: 28px; text-align: right; flex-shrink: 0;
+}
+.ts-trial-bar-track {
+  flex: 1; height: 4px; background: var(--card2);
+  border-radius: 2px; position: relative;
+}
+.ts-trial-bar-center {
+  position: absolute; top: -4px; bottom: -4px; width: 1px;
+  left: 50%; background: rgba(255,255,255,0.15);
+}
+.ts-trial-bar-dot {
+  position: absolute; top: 50%; width: 8px; height: 8px;
+  border-radius: 50%; transform: translate(-50%, -50%);
+}
+.ts-trial-delta {
+  font-family: var(--font-mono); font-size: 10px;
+  width: 48px; text-align: right; flex-shrink: 0;
+}
+
 </style>
 </head>
 <body>
@@ -1674,24 +1883,15 @@ html, body {
         </div>
       </div>
 
-      <!-- ASTRAL PROJECTION CARD (locked) -->
-      <div class="module-card fade-in-delay-2" onclick="showComingSoon('Astral Projection')">
-        <div class="card-visual nebula">
-          <div class="star" style="width:2px;height:2px;top:22%;left:18%;opacity:.8"></div>
-          <div class="star" style="width:1px;height:1px;top:40%;left:50%;opacity:.5"></div>
-          <div class="star" style="width:3px;height:3px;top:15%;left:72%;opacity:.6"></div>
-          <div class="star" style="width:1px;height:1px;top:65%;left:28%;opacity:.7"></div>
-          <div class="star" style="width:2px;height:2px;top:50%;left:88%;opacity:.4"></div>
-          <div class="star" style="width:2px;height:2px;top:12%;left:58%;opacity:.9"></div>
-          <!-- lock icon -->
-          <div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:6px;padding:4px 8px;">
-            <span style="font-family:var(--font-mono);font-size:8px;letter-spacing:1px;color:var(--muted);text-transform:uppercase">Soon</span>
-          </div>
+      <!-- TIMESTAMP PREDICTION CARD -->
+      <div class="module-card fade-in-delay-2" onclick="navigate('timestamp')">
+        <div class="card-visual ts-bg">
+          <div class="ts-waveform" id="home-ts-waveform"></div>
         </div>
         <div class="card-overlay">
-          <div class="card-tag">Feature Set 3</div>
-          <div class="display-md">ASTRAL PROJECTION</div>
-          <div class="mono-sm" style="margin-top:4px">OBE Induction &amp; Exit Protocols</div>
+          <div class="card-tag">Feature Set 4 — Active</div>
+          <div class="display-md">PRESENTIMENT</div>
+          <div class="mono-sm" style="margin-top:4px">Timestamp Prediction · Precognition Test</div>
         </div>
       </div>
 
@@ -1711,6 +1911,26 @@ html, body {
           <div class="card-tag">Feature Set 2 — Active</div>
           <div class="display-md">PSI TRAINING</div>
           <div class="mono-sm" style="margin-top:4px">Zener Protocol · 25 Trial ESP Test</div>
+        </div>
+      </div>
+
+      <!-- ASTRAL PROJECTION CARD (locked) -->
+      <div class="module-card fade-in-delay-4" onclick="showComingSoon('Astral Projection')">
+        <div class="card-visual nebula">
+          <div class="star" style="width:2px;height:2px;top:22%;left:18%;opacity:.8"></div>
+          <div class="star" style="width:1px;height:1px;top:40%;left:50%;opacity:.5"></div>
+          <div class="star" style="width:3px;height:3px;top:15%;left:72%;opacity:.6"></div>
+          <div class="star" style="width:1px;height:1px;top:65%;left:28%;opacity:.7"></div>
+          <div class="star" style="width:2px;height:2px;top:50%;left:88%;opacity:.4"></div>
+          <div class="star" style="width:2px;height:2px;top:12%;left:58%;opacity:.9"></div>
+          <div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:6px 14px;">
+            <span style="font-family:var(--font-mono);font-size:11px;letter-spacing:2px;color:rgba(255,255,255,0.5);text-transform:uppercase;">Coming Soon</span>
+          </div>
+        </div>
+        <div class="card-overlay">
+          <div class="card-tag">Feature Set 3</div>
+          <div class="display-md">ASTRAL PROJECTION</div>
+          <div class="mono-sm" style="margin-top:4px">OBE Induction &amp; Exit Protocols</div>
         </div>
       </div>
 
@@ -1897,12 +2117,12 @@ html, body {
             <div class="stroke-option" style="width:12px;height:12px;" data-size="5" onclick="setStroke(5,this)"></div>
             <div class="stroke-option" style="width:16px;height:16px;" data-size="10" onclick="setStroke(10,this)"></div>
           </div>
-          <button class="tool-btn" onclick="undoStroke()" id="undo-btn" title="Undo" style="padding:7px 9px;display:flex;align-items:center;justify-content:center;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M3 7v6h6"/><path d="M3 13C5 7 10 4 16 6s8 8 5 13"/></svg>
-          </button>
-          <button class="tool-btn" onclick="redoStroke()" id="redo-btn" title="Redo" style="padding:7px 9px;display:flex;align-items:center;justify-content:center;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M21 7v6h-6"/><path d="M21 13C19 7 14 4 8 6S0 14 3 19"/></svg>
-          </button>
+          <div class="tool-btn" onclick="undoStroke()" id="undo-btn" title="Undo">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13C5 7 10 4 16 6s8 8 5 13"/></svg>
+          </div>
+          <div class="tool-btn" onclick="redoStroke()" id="redo-btn" title="Redo">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M21 13C19 7 14 4 8 6S0 14 3 19"/></svg>
+          </div>
           <div class="tool-btn erase" id="eraser-btn" onclick="toggleEraser()">Erase</div>
           <div class="tool-btn" onclick="clearCanvas()">Clear</div>
         </div>
@@ -2472,6 +2692,165 @@ html, body {
   </div>
 
   <!-- ══════════════════════════════════
+       SCREEN: TIMESTAMP – BRIEF
+  ═══════════════════════════════════ -->
+  <div id="screen-timestamp-brief" class="screen">
+    <div class="screen-inner">
+
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="btn btn-ghost" style="width:auto;padding:8px 14px;font-size:14px;" onclick="goHome()">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div class="display-lg">PRESENTIMENT</div>
+      </div>
+
+      <div class="card" style="padding:16px;">
+        <div class="mono-label" style="margin-bottom:8px;">How It Works</div>
+        <div class="body-sm">
+          A random event will fire at a sealed, predetermined moment within a 60-second window. Tap when you sense the event is about to occur. The app measures whether your taps cluster closer to the event than chance predicts.
+        </div>
+        <div class="body-sm" style="margin-top:10px;color:var(--accent);font-family:var(--font-mono);font-size:10px;letter-spacing:0.5px;">
+          Based on Radin presentiment protocols. Event time is generated and sealed before the trial begins.
+        </div>
+      </div>
+
+      <div class="section-label">Your Stats</div>
+      <div class="ts-brief-stats">
+        <div class="ts-stat-cell">
+          <div class="mono-label">Trials</div>
+          <div class="ts-stat-val" id="ts-brief-trials">0</div>
+        </div>
+        <div class="ts-stat-cell">
+          <div class="mono-label">Mean Delta</div>
+          <div class="ts-stat-val" id="ts-brief-mean" style="color:var(--accent);">--</div>
+        </div>
+        <div class="ts-stat-cell">
+          <div class="mono-label">Std Dev</div>
+          <div class="ts-stat-val" id="ts-brief-std" style="color:var(--muted);">--</div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="openTimestampSession()">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        BEGIN TRIALS
+      </button>
+
+      <button class="btn btn-ghost" onclick="viewTimestampResults()" id="ts-view-results-btn" style="display:none;">
+        View Full Analysis
+      </button>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: TIMESTAMP – SESSION
+  ═══════════════════════════════════ -->
+  <div id="screen-timestamp-session" class="screen">
+    <div class="ts-session-shell">
+
+      <div class="ts-session-header">
+        <button class="tool-btn" onclick="endTimestampBatch()" style="padding:6px 10px;">END</button>
+        <div class="mono-sm">
+          Trial <span id="ts-trial-num" style="color:var(--text);">1</span><span style="color:var(--dim);">/3</span>
+        </div>
+        <div class="mono-sm" id="ts-batch-mean" style="color:var(--muted);">--</div>
+      </div>
+
+      <div class="ts-progress-bar-wrap">
+        <div class="ts-progress-bar" id="ts-progress-bar" style="width:0%"></div>
+      </div>
+
+      <div class="ts-trial-area" id="ts-trial-area" onclick="timestampTap()">
+
+        <!-- Countdown ring -->
+        <div class="ts-countdown-wrap">
+          <svg class="ts-countdown-svg" viewBox="0 0 180 180">
+            <circle class="ts-ring-track" cx="90" cy="90" r="82"/>
+            <circle class="ts-ring-fill" id="ts-ring-fill" cx="90" cy="90" r="82"
+                    stroke-dasharray="515.22" stroke-dashoffset="0"/>
+          </svg>
+          <div class="ts-countdown-center">
+            <div class="ts-countdown-num" id="ts-countdown-num">60</div>
+            <div class="ts-countdown-label" id="ts-countdown-label">Seconds</div>
+          </div>
+        </div>
+
+        <div class="ts-tap-prompt" id="ts-tap-prompt">TAP WHEN YOU SENSE IT</div>
+        <div class="ts-state-label" id="ts-state-label">&nbsp;</div>
+
+        <!-- Flash overlay -->
+        <div class="ts-flash-overlay" id="ts-flash-overlay"></div>
+
+        <!-- Delta feedback overlay -->
+        <div class="ts-delta-feedback" id="ts-delta-feedback">
+          <div class="ts-delta-value" id="ts-delta-value">--</div>
+          <div class="ts-delta-unit" id="ts-delta-unit">seconds from event</div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: TIMESTAMP – RESULTS
+  ═══════════════════════════════════ -->
+  <div id="screen-timestamp-results" class="screen">
+    <div class="screen-inner">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div class="section-label">Analysis</div>
+        <div class="mono-sm" id="ts-result-date">--</div>
+      </div>
+
+      <div class="ts-results-hero fade-in">
+        <div class="mono-label">Mean Absolute Delta</div>
+        <div class="ts-results-big" id="ts-result-mean">--</div>
+        <div class="mono-sm" id="ts-result-mean-sub">seconds</div>
+        <div class="ts-sigma-badge" id="ts-sigma-badge"></div>
+      </div>
+
+      <div class="kpi-grid fade-in-delay-1">
+        <div class="kpi-card">
+          <div class="mono-label">Taps Recorded</div>
+          <div class="kpi-val" id="ts-result-trials">0</div>
+          <div class="kpi-delta">All time (excl. misses)</div>
+        </div>
+        <div class="kpi-card">
+          <div class="mono-label">Std Deviation</div>
+          <div class="kpi-val" id="ts-result-std">--</div>
+          <div class="kpi-delta">Lower = more consistent</div>
+        </div>
+        <div class="kpi-card">
+          <div class="mono-label">Miss Rate</div>
+          <div class="kpi-val" id="ts-result-missrate" style="color:var(--danger);">--</div>
+          <div class="kpi-delta">No tap before event</div>
+        </div>
+        <div class="kpi-card">
+          <div class="mono-label">Chance Baseline</div>
+          <div class="kpi-val" id="ts-result-chance" style="color:var(--muted);">--</div>
+          <div class="kpi-delta">Expected random delta</div>
+        </div>
+      </div>
+
+      <div class="section-label fade-in-delay-2">Recent Trials</div>
+      <div class="ts-dist-chart fade-in-delay-2" id="ts-dist-chart">
+        <!-- populated by JS -->
+      </div>
+
+      <div style="display:flex;gap:10px;" class="fade-in-delay-3">
+        <button class="btn btn-ghost" style="flex:1;" onclick="navigate('timestamp')">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+          Back
+        </button>
+        <button class="btn btn-primary" style="flex:2;" onclick="openTimestampSession()">Run More Trials</button>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════
        BOTTOM NAV
   ═══════════════════════════════════ -->
   <nav id="nav">
@@ -2621,6 +3000,9 @@ const SCREENS = {
   history:        'screen-analytics', // legacy alias
   detail:         'screen-detail',
   profile:        'screen-profile',
+  timestamp:              'screen-timestamp-brief',
+  'timestamp-session':    'screen-timestamp-session',
+  'timestamp-results':    'screen-timestamp-results',
 };
 const NAV_SCREENS = ['home', 'analytics', 'profile'];
 
@@ -2659,6 +3041,9 @@ function showScreen(name, hideNav = false) {
     history:        'nav-analytics',
     detail:         'nav-analytics',
     profile:        'nav-profile',
+    timestamp:              'nav-home',
+    'timestamp-session':    'nav-home',
+    'timestamp-results':    'nav-home',
   };
   const activeNav = document.getElementById(navMap[name]);
   if (activeNav) activeNav.classList.add('active');
@@ -2671,6 +3056,7 @@ function navigate(name) {
   if (name === 'analytics' || name === 'history') renderAnalytics();
   if (name === 'profile')  renderProfile();
   if (name === 'zener')    renderZenerBrief();
+  if (name === 'timestamp') renderTimestampBrief();
 }
 
 function goHome() { navigate('home'); }
@@ -2784,14 +3170,18 @@ function saveSnapshot() {
   if (canvasHistory.length > 30) canvasHistory.shift();
 }
 
+function restoreSnapshot(imageData) {
+  if (!ctx || !imageData) return;
+  ctx.putImageData(imageData, 0, 0);
+}
+
 function undoStroke() {
-  if (canvasHistory.length === 0) return;
+  if (canvasHistory.length <= 1) return; // keep blank floor
   const canvas = document.getElementById('rv-canvas');
   if (!canvas || !ctx) return;
-  // Push current state to redo stack
   canvasRedo.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-  // Restore previous state
-  ctx.putImageData(canvasHistory.pop(), 0, 0);
+  const prev = canvasHistory.pop();
+  restoreSnapshot(prev);
 }
 
 function redoStroke() {
@@ -2799,7 +3189,8 @@ function redoStroke() {
   const canvas = document.getElementById('rv-canvas');
   if (!canvas || !ctx) return;
   canvasHistory.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-  ctx.putImageData(canvasRedo.pop(), 0, 0);
+  const next = canvasRedo.pop();
+  restoreSnapshot(next);
 }
 
 function initCanvas() {
@@ -2824,9 +3215,10 @@ function initCanvas() {
   ctx.fillStyle = CANVAS_BG;
   ctx.fillRect(0, 0, w, h);
 
-  // Reset undo/redo history
+  // Save blank state as undo floor
   canvasHistory = [];
   canvasRedo    = [];
+  saveSnapshot();
 }
 
 function getPos(e, canvas) {
@@ -2838,8 +3230,6 @@ function getPos(e, canvas) {
 function startDraw(e) {
   e.preventDefault();
   if (!ctx) return;
-  // Save snapshot BEFORE the new stroke begins — reliable undo point
-  if (!isDrawing) saveSnapshot();
   isDrawing = true;
   const canvas = document.getElementById('rv-canvas');
   [lastX, lastY] = getPos(e, canvas);
@@ -2863,8 +3253,12 @@ function draw(e) {
 }
 
 function stopDraw() {
+  if (!isDrawing) return;
   isDrawing = false;
-  if (ctx) ctx.beginPath();
+  if (ctx) {
+    ctx.beginPath();
+    saveSnapshot();
+  }
 }
 
 function clearCanvas() {
@@ -4553,6 +4947,448 @@ function refreshPushUI() {
   else if (status === 'denied') updatePushUI('denied');
 }
 
+
+
+// ═══════════════════════════════════════════════════════
+//  TIMESTAMP PREDICTION MODULE
+//  Based on Radin presentiment protocols.
+//  Event time is generated and SEALED before trial begins.
+//  User must tap BEFORE the event. No post-event taps.
+//  3 trials per run.
+// ═══════════════════════════════════════════════════════
+
+const TS_WINDOW = 60;      // seconds per trial
+const TS_MIN_EVENT = 5;    // earliest event time
+const TS_MAX_EVENT = 55;   // latest event time
+const TS_TRIALS_PER_RUN = 3;
+const TS_CIRCUMFERENCE = 515.22; // 2 * PI * 82 (ring radius)
+
+const TS_STATE = {
+  eventTime:      null,   // sealed random time (seconds from trial start)
+  trialStart:     null,   // performance.now() at trial start
+  tapTime:        null,   // user's tap time (seconds from trial start)
+  hasTapped:      false,
+  eventFired:     false,
+  trialActive:    false,
+  fastForwarding: false,  // true when visually accelerating to event after tap
+  trialNum:       0,
+  batchTrials:    [],     // [{eventTime, tapTime, delta, miss}] for current batch
+  tickInterval:   null,
+  eventTimeout:   null,
+  ffInterval:     null,   // fast-forward tick interval
+};
+
+// ─── PERSISTENCE ──────────────────────────────
+// Two keys: ablty_timestamp for tap trials, ablty_timestamp_all for all trials (incl misses)
+function loadTimestampTrials() {
+  try { return JSON.parse(localStorage.getItem('ablty_timestamp') || '[]'); } catch(e) { return []; }
+}
+function loadTimestampAll() {
+  try { return JSON.parse(localStorage.getItem('ablty_timestamp_all') || '[]'); } catch(e) { return []; }
+}
+
+function saveTimestampTrial(trial) {
+  // Always save to _all
+  const allTrials = loadTimestampAll();
+  allTrials.unshift(trial);
+  try { localStorage.setItem('ablty_timestamp_all', JSON.stringify(allTrials)); } catch(e) {}
+
+  // Only save to _timestamp (delta analysis pool) if NOT a miss
+  if (!trial.miss) {
+    const taps = loadTimestampTrials();
+    taps.unshift(trial);
+    try { localStorage.setItem('ablty_timestamp', JSON.stringify(taps)); } catch(e) {}
+  }
+}
+
+// ─── BRIEF SCREEN ─────────────────────────────
+function renderTimestampBrief() {
+  const taps = loadTimestampTrials();
+  const allTrials = loadTimestampAll();
+  setEl('ts-brief-trials', allTrials.length);
+
+  if (taps.length >= 3) {
+    const deltas = taps.map(t => Math.abs(t.delta));
+    const mean = (deltas.reduce((a,b) => a+b, 0) / deltas.length).toFixed(1);
+    const std = Math.sqrt(deltas.reduce((a,d) => a + (d - mean) ** 2, 0) / deltas.length).toFixed(1);
+    setEl('ts-brief-mean', mean + 's');
+    setEl('ts-brief-std', std + 's');
+    const btn = document.getElementById('ts-view-results-btn');
+    if (btn) btn.style.display = 'flex';
+  } else {
+    setEl('ts-brief-mean', '--');
+    setEl('ts-brief-std', '--');
+    const btn = document.getElementById('ts-view-results-btn');
+    if (btn) btn.style.display = allTrials.length > 0 ? 'flex' : 'none';
+  }
+
+  buildTSWaveform();
+}
+
+function buildTSWaveform() {
+  const el = document.getElementById('home-ts-waveform');
+  if (!el || el.children.length > 0) return;
+  for (let i = 0; i < 30; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'ts-bar';
+    const h = 8 + Math.random() * 50;
+    bar.style.height = h + 'px';
+    bar.style.animationDelay = (Math.random() * 2) + 's';
+    el.appendChild(bar);
+  }
+}
+
+// ─── SESSION FLOW ─────────────────────────────
+function openTimestampSession() {
+  TS_STATE.trialNum    = 0;
+  TS_STATE.batchTrials = [];
+  showScreen('timestamp-session', true);
+  startTimestampTrial();
+}
+
+function startTimestampTrial() {
+  TS_STATE.trialNum++;
+  TS_STATE.hasTapped      = false;
+  TS_STATE.eventFired     = false;
+  TS_STATE.trialActive    = true;
+  TS_STATE.fastForwarding = false;
+  TS_STATE.tapTime        = null;
+
+  // SEAL the event time before anything else
+  TS_STATE.eventTime = TS_MIN_EVENT + Math.random() * (TS_MAX_EVENT - TS_MIN_EVENT);
+  TS_STATE.trialStart = performance.now();
+
+  // Update header
+  setEl('ts-trial-num', TS_STATE.trialNum);
+  updateBatchMean();
+
+  // Reset UI
+  const ring = document.getElementById('ts-ring-fill');
+  if (ring) {
+    ring.classList.remove('fast-forward');
+    ring.style.strokeDashoffset = '0';
+  }
+  setEl('ts-countdown-num', TS_WINDOW);
+  setEl('ts-countdown-label', 'Seconds');
+  const prompt = document.getElementById('ts-tap-prompt');
+  if (prompt) { prompt.textContent = 'TAP WHEN YOU SENSE IT'; prompt.className = 'ts-tap-prompt'; prompt.style.color = ''; }
+  setEl('ts-state-label', '\u00A0');
+  const flash = document.getElementById('ts-flash-overlay');
+  if (flash) flash.classList.remove('firing');
+  const feedback = document.getElementById('ts-delta-feedback');
+  if (feedback) feedback.classList.remove('visible');
+  const progress = document.getElementById('ts-progress-bar');
+  if (progress) progress.style.width = '0%';
+  const area = document.getElementById('ts-trial-area');
+  if (area) area.style.pointerEvents = 'auto';
+
+  // Start countdown tick
+  clearInterval(TS_STATE.tickInterval);
+  clearInterval(TS_STATE.ffInterval);
+  clearTimeout(TS_STATE.eventTimeout);
+
+  TS_STATE.tickInterval = setInterval(tsTickUpdate, 100);
+
+  // Schedule the sealed event
+  TS_STATE.eventTimeout = setTimeout(() => {
+    fireTimestampEvent();
+  }, TS_STATE.eventTime * 1000);
+}
+
+function tsTickUpdate() {
+  if (TS_STATE.fastForwarding) return;
+
+  const elapsed = (performance.now() - TS_STATE.trialStart) / 1000;
+  const remaining = Math.max(0, TS_WINDOW - elapsed);
+
+  setEl('ts-countdown-num', Math.ceil(remaining));
+
+  const ring = document.getElementById('ts-ring-fill');
+  if (ring) {
+    ring.style.strokeDashoffset = ((elapsed / TS_WINDOW) * TS_CIRCUMFERENCE).toString();
+  }
+
+  const progress = document.getElementById('ts-progress-bar');
+  if (progress) progress.style.width = ((elapsed / TS_WINDOW) * 100) + '%';
+}
+
+function timestampTap() {
+  if (!TS_STATE.trialActive || TS_STATE.hasTapped || TS_STATE.eventFired) return;
+
+  const elapsed = (performance.now() - TS_STATE.trialStart) / 1000;
+  TS_STATE.tapTime = elapsed;
+  TS_STATE.hasTapped = true;
+
+  // Update UI
+  const prompt = document.getElementById('ts-tap-prompt');
+  if (prompt) { prompt.textContent = 'TAPPED'; prompt.className = 'ts-tap-prompt tapped'; }
+  setEl('ts-state-label', 'Fast-forwarding to event...');
+
+  // Disable further taps
+  const area = document.getElementById('ts-trial-area');
+  if (area) area.style.pointerEvents = 'none';
+
+  // Cancel the real-time event timeout; we fire it at end of fast-forward
+  clearTimeout(TS_STATE.eventTimeout);
+  clearInterval(TS_STATE.tickInterval);
+
+  // Fast-forward: visually accelerate countdown to eventTime over ~1.5s
+  TS_STATE.fastForwarding = true;
+  const currentElapsed = elapsed;
+  const targetElapsed = TS_STATE.eventTime;
+  const ffDuration = 1500;
+  const ffStartTime = performance.now();
+
+  // CSS transition on ring for smooth fast-forward
+  const ring = document.getElementById('ts-ring-fill');
+  if (ring) {
+    ring.classList.add('fast-forward');
+    ring.style.strokeDashoffset = ((targetElapsed / TS_WINDOW) * TS_CIRCUMFERENCE).toString();
+  }
+
+  // Animate the number countdown during fast-forward
+  TS_STATE.ffInterval = setInterval(() => {
+    const ffProgress = Math.min(1, (performance.now() - ffStartTime) / ffDuration);
+    const simElapsed = currentElapsed + (targetElapsed - currentElapsed) * ffProgress;
+    const remaining = Math.max(0, TS_WINDOW - simElapsed);
+    setEl('ts-countdown-num', Math.ceil(remaining));
+
+    const progress = document.getElementById('ts-progress-bar');
+    if (progress) progress.style.width = ((simElapsed / TS_WINDOW) * 100) + '%';
+
+    if (ffProgress >= 1) {
+      clearInterval(TS_STATE.ffInterval);
+      fireTimestampEvent();
+    }
+  }, 50);
+}
+
+function fireTimestampEvent() {
+  if (!TS_STATE.trialActive) return;
+  TS_STATE.eventFired = true;
+  TS_STATE.fastForwarding = false;
+  clearInterval(TS_STATE.tickInterval);
+  clearInterval(TS_STATE.ffInterval);
+  clearTimeout(TS_STATE.eventTimeout);
+
+  // Visual flash
+  const flash = document.getElementById('ts-flash-overlay');
+  if (flash) {
+    flash.classList.remove('firing');
+    void flash.offsetWidth;
+    flash.classList.add('firing');
+  }
+
+  // Vibrate on supported devices
+  if (navigator.vibrate) navigator.vibrate(100);
+
+  // Disable taps
+  const area = document.getElementById('ts-trial-area');
+  if (area) area.style.pointerEvents = 'none';
+
+  if (TS_STATE.hasTapped) {
+    // User tapped before event: show delta after flash settles
+    setTimeout(() => showTrialResult(false), 400);
+  } else {
+    // MISS: event fired without a tap
+    const prompt = document.getElementById('ts-tap-prompt');
+    if (prompt) { prompt.textContent = 'MISS'; prompt.className = 'ts-tap-prompt'; prompt.style.color = 'var(--danger)'; }
+    setTimeout(() => showTrialResult(true), 400);
+  }
+}
+
+function showTrialResult(isMiss) {
+  TS_STATE.trialActive = false;
+
+  const feedback = document.getElementById('ts-delta-feedback');
+  const valEl = document.getElementById('ts-delta-value');
+  const unitEl = document.getElementById('ts-delta-unit');
+
+  if (isMiss) {
+    const trial = {
+      id: Date.now(),
+      eventTime: Math.round(TS_STATE.eventTime * 100) / 100,
+      tapTime: null,
+      delta: null,
+      miss: true,
+      timestamp: new Date().toISOString(),
+    };
+    TS_STATE.batchTrials.push(trial);
+    saveTimestampTrial(trial);
+
+    if (valEl) { valEl.textContent = 'MISS'; valEl.className = 'ts-delta-value miss'; }
+    if (unitEl) unitEl.textContent = 'No tap before event';
+  } else {
+    const delta = TS_STATE.tapTime - TS_STATE.eventTime; // always negative
+    const absDelta = Math.abs(delta);
+
+    const trial = {
+      id: Date.now(),
+      eventTime: Math.round(TS_STATE.eventTime * 100) / 100,
+      tapTime: Math.round(TS_STATE.tapTime * 100) / 100,
+      delta: Math.round(delta * 100) / 100,
+      miss: false,
+      timestamp: new Date().toISOString(),
+    };
+    TS_STATE.batchTrials.push(trial);
+    saveTimestampTrial(trial);
+
+    if (valEl) {
+      valEl.textContent = absDelta.toFixed(1) + 's';
+      valEl.className = 'ts-delta-value ' + (absDelta < 3 ? 'good' : absDelta < 8 ? 'ok' : 'far');
+    }
+    if (unitEl) unitEl.textContent = 'before event';
+  }
+
+  if (feedback) feedback.classList.add('visible');
+  updateBatchMean();
+
+  // Advance or finish after 2s feedback
+  setTimeout(() => {
+    if (feedback) feedback.classList.remove('visible');
+
+    if (TS_STATE.trialNum >= TS_TRIALS_PER_RUN) {
+      setTimeout(() => viewTimestampResults(), 200);
+    } else {
+      setTimeout(() => startTimestampTrial(), 200);
+    }
+  }, 2000);
+}
+
+function updateBatchMean() {
+  const el = document.getElementById('ts-batch-mean');
+  if (!el) return;
+  const taps = TS_STATE.batchTrials.filter(t => !t.miss);
+  if (taps.length === 0) { el.textContent = '--'; return; }
+  const deltas = taps.map(t => Math.abs(t.delta));
+  const mean = (deltas.reduce((a,b) => a+b,0) / deltas.length).toFixed(1);
+  el.textContent = 'Avg: ' + mean + 's';
+}
+
+function endTimestampBatch() {
+  TS_STATE.trialActive = false;
+  TS_STATE.fastForwarding = false;
+  clearInterval(TS_STATE.tickInterval);
+  clearInterval(TS_STATE.ffInterval);
+  clearTimeout(TS_STATE.eventTimeout);
+  viewTimestampResults();
+}
+
+// ─── RESULTS / ANALYSIS ──────────────────────
+function viewTimestampResults() {
+  showScreen('timestamp-results', false);
+  renderTimestampResults();
+}
+
+function renderTimestampResults() {
+  const taps = loadTimestampTrials();
+  const allTrials = loadTimestampAll();
+  if (!allTrials.length) return;
+
+  const hasTapData = taps.length >= 1;
+  let mean = 0, std = 0;
+  if (hasTapData) {
+    const deltas = taps.map(t => Math.abs(t.delta));
+    mean = deltas.reduce((a,b) => a+b,0) / deltas.length;
+    std = Math.sqrt(deltas.reduce((a,d) => a + (d - mean) ** 2, 0) / deltas.length);
+  }
+
+  const misses = allTrials.filter(t => t.miss).length;
+  const missRate = Math.round((misses / allTrials.length) * 100);
+
+  let chanceBaseline = { mean: 0, std: 1 };
+  let sigma = 0;
+  if (taps.length >= 5) {
+    chanceBaseline = computeChanceBaseline(taps);
+    sigma = chanceBaseline.std > 0 ? (chanceBaseline.mean - mean) / chanceBaseline.std : 0;
+  }
+
+  const d = new Date(allTrials[0].timestamp);
+  setEl('ts-result-date', (d.getMonth()+1) + '/' + d.getDate() + ' ' + d.getHours() + ':' + d.getMinutes().toString().padStart(2,'0'));
+
+  setEl('ts-result-mean', hasTapData ? mean.toFixed(1) + 's' : '--');
+
+  const badge = document.getElementById('ts-sigma-badge');
+  if (badge) {
+    if (taps.length < 10) {
+      badge.textContent = 'Need 10+ taps for statistical analysis';
+      badge.className = 'ts-sigma-badge nosig';
+    } else if (sigma > 1.5) {
+      badge.textContent = sigma.toFixed(1) + '\u03C3 below chance \u00B7 Significant';
+      badge.className = 'ts-sigma-badge sig';
+    } else if (sigma > 0) {
+      badge.textContent = sigma.toFixed(1) + '\u03C3 below chance';
+      badge.className = 'ts-sigma-badge nosig';
+    } else {
+      badge.textContent = 'At or above chance baseline';
+      badge.className = 'ts-sigma-badge nosig';
+    }
+  }
+
+  setEl('ts-result-trials', taps.length);
+  setEl('ts-result-std', hasTapData ? std.toFixed(1) + 's' : '--');
+  setEl('ts-result-missrate', missRate + '%');
+  setEl('ts-result-chance', taps.length >= 5 ? chanceBaseline.mean.toFixed(1) + 's' : '--');
+
+  buildTSDistChart(taps.slice(0, 20));
+}
+
+function computeChanceBaseline(trials) {
+  const eventTimes = trials.map(t => t.eventTime);
+  const tapTimes = trials.map(t => t.tapTime);
+  const n = trials.length;
+  const simMeans = [];
+
+  for (let sim = 0; sim < 1000; sim++) {
+    const shuffled = [...eventTimes];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    let sum = 0;
+    for (let k = 0; k < n; k++) {
+      sum += Math.abs(tapTimes[k] - shuffled[k]);
+    }
+    simMeans.push(sum / n);
+  }
+
+  const chanceMean = simMeans.reduce((a,b) => a+b, 0) / simMeans.length;
+  const chanceStd = Math.sqrt(simMeans.reduce((a,m) => a + (m - chanceMean) ** 2, 0) / simMeans.length);
+  return { mean: chanceMean, std: chanceStd };
+}
+
+function buildTSDistChart(trials) {
+  const el = document.getElementById('ts-dist-chart');
+  if (!el) return;
+  if (!trials.length) {
+    el.innerHTML = '<div class="no-data-note">No tap data yet</div>';
+    return;
+  }
+
+  const maxDelta = Math.max(...trials.map(t => Math.abs(t.delta)), 15);
+
+  el.innerHTML = '<div class="mono-label" style="margin-bottom:10px;">Tap Distance from Event (last 20)</div>' +
+    trials.map((t, i) => {
+      const absDelta = Math.abs(t.delta);
+      const pct = Math.min(95, (absDelta / maxDelta) * 100);
+      const color = absDelta < 3 ? 'var(--accent)' : absDelta < 8 ? 'var(--warn)' : 'var(--danger)';
+      return '<div class="ts-trial-row">' +
+        '<div class="ts-trial-num">#' + (trials.length - i) + '</div>' +
+        '<div class="ts-trial-bar-track">' +
+        '<div style="position:absolute;top:-4px;bottom:-4px;width:1px;right:0;background:rgba(74,240,200,0.3);"></div>' +
+        '<div class="ts-trial-bar-dot" style="right:' + pct + '%;left:auto;background:' + color + ';"></div>' +
+        '</div>' +
+        '<div class="ts-trial-delta" style="color:' + color + ';">' + absDelta.toFixed(1) + 's</div>' +
+        '</div>';
+    }).join('') +
+    '<div style="display:flex;justify-content:space-between;margin-top:8px;">' +
+    '<span class="mono-sm" style="font-size:8px;color:var(--dim);">\u2190 FURTHER FROM EVENT</span>' +
+    '<span class="mono-sm" style="font-size:8px;color:var(--accent);">EVENT \u2502</span>' +
+    '</div>';
+}
+
+// Init waveform on page load
+document.addEventListener('DOMContentLoaded', buildTSWaveform);
 
 
 window.addEventListener('error', (e) => {
