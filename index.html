@@ -5032,6 +5032,14 @@ function getPushStatus() {
   return Notification.permission;
 }
 
+function getPushEnabled() {
+  return localStorage.getItem('ablty_push_enabled') === '1';
+}
+
+function setPushEnabled(val) {
+  localStorage.setItem('ablty_push_enabled', val ? '1' : '0');
+}
+
 async function isSubscribed() {
   try {
     const reg = window._swRegistration || await navigator.serviceWorker.ready;
@@ -5044,9 +5052,7 @@ async function isSubscribed() {
 registerSW();
 
 async function handlePushToggle() {
-  const btn  = document.getElementById('push-enable-btn');
   const desc = document.getElementById('push-status-desc');
-
   const permission = getPushStatus();
   console.log('[ABLTY Push] permission:', permission);
 
@@ -5060,24 +5066,24 @@ async function handlePushToggle() {
     return;
   }
 
-  // Check subscription state
-  const subscribed = await isSubscribed();
-  console.log('[ABLTY Push] subscribed:', subscribed);
+  // Use localStorage as source of truth for toggle state
+  const enabled = getPushEnabled();
+  console.log('[ABLTY Push] currently enabled:', enabled);
 
-  if (subscribed) {
-    // Already on — turn off
+  if (enabled) {
+    // Turn OFF
     try {
       const reg = window._swRegistration || await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) await sub.unsubscribe();
       console.log('[ABLTY Push] unsubscribed');
     } catch(e) { console.warn('[ABLTY Push] unsubscribe error:', e); }
+    setPushEnabled(false);
     updatePushUI('default');
     return;
   }
 
-  // Not subscribed — request permission and subscribe
-  // NOTE: requestPermission must happen with minimal async before it on Android
+  // Turn ON
   updatePushUI('requesting');
 
   let perm = permission;
@@ -5097,11 +5103,9 @@ async function handlePushToggle() {
     return;
   }
 
-  // Permission is granted — now subscribe
   try {
     const reg = window._swRegistration || await navigator.serviceWorker.ready;
     console.log('[ABLTY Push] SW ready, subscribing...');
-
     let sub = await reg.pushManager.getSubscription();
     if (!sub) {
       sub = await reg.pushManager.subscribe({
@@ -5111,9 +5115,11 @@ async function handlePushToggle() {
     }
     console.log('[ABLTY Push] subscribed:', sub.endpoint);
     await sendSubToServer(sub);
+    setPushEnabled(true);
     updatePushUI('granted');
   } catch(e) {
     console.warn('[ABLTY Push] subscribe error:', e.message, e);
+    setPushEnabled(false);
     updatePushUI('default');
     if (desc) desc.textContent = 'Subscribe failed — see console';
   }
@@ -5145,12 +5151,13 @@ function updatePushUI(status) {
 }
 
 // Reflect current status on profile load
-async function refreshPushUI() {
+function refreshPushUI() {
   const permission = getPushStatus();
-  if (permission === 'denied') { updatePushUI('denied'); return; }
-  if (permission === 'unsupported') return;
-  const subscribed = await isSubscribed();
-  updatePushUI(subscribed ? 'granted' : 'default');
+  if (permission === 'denied')      { updatePushUI('denied');  return; }
+  if (permission === 'unsupported') { return; }
+  // If permission was revoked externally, clear our stored state
+  if (permission !== 'granted' && getPushEnabled()) setPushEnabled(false);
+  updatePushUI(getPushEnabled() ? 'granted' : 'default');
 }
 
 
