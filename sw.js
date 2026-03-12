@@ -52,27 +52,38 @@ self.addEventListener('fetch', event => {
 });
 
 // ── Push: receive and display notification ────────────
+const REALITY_CHECKS = [
+  'Reality check. Are you dreaming right now?',
+  'Stop. Look at your hands. Count your fingers.',
+  'Reality check. Can you read this twice?',
+  'Pinch your nose. Can you still breathe?',
+  'State check. Where are you? How did you get here?',
+  'Look around. Does anything seem off?',
+];
+
 self.addEventListener('push', event => {
-  let data = {};
-  try {
-    data = event.data ? event.data.json() : {};
-  } catch(e) {
-    data = { title: 'ABLTY', body: event.data ? event.data.text() : 'Reality check.' };
+  let title = 'ABLTY';
+  let body  = REALITY_CHECKS[Math.floor(Math.random() * REALITY_CHECKS.length)];
+
+  if (event.data) {
+    try {
+      const data = event.data.json();
+      if (data.title) title = data.title;
+      if (data.body)  body  = data.body;
+    } catch(e) {
+      const text = event.data.text();
+      if (text) body = text;
+    }
   }
 
-  const title   = data.title || 'ABLTY';
   const options = {
-    body:    data.body    || 'Reality check. Are you dreaming?',
-    icon:    data.icon    || '/icons/icon-192.png',
-    badge:   data.badge   || '/icons/icon-192.png',
-    tag:     data.tag     || 'ablty-reality-check',
+    body,
+    icon:     '/icons/icon-192.png',
+    badge:    '/icons/icon-192.png',
+    tag:      'ablty-reality-check',
     renotify: true,
-    silent:  false,
-    data:    { url: data.url || '/' },
-    actions: [
-      { action: 'check', title: 'Do the Check' },
-      { action: 'dismiss', title: 'Dismiss' }
-    ]
+    silent:   false,
+    data:     { url: '/' },
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
