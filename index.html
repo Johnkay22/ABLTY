@@ -3370,6 +3370,7 @@ async function submitSession() {
     updateGradingStatus('Compiling report...');
     await delay(400);
   } catch(err) {
+    console.warn('[ABLTY] Grading failed, using mock:', err.message || err);
     result = mockGrade();
   }
 
@@ -3385,7 +3386,7 @@ async function submitSession() {
     targetSrc: target.src,
     targetLabel: target.label,
     category: target.category,
-    score: result.gestalt_score,
+    score: result.gestalt_score || result.overall_score || 0,
     dimension_scores: result.dimension_scores || null,
     hits: result.hits || [],
     noise: result.noise || [],
@@ -3405,7 +3406,7 @@ function updateGradingStatus(msg) {
 }
 
 function renderResults(result, target) {
-  const score   = result.gestalt_score || 0;
+  const score   = result.gestalt_score || result.overall_score || 0;
   const ring    = document.getElementById('score-ring');
   const pctEl   = document.getElementById('score-pct');
   const summary = document.getElementById('result-summary');
@@ -4911,11 +4912,21 @@ registerSW();
 
 async function handlePushToggle() {
   const status = getPushStatus();
-  if (status === 'granted') return; // already on
   if (status === 'denied') {
     updatePushUI('denied');
     return;
   }
+  if (status === 'granted') {
+    // Turn OFF — unsubscribe
+    try {
+      const reg = window._swRegistration || await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) await sub.unsubscribe();
+    } catch(e) {}
+    updatePushUI('default');
+    return;
+  }
+  // Turn ON
   updatePushUI('requesting');
   const success = await requestPushPermission();
   updatePushUI(success ? 'granted' : 'denied');
@@ -4929,7 +4940,7 @@ function updatePushUI(status) {
     btn.textContent  = 'On';
     btn.style.color  = 'var(--accent)';
     btn.style.borderColor = 'var(--accent)';
-    desc.textContent = 'Notifications active';
+    desc.textContent = 'Tap to disable';
   } else if (status === 'denied') {
     btn.textContent  = 'Blocked';
     btn.style.color  = 'var(--danger)';
@@ -4937,7 +4948,14 @@ function updatePushUI(status) {
     desc.textContent = 'Enable in browser settings';
   } else if (status === 'requesting') {
     btn.textContent  = '...';
+    desc.textContent = 'Requesting permission...';
+  } else {
+    btn.textContent  = 'Enable';
+    btn.style.color  = 'var(--muted)';
+    btn.style.borderColor = 'var(--border)';
+    desc.textContent = 'Get reality check reminders';
   }
+}
 }
 
 // Reflect current status on profile load
