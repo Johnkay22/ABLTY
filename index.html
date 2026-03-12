@@ -5032,16 +5032,28 @@ function getPushStatus() {
   return Notification.permission; // 'default' | 'granted' | 'denied'
 }
 
+async function isSubscribed() {
+  try {
+    const reg = window._swRegistration || await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    return !!sub;
+  } catch(e) { return false; }
+}
+
 // Register SW on load
 registerSW();
 
 async function handlePushToggle() {
-  const status = getPushStatus();
-  if (status === 'denied') {
+  const permission = getPushStatus();
+  if (permission === 'denied') {
     updatePushUI('denied');
     return;
   }
-  if (status === 'granted') {
+
+  // Check actual subscription state, not just permission
+  const subscribed = await isSubscribed();
+
+  if (subscribed) {
     // Turn OFF — unsubscribe
     try {
       const reg = window._swRegistration || await navigator.serviceWorker.ready;
@@ -5051,6 +5063,7 @@ async function handlePushToggle() {
     updatePushUI('default');
     return;
   }
+
   // Turn ON
   updatePushUI('requesting');
   const success = await requestPushPermission();
@@ -5083,10 +5096,12 @@ function updatePushUI(status) {
 }
 
 // Reflect current status on profile load
-function refreshPushUI() {
-  const status = getPushStatus();
-  if (status === 'granted') updatePushUI('granted');
-  else if (status === 'denied') updatePushUI('denied');
+async function refreshPushUI() {
+  const permission = getPushStatus();
+  if (permission === 'denied') { updatePushUI('denied'); return; }
+  if (permission === 'unsupported') return;
+  const subscribed = await isSubscribed();
+  updatePushUI(subscribed ? 'granted' : 'default');
 }
 
 
