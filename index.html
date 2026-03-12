@@ -5029,7 +5029,7 @@ function urlBase64ToUint8Array(base64String) {
 
 function getPushStatus() {
   if (!('Notification' in window)) return 'unsupported';
-  return Notification.permission; // 'default' | 'granted' | 'denied'
+  return Notification.permission;
 }
 
 async function isSubscribed() {
@@ -5044,30 +5044,79 @@ async function isSubscribed() {
 registerSW();
 
 async function handlePushToggle() {
+  const btn  = document.getElementById('push-enable-btn');
+  const desc = document.getElementById('push-status-desc');
+
   const permission = getPushStatus();
+  console.log('[ABLTY Push] permission:', permission);
+
+  if (permission === 'unsupported') {
+    if (desc) desc.textContent = 'Not supported in this browser';
+    return;
+  }
+
   if (permission === 'denied') {
     updatePushUI('denied');
     return;
   }
 
-  // Check actual subscription state, not just permission
+  // Check subscription state
   const subscribed = await isSubscribed();
+  console.log('[ABLTY Push] subscribed:', subscribed);
 
   if (subscribed) {
-    // Turn OFF — unsubscribe
+    // Already on — turn off
     try {
       const reg = window._swRegistration || await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) await sub.unsubscribe();
-    } catch(e) {}
+      console.log('[ABLTY Push] unsubscribed');
+    } catch(e) { console.warn('[ABLTY Push] unsubscribe error:', e); }
     updatePushUI('default');
     return;
   }
 
-  // Turn ON
+  // Not subscribed — request permission and subscribe
+  // NOTE: requestPermission must happen with minimal async before it on Android
   updatePushUI('requesting');
-  const success = await requestPushPermission();
-  updatePushUI(success ? 'granted' : 'denied');
+
+  let perm = permission;
+  if (perm !== 'granted') {
+    try {
+      perm = await Notification.requestPermission();
+      console.log('[ABLTY Push] requestPermission result:', perm);
+    } catch(e) {
+      console.warn('[ABLTY Push] requestPermission error:', e);
+      updatePushUI('denied');
+      return;
+    }
+  }
+
+  if (perm !== 'granted') {
+    updatePushUI('denied');
+    return;
+  }
+
+  // Permission is granted — now subscribe
+  try {
+    const reg = window._swRegistration || await navigator.serviceWorker.ready;
+    console.log('[ABLTY Push] SW ready, subscribing...');
+
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    }
+    console.log('[ABLTY Push] subscribed:', sub.endpoint);
+    await sendSubToServer(sub);
+    updatePushUI('granted');
+  } catch(e) {
+    console.warn('[ABLTY Push] subscribe error:', e.message, e);
+    updatePushUI('default');
+    if (desc) desc.textContent = 'Subscribe failed — see console';
+  }
 }
 
 function updatePushUI(status) {
