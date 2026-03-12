@@ -2561,6 +2561,12 @@ html, body {
           <div id="tod-wrap"></div>
         </div>
 
+        <div class="chart-card" id="tag-correlation-card">
+          <div class="chart-title">Condition Correlation</div>
+          <div class="mono-sm" style="color:var(--dim);margin-bottom:10px;">Avg RV score by session condition</div>
+          <div id="tag-correlation-wrap"></div>
+        </div>
+
       </div>
 
       <!-- PERFORMANCE PANEL -->
@@ -3431,6 +3437,23 @@ function renderResults(result, target) {
 
   if (summary) summary.textContent = result.summary || '';
 
+  // Notes
+  const notesVal = (document.getElementById('rv-notes') || {}).value || '';
+  let notesCard = document.getElementById('result-notes-card');
+  if (!notesCard) {
+    notesCard = document.createElement('div');
+    notesCard.id = 'result-notes-card';
+    notesCard.className = 'summary-card fade-in-delay-2';
+    const summaryCard = document.querySelector('#screen-results .summary-card');
+    if (summaryCard && summaryCard.parentNode) summaryCard.parentNode.insertBefore(notesCard, summaryCard.nextSibling);
+  }
+  if (notesVal.trim()) {
+    notesCard.style.display = 'block';
+    notesCard.innerHTML = `<div class="mono-label" style="margin-bottom:8px;">Your Impressions</div><div class="summary-text" style="white-space:pre-wrap;">${notesVal}</div>`;
+  } else {
+    notesCard.style.display = 'none';
+  }
+
   if (hitList) {
     hitList.innerHTML = '';
     (result.hits  || []).forEach(h => {
@@ -3895,6 +3918,7 @@ function renderAnalytics() {
 
   // ── Overview extras ────────────────────────────
   buildTODChart(rvSessions);
+  buildTagCorrelation(rvSessions);
 
   // ── Performance charts ─────────────────────────
   buildBarChartMotivated('rv-chart-wrap',    rvSessions.slice(-10), s => s.score,   100, '%', undefined, 3, 'RV session');
@@ -4075,6 +4099,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
         </div>
         <div class="mono-sm" style="margin-top:4px;">${dateStr}</div>
         <div class="mono-sm" style="margin-top:2px;color:var(--dim);">${label}</div>
+        ${s.type === 'rv' && s.notes && s.notes.trim() ? `<div class="mono-sm" style="margin-top:3px;color:var(--muted);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;">${s.notes.slice(0,60)}${s.notes.length>60?'…':''}</div>` : ''}
       </div>
       <div class="session-score ${cls}">${s.score}%</div>
     </div>`;
@@ -4139,6 +4164,22 @@ function renderRVDetail(s) {
 
   // Summary
   setEl('detail-summary', s.summary || 'No summary available.');
+
+  // Notes
+  let detailNotesCard = document.getElementById('detail-notes-card');
+  if (!detailNotesCard) {
+    detailNotesCard = document.createElement('div');
+    detailNotesCard.id = 'detail-notes-card';
+    detailNotesCard.className = 'summary-card fade-in-delay-1';
+    const summaryCard = document.getElementById('detail-summary-card');
+    if (summaryCard && summaryCard.parentNode) summaryCard.parentNode.insertBefore(detailNotesCard, summaryCard.nextSibling);
+  }
+  if (s.notes && s.notes.trim()) {
+    detailNotesCard.style.display = 'block';
+    detailNotesCard.innerHTML = `<div class="mono-label" style="margin-bottom:8px;">Your Impressions</div><div class="summary-text" style="white-space:pre-wrap;">${s.notes}</div>`;
+  } else {
+    detailNotesCard.style.display = 'none';
+  }
 
   // Dimension scores
   const dimWrap = document.getElementById('detail-dimensions-wrap');
@@ -4634,6 +4675,90 @@ function buildTODChart(rvSessions) {
       <div class="tod-cell-sub">${slots[k].length} session${slots[k].length !== 1 ? 's' : ''}${isBest ? ' ★' : ''}</div>
     </div>`;
   }).join('') + '</div>';
+}
+
+// ── Tag / Condition Correlation ──────────────
+function buildTagCorrelation(rvSessions) {
+  const el = document.getElementById('tag-correlation-wrap');
+  if (!el) return;
+
+  const tagged = rvSessions.filter(s => s.tags && s.tags.length);
+
+  if (tagged.length < 2) {
+    el.innerHTML = `<div class="empty-motivate">
+      <div class="empty-motivate-icon">◈</div>
+      <div class="empty-motivate-title">No Tagged Sessions Yet</div>
+      <div class="empty-motivate-sub">After a session, tap "+ TAG" in the log and add condition tags. Once you have 2+ tagged sessions, you'll see which conditions improve your scores.</div>
+    </div>`;
+    return;
+  }
+
+  // Overall average across all RV sessions
+  const overallAvg = rvSessions.length
+    ? Math.round(rvSessions.reduce((a, s) => a + s.score, 0) / rvSessions.length)
+    : 0;
+
+  // Collect all unique tags and compute per-tag avg/count
+  const tagMap = {};
+  tagged.forEach(s => {
+    s.tags.forEach(t => {
+      if (!tagMap[t]) tagMap[t] = { scores: [], label: t };
+      tagMap[t].scores.push(s.score);
+    });
+  });
+
+  // Sort by avg score descending, only show tags with 2+ sessions
+  const tagEntries = Object.values(tagMap)
+    .filter(t => t.scores.length >= 1)
+    .map(t => ({
+      label: t.label,
+      avg: Math.round(t.scores.reduce((a, b) => a + b, 0) / t.scores.length),
+      count: t.scores.length
+    }))
+    .sort((a, b) => b.avg - a.avg);
+
+  if (!tagEntries.length) {
+    el.innerHTML = `<div class="no-data-note">Tag more sessions to see correlations.</div>`;
+    return;
+  }
+
+  const TAG_LABELS = {
+    meditated: 'Meditated', tired: 'Tired', morning: 'Morning', night: 'Night',
+    focused: 'Focused', distracted: 'Distracted', noisy: 'Noisy env', quiet: 'Quiet',
+    caffeine: 'Caffeinated', fasted: 'Fasted'
+  };
+
+  el.innerHTML = `
+    <div style="margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+      <div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;">OVERALL AVG</div>
+      <div style="font-family:var(--font-display);font-size:18px;color:var(--text);">${overallAvg}%</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      ${tagEntries.map(t => {
+        const delta = t.avg - overallAvg;
+        const deltaColor = delta > 0 ? 'var(--accent)' : delta < 0 ? 'var(--danger)' : 'var(--muted)';
+        const deltaStr = delta > 0 ? '+' + delta : delta.toString();
+        const barPct = Math.min(100, Math.round((t.avg / 100) * 100));
+        const barColor = t.avg >= 65 ? 'var(--accent)' : t.avg >= 45 ? 'var(--warn)' : 'var(--danger)';
+        const displayLabel = TAG_LABELS[t.label] || t.label;
+        return `<div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;">
+            <div style="font-family:var(--font-mono);font-size:10px;color:var(--text);letter-spacing:0.5px;">${displayLabel}</div>
+            <div style="display:flex;align-items:baseline;gap:6px;">
+              <span style="font-family:var(--font-display);font-size:16px;color:var(--text);">${t.avg}%</span>
+              <span style="font-family:var(--font-mono);font-size:9px;color:${deltaColor};">${deltaStr}</span>
+              <span style="font-family:var(--font-mono);font-size:8px;color:var(--dim);">${t.count} session${t.count !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+          <div style="position:relative;height:6px;background:var(--card2);border-radius:3px;overflow:hidden;">
+            <div style="position:absolute;left:0;top:0;height:100%;width:${barPct}%;background:${barColor};border-radius:3px;transition:width 0.6s ease;"></div>
+            <div style="position:absolute;top:-2px;height:10px;width:1px;background:rgba(255,255,255,0.2);left:${overallAvg}%;"></div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="margin-top:12px;font-family:var(--font-mono);font-size:8px;color:var(--dim);">White line = your overall average. Tags with 1 session shown; reliability improves with more data.</div>
+  `;
 }
 
 // ── Dimension strengths ─────────────────────
