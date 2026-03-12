@@ -4471,7 +4471,7 @@ function animateWave() {
   waveT += 0.04;
   const W = 300, H = 120, CY = H / 2;
 
-  function makePath(amp, freq, phase, vShift) {
+  const makePath = (amp, freq, phase, vShift) => {
     let d = '';
     for (let x = 0; x <= W; x += 2) {
       const y = CY + vShift + amp * Math.sin(freq * x / W * Math.PI * 2 + phase + waveT)
@@ -4955,7 +4955,6 @@ function updatePushUI(status) {
     btn.style.borderColor = 'var(--border)';
     desc.textContent = 'Get reality check reminders';
   }
-}
 }
 
 // Reflect current status on profile load
