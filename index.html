@@ -3376,8 +3376,9 @@ async function submitSession() {
     updateGradingStatus('Compiling report...');
     await delay(400);
   } catch(err) {
-    console.warn('[ABLTY] Grading failed, using mock:', err.message || err);
+    console.warn('[ABLTY] Grading failed:', err.message || err);
     result = mockGrade();
+    result.summary = '[AI grading failed: ' + (err.message || 'unknown error') + '] ' + result.summary;
   }
 
   const gradingOverlay = document.getElementById('grading-overlay');
@@ -3486,9 +3487,8 @@ async function gradeSession(sketchB64, notes, target) {
     body: JSON.stringify({
       sketch:       sketchB64,
       notes:        notes,
-      target_url:   targetUrl,
-      target_label: target.label,
-      descriptor:   target.descriptor || null,
+      targetLabel:  target.label,
+      descriptors:  target.descriptors || [],
       trn:          STATE.currentTRN,
     }),
   });
