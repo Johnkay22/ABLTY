@@ -3383,7 +3383,7 @@ async function submitSession() {
 
   const gradingOverlay = document.getElementById('grading-overlay');
   if (gradingOverlay) gradingOverlay.style.display = 'none';
-  renderResults(result, target);
+  renderResults(result, target, notes);
 
   // Always save session
   const session = {
@@ -3399,6 +3399,7 @@ async function submitSession() {
     noise: result.noise || [],
     aol: result.aol || [],
     summary: result.summary,
+    notes: notes,
     duration: STATE.timerSeconds,
     timestamp: new Date().toISOString(),
     sketchData: sketchDataURL,
@@ -3412,7 +3413,7 @@ function updateGradingStatus(msg) {
   if (el) el.textContent = msg;
 }
 
-function renderResults(result, target) {
+function renderResults(result, target, notes) {
   const score   = result.gestalt_score || result.overall_score || 0;
   const ring    = document.getElementById('score-ring');
   const pctEl   = document.getElementById('score-pct');
@@ -3436,24 +3437,24 @@ function renderResults(result, target) {
     }, 20);
   }
 
-  if (summary) summary.textContent = result.summary || '';
-
-  // Notes
-  const notesVal = (document.getElementById('rv-notes') || {}).value || '';
+  // Notes — shown between target images and analyst summary
   let notesCard = document.getElementById('result-notes-card');
   if (!notesCard) {
     notesCard = document.createElement('div');
     notesCard.id = 'result-notes-card';
-    notesCard.className = 'summary-card fade-in-delay-2';
+    notesCard.className = 'summary-card fade-in-delay-1';
+    // Insert before the summary card
     const summaryCard = document.querySelector('#screen-results .summary-card');
-    if (summaryCard && summaryCard.parentNode) summaryCard.parentNode.insertBefore(notesCard, summaryCard.nextSibling);
+    if (summaryCard && summaryCard.parentNode) summaryCard.parentNode.insertBefore(notesCard, summaryCard);
   }
-  if (notesVal.trim()) {
+  if (notes && notes.trim()) {
     notesCard.style.display = 'block';
-    notesCard.innerHTML = `<div class="mono-label" style="margin-bottom:8px;">Your Impressions</div><div class="summary-text" style="white-space:pre-wrap;">${notesVal}</div>`;
+    notesCard.innerHTML = `<div class="mono-label" style="margin-bottom:8px;">Your Impressions</div><div class="summary-text" style="white-space:pre-wrap;">${notes}</div>`;
   } else {
     notesCard.style.display = 'none';
   }
+
+  if (summary) summary.textContent = result.summary || '';
 
   if (hitList) {
     hitList.innerHTML = '';
