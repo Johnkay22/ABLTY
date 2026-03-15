@@ -3895,15 +3895,8 @@ async function handleRCToggle() {
     refreshPushUI();
     return;
   }
-  // Turn on — show onboarding if first time, else re-subscribe with saved settings
-  const s = getRCSettings();
-  if (s.freq && s.bedtimeHour) {
-    // Already configured — just re-subscribe
-    await doRCSubscribe(s);
-  } else {
-    // First time — onboarding flow
-    showRCOnboardStep1();
-  }
+  // Always show onboarding — ensures settings are confirmed each time
+  showRCOnboardStep1();
 }
 
 // ── Onboarding ────────────────────────────────────────
