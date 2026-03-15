@@ -3069,6 +3069,17 @@ html, body {
         Enable the pager to begin your training.
       </div>
 
+      <button id="rc-test-btn" onclick="sendTestRC()" style="display:none;background:transparent;border:1px solid var(--border);border-radius:10px;padding:12px;font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--dim);cursor:pointer;text-transform:uppercase;width:100%;">Send Test Notification</button>
+      <div id="rc-test-result" style="font-family:var(--font-mono);font-size:10px;color:var(--muted);text-align:center;display:none;"></div>
+
+      <!-- Test button — only shown when enabled -->
+      <div id="rc-test-wrap" style="display:none;">
+        <button class="rc-edit-btn" style="width:100%;padding:12px;text-align:center;" onclick="testRCNotification()" id="rc-test-btn">
+          Send Test Notification
+        </button>
+        <div id="rc-test-status" style="font-family:var(--font-mono);font-size:9px;color:var(--muted);text-align:center;margin-top:6px;"></div>
+      </div>
+
     </div>
   </div>
 
@@ -3861,6 +3872,14 @@ function renderRCScreen() {
   if (streakCard)   streakCard.style.display   = enabled ? 'block' : 'none';
   if (emptyNote)    emptyNote.style.display    = enabled ? 'none' : 'block';
 
+  const testBtn = document.getElementById('rc-test-btn');
+  const testResult = document.getElementById('rc-test-result');
+  if (testBtn) testBtn.style.display = enabled ? 'block' : 'none';
+  if (testResult) testResult.style.display = 'none';
+
+  const testWrap = document.getElementById('rc-test-wrap');
+  if (testWrap) testWrap.style.display = enabled ? 'block' : 'none';
+
   if (enabled) {
     const freqEl = document.getElementById('rc-freq-display');
     const bedEl  = document.getElementById('rc-bedtime-display');
@@ -3870,6 +3889,65 @@ function renderRCScreen() {
     const numEl = document.getElementById('rc-streak-num');
     if (numEl) numEl.textContent = streak.count;
   }
+}
+
+async function testRCNotification() {
+  const btn    = document.getElementById('rc-test-btn');
+  const status = document.getElementById('rc-test-status');
+  if (btn) btn.textContent = 'Sending...';
+  if (status) status.textContent = '';
+  try {
+    const resp = await fetch(WORKER_URL + '/send-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret: 'ablty-push-22' })
+    });
+    const data = await resp.json();
+    if (data.results && data.results.sent > 0) {
+      if (status) status.textContent = 'Sent! Check your notifications.';
+      if (status) status.style.color = 'var(--accent)';
+    } else if (data.results && data.results.errors && data.results.errors.length) {
+      if (status) status.textContent = 'Error: ' + data.results.errors[0];
+      if (status) status.style.color = 'var(--danger)';
+    } else {
+      if (status) status.textContent = JSON.stringify(data.results || data);
+      if (status) status.style.color = 'var(--warn)';
+    }
+  } catch(e) {
+    if (status) status.textContent = 'Failed: ' + e.message;
+    if (status) status.style.color = 'var(--danger)';
+  }
+  if (btn) btn.textContent = 'Send Test Notification';
+}
+
+async function sendTestRC() {
+  const btn    = document.getElementById('rc-test-btn');
+  const result = document.getElementById('rc-test-result');
+  if (btn) btn.textContent = 'Sending...';
+  if (result) { result.style.display = 'block'; result.textContent = '...'; }
+  try {
+    const resp = await fetch(WORKER_URL + '/send-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret: 'ablty-push-22' })
+    });
+    const data = await resp.json();
+    if (result) {
+      if (data.results?.sent > 0) {
+        result.style.color = 'var(--accent)';
+        result.textContent = '✓ Sent — check your notifications';
+      } else if (data.results?.errors?.length) {
+        result.style.color = 'var(--danger)';
+        result.textContent = 'Error: ' + data.results.errors[0];
+      } else {
+        result.style.color = 'var(--warn)';
+        result.textContent = 'Sent: ' + JSON.stringify(data.results);
+      }
+    }
+  } catch(e) {
+    if (result) { result.style.color = 'var(--danger)'; result.textContent = 'Failed: ' + e.message; }
+  }
+  if (btn) btn.textContent = 'Send Test Notification';
 }
 
 function formatBedtime(h, m, ampm) {
