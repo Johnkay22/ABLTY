@@ -53,23 +53,24 @@ self.addEventListener('fetch', event => {
 
 // ── Push: receive and display notification ────────────
 const REALITY_CHECKS = [
-  'Reality check. Are you dreaming right now?',
-  'Stop. Look at your hands. Count your fingers.',
-  'Reality check. Can you read this twice?',
-  'Pinch your nose. Can you still breathe?',
-  'State check. Where are you? How did you get here?',
-  'Look around. Does anything seem off?',
+  'Are you dreaming right now?',
+  'Stop. Perform a reality check.',
+  'Reality check time.',
+  'Are you awake? Check now.',
+  'Perform a reality check.',
 ];
 
 self.addEventListener('push', event => {
   let title = 'ABLTY';
   let body  = REALITY_CHECKS[Math.floor(Math.random() * REALITY_CHECKS.length)];
+  let url   = '/#reality-check';
 
   if (event.data) {
     try {
       const data = event.data.json();
       if (data.title) title = data.title;
       if (data.body)  body  = data.body;
+      if (data.url)   url   = data.url;
     } catch(e) {
       const text = event.data.text();
       if (text) body = text;
@@ -83,7 +84,7 @@ self.addEventListener('push', event => {
     tag:      'ablty-reality-check',
     renotify: true,
     silent:   false,
-    data:     { url: '/' },
+    data:     { url },
   };
 
   event.waitUntil(self.registration.showNotification(title, options));
@@ -93,18 +94,18 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
 
-  if (event.action === 'dismiss') return;
-
-  const url = (event.notification.data && event.notification.data.url) || '/';
+  const url = (event.notification.data && event.notification.data.url) || '/#reality-check';
+  const fullUrl = self.location.origin + url;
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-      // Focus existing window if open
       for (const client of windowClients) {
-        if (client.url === url && 'focus' in client) return client.focus();
+        if ('focus' in client) {
+          client.postMessage({ type: 'RC_OPEN' });
+          return client.focus();
+        }
       }
-      // Otherwise open new window
-      if (clients.openWindow) return clients.openWindow(url);
+      if (clients.openWindow) return clients.openWindow(fullUrl);
     })
   );
 });
