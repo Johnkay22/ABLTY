@@ -1,7 +1,7 @@
 // ABLTY Service Worker
 // Handles: offline caching, push notifications, background sync
 
-const CACHE_NAME = 'ablty-v1';
+const CACHE_NAME = 'ablty-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
