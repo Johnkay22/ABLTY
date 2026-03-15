@@ -130,15 +130,15 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 8px 16px;
+  gap: 3px;
+  padding: 8px 10px;
   cursor: pointer;
   opacity: 0.35;
   transition: opacity 0.2s;
 }
 .nav-item.active { opacity: 1; }
-.nav-item svg { width: 20px; height: 20px; fill: none; stroke: var(--text); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-.nav-item span { font-family: var(--font-mono); font-size: 8px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--text); }
+.nav-item svg { width: 18px; height: 18px; fill: none; stroke: var(--text); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.nav-item span { font-family: var(--font-mono); font-size: 7px; letter-spacing: 1px; text-transform: uppercase; color: var(--text); }
 .nav-dot { width: 4px; height: 4px; border-radius: 50%; background: transparent; transition: background 0.2s; }
 .nav-item.active .nav-dot { background: var(--accent); }
 
@@ -2718,6 +2718,12 @@ html, body {
           <div id="tag-correlation-wrap"></div>
         </div>
 
+        <div class="chart-card" id="presentiment-stats-card">
+          <div class="chart-title">Presentiment</div>
+          <div class="mono-sm" style="color:var(--dim);margin-bottom:12px;">Timestamp prediction performance</div>
+          <div id="presentiment-stats-wrap"></div>
+        </div>
+
       </div>
 
       <!-- PERFORMANCE PANEL -->
@@ -3124,6 +3130,11 @@ html, body {
       <span>View</span>
       <div class="nav-dot"></div>
     </div>
+    <div class="nav-item" id="nav-timestamp" onclick="navigate('timestamp')">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span>Sense</span>
+      <div class="nav-dot"></div>
+    </div>
     <div class="nav-item" id="nav-zener" onclick="navigate('zener')">
       <svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
       <span>Zener</span>
@@ -3302,9 +3313,9 @@ function showScreen(name, hideNav = false) {
     history:        'nav-analytics',
     detail:         'nav-analytics',
     profile:        'nav-profile',
-    timestamp:              'nav-home',
-    'timestamp-session':    'nav-home',
-    'timestamp-results':    'nav-home',
+    timestamp:              'nav-timestamp',
+    'timestamp-session':    'nav-timestamp',
+    'timestamp-results':    'nav-timestamp',
   };
   const activeNav = document.getElementById(navMap[name]);
   if (activeNav) activeNav.classList.add('active');
@@ -4474,6 +4485,7 @@ function renderAnalytics() {
   // ── Overview extras ────────────────────────────
   buildTODChart(rvSessions);
   buildTagCorrelation(rvSessions);
+  buildPresentimentStats();
 
   // ── Performance charts ─────────────────────────
   buildBarChartMotivated('rv-chart-wrap',    rvSessions.slice(-10), s => s.score,   100, '%', undefined, 3, 'RV session');
@@ -5313,6 +5325,73 @@ function buildTagCorrelation(rvSessions) {
       }).join('')}
     </div>
     <div style="margin-top:12px;font-family:var(--font-mono);font-size:8px;color:var(--dim);">White line = your overall average. Tags with 1 session shown; reliability improves with more data.</div>
+  `;
+}
+
+// ── Presentiment Stats ──────────────────────
+function buildPresentimentStats() {
+  const el = document.getElementById('presentiment-stats-wrap');
+  if (!el) return;
+
+  const allTrials = loadTimestampAll ? loadTimestampAll() : [];
+
+  if (!allTrials || allTrials.length < 3) {
+    el.innerHTML = `<div class="empty-motivate">
+      <div class="empty-motivate-icon">◎</div>
+      <div class="empty-motivate-title">No Data Yet</div>
+      <div class="empty-motivate-sub">Complete 3+ Presentiment trials to see your stats.</div>
+    </div>`;
+    return;
+  }
+
+  const taps    = allTrials.filter(t => !t.miss);
+  const misses  = allTrials.filter(t => t.miss);
+  const missRate = Math.round((misses.length / allTrials.length) * 100);
+
+  let mean = 0, best = 0;
+  if (taps.length) {
+    const deltas = taps.map(t => Math.abs(t.delta));
+    mean = deltas.reduce((a,b) => a+b, 0) / deltas.length;
+    best = Math.min(...deltas);
+  }
+
+  // Chance baseline: random tap in a 60s window averages ~20s from event
+  const chanceBaseline = 20;
+  const aboveChance = mean > 0 && mean < chanceBaseline;
+  const deltaColor = aboveChance ? 'var(--accent)' : 'var(--warn)';
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+      <div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
+        <div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Trials</div>
+        <div style="font-family:var(--font-display);font-size:26px;color:var(--text);">${allTrials.length}</div>
+      </div>
+      <div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
+        <div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Miss Rate</div>
+        <div style="font-family:var(--font-display);font-size:26px;color:${missRate > 40 ? 'var(--danger)' : 'var(--text)'};">${missRate}%</div>
+      </div>
+      <div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
+        <div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Mean Delta</div>
+        <div style="font-family:var(--font-display);font-size:26px;color:${deltaColor};">${taps.length ? mean.toFixed(1) + 's' : '--'}</div>
+      </div>
+      <div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
+        <div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Best</div>
+        <div style="font-family:var(--font-display);font-size:26px;color:var(--accent);">${taps.length ? best.toFixed(1) + 's' : '--'}</div>
+      </div>
+    </div>
+    <div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Your avg vs chance</span>
+      </div>
+      <div style="position:relative;height:8px;background:var(--card);border-radius:4px;overflow:hidden;">
+        <div style="position:absolute;left:0;top:0;height:100%;width:${taps.length ? Math.min(100, Math.round((1 - mean/30)*100)) : 0}%;background:${deltaColor};border-radius:4px;transition:width 0.6s;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;">
+        <span style="font-family:var(--font-mono);font-size:8px;color:var(--muted);">Your avg: ${taps.length ? mean.toFixed(1)+'s' : '--'}</span>
+        <span style="font-family:var(--font-mono);font-size:8px;color:var(--dim);">Chance: ~${chanceBaseline}s</span>
+      </div>
+      ${aboveChance ? `<div style="font-family:var(--font-mono);font-size:9px;color:var(--accent);margin-top:8px;text-align:center;">Above chance baseline ↑</div>` : ''}
+    </div>
   `;
 }
 
