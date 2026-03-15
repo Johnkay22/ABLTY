@@ -1138,6 +1138,167 @@ html, body {
 }
 .modal-close-btn:hover { border-color: var(--border2); }
 
+/* ── Reality Check ───────────────────────────── */
+.rc-onboard-option {
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card2);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  text-align: center;
+}
+.rc-onboard-option.selected {
+  border-color: var(--accent);
+  background: rgba(74,240,200,0.07);
+}
+.rc-onboard-option .rc-opt-main {
+  font-family: var(--font-display);
+  font-size: 22px;
+  color: var(--text);
+  letter-spacing: 2px;
+}
+.rc-onboard-option .rc-opt-sub {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 1px;
+  margin-top: 2px;
+  text-transform: uppercase;
+}
+.rc-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.rc-setting-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.rc-setting-val {
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--text);
+  letter-spacing: 1px;
+}
+.rc-edit-btn {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--muted);
+  cursor: pointer;
+  text-transform: uppercase;
+}
+.rc-streak-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  text-align: center;
+}
+.rc-streak-num {
+  font-family: var(--font-display);
+  font-size: 56px;
+  color: var(--accent);
+  line-height: 1;
+  letter-spacing: 2px;
+}
+.rc-streak-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-top: 6px;
+}
+/* Micro-task screen */
+.rc-task-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 32px 24px 24px;
+  justify-content: space-between;
+}
+.rc-task-tag {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.rc-task-question {
+  font-family: var(--font-display);
+  font-size: 28px;
+  color: var(--text);
+  line-height: 1.2;
+  letter-spacing: 1px;
+  margin-bottom: 24px;
+}
+.rc-task-input {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text);
+  resize: none;
+  min-height: 80px;
+  box-sizing: border-box;
+}
+.rc-task-input:focus { outline: none; border-color: var(--accent); }
+.rc-rating-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.rc-rating-btn {
+  width: 52px; height: 52px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card2);
+  font-family: var(--font-display);
+  font-size: 20px;
+  color: var(--muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.rc-rating-btn.selected {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(74,240,200,0.1);
+}
+.rc-nose-prompt {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+  text-align: center;
+}
+.rc-nose-prompt strong {
+  color: var(--text);
+  font-style: normal;
+}
+
 
 /* ═══════════════════════════════════════════
    ADMIN / LIMIT MODALS
@@ -2254,12 +2415,12 @@ html, body {
       <div class="section-label fade-in-delay-3">Settings</div>
 
       <div style="display:flex;flex-direction:column;gap:8px;" class="fade-in-delay-3">
-        <div class="setting-row">
+        <div class="setting-row" onclick="navigate('reality-check')" style="cursor:pointer;">
           <div>
             <div class="setting-label">Reality Check Pager</div>
             <div class="setting-desc" id="push-status-desc">Randomized waking notifications</div>
           </div>
-          <button id="push-enable-btn" onclick="handlePushToggle()" style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:5px 10px;font-family:var(--font-mono);font-size:9px;letter-spacing:1px;color:var(--muted);cursor:pointer;text-transform:uppercase;">Enable</button>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
         </div>
 
         <div class="setting-row" onclick="clearAllData()" style="cursor:pointer;">
@@ -2847,6 +3008,109 @@ html, body {
 
 
   <!-- ══════════════════════════════════
+       SCREEN: REALITY CHECK
+  ═══════════════════════════════════ -->
+  <div id="screen-reality-check" class="screen">
+    <div class="screen-inner">
+
+      <div style="display:flex;align-items:center;gap:10px;">
+        <button class="tool-btn" onclick="navigate('profile')" style="padding:7px 10px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div class="display-lg">REALITY CHECK</div>
+      </div>
+
+      <div class="mono-sm" style="color:var(--dim);margin-top:-4px;">Perceptual training for present-moment awareness.</div>
+
+      <!-- Toggle row -->
+      <div class="rc-setting-row" style="margin-top:8px;">
+        <div>
+          <div class="rc-setting-label">Pager</div>
+          <div id="rc-toggle-desc" style="font-family:var(--font-mono);font-size:11px;color:var(--text);">Off</div>
+        </div>
+        <button id="rc-toggle-btn" onclick="handleRCToggle()" style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--muted);cursor:pointer;text-transform:uppercase;">Enable</button>
+      </div>
+
+      <!-- Settings (shown when enabled) -->
+      <div id="rc-settings-wrap" style="display:none;flex-direction:column;gap:10px;">
+
+        <div class="rc-setting-row">
+          <div>
+            <div class="rc-setting-label">Frequency</div>
+            <div class="rc-setting-val" id="rc-freq-display">9 / day</div>
+          </div>
+          <button class="rc-edit-btn" onclick="showRCEdit('freq')">Edit</button>
+        </div>
+
+        <div class="rc-setting-row">
+          <div>
+            <div class="rc-setting-label">Bedtime</div>
+            <div class="rc-setting-val" id="rc-bedtime-display">11:00 PM</div>
+          </div>
+          <button class="rc-edit-btn" onclick="showRCEdit('bedtime')">Edit</button>
+        </div>
+
+      </div>
+
+      <!-- Streak -->
+      <div class="rc-streak-card" id="rc-streak-card" style="display:none;">
+        <div class="rc-streak-num" id="rc-streak-num">0</div>
+        <div class="rc-streak-label">Day Streak</div>
+        <div style="font-family:var(--font-mono);font-size:9px;color:var(--dim);margin-top:8px;">Consecutive days with at least one completed check</div>
+      </div>
+
+      <div class="mono-sm" style="color:var(--dim);text-align:center;padding:0 8px;" id="rc-empty-note">
+        Enable the pager to begin your training.
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: RC MICRO-TASK
+  ═══════════════════════════════════ -->
+  <div id="screen-rc-task" class="screen" style="bottom:0;">
+    <div class="rc-task-shell">
+
+      <div>
+        <div class="rc-task-tag" id="rc-task-tag">Reality Check</div>
+        <div class="rc-task-question" id="rc-task-question">Are you dreaming right now?</div>
+
+        <!-- Task type 1: text input -->
+        <div id="rc-input-wrap" style="display:none;">
+          <textarea class="rc-task-input" id="rc-task-input" placeholder="Type your answer..."></textarea>
+        </div>
+
+        <!-- Task type 2: 1-5 rating -->
+        <div id="rc-rating-wrap" style="display:none;">
+          <div class="rc-rating-row">
+            <div class="rc-rating-btn" data-val="1" onclick="selectRating(this)">1</div>
+            <div class="rc-rating-btn" data-val="2" onclick="selectRating(this)">2</div>
+            <div class="rc-rating-btn" data-val="3" onclick="selectRating(this)">3</div>
+            <div class="rc-rating-btn" data-val="4" onclick="selectRating(this)">4</div>
+            <div class="rc-rating-btn" data-val="5" onclick="selectRating(this)">5</div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:6px;padding:0 4px;">
+            <span style="font-family:var(--font-mono);font-size:8px;color:var(--dim);">NORMAL</span>
+            <span style="font-family:var(--font-mono);font-size:8px;color:var(--dim);">VERY STRANGE</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Nose check prompt — always shown -->
+      <div>
+        <div class="rc-nose-prompt">
+          <strong>Pinch your nose.</strong> Can you breathe through it?<br>
+          <span style="color:var(--dim);font-size:9px;">In dreams, you usually can.</span>
+        </div>
+        <button class="btn btn-primary" style="margin-top:14px;" id="rc-task-done-btn" onclick="completeRCTask()">Done</button>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════
        BOTTOM NAV
   ═══════════════════════════════════ -->
   <nav id="nav">
@@ -2993,12 +3257,13 @@ const SCREENS = {
   'zener-session':'screen-zener-session',
   'zener-results':'screen-zener-results',
   analytics:      'screen-analytics',
-  history:        'screen-analytics', // legacy alias
+  history:        'screen-analytics',
   detail:         'screen-detail',
   profile:        'screen-profile',
   timestamp:              'screen-timestamp-brief',
   'timestamp-session':    'screen-timestamp-session',
   'timestamp-results':    'screen-timestamp-results',
+  'reality-check':        'screen-reality-check',
 };
 const NAV_SCREENS = ['home', 'analytics', 'profile'];
 
@@ -3052,6 +3317,7 @@ function navigate(name) {
   if (name === 'analytics' || name === 'history') renderAnalytics();
   if (name === 'profile')  renderProfile();
   if (name === 'zener')    renderZenerBrief();
+  if (name === 'reality-check') renderRCScreen();
   if (name === 'timestamp') renderTimestampBrief();
 }
 
@@ -3529,38 +3795,335 @@ function renderProfile() {
   refreshPushUI();
 }
 
+
 function toggleSetting(key) {
-  if (key === 'pager') {
-    showPagerModal();
-    return;
-  }
   STATE.settings[key] = !STATE.settings[key];
   saveState();
   renderProfile();
 }
 
-function showPagerModal() {
-  const modal = document.getElementById('pager-modal');
-  if (modal) modal.style.display = 'flex';
+// ═══════════════════════════════════════════════════════
+//  REALITY CHECK SYSTEM
+// ═══════════════════════════════════════════════════════
+
+// ── Storage helpers ──────────────────────────────────
+function getRCSettings() {
+  try { return JSON.parse(localStorage.getItem('ablty_rc') || '{}'); } catch(e) { return {}; }
+}
+function saveRCSettings(s) { localStorage.setItem('ablty_rc', JSON.stringify(s)); }
+
+function getRCStreak() {
+  try { return JSON.parse(localStorage.getItem('ablty_rc_streak') || '{"count":0,"lastDate":""}'); }
+  catch(e) { return { count: 0, lastDate: '' }; }
+}
+function saveRCStreak(s) { localStorage.setItem('ablty_rc_streak', JSON.stringify(s)); }
+
+function incrementRCStreak() {
+  const today = new Date().toDateString();
+  const s = getRCStreak();
+  if (s.lastDate === today) return; // already credited today
+  const yesterday = new Date(Date.now() - 86400000).toDateString();
+  s.count = s.lastDate === yesterday ? s.count + 1 : 1;
+  s.lastDate = today;
+  saveRCStreak(s);
 }
 
-function closePagerModal(e) {
-  if (e && e.target !== document.getElementById('pager-modal') && !e.target.classList.contains('modal-close-btn')) return;
-  const modal = document.getElementById('pager-modal');
-  if (modal) modal.style.display = 'none';
-  // Reset expand state
-  const expanded = document.getElementById('pager-expanded');
-  const btn = document.getElementById('pager-expand-btn');
-  if (expanded) expanded.classList.remove('open');
-  if (btn) btn.textContent = 'Read more ↓';
+// ── RC Screen render ──────────────────────────────────
+function renderRCScreen() {
+  const s = getRCSettings();
+  const enabled = getPushEnabled() && !!s.freq;
+
+  const toggleBtn  = document.getElementById('rc-toggle-btn');
+  const toggleDesc = document.getElementById('rc-toggle-desc');
+  const settingsWrap = document.getElementById('rc-settings-wrap');
+  const streakCard = document.getElementById('rc-streak-card');
+  const emptyNote  = document.getElementById('rc-empty-note');
+
+  if (toggleBtn) {
+    toggleBtn.textContent = enabled ? 'On' : 'Enable';
+    toggleBtn.style.color = enabled ? 'var(--accent)' : 'var(--muted)';
+    toggleBtn.style.borderColor = enabled ? 'var(--accent)' : 'var(--border)';
+  }
+  if (toggleDesc) toggleDesc.textContent = enabled ? ('Active — ' + s.freq + '/day') : 'Off';
+
+  if (settingsWrap) settingsWrap.style.display = enabled ? 'flex' : 'none';
+  if (streakCard)   streakCard.style.display   = enabled ? 'block' : 'none';
+  if (emptyNote)    emptyNote.style.display    = enabled ? 'none' : 'block';
+
+  if (enabled) {
+    const freqEl = document.getElementById('rc-freq-display');
+    const bedEl  = document.getElementById('rc-bedtime-display');
+    if (freqEl) freqEl.textContent = s.freq + ' / day';
+    if (bedEl)  bedEl.textContent  = formatBedtime(s.bedtimeHour, s.bedtimeMin, s.bedtimeAmpm);
+    const streak = getRCStreak();
+    const numEl = document.getElementById('rc-streak-num');
+    if (numEl) numEl.textContent = streak.count;
+  }
 }
 
-function togglePagerExpand() {
-  const expanded = document.getElementById('pager-expanded');
-  const btn = document.getElementById('pager-expand-btn');
-  if (!expanded) return;
-  const isOpen = expanded.classList.toggle('open');
-  if (btn) btn.textContent = isOpen ? 'Read less ↑' : 'Read more ↓';
+function formatBedtime(h, m, ampm) {
+  return h + ':' + String(m || 0).padStart(2,'0') + ' ' + (ampm || 'PM');
+}
+
+// ── Toggle ────────────────────────────────────────────
+async function handleRCToggle() {
+  const permission = getPushStatus();
+  if (permission === 'denied') {
+    alert('Notifications are blocked for this site. Enable them in your browser settings.');
+    return;
+  }
+  if (getPushEnabled()) {
+    // Turn off
+    try {
+      const reg = window._swRegistration || await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) await sub.unsubscribe();
+    } catch(e) {}
+    setPushEnabled(false);
+    renderRCScreen();
+    refreshPushUI();
+    return;
+  }
+  // Turn on — show onboarding if first time, else re-subscribe with saved settings
+  const s = getRCSettings();
+  if (s.freq && s.bedtimeHour) {
+    // Already configured — just re-subscribe
+    await doRCSubscribe(s);
+  } else {
+    // First time — onboarding flow
+    showRCOnboardStep1();
+  }
+}
+
+// ── Onboarding ────────────────────────────────────────
+function showRCOnboardStep1() {
+  const s = getRCSettings();
+  const saved = s.freq || 9;
+  document.querySelectorAll('.rc-onboard-option').forEach(el => {
+    el.classList.toggle('selected', parseInt(el.dataset.freq) === saved);
+  });
+  const m = document.getElementById('rc-onboard-freq-modal');
+  if (m) m.style.display = 'flex';
+}
+
+function selectRCFreq(el) {
+  document.querySelectorAll('.rc-onboard-option').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function rcOnboardStep2() {
+  const selected = document.querySelector('.rc-onboard-option.selected');
+  const freq = selected ? parseInt(selected.dataset.freq) : 9;
+  const s = getRCSettings();
+  s.freq = freq;
+  saveRCSettings(s);
+  const m1 = document.getElementById('rc-onboard-freq-modal');
+  if (m1) m1.style.display = 'none';
+  const m2 = document.getElementById('rc-onboard-bedtime-modal');
+  if (m2) m2.style.display = 'flex';
+}
+
+async function rcOnboardFinish() {
+  const hour  = document.getElementById('rc-bedtime-hour')?.value || '11';
+  const min   = document.getElementById('rc-bedtime-min')?.value  || '00';
+  const ampm  = document.getElementById('rc-bedtime-ampm')?.value || 'PM';
+  const m2 = document.getElementById('rc-onboard-bedtime-modal');
+  if (m2) m2.style.display = 'none';
+  const s = getRCSettings();
+  s.bedtimeHour = parseInt(hour);
+  s.bedtimeMin  = parseInt(min);
+  s.bedtimeAmpm = ampm;
+  s.utcOffset   = -(new Date().getTimezoneOffset()); // minutes east of UTC
+  saveRCSettings(s);
+  await doRCSubscribe(s);
+}
+
+function closeRCOnboard(e) {
+  ['rc-onboard-freq-modal','rc-onboard-bedtime-modal'].forEach(id => {
+    const m = document.getElementById(id);
+    if (m && (!e || e.target === m)) m.style.display = 'none';
+  });
+}
+
+// ── Edit settings post-setup ──────────────────────────
+function showRCEdit(field) {
+  const s   = getRCSettings();
+  const box = document.getElementById('rc-edit-modal-inner');
+  const modal = document.getElementById('rc-edit-modal');
+  if (!box || !modal) return;
+
+  if (field === 'freq') {
+    box.innerHTML = `
+      <div class="modal-tag">Edit</div>
+      <div class="modal-title">Frequency</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin:16px 0;">
+        ${[6,9,12].map(n => `
+          <div class="rc-onboard-option${s.freq===n?' selected':''}" data-freq="${n}" onclick="document.querySelectorAll('#rc-edit-modal .rc-onboard-option').forEach(o=>o.classList.remove('selected'));this.classList.add('selected')">
+            <div class="rc-opt-main">${n}</div>
+            <div class="rc-opt-sub">per day</div>
+          </div>`).join('')}
+      </div>
+      <button class="modal-close-btn" onclick="saveRCEdit('freq')">Save</button>
+      <button class="modal-close-btn" style="margin-top:8px;background:transparent;border-color:transparent;color:var(--muted);" onclick="closeRCEditModal()">Cancel</button>`;
+  } else {
+    box.innerHTML = `
+      <div class="modal-tag">Edit</div>
+      <div class="modal-title">Bedtime</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin:20px 0;">
+        <select id="edit-bedtime-hour" style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:var(--font-display);font-size:22px;color:var(--text);">
+          ${[8,9,10,11,12,1,2].map(h=>`<option${s.bedtimeHour===h?' selected':''}>${h}</option>`).join('')}
+        </select>
+        <span style="font-family:var(--font-display);font-size:28px;color:var(--text);">:</span>
+        <select id="edit-bedtime-min" style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:var(--font-display);font-size:22px;color:var(--text);">
+          <option value="0"${s.bedtimeMin===0?' selected':''}>00</option>
+          <option value="30"${s.bedtimeMin===30?' selected':''}>30</option>
+        </select>
+        <select id="edit-bedtime-ampm" style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:var(--font-display);font-size:22px;color:var(--text);">
+          <option${s.bedtimeAmpm==='AM'?' selected':''}>AM</option>
+          <option${s.bedtimeAmpm!=='AM'?' selected':''}>PM</option>
+        </select>
+      </div>
+      <button class="modal-close-btn" onclick="saveRCEdit('bedtime')">Save</button>
+      <button class="modal-close-btn" style="margin-top:8px;background:transparent;border-color:transparent;color:var(--muted);" onclick="closeRCEditModal()">Cancel</button>`;
+  }
+  modal.style.display = 'flex';
+}
+
+async function saveRCEdit(field) {
+  const s = getRCSettings();
+  if (field === 'freq') {
+    const sel = document.querySelector('#rc-edit-modal .rc-onboard-option.selected');
+    if (sel) s.freq = parseInt(sel.dataset.freq);
+  } else {
+    s.bedtimeHour = parseInt(document.getElementById('edit-bedtime-hour')?.value || 11);
+    s.bedtimeMin  = parseInt(document.getElementById('edit-bedtime-min')?.value  || 0);
+    s.bedtimeAmpm = document.getElementById('edit-bedtime-ampm')?.value || 'PM';
+  }
+  s.utcOffset = -(new Date().getTimezoneOffset());
+  saveRCSettings(s);
+  closeRCEditModal();
+  // Re-subscribe with updated settings
+  await doRCSubscribe(s);
+  renderRCScreen();
+}
+
+function closeRCEditModal(e) {
+  const modal = document.getElementById('rc-edit-modal');
+  if (modal && (!e || e.target === modal)) modal.style.display = 'none';
+}
+
+// ── Subscribe ─────────────────────────────────────────
+async function doRCSubscribe(settings) {
+  let perm = getPushStatus();
+  if (perm !== 'granted') {
+    try { perm = await Notification.requestPermission(); } catch(e) {}
+  }
+  if (perm !== 'granted') { renderRCScreen(); return; }
+
+  try {
+    const reg = window._swRegistration || await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+      });
+    }
+    const payload = Object.assign({}, sub.toJSON ? sub.toJSON() : JSON.parse(JSON.stringify(sub)));
+    payload.frequency  = settings.freq || 9;
+    payload.bedtimeHour = settings.bedtimeHour || 11;
+    payload.bedtimeMin  = settings.bedtimeMin  || 0;
+    payload.bedtimeAmpm = settings.bedtimeAmpm || 'PM';
+    payload.utcOffset   = settings.utcOffset   || 0;
+    await fetch(WORKER_URL + '/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    setPushEnabled(true);
+    console.log('[ABLTY RC] subscribed, freq:', settings.freq, 'bedtime:', settings.bedtimeHour, settings.bedtimeAmpm);
+  } catch(e) {
+    console.warn('[ABLTY RC] subscribe error:', e.message);
+  }
+  renderRCScreen();
+  refreshPushUI();
+}
+
+// ── Micro-task screen ─────────────────────────────────
+const RC_TASKS = [
+  {
+    tag: 'Location Check',
+    question: 'Describe where you are right now in one sentence.',
+    type: 'text',
+    placeholder: 'I am in...'
+  },
+  {
+    tag: 'Memory Trace',
+    question: 'How did you get to your current location?',
+    type: 'text',
+    placeholder: 'I got here by...'
+  },
+  {
+    tag: 'Strangeness Rating',
+    question: 'How strange does your current environment feel?',
+    type: 'rating'
+  }
+];
+
+let rcTaskIndex = 0;
+
+function openRCTask() {
+  // Rotate through tasks
+  const rc_count = parseInt(localStorage.getItem('ablty_rc_task_count') || '0');
+  rcTaskIndex = rc_count % RC_TASKS.length;
+  localStorage.setItem('ablty_rc_task_count', rc_count + 1);
+
+  const task = RC_TASKS[rcTaskIndex];
+  showScreen('rc-task', true);
+
+  setEl('rc-task-tag', task.tag);
+  setEl('rc-task-question', task.question);
+
+  const inputWrap  = document.getElementById('rc-input-wrap');
+  const ratingWrap = document.getElementById('rc-rating-wrap');
+  const input      = document.getElementById('rc-task-input');
+
+  if (task.type === 'text') {
+    if (inputWrap)  inputWrap.style.display  = 'block';
+    if (ratingWrap) ratingWrap.style.display = 'none';
+    if (input) { input.value = ''; input.placeholder = task.placeholder || ''; }
+  } else {
+    if (inputWrap)  inputWrap.style.display  = 'none';
+    if (ratingWrap) ratingWrap.style.display = 'block';
+    document.querySelectorAll('.rc-rating-btn').forEach(b => b.classList.remove('selected'));
+  }
+
+  const doneBtn = document.getElementById('rc-task-done-btn');
+  if (doneBtn) doneBtn.disabled = task.type === 'rating'; // require selection for rating
+}
+
+function selectRating(btn) {
+  document.querySelectorAll('.rc-rating-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  const doneBtn = document.getElementById('rc-task-done-btn');
+  if (doneBtn) doneBtn.disabled = false;
+}
+
+function completeRCTask() {
+  incrementRCStreak();
+  renderRCScreen();
+  // Go back to where the user came from or home
+  navigate('home');
+}
+
+// Check URL hash on load for notification tap
+function checkRCHash() {
+  if (window.location.hash === '#reality-check' || window.location.search.includes('rc=1')) {
+    // Wait for app to initialize then open task
+    setTimeout(() => openRCTask(), 500);
+    // Clean hash
+    history.replaceState(null, '', '/');
+  }
 }
 
 function clearAllData() {
@@ -3583,6 +4146,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   runSplash();
+  checkRCHash();
 
   // Force home screen visible immediately — safety net
   const homeScreen = document.getElementById('screen-home');
@@ -4971,6 +5535,10 @@ async function registerSW() {
     const reg = await navigator.serviceWorker.register('/sw.js');
     console.log('[ABLTY] Service worker registered');
     window._swRegistration = reg;
+    // Listen for RC_OPEN message from notification click
+    navigator.serviceWorker.addEventListener('message', event => {
+      if (event.data && event.data.type === 'RC_OPEN') openRCTask();
+    });
   } catch(e) {
     console.warn('[ABLTY] SW registration failed:', e);
   }
@@ -5001,15 +5569,6 @@ async function requestPushPermission() {
   }
 }
 
-async function sendSubToServer(sub) {
-  try {
-    await fetch(WORKER_URL + '/subscribe', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(sub)
-    });
-  } catch(e) {}
-}
 
 function urlBase64ToUint8Array(base64String) {
   const padding  = '='.repeat((4 - base64String.length % 4) % 4);
@@ -5031,126 +5590,31 @@ function setPushEnabled(val) {
   localStorage.setItem('ablty_push_enabled', val ? '1' : '0');
 }
 
-async function isSubscribed() {
-  try {
-    const reg = window._swRegistration || await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    return !!sub;
-  } catch(e) { return false; }
-}
-
 // Register SW on load
 registerSW();
 
-async function handlePushToggle() {
-  const desc = document.getElementById('push-status-desc');
-  const permission = getPushStatus();
-  console.log('[ABLTY Push] permission:', permission);
-
-  if (permission === 'unsupported') {
-    if (desc) desc.textContent = 'Not supported in this browser';
-    return;
-  }
-
-  if (permission === 'denied') {
-    updatePushUI('denied');
-    return;
-  }
-
-  // Use localStorage as source of truth for toggle state
-  const enabled = getPushEnabled();
-  console.log('[ABLTY Push] currently enabled:', enabled);
-
-  if (enabled) {
-    // Turn OFF
-    try {
-      const reg = window._swRegistration || await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
-      if (sub) await sub.unsubscribe();
-      console.log('[ABLTY Push] unsubscribed');
-    } catch(e) { console.warn('[ABLTY Push] unsubscribe error:', e); }
-    setPushEnabled(false);
-    updatePushUI('default');
-    return;
-  }
-
-  // Turn ON
-  updatePushUI('requesting');
-
-  let perm = permission;
-  if (perm !== 'granted') {
-    try {
-      perm = await Notification.requestPermission();
-      console.log('[ABLTY Push] requestPermission result:', perm);
-    } catch(e) {
-      console.warn('[ABLTY Push] requestPermission error:', e);
-      updatePushUI('denied');
-      return;
-    }
-  }
-
-  if (perm !== 'granted') {
-    updatePushUI('denied');
-    return;
-  }
-
-  try {
-    const reg = window._swRegistration || await navigator.serviceWorker.ready;
-    console.log('[ABLTY Push] SW ready, subscribing...');
-    let sub = await reg.pushManager.getSubscription();
-    if (!sub) {
-      sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
-      });
-    }
-    console.log('[ABLTY Push] subscribed:', sub.endpoint);
-    await sendSubToServer(sub);
-    setPushEnabled(true);
-    updatePushUI('granted');
-  } catch(e) {
-    console.warn('[ABLTY Push] subscribe error:', e.message, e);
-    setPushEnabled(false);
-    updatePushUI('default');
-    if (desc) desc.textContent = 'Subscribe failed — see console';
-  }
-}
-
 function updatePushUI(status) {
-  const btn  = document.getElementById('push-enable-btn');
   const desc = document.getElementById('push-status-desc');
-  if (!btn || !desc) return;
+  if (!desc) return;
+  const s = getRCSettings();
   if (status === 'granted') {
-    btn.textContent  = 'On';
-    btn.style.color  = 'var(--accent)';
-    btn.style.borderColor = 'var(--accent)';
-    desc.textContent = 'Tap to disable';
+    desc.textContent = s.freq ? 'Active — ' + s.freq + '/day' : 'Active';
   } else if (status === 'denied') {
-    btn.textContent  = 'Blocked';
-    btn.style.color  = 'var(--danger)';
-    btn.style.borderColor = 'var(--danger)';
-    desc.textContent = 'Enable in browser settings';
-  } else if (status === 'requesting') {
-    btn.textContent  = '...';
-    desc.textContent = 'Requesting permission...';
+    desc.textContent = 'Blocked in browser settings';
   } else {
-    btn.textContent  = 'Enable';
-    btn.style.color  = 'var(--muted)';
-    btn.style.borderColor = 'var(--border)';
-    desc.textContent = 'Get reality check reminders';
+    desc.textContent = 'Tap to configure';
   }
 }
 
-// Reflect current status on profile load
 function refreshPushUI() {
   const permission = getPushStatus();
-  if (permission === 'denied')      { updatePushUI('denied');  return; }
-  if (permission === 'unsupported') { return; }
-  // If permission was revoked externally, clear our stored state
   if (permission !== 'granted' && getPushEnabled()) setPushEnabled(false);
   updatePushUI(getPushEnabled() ? 'granted' : 'default');
+  if (document.getElementById('screen-reality-check') &&
+      document.getElementById('screen-reality-check').classList.contains('active')) {
+    renderRCScreen();
+  }
 }
-
 
 
 // ═══════════════════════════════════════════════════════
@@ -5600,20 +6064,62 @@ window.addEventListener('error', (e) => {
 });
 </script>
 
-  <!-- REALITY CHECK PAGER MODAL -->
-  <div class="modal-overlay" id="pager-modal" style="display:none;" onclick="closePagerModal(event)">
+  <!-- RC ONBOARDING MODAL — Step 1: Frequency -->
+  <div class="modal-overlay" id="rc-onboard-freq-modal" style="display:none;" onclick="closeRCOnboard(event)">
     <div class="modal-box">
-      <div class="modal-tag">Coming Soon</div>
-      <div class="modal-title">Reality Check Pager</div>
-      <div class="modal-body">
-        Sends randomized notifications throughout your day prompting you to stop and verify your reality — a core technique for triggering lucid dreams.
+      <div class="modal-tag">Step 1 of 2</div>
+      <div class="modal-title">How often?</div>
+      <div class="modal-body" style="margin-bottom:16px;">How many reality checks do you want per day?</div>
+
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+        <div class="rc-onboard-option" data-freq="6" onclick="selectRCFreq(this)">
+          <div class="rc-opt-main">6</div>
+          <div class="rc-opt-sub">per day — every ~2 hours</div>
+        </div>
+        <div class="rc-onboard-option selected" data-freq="9" onclick="selectRCFreq(this)">
+          <div class="rc-opt-main">9</div>
+          <div class="rc-opt-sub">per day — every ~90 min &nbsp;★ recommended</div>
+        </div>
+        <div class="rc-onboard-option" data-freq="12" onclick="selectRCFreq(this)">
+          <div class="rc-opt-main">12</div>
+          <div class="rc-opt-sub">per day — every ~60 min</div>
+        </div>
       </div>
-      <button class="modal-expand-btn" id="pager-expand-btn" onclick="togglePagerExpand()">Read more ↓</button>
-      <div class="modal-expanded" id="pager-expanded">
-        Reality checks work because your dreaming mind mirrors your waking habits. Ask "am I dreaming?" enough times while awake and you'll eventually ask it while asleep — and know the answer.<br><br>
-        When enabled, ABLTY sends randomized daily prompts. Each takes under 10 seconds. Look at your hands, try to read text twice, pinch your nose and breathe, or ask how you got where you are. Dreams fail all four.
+
+      <button class="modal-close-btn" onclick="rcOnboardStep2()">Next →</button>
+      <button class="modal-close-btn" style="margin-top:8px;background:transparent;border-color:transparent;color:var(--muted);" onclick="closeRCOnboard()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- RC ONBOARDING MODAL — Step 2: Bedtime -->
+  <div class="modal-overlay" id="rc-onboard-bedtime-modal" style="display:none;" onclick="closeRCOnboard(event)">
+    <div class="modal-box">
+      <div class="modal-tag">Step 2 of 2</div>
+      <div class="modal-title">When do you sleep?</div>
+      <div class="modal-body" style="margin-bottom:16px;">Notifications stop at this time. A final primer fires 30 minutes before.</div>
+
+      <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:24px;">
+        <select id="rc-bedtime-hour" style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:var(--font-display);font-size:22px;color:var(--text);letter-spacing:2px;">
+          <option>8</option><option>9</option><option>10</option><option selected>11</option><option>12</option><option>1</option><option>2</option>
+        </select>
+        <span style="font-family:var(--font-display);font-size:28px;color:var(--text);">:</span>
+        <select id="rc-bedtime-min" style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:var(--font-display);font-size:22px;color:var(--text);letter-spacing:2px;">
+          <option value="00">00</option><option value="30">30</option>
+        </select>
+        <select id="rc-bedtime-ampm" style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-family:var(--font-display);font-size:22px;color:var(--text);">
+          <option>AM</option><option selected>PM</option>
+        </select>
       </div>
-      <button class="modal-close-btn" onclick="closePagerModal()">Got It</button>
+
+      <button class="modal-close-btn" onclick="rcOnboardFinish()">Enable Notifications</button>
+      <button class="modal-close-btn" style="margin-top:8px;background:transparent;border-color:transparent;color:var(--muted);" onclick="closeRCOnboard()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- RC EDIT MODAL — edit freq or bedtime after setup -->
+  <div class="modal-overlay" id="rc-edit-modal" style="display:none;" onclick="closeRCEditModal(event)">
+    <div class="modal-box" id="rc-edit-modal-inner">
+      <!-- populated by showRCEdit() -->
     </div>
   </div>
 
