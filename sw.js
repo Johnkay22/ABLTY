@@ -80,7 +80,7 @@ self.addEventListener('push', event => {
   const options = {
     body,
     icon:     '/icon-192.png',
-    badge:    '/icon-192.png',
+    badge:    '/badge-72.png',
     tag:      'ablty-reality-check',
     renotify: true,
     silent:   false,
