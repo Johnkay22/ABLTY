@@ -3286,6 +3286,7 @@ const SCREENS = {
   'timestamp-session':    'screen-timestamp-session',
   'timestamp-results':    'screen-timestamp-results',
   'reality-check':        'screen-reality-check',
+  'rc-task':              'screen-rc-task',
 };
 const NAV_SCREENS = ['home', 'analytics', 'profile'];
 
@@ -4201,10 +4202,17 @@ function completeRCTask() {
 // Check URL hash on load for notification tap
 function checkRCHash() {
   if (window.location.hash === '#reality-check' || window.location.search.includes('rc=1')) {
-    // Wait for app to initialize then open task
-    setTimeout(() => openRCTask(), 500);
-    // Clean hash
     history.replaceState(null, '', '/');
+    // Poll until splash is done, then open task
+    const tryOpen = (attempts) => {
+      if (attempts <= 0) return;
+      if (splashDone) {
+        openRCTask();
+      } else {
+        setTimeout(() => tryOpen(attempts - 1), 300);
+      }
+    };
+    setTimeout(() => tryOpen(15), 200);
   }
 }
 
