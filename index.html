@@ -142,6 +142,31 @@ html, body {
 .nav-dot { width: 4px; height: 4px; border-radius: 50%; background: transparent; transition: background 0.2s; }
 .nav-item.active .nav-dot { background: var(--accent); }
 
+/* ── Consistent Screen Headers ───────────────── */
+.screen-hdr {
+  display: flex; align-items: center; gap: 12px;
+  flex-shrink: 0; margin-bottom: 4px;
+}
+.screen-hdr-back {
+  background: none; border: none;
+  width: 34px; height: 34px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted); cursor: pointer; flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
+}
+.screen-hdr-back:hover { color: var(--text); background: var(--card2); }
+.screen-hdr-title {
+  font-family: var(--font-display);
+  font-size: 28px; letter-spacing: 2px; color: var(--text); line-height: 1;
+}
+.screen-hdr-sub {
+  font-family: var(--font-mono);
+  font-size: 10px; color: var(--dim);
+  letter-spacing: 0.5px; margin-top: 2px;
+}
+
+
+
 /* ═══════════════════════════════════════════
    STATUS BAR SIMULATION (for installed PWA)
 ═══════════════════════════════════════════ */
@@ -219,6 +244,40 @@ html, body {
   background-image: linear-gradient(rgba(74,240,200,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(74,240,200,0.12) 1px, transparent 1px);
   background-size: 18px 18px;
   mask-image: radial-gradient(ellipse at center, black 20%, transparent 70%);
+}
+
+/* Dream Lab card background */
+.card-visual.dream-bg {
+  background:
+    radial-gradient(ellipse at 30% 40%, rgba(91,63,180,0.45) 0%, transparent 55%),
+    radial-gradient(ellipse at 75% 65%, rgba(74,240,200,0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 55% 20%, rgba(160,80,220,0.2) 0%, transparent 45%),
+    #06040e;
+}
+/* Floating particles for dream card */
+.dream-particles {
+  position: absolute; inset: 0; overflow: hidden;
+}
+.dream-particle {
+  position: absolute;
+  width: 2px; height: 2px;
+  border-radius: 50%;
+  background: rgba(160,130,255,0.7);
+  animation: dreamFloat linear infinite;
+}
+@keyframes dreamFloat {
+  0%   { transform: translateY(0) translateX(0); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 0.6; }
+  100% { transform: translateY(-80px) translateX(20px); opacity: 0; }
+}
+/* Astral card — deeper nebula */
+.card-visual.astral-bg {
+  background:
+    radial-gradient(ellipse at 20% 60%, rgba(74,240,200,0.18) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 30%, rgba(91,158,244,0.25) 0%, transparent 45%),
+    radial-gradient(ellipse at 50% 80%, rgba(220,80,160,0.18) 0%, transparent 50%),
+    #030507;
 }
 
 .card-overlay {
@@ -965,6 +1024,11 @@ html, body {
   font-family: var(--font-mono); font-size: 10px;
   letter-spacing: 1px; color: var(--dim); text-transform: uppercase;
 }
+@keyframes rvScan {
+  0%, 100% { transform: translateY(-100%); opacity:0; }
+  40% { opacity: 1; }
+  60% { opacity: 1; }
+}
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
@@ -1154,151 +1218,132 @@ html, body {
 }
 .rc-onboard-option .rc-opt-main {
   font-family: var(--font-display);
-  font-size: 22px;
-  color: var(--text);
-  letter-spacing: 2px;
+  font-size: 22px; color: var(--text); letter-spacing: 2px;
 }
 .rc-onboard-option .rc-opt-sub {
   font-family: var(--font-mono);
-  font-size: 9px;
-  color: var(--muted);
-  letter-spacing: 1px;
-  margin-top: 2px;
-  text-transform: uppercase;
+  font-size: 9px; color: var(--muted);
+  letter-spacing: 1px; margin-top: 2px; text-transform: uppercase;
 }
-.rc-setting-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+
+/* RC toggle row — matches Profile setting-row exactly */
+.rc-toggle-row {
+  display: flex; align-items: center; justify-content: space-between;
   padding: 14px 16px;
-  background: var(--card);
-  border: 1px solid var(--border);
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.rc-toggle-label {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 1px; color: var(--muted);
+  text-transform: uppercase; margin-bottom: 3px;
+}
+.rc-toggle-status {
+  font-family: var(--font-body); font-size: 13px; color: var(--text);
+}
+.rc-toggle-btn {
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 14px;
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 1.5px; color: var(--muted);
+  cursor: pointer; text-transform: uppercase;
+  transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.rc-toggle-btn.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* RC setting edit rows */
+.rc-setting-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--card); border: 1px solid var(--border);
   border-radius: 12px;
 }
 .rc-setting-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 1px;
-  color: var(--muted);
-  text-transform: uppercase;
-  margin-bottom: 4px;
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 1px; color: var(--muted);
+  text-transform: uppercase; margin-bottom: 3px;
 }
 .rc-setting-val {
-  font-family: var(--font-display);
-  font-size: 20px;
-  color: var(--text);
-  letter-spacing: 1px;
+  font-family: var(--font-body); font-size: 14px; color: var(--text);
 }
 .rc-edit-btn {
-  background: var(--card2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 5px 10px;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 1px;
-  color: var(--muted);
-  cursor: pointer;
-  text-transform: uppercase;
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 5px 10px;
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 1px; color: var(--muted);
+  cursor: pointer; text-transform: uppercase;
+  transition: color 0.15s, border-color 0.15s;
 }
+.rc-edit-btn:hover { color: var(--text); border-color: var(--border2); }
+
+/* RC streak card — matches calibration card style */
 .rc-streak-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px;
-  text-align: center;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 20px;
+  display: flex; align-items: center; gap: 16px;
 }
+.rc-streak-icon {
+  font-size: 32px; flex-shrink: 0; line-height: 1;
+}
+.rc-streak-info { flex: 1; }
 .rc-streak-num {
-  font-family: var(--font-display);
-  font-size: 56px;
-  color: var(--accent);
-  line-height: 1;
-  letter-spacing: 2px;
+  font-family: var(--font-display); font-size: 40px;
+  color: var(--accent); line-height: 1; letter-spacing: 2px;
 }
 .rc-streak-label {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 2px;
-  color: var(--muted);
-  text-transform: uppercase;
-  margin-top: 6px;
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 2px; color: var(--muted);
+  text-transform: uppercase; margin-top: 4px;
 }
+
 /* Micro-task screen */
 .rc-task-shell {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  padding: 32px 24px 24px;
+  display: flex; flex-direction: column;
+  height: 100%; padding: 32px 24px 24px;
   justify-content: space-between;
 }
 .rc-task-tag {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 3px;
-  color: var(--accent);
-  text-transform: uppercase;
-  margin-bottom: 8px;
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 3px; color: var(--accent);
+  text-transform: uppercase; margin-bottom: 8px;
 }
 .rc-task-question {
-  font-family: var(--font-display);
-  font-size: 28px;
-  color: var(--text);
-  line-height: 1.2;
-  letter-spacing: 1px;
-  margin-bottom: 24px;
+  font-family: var(--font-display); font-size: 28px;
+  color: var(--text); line-height: 1.2;
+  letter-spacing: 1px; margin-bottom: 24px;
 }
 .rc-task-input {
-  width: 100%;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 14px;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  color: var(--text);
-  resize: none;
-  min-height: 80px;
-  box-sizing: border-box;
+  width: 100%; background: var(--card);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px; font-family: var(--font-mono);
+  font-size: 13px; color: var(--text);
+  resize: none; min-height: 80px; box-sizing: border-box;
 }
 .rc-task-input:focus { outline: none; border-color: var(--accent); }
-.rc-rating-row {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-}
+.rc-rating-row { display: flex; gap: 10px; justify-content: center; }
 .rc-rating-btn {
-  width: 52px; height: 52px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--card2);
-  font-family: var(--font-display);
-  font-size: 20px;
-  color: var(--muted);
-  cursor: pointer;
+  width: 52px; height: 52px; border-radius: 12px;
+  border: 1px solid var(--border); background: var(--card2);
+  font-family: var(--font-display); font-size: 20px;
+  color: var(--muted); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   transition: all 0.15s;
 }
 .rc-rating-btn.selected {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent); color: var(--accent);
   background: rgba(74,240,200,0.1);
 }
 .rc-nose-prompt {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 16px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: var(--muted);
-  line-height: 1.6;
-  text-align: center;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px;
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--muted); line-height: 1.6; text-align: center;
 }
-.rc-nose-prompt strong {
-  color: var(--text);
-  font-style: normal;
-}
-
+.rc-nose-prompt strong { color: var(--text); font-style: normal; }
 
 /* ═══════════════════════════════════════════
    ADMIN / LIMIT MODALS
@@ -1423,88 +1468,139 @@ html, body {
 }
 .ob-slide {
   display: none; flex: 1; flex-direction: column;
-  padding: 48px 28px 32px;
-  animation: fadeIn 0.4s ease;
+  animation: fadeIn 0.35s ease;
 }
 .ob-slide.active { display: flex; }
-.ob-top { flex: 1; display: flex; flex-direction: column; justify-content: center; }
+
+/* Header band */
+.ob-header {
+  flex-shrink: 0;
+  padding: 52px 32px 28px;
+  border-bottom: 1px solid var(--border);
+}
 .ob-logo {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 56px; letter-spacing: 4px;
-  color: var(--text); margin-bottom: 28px; line-height: 1;
+  font-family: var(--font-display);
+  font-size: 48px; letter-spacing: 6px;
+  color: var(--text); line-height: 1;
 }
-.ob-logo span { color: var(--accent); }
+.ob-logo-accent { color: var(--accent); }
 .ob-headline {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 32px; letter-spacing: 2px;
-  color: var(--text); line-height: 1.1; margin-bottom: 16px;
+  font-family: var(--font-display);
+  font-size: 22px; letter-spacing: 2px;
+  color: var(--muted); line-height: 1; margin-top: 6px;
 }
-.ob-body {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 15px; color: var(--muted);
-  line-height: 1.65;
-}
-.ob-body strong { color: var(--text); font-weight: 500; }
-.ob-disclaimer {
-  font-family: 'DM Mono', monospace;
-  font-size: 11px; color: var(--accent);
-  letter-spacing: 1px; margin-top: 16px;
-  padding: 12px; background: rgba(74,240,200,0.06);
-  border: 1px solid rgba(74,240,200,0.15); border-radius: 10px;
+
+/* Content */
+.ob-content {
+  flex: 1; overflow-y: auto;
+  padding: 28px 32px 0;
+  display: flex; flex-direction: column; gap: 0;
 }
 .ob-row {
   display: flex; align-items: flex-start; gap: 16px;
-  margin-bottom: 18px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--border);
 }
-.ob-icon {
-  font-size: 22px; flex-shrink: 0;
-  width: 36px; text-align: center; margin-top: 2px;
+.ob-row:last-child { border-bottom: none; }
+.ob-num {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--accent); letter-spacing: 2px;
+  flex-shrink: 0; width: 24px; padding-top: 2px;
 }
 .ob-row-text { flex: 1; }
 .ob-row-label {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 14px; color: var(--text); font-weight: 500;
+  font-family: var(--font-display);
+  font-size: 18px; letter-spacing: 1px; color: var(--text);
 }
 .ob-row-sub {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 12px; color: var(--muted); margin-top: 2px;
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--muted); margin-top: 4px; line-height: 1.6;
+  letter-spacing: 0.3px;
 }
-.ob-bottom { flex-shrink: 0; padding-bottom: 16px; }
-.ob-dots {
-  display: flex; gap: 6px; justify-content: center; margin-bottom: 20px;
+.ob-disclaimer {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--accent); letter-spacing: 1px;
+  margin-top: 20px; padding: 12px 16px;
+  background: rgba(74,240,200,0.05);
+  border: 1px solid rgba(74,240,200,0.12);
+  border-radius: 10px; line-height: 1.5;
 }
-.ob-dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--dim); transition: background 0.3s;
+
+/* Footer */
+.ob-footer {
+  flex-shrink: 0; padding: 20px 32px 40px;
+  border-top: 1px solid var(--border);
 }
-.ob-dot.active { background: var(--accent); }
+.ob-progress {
+  display: flex; gap: 6px; margin-bottom: 20px;
+}
+.ob-prog-seg {
+  flex: 1; height: 2px; border-radius: 1px;
+  background: var(--border);
+  transition: background 0.3s;
+}
+.ob-prog-seg.active { background: var(--accent); }
 .ob-btn-row { display: flex; gap: 10px; }
 .ob-skip {
   background: none; border: 1px solid var(--border);
   border-radius: 12px; padding: 14px 20px;
-  color: var(--muted); font-family: 'DM Mono', monospace;
-  font-size: 11px; letter-spacing: 1px; cursor: pointer;
-  white-space: nowrap;
+  color: var(--muted); font-family: var(--font-mono);
+  font-size: 10px; letter-spacing: 1.5px;
+  cursor: pointer; white-space: nowrap;
+  text-transform: uppercase;
 }
-.ob-cta-row { display: flex; gap: 10px; }
-.ob-cta {
-  flex: 1; padding: 14px;
-  border-radius: 12px; border: none;
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 20px; letter-spacing: 2px;
-  cursor: pointer;
-}
-.ob-cta-zener {
-  background: rgba(74,240,200,0.12);
-  border: 1px solid rgba(74,240,200,0.3);
-  color: var(--accent);
-}
-.ob-cta-rv {
-  background: var(--accent); color: #000;
-}
-.ob-cta-zener:hover { background: rgba(74,240,200,0.18); }
-.ob-cta-rv:hover { opacity: 0.9; }
+.ob-skip:hover { border-color: var(--border2); color: var(--text); }
 
+/* CTA grid for slide 2 */
+.ob-module-grid {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 28px 32px 0;
+}
+.ob-module-btn {
+  width: 100%; padding: 16px 20px;
+  border-radius: 12px; border: 1px solid var(--border);
+  background: var(--card);
+  font-family: var(--font-display);
+  font-size: 18px; letter-spacing: 2px;
+  color: var(--text); cursor: pointer;
+  text-align: left;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: border-color 0.15s, background 0.15s;
+}
+.ob-module-btn:hover {
+  border-color: var(--accent);
+  background: rgba(74,240,200,0.04);
+}
+.ob-module-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #000;
+}
+.ob-module-btn.primary:hover { opacity: 0.92; }
+.ob-module-arrow {
+  font-family: var(--font-mono); font-size: 14px;
+  color: var(--muted);
+}
+.ob-module-btn.primary .ob-module-arrow { color: rgba(0,0,0,0.5); }
+.ob-slide-2-sub {
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--dim); letter-spacing: 1px;
+  padding: 16px 32px 0;
+}
+
+/* Legacy compat */
+.ob-body { font-family: var(--font-mono); font-size: 11px; color: var(--muted); line-height: 1.6; }
+.ob-body strong { color: var(--text); }
+.ob-cta-row { display: flex; gap: 10px; }
+.ob-cta { flex: 1; padding: 14px; border-radius: 12px; border: none; font-family: var(--font-display); font-size: 20px; letter-spacing: 2px; cursor: pointer; }
+.ob-cta-zener { background: rgba(74,240,200,0.12); border: 1px solid rgba(74,240,200,0.3); color: var(--accent); }
+.ob-cta-rv { background: var(--accent); color: #000; }
+.ob-dots { display: flex; gap: 6px; justify-content: center; margin-bottom: 20px; }
+.ob-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--dim); transition: background 0.3s; }
+.ob-dot.active { background: var(--accent); }
+.ob-icon { font-size: 20px; flex-shrink: 0; width: 30px; text-align: center; margin-top: 2px; }
+.ob-top { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 32px 28px 0; }
+.ob-bottom { flex-shrink: 0; padding: 20px 28px 40px; }
 
 /* ═══════════════════════════════════════════
    RV STEP SCREENS
@@ -2036,11 +2132,13 @@ html, body {
             <div class="reticle-cross v"></div>
             <div class="reticle-dot"></div>
           </div>
+          <!-- Scan line sweep -->
+          <div style="position:absolute;inset:0;background:linear-gradient(180deg,transparent 40%,rgba(74,240,200,0.04) 50%,transparent 60%);animation:rvScan 4s ease-in-out infinite;"></div>
         </div>
         <div class="card-overlay">
-          <div class="card-tag">Feature Set 1</div>
+          <div class="card-tag">Module 01</div>
           <div class="display-md">REMOTE VIEWING</div>
-          <div class="mono-sm" style="margin-top:4px">AI-Graded Psi Sessions</div>
+          <div class="mono-sm" style="margin-top:4px">AI-Graded · Blind Target Sessions</div>
         </div>
       </div>
 
@@ -2048,58 +2146,77 @@ html, body {
       <div class="module-card fade-in-delay-2" onclick="navigate('psi')">
         <div class="card-visual psi-bg">
           <div class="circuit"></div>
-          <svg class="brain-svg" viewBox="0 0 56 56" fill="none" stroke="rgba(74,240,200,0.75)" stroke-width="1.2" stroke-linecap="round">
-            <path d="M28 18c0-5-4-9-9-9s-9 4-9 9c0 2.7 1.2 5.1 3 6.8C10.2 26.6 9 29.5 9 32.5c0 5.5 4.5 10 10 10h9"/>
-            <path d="M28 18c0-5 4-9 9-9s9 4 9 9c0 2.7-1.2 5.1-3 6.8C45.8 26.6 47 29.5 47 32.5c0 5.5-4.5 10-10 10H28"/>
-            <line x1="28" y1="18" x2="28" y2="42.5"/>
-            <line x1="18" y1="28" x2="38" y2="28"/>
-            <line x1="15" y1="35" x2="41" y2="35"/>
-          </svg>
+          <!-- Zener symbols floating -->
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:14px;opacity:0.55;">
+            <svg width="22" height="22" viewBox="0 0 80 80" fill="none" stroke="rgba(74,240,200,0.9)" stroke-width="3" stroke-linecap="round"><circle cx="40" cy="40" r="24"/></svg>
+            <svg width="22" height="22" viewBox="0 0 80 80" fill="none" stroke="rgba(91,158,244,0.9)" stroke-width="3" stroke-linecap="round"><line x1="40" y1="14" x2="40" y2="66"/><line x1="14" y1="40" x2="66" y2="40"/></svg>
+            <svg width="22" height="22" viewBox="0 0 80 80" fill="none" stroke="rgba(74,240,200,0.9)" stroke-width="3" stroke-linecap="round"><polygon points="40,12 47,33 70,33 52,46 59,68 40,55 21,68 28,46 10,33 33,33"/></svg>
+          </div>
         </div>
         <div class="card-overlay">
-          <div class="card-tag">Feature Set 2 — Active</div>
+          <div class="card-tag">Module 02</div>
           <div class="display-md">PSI TRAINING</div>
-          <div class="mono-sm" style="margin-top:4px">Zener ESP · Presentiment · Precognition</div>
+          <div class="mono-sm" style="margin-top:4px">Zener ESP · Presentiment</div>
         </div>
       </div>
 
-      <!-- REALITY CHECK CARD -->
-      <div class="module-card fade-in-delay-3" onclick="navigate('reality-check')">
-        <div class="card-visual" style="background:linear-gradient(135deg,#0d1f1a 0%,#0e2a20 60%,#0a1a14 100%);">
+      <!-- DREAM LAB CARD -->
+      <div class="module-card fade-in-delay-3" onclick="navigate('dream-lab')">
+        <div class="card-visual dream-bg">
+          <div class="dream-particles" id="dream-particles"></div>
+          <!-- Moon phase + wave graphic -->
           <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
-            <svg width="52" height="52" viewBox="0 0 52 52" fill="none" stroke="rgba(74,240,200,0.7)" stroke-width="1.3" stroke-linecap="round">
-              <circle cx="26" cy="26" r="20"/>
-              <circle cx="26" cy="26" r="4"/>
-              <line x1="26" y1="2" x2="26" y2="10"/>
-              <line x1="26" y1="42" x2="26" y2="50"/>
-              <line x1="2" y1="26" x2="10" y2="26"/>
-              <line x1="42" y1="26" x2="50" y2="26"/>
-              <line x1="26" y1="22" x2="26" y2="18"/>
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+              <!-- Moon crescent -->
+              <path d="M38 12C28 14 21 23 21 32s7 18 17 20c-14 2-26-8-26-22S22 8 38 12z" fill="rgba(160,130,255,0.35)" stroke="rgba(180,150,255,0.7)" stroke-width="1.2"/>
+              <!-- Stars -->
+              <circle cx="48" cy="16" r="1.2" fill="rgba(255,255,255,0.8)"/>
+              <circle cx="52" cy="28" r="0.8" fill="rgba(255,255,255,0.6)"/>
+              <circle cx="44" cy="10" r="0.7" fill="rgba(255,255,255,0.5)"/>
+              <circle cx="56" cy="20" r="1" fill="rgba(200,180,255,0.7)"/>
+              <!-- Sleep waves -->
+              <path d="M10 48 Q16 44 22 48 Q28 52 34 48 Q40 44 46 48" stroke="rgba(160,130,255,0.5)" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+              <path d="M14 54 Q19 50 24 54 Q29 58 34 54 Q39 50 44 54" stroke="rgba(160,130,255,0.3)" stroke-width="1" fill="none" stroke-linecap="round"/>
             </svg>
           </div>
         </div>
         <div class="card-overlay">
-          <div class="card-tag">Feature Set 5 — Active</div>
-          <div class="display-md">REALITY CHECK</div>
-          <div class="mono-sm" style="margin-top:4px">Perceptual Training · <span id="home-rc-streak" style="color:var(--accent);">0 day streak</span></div>
+          <div class="card-tag">Module 03 — Active</div>
+          <div class="display-md">DREAM LAB</div>
+          <div class="mono-sm" style="margin-top:4px">Lucid Dream Training · <span id="home-rc-streak" style="color:var(--accent);">0 day streak</span></div>
         </div>
       </div>
 
       <!-- ASTRAL PROJECTION CARD (locked) -->
       <div class="module-card fade-in-delay-4" onclick="showComingSoon('Astral Projection')">
-        <div class="card-visual nebula">
-          <div class="star" style="width:2px;height:2px;top:22%;left:18%;opacity:.8"></div>
-          <div class="star" style="width:1px;height:1px;top:40%;left:50%;opacity:.5"></div>
-          <div class="star" style="width:3px;height:3px;top:15%;left:72%;opacity:.6"></div>
-          <div class="star" style="width:1px;height:1px;top:65%;left:28%;opacity:.7"></div>
-          <div class="star" style="width:2px;height:2px;top:50%;left:88%;opacity:.4"></div>
-          <div class="star" style="width:2px;height:2px;top:12%;left:58%;opacity:.9"></div>
-          <div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.6);border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:6px 14px;">
-            <span style="font-family:var(--font-mono);font-size:11px;letter-spacing:2px;color:rgba(255,255,255,0.5);text-transform:uppercase;">Coming Soon</span>
+        <div class="card-visual astral-bg">
+          <!-- Animated stars -->
+          <div class="star" style="width:2px;height:2px;top:22%;left:18%;opacity:.9"></div>
+          <div class="star" style="width:1px;height:1px;top:40%;left:55%;opacity:.6"></div>
+          <div class="star" style="width:3px;height:3px;top:15%;left:72%;opacity:.7"></div>
+          <div class="star" style="width:1px;height:1px;top:65%;left:28%;opacity:.8"></div>
+          <div class="star" style="width:2px;height:2px;top:50%;left:85%;opacity:.5"></div>
+          <div class="star" style="width:1px;height:1px;top:30%;left:42%;opacity:.6"></div>
+          <div class="star" style="width:2px;height:2px;top:12%;left:60%;opacity:.9"></div>
+          <!-- Silhouette figure -->
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" opacity="0.4">
+              <circle cx="24" cy="10" r="5" stroke="rgba(91,158,244,0.8)" stroke-width="1.2"/>
+              <path d="M24 15v14" stroke="rgba(91,158,244,0.8)" stroke-width="1.2" stroke-linecap="round"/>
+              <path d="M14 20c3-1 7-1 10 0" stroke="rgba(91,158,244,0.8)" stroke-width="1.2" stroke-linecap="round"/>
+              <path d="M34 20c-3-1-7-1-10 0" stroke="rgba(91,158,244,0.8)" stroke-width="1.2" stroke-linecap="round"/>
+              <path d="M18 29l-4 10M30 29l4 10" stroke="rgba(91,158,244,0.8)" stroke-width="1.2" stroke-linecap="round"/>
+              <!-- Floating duplicate — the "astral body" -->
+              <circle cx="24" cy="4" r="4" stroke="rgba(74,240,200,0.35)" stroke-width="1" stroke-dasharray="2 2"/>
+              <path d="M24 8v10" stroke="rgba(74,240,200,0.25)" stroke-width="1" stroke-linecap="round" stroke-dasharray="2 2"/>
+            </svg>
+          </div>
+          <div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:5px 12px;">
+            <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:2px;color:rgba(255,255,255,0.4);text-transform:uppercase;">Soon</span>
           </div>
         </div>
         <div class="card-overlay">
-          <div class="card-tag">Feature Set 3</div>
+          <div class="card-tag">Module 04</div>
           <div class="display-md">ASTRAL PROJECTION</div>
           <div class="mono-sm" style="margin-top:4px">OBE Induction &amp; Exit Protocols</div>
         </div>
@@ -2459,8 +2576,15 @@ html, body {
   <div id="screen-psi" class="screen">
     <div class="screen-inner">
 
-      <div class="display-lg fade-in">PSI TRAINING</div>
-      <div class="mono-sm fade-in" style="color:var(--dim);margin-top:-4px;">ESP testing and precognition protocols.</div>
+      <div class="screen-hdr fade-in">
+        <button class="screen-hdr-back" onclick="navigate('home')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div>
+          <div class="screen-hdr-title">PSI TRAINING</div>
+          <div class="screen-hdr-sub">ESP testing and precognition protocols</div>
+        </div>
+      </div>
 
       <!-- Zener card -->
       <div class="module-card fade-in-delay-1" onclick="navigate('zener')" style="flex-shrink:0;">
@@ -2502,11 +2626,14 @@ html, body {
   <div id="screen-zener-brief" class="screen">
     <div class="screen-inner">
 
-      <div style="display:flex;align-items:center;gap:10px;">
-        <button class="tool-btn" onclick="goHome()" style="padding:7px 10px;">
+      <div class="screen-hdr">
+        <button class="screen-hdr-back" onclick="navigate('psi')">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
         </button>
-        <div class="section-label">Zener Protocol</div>
+        <div>
+          <div class="screen-hdr-title">ZENER</div>
+          <div class="screen-hdr-sub">25-trial ESP card test</div>
+        </div>
       </div>
 
       <div class="trn-wrap fade-in" style="text-align:center;">
@@ -2704,14 +2831,15 @@ html, body {
 
         <!-- Calibration Score — SECOND -->
         <div class="calibration-card" id="calibration-card">
-          <div class="mono-label">RV Calibration Score</div>
-          <div class="calibration-trend" id="calibration-trend">
-            <span class="trend-arrow flat" id="cal-arrow">—</span>
-            <span style="font-family:var(--font-display);font-size:32px;color:var(--text);" id="cal-score">–</span>
-            <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted);" id="cal-label">Need 5+ sessions</span>
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div class="mono-label">RV Calibration</div>
+            <span style="font-family:var(--font-mono);font-size:18px;" id="cal-arrow">—</span>
           </div>
-          <div class="calibration-bars" id="cal-bars"></div>
-          <div style="font-family:var(--font-mono);font-size:9px;color:var(--dim);margin-top:8px;" id="cal-desc">Complete more sessions to track trend</div>
+          <div style="display:flex;align-items:baseline;gap:10px;margin-top:6px;">
+            <span style="font-family:var(--font-display);font-size:40px;color:var(--text);line-height:1;" id="cal-score">–</span>
+            <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted);" id="cal-label">Need 3+ sessions</span>
+          </div>
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--dim);margin-top:6px;line-height:1.5;" id="cal-desc">Complete more sessions to track trend</div>
         </div>
 
         <!-- KPI row -->
@@ -2735,27 +2863,6 @@ html, body {
             <div class="mono-label">Training Streak</div>
             <div class="kpi-val warn" id="kpi-streak">0</div>
             <div class="kpi-delta">Days active</div>
-          </div>
-        </div>
-
-        <!-- Zener vs Chance -->
-        <div class="kpi-card" style="border-radius:14px;padding:16px;">
-          <div class="mono-label" style="margin-bottom:10px;">Zener vs Chance Baseline</div>
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div style="flex:1;">
-              <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-                <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);">YOUR AVG</span>
-                <span style="font-family:var(--font-mono);font-size:9px;color:var(--accent);" id="baseline-your-pct">–%</span>
-              </div>
-              <div class="cat-bar-track"><div class="cat-bar-fill" id="baseline-your-bar" style="width:0%"></div></div>
-            </div>
-            <div style="flex:1;">
-              <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-                <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);">CHANCE</span>
-                <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);">20%</span>
-              </div>
-              <div class="cat-bar-track"><div class="cat-bar-fill" style="width:20%;background:var(--dim)"></div></div>
-            </div>
           </div>
         </div>
 
@@ -2913,11 +3020,14 @@ html, body {
   <div id="screen-timestamp-brief" class="screen">
     <div class="screen-inner">
 
-      <div style="display:flex;align-items:center;gap:10px;">
-        <button class="btn btn-ghost" style="width:auto;padding:8px 14px;font-size:14px;" onclick="goHome()">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      <div class="screen-hdr">
+        <button class="screen-hdr-back" onclick="navigate('psi')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
         </button>
-        <div class="display-lg">PRESENTIMENT</div>
+        <div>
+          <div class="screen-hdr-title">PRESENTIMENT</div>
+          <div class="screen-hdr-sub">Timestamp prediction · Precognition protocol</div>
+        </div>
       </div>
 
       <div class="card" style="padding:16px;">
@@ -3067,19 +3177,103 @@ html, body {
 
 
   <!-- ══════════════════════════════════
+       SCREEN: DREAM LAB HUB
+  ═══════════════════════════════════ -->
+  <div id="screen-dream-lab" class="screen">
+    <div class="screen-inner">
+
+      <div class="screen-hdr fade-in">
+        <button class="screen-hdr-back" onclick="navigate('home')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div>
+          <div class="screen-hdr-title">DREAM LAB</div>
+          <div class="screen-hdr-sub">Lucid dream training protocols</div>
+        </div>
+      </div>
+
+      <!-- Reality Check Pager card -->
+      <div class="module-card fade-in-delay-1" onclick="navigate('reality-check')" style="flex-shrink:0;">
+        <div class="card-visual dream-bg">
+          <div class="dream-particles" id="dl-dream-particles"></div>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+            <svg width="60" height="60" viewBox="0 0 64 64" fill="none">
+              <path d="M38 12C28 14 21 23 21 32s7 18 17 20c-14 2-26-8-26-22S22 8 38 12z" fill="rgba(160,130,255,0.35)" stroke="rgba(180,150,255,0.7)" stroke-width="1.2"/>
+              <circle cx="48" cy="16" r="1.2" fill="rgba(255,255,255,0.8)"/>
+              <circle cx="52" cy="28" r="0.8" fill="rgba(255,255,255,0.6)"/>
+              <circle cx="44" cy="10" r="0.7" fill="rgba(255,255,255,0.5)"/>
+              <circle cx="56" cy="20" r="1" fill="rgba(200,180,255,0.7)"/>
+              <path d="M10 48 Q16 44 22 48 Q28 52 34 48 Q40 44 46 48" stroke="rgba(160,130,255,0.5)" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+              <path d="M14 54 Q19 50 24 54 Q29 58 34 54 Q39 50 44 54" stroke="rgba(160,130,255,0.3)" stroke-width="1" fill="none" stroke-linecap="round"/>
+            </svg>
+          </div>
+        </div>
+        <div class="card-overlay">
+          <div class="card-tag">Protocol 1 — Active</div>
+          <div class="display-md">REALITY CHECK PAGER</div>
+          <div class="mono-sm" style="margin-top:4px">Perceptual Training · <span id="dl-rc-streak" style="color:var(--accent);">0 day streak</span></div>
+        </div>
+      </div>
+
+      <!-- Coming Soon — WBTB Timer -->
+      <div class="module-card fade-in-delay-2" onclick="showComingSoon('WBTB Timer')" style="flex-shrink:0;opacity:0.5;">
+        <div class="card-visual" style="background:linear-gradient(135deg,#0a0c10 0%,#0d1020 100%);">
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="rgba(91,158,244,0.4)" stroke-width="1.2" stroke-linecap="round">
+              <circle cx="24" cy="24" r="18"/>
+              <line x1="24" y1="10" x2="24" y2="24"/>
+              <line x1="24" y1="24" x2="34" y2="30"/>
+              <line x1="10" y1="8" x2="14" y2="12"/>
+              <line x1="38" y1="8" x2="34" y2="12"/>
+            </svg>
+          </div>
+          <div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:5px 12px;">
+            <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:2px;color:rgba(255,255,255,0.35);text-transform:uppercase;">Soon</span>
+          </div>
+        </div>
+        <div class="card-overlay">
+          <div class="card-tag">Protocol 2</div>
+          <div class="display-md">WBTB TIMER</div>
+          <div class="mono-sm" style="margin-top:4px">Wake Back to Bed · REM Cycle Alarm</div>
+        </div>
+      </div>
+
+      <!-- Coming Soon — MILD -->
+      <div class="module-card fade-in-delay-3" onclick="showComingSoon('MILD')" style="flex-shrink:0;opacity:0.5;">
+        <div class="card-visual" style="background:linear-gradient(135deg,#080a0e 0%,#100a18 100%);">
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;flex-direction:column;">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:4px;color:rgba(160,130,255,0.35);">TONIGHT I WILL</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:4px;color:rgba(160,130,255,0.35);">NOTICE I AM DREAMING</div>
+          </div>
+          <div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:5px 12px;">
+            <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:2px;color:rgba(255,255,255,0.35);text-transform:uppercase;">Soon</span>
+          </div>
+        </div>
+        <div class="card-overlay">
+          <div class="card-tag">Protocol 3</div>
+          <div class="display-md">MILD</div>
+          <div class="mono-sm" style="margin-top:4px">Mnemonic Induction · Pre-sleep Intention</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
        SCREEN: REALITY CHECK
   ═══════════════════════════════════ -->
   <div id="screen-reality-check" class="screen">
     <div class="screen-inner">
 
-      <div style="display:flex;align-items:center;gap:10px;">
-        <button class="tool-btn" onclick="navigate('profile')" style="padding:7px 10px;">
+      <div class="screen-hdr">
+        <button class="screen-hdr-back" onclick="navigate('dream-lab')">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
         </button>
-        <div class="display-lg">REALITY CHECK</div>
+        <div>
+          <div class="screen-hdr-title">REALITY CHECK</div>
+          <div class="screen-hdr-sub">Perceptual training for lucid dreaming</div>
+        </div>
       </div>
-
-      <div class="mono-sm" style="color:var(--dim);margin-top:-4px;">Perceptual training for present-moment awareness.</div>
 
       <!-- Science explainer -->
       <div class="card" style="padding:16px;background:var(--card);border:1px solid var(--border);border-radius:14px;">
@@ -3109,16 +3303,16 @@ html, body {
       </div>
 
       <!-- Toggle row -->
-      <div class="rc-setting-row" style="margin-top:8px;">
+      <div class="rc-toggle-row">
         <div>
-          <div class="rc-setting-label">Pager</div>
-          <div id="rc-toggle-desc" style="font-family:var(--font-mono);font-size:11px;color:var(--text);">Off</div>
+          <div class="rc-toggle-label">Reality Check Pager</div>
+          <div class="rc-toggle-status" id="rc-toggle-desc">Off</div>
         </div>
-        <button id="rc-toggle-btn" onclick="handleRCToggle()" style="background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:6px 14px;font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--muted);cursor:pointer;text-transform:uppercase;">Enable</button>
+        <button id="rc-toggle-btn" class="rc-toggle-btn" onclick="handleRCToggle()">Enable</button>
       </div>
 
       <!-- Settings (shown when enabled) -->
-      <div id="rc-settings-wrap" style="display:none;flex-direction:column;gap:10px;">
+      <div id="rc-settings-wrap" style="display:none;flex-direction:column;gap:8px;">
 
         <div class="rc-setting-row">
           <div>
@@ -3140,9 +3334,11 @@ html, body {
 
       <!-- Streak -->
       <div class="rc-streak-card" id="rc-streak-card" style="display:none;">
-        <div class="rc-streak-num" id="rc-streak-num">0</div>
-        <div class="rc-streak-label">Day Streak</div>
-        <div style="font-family:var(--font-mono);font-size:9px;color:var(--dim);margin-top:8px;">Consecutive days with at least one completed check</div>
+        <div class="rc-streak-icon">🔥</div>
+        <div class="rc-streak-info">
+          <div class="rc-streak-num" id="rc-streak-num">0</div>
+          <div class="rc-streak-label">Day Streak</div>
+        </div>
       </div>
 
       <div class="mono-sm" style="color:var(--dim);text-align:center;padding:0 8px;" id="rc-empty-note">
@@ -3352,6 +3548,7 @@ const SCREENS = {
   'reality-check':        'screen-reality-check',
   'rc-task':              'screen-rc-task',
   'psi':                  'screen-psi',
+  'dream-lab':            'screen-dream-lab',
 };
 const NAV_SCREENS = ['home', 'analytics', 'profile'];
 
@@ -3394,6 +3591,7 @@ function showScreen(name, hideNav = false) {
     'zener-session':        'nav-psi',
     'zener-results':        'nav-psi',
     psi:                    'nav-psi',
+    'dream-lab':            'nav-home',
   };
   const activeNav = document.getElementById(navMap[name]);
   if (activeNav) activeNav.classList.add('active');
@@ -3409,6 +3607,7 @@ function navigate(name) {
   if (name === 'reality-check') renderRCScreen();
   if (name === 'timestamp') renderTimestampBrief();
   if (name === 'psi')      renderPSIHub();
+  if (name === 'dream-lab') renderDreamLab();
   if (name === 'home')     updateHomeRCStreak();
 }
 
@@ -3932,8 +4131,10 @@ function renderRCScreen() {
 
   if (toggleBtn) {
     toggleBtn.textContent = enabled ? 'On' : 'Enable';
-    toggleBtn.style.color = enabled ? 'var(--accent)' : 'var(--muted)';
-    toggleBtn.style.borderColor = enabled ? 'var(--accent)' : 'var(--border)';
+    toggleBtn.classList.toggle('active', enabled);
+    // Clear inline styles from old implementation
+    toggleBtn.style.color = '';
+    toggleBtn.style.borderColor = '';
   }
   if (toggleDesc) toggleDesc.textContent = enabled ? ('Active — ' + s.freq + '/day') : 'Off';
 
@@ -4239,6 +4440,7 @@ document.addEventListener('DOMContentLoaded', () => {
   runSplash();
   checkRCHash();
   setTimeout(updateHomeRCStreak, 100);
+  setTimeout(() => buildDreamParticles('dream-particles'), 150);
 
   // Force home screen visible immediately — safety net
   const homeScreen = document.getElementById('screen-home');
@@ -4300,6 +4502,35 @@ function generateDeck() {
     [deck[i], deck[j]] = [deck[j], deck[i]];
   }
   return deck;
+}
+
+function renderDreamLab() {
+  // Populate streak on Dream Lab hub card
+  const el = document.getElementById('dl-rc-streak');
+  if (el) {
+    const streak = getPushEnabled() ? getRCStreak().count : 0;
+    el.textContent = streak + ' day streak';
+  }
+  // Build particles for dream lab hub card
+  buildDreamParticles('dl-dream-particles');
+}
+
+function buildDreamParticles(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el || el.children.length > 0) return;
+  for (let i = 0; i < 18; i++) {
+    const p = document.createElement('div');
+    p.className = 'dream-particle';
+    p.style.left = (Math.random() * 100) + '%';
+    p.style.bottom = (Math.random() * 30) + 'px';
+    p.style.width = p.style.height = (1 + Math.random() * 2) + 'px';
+    p.style.animationDuration = (4 + Math.random() * 6) + 's';
+    p.style.animationDelay = (Math.random() * 5) + 's';
+    p.style.background = Math.random() > 0.5
+      ? 'rgba(160,130,255,0.7)'
+      : 'rgba(74,240,200,0.5)';
+    el.appendChild(p);
+  }
 }
 
 function renderPSIHub() {
@@ -6376,77 +6607,99 @@ window.addEventListener('error', (e) => {
   ═══════════════════════════════════ -->
   <div id="onboarding-screen">
 
-    <!-- Slide 1: What this is -->
+    <!-- Slide 1: What ABLTY is -->
     <div class="ob-slide active" id="ob-slide-1">
-      <div class="ob-top">
-        <div class="ob-logo">ABLTY</div>
-        <div class="ob-headline">Train Your Signal</div>
-        <div style="margin-top:12px;">
-          <div class="ob-row">
-            <div class="ob-icon">◎</div>
-            <div class="ob-row-text">
-              <div class="ob-row-label">Remote Viewing</div>
-              <div class="ob-row-sub">Sketch blind targets. AI grades your session across 6 dimensions. Track accuracy over time.</div>
-            </div>
-          </div>
-          <div class="ob-row">
-            <div class="ob-icon">★</div>
-            <div class="ob-row-text">
-              <div class="ob-row-label">PSI Training</div>
-              <div class="ob-row-sub">Zener ESP card test (25 trials) and Presentiment timestamp prediction.</div>
-            </div>
-          </div>
-          <div class="ob-row">
-            <div class="ob-icon">◈</div>
-            <div class="ob-row-text">
-              <div class="ob-row-label">Reality Check Pager</div>
-              <div class="ob-row-sub">Randomized daily notifications build perceptual awareness. Tap to complete a micro-check.</div>
-            </div>
-          </div>
-          <div class="ob-row">
-            <div class="ob-icon">↗</div>
-            <div class="ob-row-text">
-              <div class="ob-row-label">Analytics</div>
-              <div class="ob-row-sub">Track your calibration score, streaks, and performance trends across all protocols.</div>
-            </div>
+
+      <div class="ob-header">
+        <div class="ob-logo">ABL<span class="ob-logo-accent">T</span>Y</div>
+        <div class="ob-headline">Psi Training Platform</div>
+      </div>
+
+      <div class="ob-content">
+        <div class="ob-row">
+          <div class="ob-num">01</div>
+          <div class="ob-row-text">
+            <div class="ob-row-label">Remote Viewing</div>
+            <div class="ob-row-sub">Sketch blind targets. AI grades your session across 6 dimensions. Track signal quality over time.</div>
           </div>
         </div>
-        <div class="ob-disclaimer">Results are measured across repeated sessions — not individual attempts.</div>
+        <div class="ob-row">
+          <div class="ob-num">02</div>
+          <div class="ob-row-text">
+            <div class="ob-row-label">PSI Training</div>
+            <div class="ob-row-sub">Zener ESP card test and Presentiment precognition protocol — both calibrated against statistical chance.</div>
+          </div>
+        </div>
+        <div class="ob-row">
+          <div class="ob-num">03</div>
+          <div class="ob-row-text">
+            <div class="ob-row-label">Reality Check Pager</div>
+            <div class="ob-row-sub">Randomized daily notifications that build perceptual awareness — the foundation of lucid dreaming practice.</div>
+          </div>
+        </div>
+        <div class="ob-row">
+          <div class="ob-num">04</div>
+          <div class="ob-row-text">
+            <div class="ob-row-label">Analytics</div>
+            <div class="ob-row-sub">Calibration score, streaks, condition correlation, and performance trends across all protocols.</div>
+          </div>
+        </div>
+        <div class="ob-disclaimer">Results are measured across repeated sessions — not individual attempts. There are no correct answers, only signal and noise.</div>
       </div>
-      <div class="ob-bottom">
-        <div class="ob-dots">
-          <div class="ob-dot active"></div>
-          <div class="ob-dot"></div>
+
+      <div class="ob-footer">
+        <div class="ob-progress">
+          <div class="ob-prog-seg active"></div>
+          <div class="ob-prog-seg"></div>
         </div>
         <div class="ob-btn-row">
           <button class="ob-skip" onclick="skipOnboarding()">Skip</button>
-          <button class="ob-cta ob-cta-rv" style="flex:1;" onclick="obNext(2)">Next</button>
+          <button class="ob-cta ob-cta-rv" style="flex:1;" onclick="obNext(2)">Continue →</button>
         </div>
       </div>
+
     </div>
 
     <!-- Slide 2: Choose where to start -->
     <div class="ob-slide" id="ob-slide-2">
-      <div class="ob-top">
+
+      <div class="ob-header">
+        <div class="ob-logo">ABL<span class="ob-logo-accent">T</span>Y</div>
         <div class="ob-headline">Where do you want to start?</div>
-        <div class="ob-body" style="margin-bottom:20px;">You can explore all modules from the home screen at any time.</div>
-        <div class="ob-cta-row" style="flex-direction:column;gap:10px;">
-          <button class="ob-cta ob-cta-rv" onclick="obStartRV()">REMOTE VIEWING</button>
-          <button class="ob-cta ob-cta-zener" onclick="obStartZener()">ZENER TEST</button>
-          <button class="ob-cta ob-cta-zener" style="background:rgba(74,240,200,0.08);" onclick="obStartPresentiment()">PRESENTIMENT</button>
-          <button class="ob-cta ob-cta-zener" style="background:rgba(74,240,200,0.05);" onclick="obStartRC()">REALITY CHECK PAGER</button>
-        </div>
       </div>
-      <div class="ob-bottom">
-        <div class="ob-dots">
-          <div class="ob-dot"></div>
-          <div class="ob-dot active"></div>
+
+      <div class="ob-slide-2-sub">All modules are available from the home screen at any time.</div>
+
+      <div class="ob-module-grid">
+        <button class="ob-module-btn primary" onclick="obStartRV()">
+          <span>Remote Viewing</span>
+          <span class="ob-module-arrow">→</span>
+        </button>
+        <button class="ob-module-btn" onclick="obStartZener()">
+          <span>Zener ESP Test</span>
+          <span class="ob-module-arrow">→</span>
+        </button>
+        <button class="ob-module-btn" onclick="obStartPresentiment()">
+          <span>Presentiment</span>
+          <span class="ob-module-arrow">→</span>
+        </button>
+        <button class="ob-module-btn" onclick="obStartRC()">
+          <span>Reality Check Pager</span>
+          <span class="ob-module-arrow">→</span>
+        </button>
+      </div>
+
+      <div class="ob-footer" style="margin-top:auto;">
+        <div class="ob-progress">
+          <div class="ob-prog-seg active"></div>
+          <div class="ob-prog-seg active"></div>
         </div>
-        <div class="ob-btn-row" style="margin-top:16px;">
-          <button class="ob-skip" onclick="obNext(1)">Back</button>
+        <div class="ob-btn-row">
+          <button class="ob-skip" onclick="obNext(1)">← Back</button>
           <button class="ob-skip" style="flex:1;text-align:center;" onclick="skipOnboarding()">Go to Home</button>
         </div>
       </div>
+
     </div>
 
   </div>
