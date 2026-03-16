@@ -3122,17 +3122,6 @@ html, body {
         Enable the pager to begin your training.
       </div>
 
-      <button id="rc-test-btn" onclick="sendTestRC()" style="display:none;background:transparent;border:1px solid var(--border);border-radius:10px;padding:12px;font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--dim);cursor:pointer;text-transform:uppercase;width:100%;">Send Test Notification</button>
-      <div id="rc-test-result" style="font-family:var(--font-mono);font-size:10px;color:var(--muted);text-align:center;display:none;"></div>
-
-      <!-- Test button — only shown when enabled -->
-      <div id="rc-test-wrap" style="display:none;">
-        <button class="rc-edit-btn" style="width:100%;padding:12px;text-align:center;" onclick="sendTestRC()" id="rc-test-btn2">
-          Send Test Notification
-        </button>
-        <div id="rc-test-status" style="font-family:var(--font-mono);font-size:9px;color:var(--muted);text-align:center;margin-top:6px;"></div>
-      </div>
-
     </div>
   </div>
 
@@ -3504,7 +3493,7 @@ function saveSnapshot() {
   if (!canvas || !ctx) return;
   canvasHistory.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
   canvasRedo = [];
-  if (canvasHistory.length > 30) canvasHistory.shift();
+  if (canvasHistory.length > 50) canvasHistory.shift();
 }
 
 function restoreSnapshot(imageData) {
@@ -3513,20 +3502,19 @@ function restoreSnapshot(imageData) {
 }
 
 function undoStroke() {
-  if (canvasHistory.length <= 1) return; // keep blank floor
+  if (canvasHistory.length <= 1) return;
   const canvas = document.getElementById('rv-canvas');
   if (!canvas || !ctx) return;
-  canvasRedo.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-  const prev = canvasHistory.pop();
-  restoreSnapshot(prev);
+  canvasRedo.push(canvasHistory.pop());
+  restoreSnapshot(canvasHistory[canvasHistory.length - 1]);
 }
 
 function redoStroke() {
   if (canvasRedo.length === 0) return;
   const canvas = document.getElementById('rv-canvas');
   if (!canvas || !ctx) return;
-  canvasHistory.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
   const next = canvasRedo.pop();
+  canvasHistory.push(next);
   restoreSnapshot(next);
 }
 
@@ -3589,7 +3577,7 @@ function draw(e) {
   lastX = x; lastY = y;
 }
 
-function stopDraw() {
+function stopDraw(e) {
   if (!isDrawing) return;
   isDrawing = false;
   if (ctx) {
@@ -3737,6 +3725,7 @@ async function submitSession() {
   };
   STATE.sessions.unshift(session);
   saveState();
+  incrementDailyCount();
 }
 
 function updateGradingStatus(msg) {
@@ -3925,14 +3914,6 @@ function renderRCScreen() {
   if (streakCard)   streakCard.style.display   = enabled ? 'block' : 'none';
   if (emptyNote)    emptyNote.style.display    = enabled ? 'none' : 'block';
 
-  const testBtn = document.getElementById('rc-test-btn');
-  const testResult = document.getElementById('rc-test-result');
-  if (testBtn) testBtn.style.display = enabled ? 'block' : 'none';
-  if (testResult) testResult.style.display = 'none';
-
-  const testWrap = document.getElementById('rc-test-wrap');
-  if (testWrap) testWrap.style.display = enabled ? 'block' : 'none';
-
   if (enabled) {
     const freqEl = document.getElementById('rc-freq-display');
     const bedEl  = document.getElementById('rc-bedtime-display');
@@ -3942,65 +3923,6 @@ function renderRCScreen() {
     const numEl = document.getElementById('rc-streak-num');
     if (numEl) numEl.textContent = streak.count;
   }
-}
-
-async function testRCNotification() {
-  const btn    = document.getElementById('rc-test-btn');
-  const status = document.getElementById('rc-test-status');
-  if (btn) btn.textContent = 'Sending...';
-  if (status) status.textContent = '';
-  try {
-    const resp = await fetch(WORKER_URL + '/send-push', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ secret: 'ablty-push-22' })
-    });
-    const data = await resp.json();
-    if (data.results && data.results.sent > 0) {
-      if (status) status.textContent = 'Sent! Check your notifications.';
-      if (status) status.style.color = 'var(--accent)';
-    } else if (data.results && data.results.errors && data.results.errors.length) {
-      if (status) status.textContent = 'Error: ' + data.results.errors[0];
-      if (status) status.style.color = 'var(--danger)';
-    } else {
-      if (status) status.textContent = JSON.stringify(data.results || data);
-      if (status) status.style.color = 'var(--warn)';
-    }
-  } catch(e) {
-    if (status) status.textContent = 'Failed: ' + e.message;
-    if (status) status.style.color = 'var(--danger)';
-  }
-  if (btn) btn.textContent = 'Send Test Notification';
-}
-
-async function sendTestRC() {
-  const btn    = document.getElementById('rc-test-btn');
-  const result = document.getElementById('rc-test-result');
-  if (btn) btn.textContent = 'Sending...';
-  if (result) { result.style.display = 'block'; result.textContent = '...'; }
-  try {
-    const resp = await fetch(WORKER_URL + '/send-push', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ secret: 'ablty-push-22' })
-    });
-    const data = await resp.json();
-    if (result) {
-      if (data.results?.sent > 0) {
-        result.style.color = 'var(--accent)';
-        result.textContent = '✓ Sent — check your notifications';
-      } else if (data.results?.errors?.length) {
-        result.style.color = 'var(--danger)';
-        result.textContent = 'Error: ' + data.results.errors[0];
-      } else {
-        result.style.color = 'var(--warn)';
-        result.textContent = 'Sent: ' + JSON.stringify(data.results);
-      }
-    }
-  } catch(e) {
-    if (result) { result.style.color = 'var(--danger)'; result.textContent = 'Failed: ' + e.message; }
-  }
-  if (btn) btn.textContent = 'Send Test Notification';
 }
 
 function formatBedtime(h, m, ampm) {
@@ -5325,6 +5247,16 @@ function obStartRV() {
   setTimeout(() => startRVSession(), 300);
 }
 
+function obStartPresentiment() {
+  skipOnboarding();
+  setTimeout(() => navigate('timestamp'), 300);
+}
+
+function obStartRC() {
+  skipOnboarding();
+  setTimeout(() => navigate('reality-check'), 300);
+}
+
 
 // ═══════════════════════════════════════════════════════
 //  ANALYTICS IMPROVEMENTS
@@ -6422,16 +6354,41 @@ window.addEventListener('error', (e) => {
       <div class="ob-top">
         <div class="ob-logo">ABLTY</div>
         <div class="ob-headline">Train Your Signal</div>
-        <div class="ob-body">
-          A disciplined training environment for <strong>remote viewing</strong> and <strong>psi research</strong>.<br><br>
-          Sessions are graded by AI against hidden targets. Track your accuracy over time. Look for trends — not miracles.
+        <div style="margin-top:12px;">
+          <div class="ob-row">
+            <div class="ob-icon">◎</div>
+            <div class="ob-row-text">
+              <div class="ob-row-label">Remote Viewing</div>
+              <div class="ob-row-sub">Sketch blind targets. AI grades your session across 6 dimensions. Track accuracy over time.</div>
+            </div>
+          </div>
+          <div class="ob-row">
+            <div class="ob-icon">★</div>
+            <div class="ob-row-text">
+              <div class="ob-row-label">PSI Training</div>
+              <div class="ob-row-sub">Zener ESP card test (25 trials) and Presentiment timestamp prediction.</div>
+            </div>
+          </div>
+          <div class="ob-row">
+            <div class="ob-icon">◈</div>
+            <div class="ob-row-text">
+              <div class="ob-row-label">Reality Check Pager</div>
+              <div class="ob-row-sub">Randomized daily notifications build perceptual awareness. Tap to complete a micro-check.</div>
+            </div>
+          </div>
+          <div class="ob-row">
+            <div class="ob-icon">↗</div>
+            <div class="ob-row-text">
+              <div class="ob-row-label">Analytics</div>
+              <div class="ob-row-sub">Track your calibration score, streaks, and performance trends across all protocols.</div>
+            </div>
+          </div>
         </div>
-        <div class="ob-disclaimer">This is training. Results are measured across repeated sessions, not individual attempts.</div>
+        <div class="ob-disclaimer">Results are measured across repeated sessions — not individual attempts.</div>
       </div>
       <div class="ob-bottom">
         <div class="ob-dots">
           <div class="ob-dot active"></div>
-          <div class="ob-dot"></div>
           <div class="ob-dot"></div>
         </div>
         <div class="ob-btn-row">
@@ -6441,74 +6398,25 @@ window.addEventListener('error', (e) => {
       </div>
     </div>
 
-    <!-- Slide 2: How it works -->
+    <!-- Slide 2: Choose where to start -->
     <div class="ob-slide" id="ob-slide-2">
       <div class="ob-top">
-        <div class="ob-headline">How It Works</div>
-        <div style="margin-top: 8px;">
-          <div class="ob-row">
-            <div class="ob-icon">◎</div>
-            <div class="ob-row-text">
-              <div class="ob-row-label">Receive a blind target</div>
-              <div class="ob-row-sub">A Target Reference Number is assigned. The image is hidden until you submit.</div>
-            </div>
-          </div>
-          <div class="ob-row">
-            <div class="ob-icon">✏</div>
-            <div class="ob-row-text">
-              <div class="ob-row-label">Sketch your impressions</div>
-              <div class="ob-row-sub">Draw shapes, textures, emotions. Don't analyze — just record what comes through.</div>
-            </div>
-          </div>
-          <div class="ob-row">
-            <div class="ob-icon">↗</div>
-            <div class="ob-row-text">
-              <div class="ob-row-label">AI scores your session</div>
-              <div class="ob-row-sub">Advanced AI compares your data against the target across 6 dimensions. Trends emerge over time.</div>
-            </div>
-          </div>
-          <div class="ob-row">
-            <div class="ob-icon">⚡</div>
-            <div class="ob-row-text">
-              <div class="ob-row-label">Zener Protocol</div>
-              <div class="ob-row-sub">5 symbols, 25 trials. A fast daily baseline test for ESP — chance is 20%.</div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="ob-bottom">
-        <div class="ob-dots">
-          <div class="ob-dot"></div>
-          <div class="ob-dot active"></div>
-          <div class="ob-dot"></div>
-        </div>
-        <div class="ob-btn-row">
-          <button class="ob-skip" onclick="obNext(1)">Back</button>
-          <button class="ob-cta ob-cta-rv" style="flex:1;" onclick="obNext(3)">Next</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Slide 3: First move -->
-    <div class="ob-slide" id="ob-slide-3">
-      <div class="ob-top">
-        <div class="ob-headline">Your First Move</div>
-        <div class="ob-body" style="margin-bottom: 28px;">
-          Start with a <strong>Zener test</strong> to establish your baseline, or jump straight into a <strong>blind RV session</strong>.
-        </div>
-        <div class="ob-cta-row">
+        <div class="ob-headline">Where do you want to start?</div>
+        <div class="ob-body" style="margin-bottom:20px;">You can explore all modules from the home screen at any time.</div>
+        <div class="ob-cta-row" style="flex-direction:column;gap:10px;">
+          <button class="ob-cta ob-cta-rv" onclick="obStartRV()">REMOTE VIEWING</button>
           <button class="ob-cta ob-cta-zener" onclick="obStartZener()">ZENER TEST</button>
-          <button class="ob-cta ob-cta-rv" onclick="obStartRV()">RV SESSION</button>
+          <button class="ob-cta ob-cta-zener" style="background:rgba(74,240,200,0.08);" onclick="obStartPresentiment()">PRESENTIMENT</button>
+          <button class="ob-cta ob-cta-zener" style="background:rgba(74,240,200,0.05);" onclick="obStartRC()">REALITY CHECK PAGER</button>
         </div>
       </div>
       <div class="ob-bottom">
         <div class="ob-dots">
           <div class="ob-dot"></div>
-          <div class="ob-dot"></div>
           <div class="ob-dot active"></div>
         </div>
-        <div class="ob-btn-row" style="margin-top: 16px;">
-          <button class="ob-skip" onclick="obNext(2)">Back</button>
+        <div class="ob-btn-row" style="margin-top:16px;">
+          <button class="ob-skip" onclick="obNext(1)">Back</button>
           <button class="ob-skip" style="flex:1;text-align:center;" onclick="skipOnboarding()">Go to Home</button>
         </div>
       </div>
