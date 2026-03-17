@@ -2286,77 +2286,7 @@ html, body {
   text-align: center; text-transform: uppercase;
 }
 
-/* ── Noise Field ─────────────────────────────────── */
-.nf-canvas-wrap {
-  position: relative;
-  border-radius: 14px;
-  overflow: hidden;
-  border: 1px solid var(--border);
-  background: #050505;
-  flex-shrink: 0;
-}
-.nf-canvas-wrap canvas {
-  display: block;
-  width: 100%;
-  image-rendering: pixelated;
-}
-.nf-shape-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-}
-.nf-shape-btn {
-  aspect-ratio: 1;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--card);
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: border-color 0.15s, background 0.15s;
-  padding: 12px;
-}
-.nf-shape-btn:hover { border-color: var(--border2); }
-.nf-shape-btn.selected {
-  border-color: var(--accent);
-  background: rgba(74,240,200,0.08);
-}
-.nf-shape-btn.correct {
-  border-color: var(--accent);
-  background: rgba(74,240,200,0.12);
-}
-.nf-shape-btn.wrong {
-  border-color: var(--danger);
-  background: rgba(240,90,74,0.08);
-}
-.nf-shape-btn svg {
-  width: 100%; height: 100%;
-  stroke: var(--muted); fill: none;
-  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
-}
-.nf-shape-btn.selected svg,
-.nf-shape-btn.correct svg { stroke: var(--accent); }
-.nf-shape-btn.wrong svg   { stroke: var(--danger); }
-.nf-reveal-overlay {
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(0,0,0,0.72);
-  border-radius: 14px;
-  opacity: 0; pointer-events: none;
-  transition: opacity 0.3s;
-}
-.nf-reveal-overlay.visible { opacity: 1; }
-.nf-reveal-shape {
-  width: 80px; height: 80px;
-  stroke: var(--accent); fill: none;
-  stroke-width: 3; stroke-linecap: round; stroke-linejoin: round;
-  filter: drop-shadow(0 0 8px rgba(74,240,200,0.6));
-}
-.nf-focus-prompt {
-  font-family: var(--font-mono); font-size: 9px;
-  letter-spacing: 3px; color: var(--dim);
-  text-align: center; text-transform: uppercase;
-  padding: 8px 0;
-}
+
 
 /* Shared psi module stat bar */
 .psi-stat-bar {
@@ -2958,24 +2888,6 @@ html, body {
           <div class="card-tag">Protocol 3</div>
           <div class="display-md">PHOTO PAIR</div>
           <div class="mono-sm" style="margin-top:4px">Implicit Psi · Emotional Valence</div>
-        </div>
-      </div>
-
-      <!-- Noise Field card -->
-      <div class="module-card fade-in-delay-4" onclick="navigate('noise')" style="flex-shrink:0;">
-        <div class="card-visual" style="background:#030303;overflow:hidden;">
-          <canvas id="psi-noise-preview" width="140" height="90" style="position:absolute;inset:0;width:100%;height:100%;opacity:0.75;image-rendering:pixelated;"></canvas>
-          <!-- Faint shape outline hint -->
-          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
-            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="rgba(74,240,200,0.15)" stroke-width="2" stroke-linecap="round">
-              <circle cx="20" cy="20" r="15"/>
-            </svg>
-          </div>
-        </div>
-        <div class="card-overlay">
-          <div class="card-tag">Protocol 4</div>
-          <div class="display-md">NOISE FIELD</div>
-          <div class="mono-sm" style="margin-top:4px">Sub-threshold Pattern Detection</div>
         </div>
       </div>
 
@@ -3900,101 +3812,8 @@ html, body {
     </div>
   </div>
 
-  <!-- ══════════════════════════════════
-       SCREEN: NOISE FIELD
-  ═══════════════════════════════════ -->
-  <div id="screen-noise" class="screen">
-    <div class="screen-inner">
-
-      <div class="screen-hdr">
-        <button class="screen-hdr-back" onclick="navigate('psi')">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-        </button>
-        <div>
-          <div class="screen-hdr-title">NOISE FIELD</div>
-          <div class="screen-hdr-sub">Sub-threshold pattern detection</div>
-        </div>
-      </div>
-
-      <!-- BRIEF VIEW -->
-      <div id="nf-view-brief">
-        <div class="psi-stat-bar">
-          <div class="psi-stat-cell">
-            <div class="mono-label">Trials</div>
-            <div class="psi-stat-val" id="nf-stat-trials">0</div>
-          </div>
-          <div class="psi-stat-cell">
-            <div class="mono-label">Hit Rate</div>
-            <div class="psi-stat-val" id="nf-stat-hitrate">–</div>
-          </div>
-          <div class="psi-stat-cell">
-            <div class="mono-label">Chance</div>
-            <div class="psi-stat-val" style="color:var(--muted);">25%</div>
-          </div>
-        </div>
-        <div class="psi-chance-note" id="nf-stat-note">Complete 20+ trials for statistical analysis.</div>
-
-        <div class="card" style="padding:16px;background:var(--card);border:1px solid var(--border);border-radius:14px;">
-          <div class="mono-label" style="margin-bottom:8px;">How It Works</div>
-          <div class="body-sm">The screen shows visual noise — random static, like a detuned TV. Hidden somewhere in the noise is a <strong>faint geometric shape</strong> embedded below the threshold of normal visual detection. Relax your gaze, then select which shape you sense is hidden. <span style="color:var(--accent);">Chance is 25%.</span></div>
-          <div class="body-sm" style="margin-top:10px;color:var(--muted);font-family:var(--font-mono);font-size:10px;">Based on subliminal perception research. The shape is technically invisible — any detection above 25% is either sub-threshold perception or psi. The ambiguity is intentional.</div>
-        </div>
-
-        <button class="btn btn-primary" onclick="startNFTrial()">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M6 6h.01M10 6h.01M14 6h.01M18 6h.01M6 10h.01M18 10h.01M6 14h.01M18 14h.01M6 18h.01M10 18h.01M14 18h.01M18 18h.01"/></svg>
-          BEGIN TRIAL
-        </button>
-      </div>
-
-      <!-- TRIAL VIEW -->
-      <div id="nf-view-trial" style="display:none;flex-direction:column;gap:14px;">
-
-        <div class="nf-canvas-wrap">
-          <canvas id="nf-canvas" width="300" height="280"></canvas>
-          <div class="nf-reveal-overlay" id="nf-reveal-overlay">
-            <svg class="nf-reveal-shape" id="nf-reveal-svg" viewBox="0 0 80 80"></svg>
-          </div>
-        </div>
-
-        <div class="nf-focus-prompt" id="nf-focus-prompt">RELAX YOUR GAZE · SELECT THE SHAPE YOU SENSE</div>
-
-        <div class="nf-shape-grid" id="nf-shape-grid">
-          <button class="nf-shape-btn" id="nfbtn-circle" onclick="handleNFGuess('circle')">
-            <svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="26"/></svg>
-          </button>
-          <button class="nf-shape-btn" id="nfbtn-triangle" onclick="handleNFGuess('triangle')">
-            <svg viewBox="0 0 80 80"><polygon points="40,10 70,66 10,66"/></svg>
-          </button>
-          <button class="nf-shape-btn" id="nfbtn-square" onclick="handleNFGuess('square')">
-            <svg viewBox="0 0 80 80"><rect x="12" y="12" width="56" height="56" rx="3"/></svg>
-          </button>
-          <button class="nf-shape-btn" id="nfbtn-star" onclick="handleNFGuess('star')">
-            <svg viewBox="0 0 80 80"><polygon points="40,8 47,30 70,30 52,44 59,66 40,52 21,66 28,44 10,30 33,30"/></svg>
-          </button>
-        </div>
-
-        <div id="nf-post-reveal" style="display:none;flex-direction:column;gap:10px;">
-          <div class="psi-stat-bar">
-            <div class="psi-stat-cell">
-              <div class="mono-label">This Trial</div>
-              <div class="psi-stat-val" id="nf-trial-result" style="font-size:22px;">–</div>
-            </div>
-            <div class="psi-stat-cell">
-              <div class="mono-label">Running</div>
-              <div class="psi-stat-val" id="nf-running-rate" style="font-size:22px;">–</div>
-            </div>
-          </div>
-          <button class="btn btn-primary" onclick="startNFTrial()">NEXT TRIAL</button>
-          <button class="btn btn-ghost" onclick="showNFView('brief')">View Stats</button>
-        </div>
-
-      </div>
-
-    </div>
-  </div>
-
   <nav id="nav">
-    <div class="nav-item active" id="nav-home" onclick="navigate('home')">
+<div class="nav-item active" id="nav-home" onclick="navigate('home')">
       <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
       <span>Home</span>
       <div class="nav-dot"></div>
@@ -4147,7 +3966,6 @@ const SCREENS = {
   'rc-task':              'screen-rc-task',
   'psi':                  'screen-psi',
   'photopair':            'screen-photopair',
-  'noise':                'screen-noise',
   'dream-lab':            'screen-dream-lab',
 };
 const NAV_SCREENS = ['home', 'analytics', 'profile'];
@@ -4193,7 +4011,6 @@ function showScreen(name, hideNav = false) {
     psi:                    'nav-psi',
     'dream-lab':            'nav-home',
     photopair:              'nav-psi',
-    noise:                  'nav-psi',
   };
   const activeNav = document.getElementById(navMap[name]);
   if (activeNav) activeNav.classList.add('active');
@@ -4266,7 +4083,6 @@ function navigate(name) {
   if (name === 'psi')      renderPSIHub();
   if (name === 'dream-lab') renderDreamLab();
   if (name === 'photopair') renderPhotoPairBrief();
-  if (name === 'noise')     renderNoiseBrief();
   if (name === 'home')     updateHomeRCStreak();
 }
 
@@ -5415,7 +5231,6 @@ function renderPSIHub() {
   // Wire up the PSI hub waveform if present
   const wrap = document.getElementById('psi-ts-waveform');
   if (wrap) buildTSWaveformInEl(wrap);
-  setTimeout(buildNoisePreview, 50);
 }
 
 function updateHomeRCStreak() {
@@ -7030,7 +6845,10 @@ function renderTimestampBrief() {
 }
 
 function buildTSWaveform() {
-  const el = document.getElementById('home-ts-waveform');
+  buildTSWaveformInEl(document.getElementById('home-ts-waveform'));
+}
+
+function buildTSWaveformInEl(el) {
   if (!el || el.children.length > 0) return;
   for (let i = 0; i < 30; i++) {
     const bar = document.createElement('div');
@@ -7757,207 +7575,6 @@ function handlePPTap(side) {
 // ── Persistence ───────────────────────────────────
 function loadPPSessions()  { try { return JSON.parse(localStorage.getItem('ablty_photopair') || '[]'); } catch(e) { return []; } }
 function savePPSession(s)  { const d = loadPPSessions(); d.unshift(s); try { localStorage.setItem('ablty_photopair', JSON.stringify(d)); } catch(e) {} }
-
-// ═══════════════════════════════════════════════════════
-//  NOISE FIELD PATTERN DETECTION
-// ═══════════════════════════════════════════════════════
-
-const NF_SHAPES = ['circle', 'triangle', 'square', 'star'];
-
-const NF_SHAPE_SVG = {
-  circle:   '<circle cx="40" cy="40" r="26"/>',
-  triangle: '<polygon points="40,10 70,66 10,66"/>',
-  square:   '<rect x="12" y="12" width="56" height="56" rx="3"/>',
-  star:     '<polygon points="40,8 47,30 70,30 52,44 59,66 40,52 21,66 28,44 10,30 33,30"/>',
-};
-
-const NF_STATE = {
-  hiddenShape: null,
-  answered: false,
-};
-
-function showNFView(name) {
-  ['brief','trial'].forEach(n => {
-    const el = document.getElementById('nf-view-' + n);
-    if (el) el.style.display = n === name ? 'flex' : 'none';
-    if (el && n !== name) el.style.flexDirection = '';
-  });
-  if (name === 'brief') renderNoiseBrief();
-}
-
-function renderNoiseBrief() {
-  const sessions = loadNFSessions();
-  const n = sessions.length;
-  const hits = sessions.filter(s => s.hit).length;
-  const hitPct = n ? Math.round(hits / n * 100) : null;
-
-  setEl('nf-stat-trials', n);
-  const rateEl = document.getElementById('nf-stat-hitrate');
-  if (rateEl) {
-    rateEl.textContent = hitPct !== null ? hitPct + '%' : '–';
-    rateEl.className = 'psi-stat-val' + (hitPct !== null ? (hitPct > 25 ? ' above' : hitPct < 20 ? ' below' : '') : '');
-  }
-  const noteEl = document.getElementById('nf-stat-note');
-  if (noteEl) {
-    if (n < 20) noteEl.textContent = 'Complete ' + (20 - n) + ' more trial' + (20-n!==1?'s':'') + ' for statistical analysis.';
-    else {
-      const sig = hitPct > 33 ? 'Consistently above chance.' : hitPct < 18 ? 'Below chance baseline.' : 'Within chance range.';
-      noteEl.textContent = n + ' trials — avg ' + hitPct + '% vs 25% chance. ' + sig;
-    }
-  }
-
-  // Build noise preview on brief screen if PSI hub is showing it
-  buildNoisePreview();
-}
-
-function startNFTrial() {
-  showNFView('trial');
-  NF_STATE.answered = false;
-  NF_STATE.hiddenShape = NF_SHAPES[Math.floor(Math.random() * 4)];
-
-  // Reset buttons
-  NF_SHAPES.forEach(s => {
-    const btn = document.getElementById('nfbtn-' + s);
-    if (btn) { btn.className = 'nf-shape-btn'; btn.disabled = false; }
-  });
-
-  // Hide reveal overlay and post-reveal
-  const overlay = document.getElementById('nf-reveal-overlay');
-  if (overlay) overlay.classList.remove('visible');
-  const post = document.getElementById('nf-post-reveal');
-  if (post) post.style.display = 'none';
-
-  setEl('nf-focus-prompt', 'RELAX YOUR GAZE · SELECT THE SHAPE YOU SENSE');
-
-  // Generate the noise field
-  generateNoiseField('nf-canvas', NF_STATE.hiddenShape);
-}
-
-function generateNoiseField(canvasId, hiddenShape) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width, h = canvas.height;
-
-  // Build shape mask using an offscreen canvas
-  const mc = document.createElement('canvas');
-  mc.width = w; mc.height = h;
-  const mctx = mc.getContext('2d');
-  const cx = w/2, cy = h/2, r = Math.min(w,h) * 0.27;
-
-  mctx.fillStyle = '#fff';
-  mctx.beginPath();
-  switch (hiddenShape) {
-    case 'circle':
-      mctx.arc(cx, cy, r, 0, Math.PI*2);
-      break;
-    case 'square':
-      mctx.rect(cx - r*0.85, cy - r*0.85, r*1.7, r*1.7);
-      break;
-    case 'triangle':
-      mctx.moveTo(cx, cy - r);
-      mctx.lineTo(cx + r*0.866, cy + r*0.5);
-      mctx.lineTo(cx - r*0.866, cy + r*0.5);
-      mctx.closePath();
-      break;
-    case 'star':
-      for (let i = 0; i < 10; i++) {
-        const angle = (i * Math.PI/5) - Math.PI/2;
-        const rad = i % 2 === 0 ? r : r * 0.42;
-        const px = cx + Math.cos(angle)*rad, py = cy + Math.sin(angle)*rad;
-        i === 0 ? mctx.moveTo(px, py) : mctx.lineTo(px, py);
-      }
-      mctx.closePath();
-      break;
-  }
-  mctx.fill();
-
-  const maskData = mctx.getImageData(0, 0, w, h).data;
-
-  // Generate pixel noise with embedded shape
-  const img = ctx.createImageData(w, h);
-  const data = img.data;
-  const BIAS = 10; // sub-threshold brightness shift — genuinely invisible
-
-  for (let i = 0; i < w * h; i++) {
-    const inShape = maskData[i * 4] > 128;
-    // Background: noise in range [55, 200]
-    const base = 55 + Math.floor(Math.random() * 146);
-    // Shape: same range but +BIAS mean shift
-    const val = Math.min(255, inShape ? base + BIAS : base);
-    const pi = i * 4;
-    data[pi] = val; data[pi+1] = val; data[pi+2] = val; data[pi+3] = 255;
-  }
-  ctx.putImageData(img, 0, 0);
-}
-
-function buildNoisePreview() {
-  const c = document.getElementById('psi-noise-preview');
-  if (!c) return;
-  const ctx = c.getContext('2d');
-  const w = c.width, h = c.height;
-  const img = ctx.createImageData(w, h);
-  for (let i = 0; i < w * h * 4; i += 4) {
-    const v = 40 + Math.floor(Math.random() * 180);
-    img.data[i] = v; img.data[i+1] = v; img.data[i+2] = v; img.data[i+3] = 255;
-  }
-  ctx.putImageData(img, 0, 0);
-}
-
-function handleNFGuess(shape) {
-  if (NF_STATE.answered) return;
-  NF_STATE.answered = true;
-
-  const isHit = shape === NF_STATE.hiddenShape;
-
-  // Disable all buttons and style
-  NF_SHAPES.forEach(s => {
-    const btn = document.getElementById('nfbtn-' + s);
-    if (!btn) return;
-    btn.disabled = true;
-    if (s === NF_STATE.hiddenShape) btn.classList.add('correct');
-    else if (s === shape && !isHit) btn.classList.add('wrong');
-  });
-
-  // Show reveal overlay
-  const overlay = document.getElementById('nf-reveal-overlay');
-  const revSvg  = document.getElementById('nf-reveal-svg');
-  if (revSvg) revSvg.innerHTML = NF_SHAPE_SVG[NF_STATE.hiddenShape];
-  setTimeout(() => {
-    if (overlay) overlay.classList.add('visible');
-  }, 200);
-
-  // Update prompt
-  setEl('nf-focus-prompt', isHit ? '✓ CORRECT — SHAPE WAS ' + NF_STATE.hiddenShape.toUpperCase() : 'SHAPE WAS ' + NF_STATE.hiddenShape.toUpperCase());
-
-  // Save + post-reveal
-  saveNFSession({ hit: isHit, shape: NF_STATE.hiddenShape, guess: shape, timestamp: new Date().toISOString() });
-  const sessions = loadNFSessions();
-  const hits = sessions.filter(s => s.hit).length;
-  const pct = Math.round(hits / sessions.length * 100);
-
-  const trialEl = document.getElementById('nf-trial-result');
-  if (trialEl) {
-    trialEl.textContent = isHit ? 'HIT' : 'MISS';
-    trialEl.className = 'psi-stat-val' + (isHit ? ' above' : ' below');
-  }
-  const runEl = document.getElementById('nf-running-rate');
-  if (runEl) {
-    runEl.textContent = pct + '%';
-    runEl.className = 'psi-stat-val' + (pct > 25 ? ' above' : pct < 20 ? ' below' : '');
-  }
-
-  setTimeout(() => {
-    const post = document.getElementById('nf-post-reveal');
-    if (post) { post.style.display = 'flex'; post.style.flexDirection = 'column'; }
-  }, 600);
-}
-
-// ── Persistence ───────────────────────────────────
-function loadNFSessions()  { try { return JSON.parse(localStorage.getItem('ablty_noise') || '[]'); } catch(e) { return []; } }
-function saveNFSession(s)  { const d = loadNFSessions(); d.unshift(s); try { localStorage.setItem('ablty_noise', JSON.stringify(d)); } catch(e) {} }
-
-
 window.addEventListener('error', (e) => {
   console.error('[ABLTY ERROR]', e.message, e.filename, e.lineno);
 });
