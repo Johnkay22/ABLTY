@@ -564,6 +564,43 @@ html, body {
 }
 #rv-notes::placeholder { color: var(--dim); }
 
+/* Structured impressions notepad */
+.impressions-pad {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+}
+.imp-section {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--border);
+  padding: 10px 0 6px;
+}
+.imp-section:last-child { border-bottom: none; }
+.imp-label {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 4px;
+  flex-shrink: 0;
+}
+.imp-field {
+  background: transparent;
+  border: none; outline: none; resize: none;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text);
+  caret-color: var(--accent);
+  width: 100%;
+  min-height: 36px;
+}
+.imp-field::placeholder { color: var(--dim); font-size: 12px; }
+
 .canvas-footer {
   flex-shrink: 0;
   padding: 12px 16px calc(16px + var(--safe-bottom));
@@ -2684,8 +2721,35 @@ html, body {
 
         <!-- Notes panel — overlays sketch, toggled via opacity only -->
         <div id="notes-panel">
-          <div class="notes-panel-label">Sensory Impressions</div>
-          <textarea id="rv-notes" placeholder="Log sensory data: textures, temperatures, smells, emotions, movements, shapes..."></textarea>
+          <div class="notes-panel-label">Sensory Data</div>
+          <div class="impressions-pad">
+
+            <div class="imp-section">
+              <div class="imp-label">Form / Shape</div>
+              <textarea class="imp-field" id="imp-form" rows="2" placeholder="Shapes, structures, outlines, spatial forms..."></textarea>
+            </div>
+
+            <div class="imp-section">
+              <div class="imp-label">Texture / Surface</div>
+              <textarea class="imp-field" id="imp-texture" rows="2" placeholder="Rough, smooth, hard, soft, wet, metallic..."></textarea>
+            </div>
+
+            <div class="imp-section">
+              <div class="imp-label">Motion / Movement</div>
+              <textarea class="imp-field" id="imp-motion" rows="2" placeholder="Still, rotating, flowing, fast, slow..."></textarea>
+            </div>
+
+            <div class="imp-section">
+              <div class="imp-label">Emotion / Atmosphere</div>
+              <textarea class="imp-field" id="imp-emotion" rows="2" placeholder="Vast, festive, calm, eerie, crowded..."></textarea>
+            </div>
+
+            <div class="imp-section">
+              <div class="imp-label">Color / Light</div>
+              <textarea class="imp-field" id="imp-color" rows="2" placeholder="Dark, bright, warm glow, colored lights..."></textarea>
+            </div>
+
+          </div>
         </div>
 
       </div>
@@ -3331,7 +3395,7 @@ html, body {
       <div class="card" style="padding:16px;">
         <div class="mono-label" style="margin-bottom:8px;">How It Works</div>
         <div class="body-sm">
-          A random event will fire at a sealed, predetermined moment within a 60-second window. Tap when you sense the event is about to occur. The app measures whether your taps cluster closer to the event than chance predicts.
+          A random event will fire at a sealed, predetermined moment within a 30-second window. Tap when you sense the event is about to occur. The app measures whether your taps cluster closer to the event than chance predicts.
         </div>
         <div class="body-sm" style="margin-top:10px;color:var(--accent);font-family:var(--font-mono);font-size:10px;letter-spacing:0.5px;">
           Based on Radin presentiment protocols. Event time is generated and sealed before the trial begins.
@@ -4135,7 +4199,62 @@ function showScreen(name, hideNav = false) {
   if (activeNav) activeNav.classList.add('active');
 
   currentScreen = name;
+
+  // Push to browser history so hardware back button works
+  if (!_suppressHistoryPush) {
+    history.pushState({ screen: name }, '', '');
+  }
 }
+
+// Back destinations for hardware back button
+const BACK_MAP = {
+  rv:                   'home',
+  canvas:               'rv',
+  results:              'home',
+  zener:                'psi',
+  'zener-session':      'zener',
+  'zener-results':      'zener',
+  timestamp:            'psi',
+  'timestamp-session':  'timestamp',
+  'timestamp-results':  'timestamp',
+  photopair:            'psi',
+  psi:                  'home',
+  'dream-lab':          'home',
+  'reality-check':      'dream-lab',
+  'rc-task':            'reality-check',
+  analytics:            'home',
+  history:              'home',
+  detail:               'analytics',
+  profile:              'home',
+};
+
+let _suppressHistoryPush = false;
+
+window.addEventListener('popstate', (e) => {
+  const dest = BACK_MAP[currentScreen];
+  if (!dest) return;
+
+  _suppressHistoryPush = true;
+
+  // Special cases that need their own teardown
+  if (currentScreen === 'canvas') {
+    stopTimer();
+    showScreen('rv', false);
+    setCategory(STATE.currentCategory);
+  } else if (currentScreen === 'zener-session') {
+    showScreen('zener', false);
+    renderZenerBrief();
+  } else if (currentScreen === 'timestamp-session') {
+    endTimestampBatch();
+  } else {
+    navigate(dest);
+  }
+
+  _suppressHistoryPush = false;
+
+  // Re-push current state so there's always somewhere to pop back to
+  history.pushState({ screen: currentScreen }, '', '');
+});
 
 function navigate(name) {
   showScreen(name, false);
@@ -4234,8 +4353,11 @@ function openCanvas() {
   STATE.isErasing = false;
   const eraseBtn = document.getElementById('eraser-btn');
   if (eraseBtn) eraseBtn.classList.remove('active');
-  const notes = document.getElementById('rv-notes');
-  if (notes) notes.value = '';
+  // Clear all impression fields
+  ['imp-form','imp-texture','imp-motion','imp-emotion','imp-color'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
   switchTab('sketch');
   startTimer();
   // Reset undo/redo history
@@ -4412,6 +4534,23 @@ function startTimer() {
 function stopTimer() { clearInterval(STATE.timerInterval); }
 
 // ─── SUBMIT & GRADE ───────────────────────────
+function collectImpressions() {
+  const fields = [
+    { id: 'imp-form',    label: 'FORM / SHAPE' },
+    { id: 'imp-texture', label: 'TEXTURE / SURFACE' },
+    { id: 'imp-motion',  label: 'MOTION / MOVEMENT' },
+    { id: 'imp-emotion', label: 'EMOTION / ATMOSPHERE' },
+    { id: 'imp-color',   label: 'COLOR / LIGHT' },
+  ];
+  const parts = [];
+  fields.forEach(({ id, label }) => {
+    const el = document.getElementById(id);
+    const val = el ? el.value.trim() : '';
+    if (val) parts.push(label + ':\n' + val);
+  });
+  return parts.join('\n\n');
+}
+
 async function submitSession() {
   stopTimer();
 
@@ -4426,7 +4565,7 @@ async function submitSession() {
   // Capture sketch as data URL — must happen before ANY screen transition
   const sketchDataURL = canvas ? canvas.toDataURL('image/jpeg', 0.85) : '';
   const sketchB64     = sketchDataURL.split(',')[1] || '';
-  const notes  = (document.getElementById('rv-notes') || {}).value || '';
+  const notes = collectImpressions();
   const target = TARGET_POOL[STATE.currentTargetIndex];
 
   showScreen('results', false);
@@ -5178,6 +5317,8 @@ document.addEventListener('DOMContentLoaded', () => {
   checkRCHash();
   setTimeout(updateHomeRCStreak, 100);
   setTimeout(() => buildDreamParticles('dream-particles'), 150);
+  // Seed history so hardware back button has a state to pop
+  history.replaceState({ screen: 'home' }, '', '');
 
   // Force home screen visible immediately — safety net
   const homeScreen = document.getElementById('screen-home');
@@ -6428,8 +6569,8 @@ function buildPresentimentStats() {
     best = Math.min(...deltas);
   }
 
-  // Chance baseline: random tap in a 60s window averages ~20s from event
-  const chanceBaseline = 20;
+  // Chance baseline: random tap in a 30s window averages ~10s from event
+  const chanceBaseline = 10;
   const aboveChance = mean > 0 && mean < chanceBaseline;
   const deltaColor = aboveChance ? 'var(--accent)' : 'var(--warn)';
 
@@ -6820,9 +6961,9 @@ function refreshPushUI() {
 //  3 trials per run.
 // ═══════════════════════════════════════════════════════
 
-const TS_WINDOW = 60;      // seconds per trial
+const TS_WINDOW = 30;      // seconds per trial
 const TS_MIN_EVENT = 5;    // earliest event time
-const TS_MAX_EVENT = 55;   // latest event time
+const TS_MAX_EVENT = 25;   // latest event time
 const TS_TRIALS_PER_RUN = 3;
 const TS_CIRCUMFERENCE = 515.22; // 2 * PI * 82 (ring radius)
 
