@@ -5953,8 +5953,51 @@ async function registerSW() {
     navigator.serviceWorker.addEventListener('message', event => {
       if (event.data && event.data.type === 'RC_OPEN') openRCTask();
     });
+    // Validate push subscription after SW is ready
+    setTimeout(() => validatePushSubscription(reg), 2000);
   } catch(e) {
     console.warn('[ABLTY] SW registration failed:', e);
+  }
+}
+
+// Check if the push subscription is still valid. If the browser cleared it
+// (common on mobile after updates, battery optimization, or reinstall),
+// the app's ablty_push_enabled flag will be stale. Re-subscribe silently.
+async function validatePushSubscription(reg) {
+  if (!getPushEnabled()) return; // user hasn't enabled it
+  if (getPushStatus() !== 'granted') {
+    // Permission was revoked — mark as disabled
+    setPushEnabled(false);
+    refreshPushUI();
+    console.warn('[ABLTY RC] Notification permission revoked, disabling pager.');
+    return;
+  }
+  try {
+    const r = reg || window._swRegistration || await navigator.serviceWorker.ready;
+    const existing = await r.pushManager.getSubscription();
+    if (existing) {
+      // Subscription still alive — re-send to server in case KV entry expired
+      const s = getRCSettings();
+      const payload = Object.assign({}, existing.toJSON ? existing.toJSON() : JSON.parse(JSON.stringify(existing)));
+      payload.frequency   = s.freq || 9;
+      payload.bedtimeHour = s.bedtimeHour || 11;
+      payload.bedtimeMin  = s.bedtimeMin  || 0;
+      payload.bedtimeAmpm = s.bedtimeAmpm || 'PM';
+      payload.utcOffset   = s.utcOffset   || -(new Date().getTimezoneOffset());
+      await fetch(WORKER_URL + '/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).catch(() => {});
+      console.log('[ABLTY RC] Subscription refreshed in server KV.');
+    } else {
+      // Browser cleared the subscription — re-subscribe silently
+      console.warn('[ABLTY RC] Push subscription was cleared by browser. Re-subscribing...');
+      const s = getRCSettings();
+      await doRCSubscribe(s);
+    }
+  } catch(e) {
+    console.warn('[ABLTY RC] Subscription validation error:', e.message);
   }
 }
 
