@@ -1226,6 +1226,78 @@ html, body {
   letter-spacing: 1px; margin-top: 2px; text-transform: uppercase;
 }
 
+
+/* ── RC Info Carousel ─────────────────────────── */
+.rc-carousel-wrap {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  flex-shrink: 0;
+}
+.rc-carousel-track {
+  display: flex;
+  transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform;
+}
+.rc-carousel-track.no-transition {
+  transition: none;
+}
+.rc-info-card {
+  min-width: 100%;
+  padding: 22px 20px 20px;
+  background: var(--card);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.rc-card-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.rc-card-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  letter-spacing: 1px;
+  color: var(--text);
+  line-height: 1.1;
+}
+.rc-card-body {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.65;
+}
+.rc-card-body strong { color: var(--text); font-weight: 500; }
+.rc-card-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+.rc-carousel-dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 12px;
+  flex-shrink: 0;
+}
+.rc-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--dim);
+  transition: background 0.25s, width 0.25s;
+}
+.rc-dot.active {
+  background: var(--accent);
+  width: 16px;
+  border-radius: 3px;
+}
+
 /* RC toggle row — matches Profile setting-row exactly */
 .rc-toggle-row {
   display: flex; align-items: center; justify-content: space-between;
@@ -2089,6 +2161,186 @@ html, body {
   width: 48px; text-align: right; flex-shrink: 0;
 }
 
+
+/* ── Photo Pair Intuition ─────────────────────────── */
+.pp-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  perspective: 900px;
+}
+.pp-card {
+  aspect-ratio: 3/4;
+  cursor: pointer;
+  position: relative;
+}
+.pp-card-inner {
+  width: 100%; height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.65s cubic-bezier(0.4, 0.2, 0.2, 1);
+  border-radius: 14px;
+}
+.pp-card.flipped .pp-card-inner {
+  transform: rotateY(180deg);
+}
+.pp-card-face {
+  position: absolute; inset: 0;
+  border-radius: 14px;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+}
+.pp-card-front {
+  background: var(--card);
+  border: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 10px;
+}
+.pp-card-front-pattern {
+  display: grid; grid-template-columns: repeat(4,1fr); gap: 4px;
+  padding: 18px; width: 100%; box-sizing: border-box;
+}
+.pp-front-dot {
+  aspect-ratio: 1; border-radius: 2px;
+  background: var(--border2); opacity: 0.6;
+}
+.pp-card-qlabel {
+  font-family: var(--font-display);
+  font-size: 36px; color: var(--muted);
+  letter-spacing: 2px;
+}
+.pp-card-back {
+  transform: rotateY(180deg);
+}
+.pp-card-back img {
+  width: 100%; height: 100%;
+  object-fit: cover; display: block;
+}
+.pp-verdict {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 10px 8px 8px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 14px; letter-spacing: 2px;
+}
+.pp-verdict.hit  { background: rgba(74,240,200,0.85); color: #000; }
+.pp-verdict.miss { background: rgba(240,90,74,0.85);  color: #fff; }
+.pp-label-tag {
+  position: absolute; top: 8px; left: 8px;
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 1px; text-transform: uppercase;
+  background: rgba(0,0,0,0.6); border-radius: 5px; padding: 3px 7px;
+}
+.pp-label-tag.pleasant { color: #ffd54f; }
+.pp-label-tag.neutral  { color: var(--muted); }
+.pp-stat-row {
+  display: flex; align-items: center; gap: 6px;
+  justify-content: center;
+}
+.pp-chance-bar {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px 16px;
+}
+.pp-tap-hint {
+  font-family: var(--font-mono); font-size: 10px;
+  letter-spacing: 2px; color: var(--dim);
+  text-align: center; text-transform: uppercase;
+}
+
+/* ── Noise Field ─────────────────────────────────── */
+.nf-canvas-wrap {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: #050505;
+  flex-shrink: 0;
+}
+.nf-canvas-wrap canvas {
+  display: block;
+  width: 100%;
+  image-rendering: pixelated;
+}
+.nf-shape-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.nf-shape-btn {
+  aspect-ratio: 1;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.15s, background 0.15s;
+  padding: 12px;
+}
+.nf-shape-btn:hover { border-color: var(--border2); }
+.nf-shape-btn.selected {
+  border-color: var(--accent);
+  background: rgba(74,240,200,0.08);
+}
+.nf-shape-btn.correct {
+  border-color: var(--accent);
+  background: rgba(74,240,200,0.12);
+}
+.nf-shape-btn.wrong {
+  border-color: var(--danger);
+  background: rgba(240,90,74,0.08);
+}
+.nf-shape-btn svg {
+  width: 100%; height: 100%;
+  stroke: var(--muted); fill: none;
+  stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.nf-shape-btn.selected svg,
+.nf-shape-btn.correct svg { stroke: var(--accent); }
+.nf-shape-btn.wrong svg   { stroke: var(--danger); }
+.nf-reveal-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.72);
+  border-radius: 14px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s;
+}
+.nf-reveal-overlay.visible { opacity: 1; }
+.nf-reveal-shape {
+  width: 80px; height: 80px;
+  stroke: var(--accent); fill: none;
+  stroke-width: 3; stroke-linecap: round; stroke-linejoin: round;
+  filter: drop-shadow(0 0 8px rgba(74,240,200,0.6));
+}
+.nf-focus-prompt {
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 3px; color: var(--dim);
+  text-align: center; text-transform: uppercase;
+  padding: 8px 0;
+}
+
+/* Shared psi module stat bar */
+.psi-stat-bar {
+  display: flex; align-items: stretch; gap: 8px;
+}
+.psi-stat-cell {
+  flex: 1; background: var(--card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px 10px; text-align: center;
+}
+.psi-stat-val {
+  font-family: var(--font-display); font-size: 28px;
+  color: var(--text); line-height: 1; margin-top: 4px;
+}
+.psi-stat-val.above { color: var(--accent); }
+.psi-stat-val.below { color: var(--danger); }
+.psi-chance-note {
+  font-family: var(--font-mono); font-size: 9px;
+  color: var(--dim); letter-spacing: 1px;
+  text-align: center; margin-top: 4px;
+}
+
 </style>
 </head>
 <body>
@@ -2567,6 +2819,12 @@ html, body {
 
       <button class="admin-btn" onclick="showAdminModal()">⚙ Admin Access</button>
 
+      <!-- RC Debug — only visible in dev mode -->
+      <div id="rc-debug-wrap" style="display:none;flex-direction:column;gap:8px;margin-top:4px;">
+        <button class="admin-btn" onclick="runRCDebug()" id="rc-debug-btn">◈ RC Pager Diagnostics</button>
+        <div id="rc-debug-output" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:0.5px;line-height:1.8;white-space:pre-wrap;word-break:break-all;"></div>
+      </div>
+
     </div>
   </div>
 
@@ -2614,6 +2872,46 @@ html, body {
           <div class="card-tag">Protocol 2</div>
           <div class="display-md">PRESENTIMENT</div>
           <div class="mono-sm" style="margin-top:4px">Timestamp Prediction · Precognition</div>
+        </div>
+      </div>
+
+      <!-- Photo Pair Intuition card -->
+      <div class="module-card fade-in-delay-3" onclick="navigate('photopair')" style="flex-shrink:0;">
+        <div class="card-visual" style="background:linear-gradient(135deg,#06090f 0%,#0a1220 100%);overflow:hidden;">
+          <!-- Warm card / Cold card illustration -->
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:16px;">
+            <div style="width:50px;height:68px;border-radius:9px;border:1.5px solid rgba(255,160,50,0.5);background:linear-gradient(160deg,rgba(255,120,30,0.25),rgba(255,200,60,0.12));display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,180,60,0.8)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+              <div style="font-family:var(--font-mono);font-size:8px;color:rgba(255,180,60,0.7);letter-spacing:1px;">↑</div>
+            </div>
+            <div style="width:50px;height:68px;border-radius:9px;border:1.5px solid rgba(100,130,180,0.35);background:linear-gradient(160deg,rgba(70,90,130,0.2),rgba(50,65,100,0.12));display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(100,130,180,0.6)" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+              <div style="font-family:var(--font-mono);font-size:8px;color:rgba(100,130,180,0.5);letter-spacing:1px;">?</div>
+            </div>
+          </div>
+        </div>
+        <div class="card-overlay">
+          <div class="card-tag">Protocol 3</div>
+          <div class="display-md">PHOTO PAIR</div>
+          <div class="mono-sm" style="margin-top:4px">Implicit Psi · Emotional Valence</div>
+        </div>
+      </div>
+
+      <!-- Noise Field card -->
+      <div class="module-card fade-in-delay-4" onclick="navigate('noise')" style="flex-shrink:0;">
+        <div class="card-visual" style="background:#030303;overflow:hidden;">
+          <canvas id="psi-noise-preview" width="140" height="90" style="position:absolute;inset:0;width:100%;height:100%;opacity:0.75;image-rendering:pixelated;"></canvas>
+          <!-- Faint shape outline hint -->
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+            <svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="rgba(74,240,200,0.15)" stroke-width="2" stroke-linecap="round">
+              <circle cx="20" cy="20" r="15"/>
+            </svg>
+          </div>
+        </div>
+        <div class="card-overlay">
+          <div class="card-tag">Protocol 4</div>
+          <div class="display-md">NOISE FIELD</div>
+          <div class="mono-sm" style="margin-top:4px">Sub-threshold Pattern Detection</div>
         </div>
       </div>
 
@@ -3275,31 +3573,73 @@ html, body {
         </div>
       </div>
 
-      <!-- Science explainer -->
-      <div class="card" style="padding:16px;background:var(--card);border:1px solid var(--border);border-radius:14px;">
-        <div class="mono-label" style="margin-bottom:10px;color:var(--accent);">Why This Works</div>
-        <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);line-height:1.7;">
-          Lucid dreaming requires recognizing you're in a dream while it's happening. The obstacle is that your dreaming mind mirrors your waking habits — it accepts whatever it encounters as real.<br><br>
-          Reality checks work by training a habit of deliberate perception. Ask <em>"am I dreaming?"</em> enough times while awake and your sleeping mind will eventually ask the same question — and notice when the answer is yes.<br><br>
-          The checks in this app target the four most reliable dream indicators:
-        </div>
-        <div style="margin-top:12px;display:flex;flex-direction:column;gap:8px;">
-          <div style="display:flex;gap:10px;align-items:flex-start;">
-            <div style="font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:1px;min-width:20px;padding-top:1px;">01</div>
-            <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);line-height:1.6;"><span style="color:var(--text);">Location memory.</span> Dreams rarely have coherent origin stories. If you can't explain how you got somewhere, that's a signal.</div>
+      <!-- Info carousel -->
+      <div class="rc-carousel-wrap" id="rc-carousel-wrap">
+        <div class="rc-carousel-track" id="rc-carousel-track">
+
+          <!-- Card 1: What it is -->
+          <div class="rc-info-card">
+            <div class="rc-card-eyebrow">01 / 05 — How It Works</div>
+            <div class="rc-card-icon">🌙</div>
+            <div class="rc-card-title">Lucid Dream Training</div>
+            <div class="rc-card-body">
+              To have a lucid dream you need to <strong>recognize you're dreaming while it's happening</strong>. The obstacle: your dreaming mind accepts everything as real by default.<br><br>
+              Reality checks train the habit of deliberate awareness. Do them enough while awake and your sleeping mind eventually asks the same question — and catches the answer.
+            </div>
           </div>
-          <div style="display:flex;gap:10px;align-items:flex-start;">
-            <div style="font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:1px;min-width:20px;padding-top:1px;">02</div>
-            <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);line-height:1.6;"><span style="color:var(--text);">Environmental strangeness.</span> Dream environments shift and distort. Rating your surroundings trains you to notice when something is off.</div>
+
+          <!-- Card 2: The pager -->
+          <div class="rc-info-card">
+            <div class="rc-card-eyebrow">02 / 05 — The Pager</div>
+            <div class="rc-card-icon">📳</div>
+            <div class="rc-card-title">Random Triggers</div>
+            <div class="rc-card-body">
+              The checks are sent at <strong>random intervals</strong> throughout your waking hours — not on a fixed schedule. Randomness is key. If you knew when to expect them, you'd anticipate them instead of genuinely checking.<br><br>
+              Each notification opens a short micro-task. The whole thing takes under 30 seconds.
+            </div>
           </div>
-          <div style="display:flex;gap:10px;align-items:flex-start;">
-            <div style="font-family:var(--font-mono);font-size:9px;color:var(--accent);letter-spacing:1px;min-width:20px;padding-top:1px;">03</div>
-            <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);line-height:1.6;"><span style="color:var(--text);">Nose pinch test.</span> In dreams, you can breathe through a pinched nose. This is one of the most reliable physical checks available.</div>
+
+          <!-- Card 3: Nose pinch -->
+          <div class="rc-info-card">
+            <div class="rc-card-eyebrow">03 / 05 — Physical Check</div>
+            <div class="rc-card-icon">👃</div>
+            <div class="rc-card-title">Nose Pinch Test</div>
+            <div class="rc-card-body">
+              Pinch your nose shut and try to breathe through it. In waking life: impossible. In a dream: <strong>you can still breathe</strong>.<br><br>
+              This is one of the most reliable checks available because it requires no subjective judgment — the result is binary and unmistakable once you're trained to test for it.
+            </div>
           </div>
+
+          <!-- Card 4: Location + strangeness -->
+          <div class="rc-info-card">
+            <div class="rc-card-eyebrow">04 / 05 — Mental Checks</div>
+            <div class="rc-card-icon">🧠</div>
+            <div class="rc-card-title">Location & Strangeness</div>
+            <div class="rc-card-body">
+              <strong>Location memory:</strong> Dreams rarely have coherent origin stories. Ask yourself how you got here. If you can't trace it, that's a signal.<br><br>
+              <strong>Strangeness rating:</strong> Dream environments shift and distort in subtle ways. Rating your surroundings on a 1–5 scale trains you to notice when something's off.
+            </div>
+          </div>
+
+          <!-- Card 5: Evening primer -->
+          <div class="rc-info-card">
+            <div class="rc-card-eyebrow">05 / 05 — Evening Primer</div>
+            <div class="rc-card-icon">✦</div>
+            <div class="rc-card-title">Pre-Sleep Suggestion</div>
+            <div class="rc-card-body">
+              30 minutes before your set bedtime, the pager sends a final notification with a presleep intention.<br><br>
+              This targets the <strong>hypnagogic transition</strong> — the window between wakefulness and sleep where suggestion is most effective. It reinforces the habit right before your mind enters the state you're training for.
+            </div>
+          </div>
+
         </div>
-        <div style="font-family:var(--font-mono);font-size:9px;color:var(--dim);margin-top:12px;line-height:1.6;">
-          The evening primer — sent 30 minutes before your set bedtime — plants a suggestion that reinforces dream awareness during the transition to sleep.
-        </div>
+      </div>
+      <div class="rc-carousel-dots" id="rc-carousel-dots">
+        <div class="rc-dot active"></div>
+        <div class="rc-dot"></div>
+        <div class="rc-dot"></div>
+        <div class="rc-dot"></div>
+        <div class="rc-dot"></div>
       </div>
 
       <!-- Toggle row -->
@@ -3395,6 +3735,200 @@ html, body {
   <!-- ══════════════════════════════════
        BOTTOM NAV
   ═══════════════════════════════════ -->
+  <!-- ══════════════════════════════════
+       SCREEN: PHOTO PAIR INTUITION
+  ═══════════════════════════════════ -->
+  <div id="screen-photopair" class="screen">
+    <div class="screen-inner">
+
+      <div class="screen-hdr">
+        <button class="screen-hdr-back" onclick="navigate('psi')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div>
+          <div class="screen-hdr-title">PHOTO PAIR</div>
+          <div class="screen-hdr-sub">Implicit psi · Emotional valence</div>
+        </div>
+      </div>
+
+      <!-- BRIEF VIEW -->
+      <div id="pp-view-brief">
+        <div class="psi-stat-bar">
+          <div class="psi-stat-cell">
+            <div class="mono-label">Trials</div>
+            <div class="psi-stat-val" id="pp-stat-trials">0</div>
+          </div>
+          <div class="psi-stat-cell">
+            <div class="mono-label">Hit Rate</div>
+            <div class="psi-stat-val" id="pp-stat-hitrate">–</div>
+          </div>
+          <div class="psi-stat-cell">
+            <div class="mono-label">Chance</div>
+            <div class="psi-stat-val" style="color:var(--muted);">50%</div>
+          </div>
+        </div>
+        <div class="psi-chance-note" id="pp-stat-note">Complete 10+ trials for statistical analysis.</div>
+
+        <div class="card" style="padding:16px;background:var(--card);border:1px solid var(--border);border-radius:14px;">
+          <div class="mono-label" style="margin-bottom:8px;">How It Works</div>
+          <div class="body-sm">Two cards are shown face-down. One hides a <strong>pleasant image</strong> (nature, animals, beauty). The other hides a <strong>neutral image</strong> (empty spaces, overcast scenes). Tap the card you feel drawn to. <span style="color:var(--accent);">Chance is 50%.</span></div>
+          <div class="body-sm" style="margin-top:10px;color:var(--muted);font-family:var(--font-mono);font-size:10px;">Based on non-intentional psi research showing unconscious orientation toward emotionally positive future stimuli. Emotional charge is the key variable.</div>
+        </div>
+
+        <button class="btn btn-primary" onclick="startPPTrial()">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="8" height="11" rx="1"/><rect x="14" y="3" width="8" height="11" rx="1"/><line x1="6" y1="18" x2="6" y2="21"/><line x1="18" y1="18" x2="18" y2="21"/><line x1="3" y1="21" x2="21" y2="21"/></svg>
+          BEGIN TRIAL
+        </button>
+      </div>
+
+      <!-- TRIAL VIEW -->
+      <div id="pp-view-trial" style="display:none;flex-direction:column;gap:16px;">
+        <div class="pp-tap-hint" id="pp-tap-hint">TAP THE CARD YOU FEEL DRAWN TO</div>
+
+        <div class="pp-grid">
+          <!-- Left card -->
+          <div class="pp-card" id="pp-card-0" onclick="handlePPTap(0)">
+            <div class="pp-card-inner">
+              <div class="pp-card-face pp-card-front">
+                <div class="pp-card-front-pattern" id="pp-pattern-0"></div>
+                <div class="pp-card-qlabel">?</div>
+              </div>
+              <div class="pp-card-face pp-card-back">
+                <img id="pp-img-0" src="" alt="" />
+                <div class="pp-verdict" id="pp-verdict-0" style="display:none;"></div>
+                <div class="pp-label-tag" id="pp-label-0" style="display:none;"></div>
+              </div>
+            </div>
+          </div>
+          <!-- Right card -->
+          <div class="pp-card" id="pp-card-1" onclick="handlePPTap(1)">
+            <div class="pp-card-inner">
+              <div class="pp-card-face pp-card-front">
+                <div class="pp-card-front-pattern" id="pp-pattern-1"></div>
+                <div class="pp-card-qlabel">?</div>
+              </div>
+              <div class="pp-card-face pp-card-back">
+                <img id="pp-img-1" src="" alt="" />
+                <div class="pp-verdict" id="pp-verdict-1" style="display:none;"></div>
+                <div class="pp-label-tag" id="pp-label-1" style="display:none;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Post-reveal -->
+        <div id="pp-post-reveal" style="display:none;flex-direction:column;gap:10px;">
+          <div class="psi-stat-bar">
+            <div class="psi-stat-cell">
+              <div class="mono-label">This Trial</div>
+              <div class="psi-stat-val" id="pp-trial-result" style="font-size:22px;">–</div>
+            </div>
+            <div class="psi-stat-cell">
+              <div class="mono-label">Running</div>
+              <div class="psi-stat-val" id="pp-running-rate" style="font-size:22px;">–</div>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="startPPTrial()">NEXT TRIAL</button>
+          <button class="btn btn-ghost" onclick="showPPView('brief')">View Stats</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: NOISE FIELD
+  ═══════════════════════════════════ -->
+  <div id="screen-noise" class="screen">
+    <div class="screen-inner">
+
+      <div class="screen-hdr">
+        <button class="screen-hdr-back" onclick="navigate('psi')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div>
+          <div class="screen-hdr-title">NOISE FIELD</div>
+          <div class="screen-hdr-sub">Sub-threshold pattern detection</div>
+        </div>
+      </div>
+
+      <!-- BRIEF VIEW -->
+      <div id="nf-view-brief">
+        <div class="psi-stat-bar">
+          <div class="psi-stat-cell">
+            <div class="mono-label">Trials</div>
+            <div class="psi-stat-val" id="nf-stat-trials">0</div>
+          </div>
+          <div class="psi-stat-cell">
+            <div class="mono-label">Hit Rate</div>
+            <div class="psi-stat-val" id="nf-stat-hitrate">–</div>
+          </div>
+          <div class="psi-stat-cell">
+            <div class="mono-label">Chance</div>
+            <div class="psi-stat-val" style="color:var(--muted);">25%</div>
+          </div>
+        </div>
+        <div class="psi-chance-note" id="nf-stat-note">Complete 20+ trials for statistical analysis.</div>
+
+        <div class="card" style="padding:16px;background:var(--card);border:1px solid var(--border);border-radius:14px;">
+          <div class="mono-label" style="margin-bottom:8px;">How It Works</div>
+          <div class="body-sm">The screen shows visual noise — random static, like a detuned TV. Hidden somewhere in the noise is a <strong>faint geometric shape</strong> embedded below the threshold of normal visual detection. Relax your gaze, then select which shape you sense is hidden. <span style="color:var(--accent);">Chance is 25%.</span></div>
+          <div class="body-sm" style="margin-top:10px;color:var(--muted);font-family:var(--font-mono);font-size:10px;">Based on subliminal perception research. The shape is technically invisible — any detection above 25% is either sub-threshold perception or psi. The ambiguity is intentional.</div>
+        </div>
+
+        <button class="btn btn-primary" onclick="startNFTrial()">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="2" width="20" height="20" rx="2"/><path d="M6 6h.01M10 6h.01M14 6h.01M18 6h.01M6 10h.01M18 10h.01M6 14h.01M18 14h.01M6 18h.01M10 18h.01M14 18h.01M18 18h.01"/></svg>
+          BEGIN TRIAL
+        </button>
+      </div>
+
+      <!-- TRIAL VIEW -->
+      <div id="nf-view-trial" style="display:none;flex-direction:column;gap:14px;">
+
+        <div class="nf-canvas-wrap">
+          <canvas id="nf-canvas" width="300" height="280"></canvas>
+          <div class="nf-reveal-overlay" id="nf-reveal-overlay">
+            <svg class="nf-reveal-shape" id="nf-reveal-svg" viewBox="0 0 80 80"></svg>
+          </div>
+        </div>
+
+        <div class="nf-focus-prompt" id="nf-focus-prompt">RELAX YOUR GAZE · SELECT THE SHAPE YOU SENSE</div>
+
+        <div class="nf-shape-grid" id="nf-shape-grid">
+          <button class="nf-shape-btn" id="nfbtn-circle" onclick="handleNFGuess('circle')">
+            <svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="26"/></svg>
+          </button>
+          <button class="nf-shape-btn" id="nfbtn-triangle" onclick="handleNFGuess('triangle')">
+            <svg viewBox="0 0 80 80"><polygon points="40,10 70,66 10,66"/></svg>
+          </button>
+          <button class="nf-shape-btn" id="nfbtn-square" onclick="handleNFGuess('square')">
+            <svg viewBox="0 0 80 80"><rect x="12" y="12" width="56" height="56" rx="3"/></svg>
+          </button>
+          <button class="nf-shape-btn" id="nfbtn-star" onclick="handleNFGuess('star')">
+            <svg viewBox="0 0 80 80"><polygon points="40,8 47,30 70,30 52,44 59,66 40,52 21,66 28,44 10,30 33,30"/></svg>
+          </button>
+        </div>
+
+        <div id="nf-post-reveal" style="display:none;flex-direction:column;gap:10px;">
+          <div class="psi-stat-bar">
+            <div class="psi-stat-cell">
+              <div class="mono-label">This Trial</div>
+              <div class="psi-stat-val" id="nf-trial-result" style="font-size:22px;">–</div>
+            </div>
+            <div class="psi-stat-cell">
+              <div class="mono-label">Running</div>
+              <div class="psi-stat-val" id="nf-running-rate" style="font-size:22px;">–</div>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="startNFTrial()">NEXT TRIAL</button>
+          <button class="btn btn-ghost" onclick="showNFView('brief')">View Stats</button>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
   <nav id="nav">
     <div class="nav-item active" id="nav-home" onclick="navigate('home')">
       <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
@@ -3548,6 +4082,8 @@ const SCREENS = {
   'reality-check':        'screen-reality-check',
   'rc-task':              'screen-rc-task',
   'psi':                  'screen-psi',
+  'photopair':            'screen-photopair',
+  'noise':                'screen-noise',
   'dream-lab':            'screen-dream-lab',
 };
 const NAV_SCREENS = ['home', 'analytics', 'profile'];
@@ -3592,6 +4128,8 @@ function showScreen(name, hideNav = false) {
     'zener-results':        'nav-psi',
     psi:                    'nav-psi',
     'dream-lab':            'nav-home',
+    photopair:              'nav-psi',
+    noise:                  'nav-psi',
   };
   const activeNav = document.getElementById(navMap[name]);
   if (activeNav) activeNav.classList.add('active');
@@ -3604,10 +4142,12 @@ function navigate(name) {
   if (name === 'analytics' || name === 'history') renderAnalytics();
   if (name === 'profile')  renderProfile();
   if (name === 'zener')    renderZenerBrief();
-  if (name === 'reality-check') renderRCScreen();
+  if (name === 'reality-check') { renderRCScreen(); initRCCarousel(); }
   if (name === 'timestamp') renderTimestampBrief();
   if (name === 'psi')      renderPSIHub();
   if (name === 'dream-lab') renderDreamLab();
+  if (name === 'photopair') renderPhotoPairBrief();
+  if (name === 'noise')     renderNoiseBrief();
   if (name === 'home')     updateHomeRCStreak();
 }
 
@@ -4082,9 +4622,116 @@ function renderProfile() {
   if (avatarEl) avatarEl.textContent = (STATE.seekerId || '#0').replace('#','').charAt(0);
   const devBadge = document.getElementById('dev-badge');
   if (devBadge) devBadge.style.display = isDevMode() ? 'inline-block' : 'none';
+  const rcDebugWrap = document.getElementById('rc-debug-wrap');
+  if (rcDebugWrap) rcDebugWrap.style.display = isDevMode() ? 'flex' : 'none';
   refreshPushUI();
 }
 
+
+async function runRCDebug() {
+  const btn = document.getElementById('rc-debug-btn');
+  const out = document.getElementById('rc-debug-output');
+  if (!out) return;
+  out.style.display = 'block';
+  out.textContent = 'Fetching diagnostics...';
+  if (btn) btn.textContent = '◈ Running...';
+
+  // First check client-side state
+  const pushEnabled  = getPushEnabled();
+  const permission   = getPushStatus();
+  const rcSettings   = getRCSettings();
+  const streak       = getRCStreak();
+
+  let subEndpoint = 'none';
+  let subValid = false;
+  try {
+    const reg = window._swRegistration || await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) { subEndpoint = sub.endpoint.slice(0,60) + '...'; subValid = true; }
+  } catch(e) { subEndpoint = 'error: ' + e.message; }
+
+  const clientInfo = [
+    '── CLIENT STATE ──────────────────',
+    'push_enabled:  ' + pushEnabled,
+    'permission:    ' + permission,
+    'sw_registered: ' + !!window._swRegistration,
+    'sub_in_browser:' + subValid,
+    'sub_endpoint:  ' + subEndpoint,
+    'freq:          ' + (rcSettings.freq || 'not set'),
+    'bedtime:       ' + (rcSettings.bedtimeHour || '?') + ':' + String(rcSettings.bedtimeMin||0).padStart(2,'0') + ' ' + (rcSettings.bedtimeAmpm||'?'),
+    'utcOffset:     ' + (rcSettings.utcOffset !== undefined ? rcSettings.utcOffset : 'not set'),
+    'local_now:     ' + new Date().toLocaleTimeString(),
+    'streak:        ' + streak.count + ' days',
+    '',
+  ].join('\n');
+
+  out.textContent = clientInfo + 'Contacting worker...';
+
+  try {
+    const resp = await fetch(WORKER_URL + '/debug', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret: 'ablty-push-22' })
+    });
+    const data = await resp.json();
+
+    let serverInfo = '── SERVER STATE ──────────────────\n';
+    serverInfo += 'worker_utc_now: ' + (data.now_utc || 'n/a') + '\n';
+
+    if (data.error) {
+      serverInfo += 'ERROR: ' + data.error + '\n';
+    } else if (data.subscribers && data.subscribers.length) {
+      data.subscribers.forEach((s, i) => {
+        serverInfo += '\n── Subscriber ' + (i+1) + ' ─────────────\n';
+        if (s.error) { serverInfo += 'error: ' + s.error + '\n'; return; }
+        serverInfo += 'freq:            ' + s.freq + '/day\n';
+        serverInfo += 'bedtime:         ' + s.bedtime + '\n';
+        serverInfo += 'utcOffset:       ' + s.utcOffset + '\n';
+        serverInfo += 'worker_localTime:' + s.localTime + '\n';
+        serverInfo += 'in_window:       ' + s.inWindow + '\n';
+        serverInfo += 'sent_today:      ' + s.sentToday + '\n';
+        serverInfo += 'mins_since_last: ' + (s.minutesSinceLast !== null ? s.minutesSinceLast + ' min' : 'never') + '\n';
+        serverInfo += 'today_key:       ' + s.todayKey + '\n';
+        serverInfo += 'endpoint:        ' + (s.endpointPrefix || 'n/a') + '\n';
+
+        // Diagnose
+        serverInfo += '\n── DIAGNOSIS ─────────────────────\n';
+        if (!s.inWindow) serverInfo += '⚠ NOT in active window right now\n';
+        else serverInfo += '✓ In active window\n';
+        if (s.sentToday >= s.freq) serverInfo += '⚠ Daily limit reached (' + s.sentToday + '/' + s.freq + ')\n';
+        else serverInfo += '✓ ' + (s.freq - s.sentToday) + ' sends remaining today\n';
+        if (s.utcOffset === 0 && Intl.DateTimeFormat().resolvedOptions().timeZone !== 'UTC')
+          serverInfo += '⚠ utcOffset is 0 but you are not in UTC — re-subscribe may be needed\n';
+
+        // Check for the sign flip bug
+        const clientOffset = rcSettings.utcOffset;
+        const serverOffset = s.utcOffset;
+        if (clientOffset !== undefined && serverOffset !== clientOffset)
+          serverInfo += '⚠ offset mismatch: client=' + clientOffset + ' server=' + serverOffset + '\n';
+
+        // Check if server local time looks right
+        const localNowH = new Date().getHours();
+        const serverH = parseInt((s.localTime||'0:').split(':')[0]);
+        const drift = Math.abs(localNowH - serverH);
+        if (drift > 1 && drift < 23)
+          serverInfo += '⚠ Server local time (' + s.localTime + ') differs from your local time by ' + drift + 'h — offset bug suspected\n';
+        else
+          serverInfo += '✓ Server local time matches your clock\n';
+      });
+    } else {
+      serverInfo += '⚠ NO SUBSCRIBERS FOUND IN KV\n';
+      serverInfo += '   → Pager was never successfully subscribed to the server,\n';
+      serverInfo += '     or KV entry expired. Go to Dream Lab → Reality Check\n';
+      serverInfo += '     and toggle it off then back on to re-subscribe.\n';
+    }
+
+    out.textContent = clientInfo + serverInfo;
+  } catch(e) {
+    out.textContent = clientInfo + '── SERVER STATE ──────────────────\nFailed to reach worker:\n' + e.message;
+  }
+
+  if (btn) btn.textContent = '◈ RC Pager Diagnostics';
+}
 
 function toggleSetting(key) {
   STATE.settings[key] = !STATE.settings[key];
@@ -4119,6 +4766,96 @@ function incrementRCStreak() {
 }
 
 // ── RC Screen render ──────────────────────────────────
+// ── RC Info Carousel ──────────────────────────────────
+let rcCarouselIndex = 0;
+const RC_CAROUSEL_COUNT = 5;
+
+function initRCCarousel() {
+  const wrap  = document.getElementById('rc-carousel-wrap');
+  const track = document.getElementById('rc-carousel-track');
+  if (!wrap || !track) return;
+
+  let startX = 0, startY = 0, isDragging = false, dragDelta = 0;
+
+  function goTo(idx) {
+    rcCarouselIndex = Math.max(0, Math.min(RC_CAROUSEL_COUNT - 1, idx));
+    track.classList.remove('no-transition');
+    track.style.transform = `translateX(${-rcCarouselIndex * 100}%)`;
+    updateCarouselDots();
+  }
+
+  function updateCarouselDots() {
+    document.querySelectorAll('.rc-dot').forEach((d, i) => {
+      d.classList.toggle('active', i === rcCarouselIndex);
+    });
+  }
+
+  // Touch
+  wrap.addEventListener('touchstart', e => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    isDragging = true;
+    dragDelta = 0;
+    track.classList.add('no-transition');
+  }, { passive: true });
+
+  wrap.addEventListener('touchmove', e => {
+    if (!isDragging) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    // If more vertical than horizontal, let it scroll
+    if (Math.abs(dy) > Math.abs(dx) && Math.abs(dragDelta) < 5) return;
+    dragDelta = dx;
+    const base = -rcCarouselIndex * 100;
+    const pct  = base + (dx / wrap.offsetWidth) * 100;
+    track.style.transform = `translateX(${pct}%)`;
+  }, { passive: true });
+
+  wrap.addEventListener('touchend', () => {
+    isDragging = false;
+    const threshold = wrap.offsetWidth * 0.25;
+    if (dragDelta < -threshold) goTo(rcCarouselIndex + 1);
+    else if (dragDelta > threshold) goTo(rcCarouselIndex - 1);
+    else goTo(rcCarouselIndex);
+  });
+
+  // Mouse (desktop)
+  wrap.addEventListener('mousedown', e => {
+    startX = e.clientX;
+    isDragging = true;
+    dragDelta = 0;
+    track.classList.add('no-transition');
+    e.preventDefault();
+  });
+  wrap.addEventListener('mousemove', e => {
+    if (!isDragging) return;
+    dragDelta = e.clientX - startX;
+    const base = -rcCarouselIndex * 100;
+    const pct  = base + (dragDelta / wrap.offsetWidth) * 100;
+    track.style.transform = `translateX(${pct}%)`;
+  });
+  wrap.addEventListener('mouseup', () => {
+    if (!isDragging) return;
+    isDragging = false;
+    const threshold = wrap.offsetWidth * 0.2;
+    if (dragDelta < -threshold) goTo(rcCarouselIndex + 1);
+    else if (dragDelta > threshold) goTo(rcCarouselIndex - 1);
+    else goTo(rcCarouselIndex);
+  });
+  wrap.addEventListener('mouseleave', () => {
+    if (isDragging) {
+      isDragging = false;
+      goTo(rcCarouselIndex);
+    }
+  });
+
+  // Dot clicks
+  document.querySelectorAll('.rc-dot').forEach((dot, i) => {
+    dot.addEventListener('click', () => goTo(i));
+    dot.style.cursor = 'pointer';
+  });
+}
+
 function renderRCScreen() {
   const s = getRCSettings();
   const enabled = getPushEnabled() && !!s.freq;
@@ -4537,6 +5274,7 @@ function renderPSIHub() {
   // Wire up the PSI hub waveform if present
   const wrap = document.getElementById('psi-ts-waveform');
   if (wrap) buildTSWaveformInEl(wrap);
+  setTimeout(buildNoisePreview, 50);
 }
 
 function updateHomeRCStreak() {
@@ -6514,6 +7252,569 @@ function buildTSDistChart(trials) {
 
 // Init waveform on page load
 document.addEventListener('DOMContentLoaded', buildTSWaveform);
+
+
+
+// ═══════════════════════════════════════════════════════
+//  PHOTO PAIR INTUITION
+// ═══════════════════════════════════════════════════════
+
+let PP_PLEASANT_POOL = null;
+let PP_NEUTRAL_POOL  = null;
+
+const PP_STATE = {
+  pleasantSide: null,  // 0=left, 1=right
+  answered: false,
+  pleasantIdx: 0,
+  neutralIdx:  0,
+};
+
+// ── Image generators ──────────────────────────────────
+function genPleasantCanvas(idx) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 260;
+  const ctx = c.getContext('2d');
+  const w = c.width, h = c.height;
+  switch (idx % 5) {
+    case 0: { // Warm sunset
+      const sk = ctx.createLinearGradient(0,0,0,h);
+      sk.addColorStop(0, '#1a0a2e'); sk.addColorStop(0.35,'#c2185b');
+      sk.addColorStop(0.65,'#ff6f00'); sk.addColorStop(1,'#ffd54f');
+      ctx.fillStyle = sk; ctx.fillRect(0,0,w,h);
+      // Sun glow
+      const sg = ctx.createRadialGradient(w*0.62,h*0.48,0,w*0.62,h*0.48,55);
+      sg.addColorStop(0,'rgba(255,230,60,0.95)'); sg.addColorStop(0.4,'rgba(255,160,30,0.6)'); sg.addColorStop(1,'transparent');
+      ctx.fillStyle=sg; ctx.fillRect(0,0,w,h);
+      ctx.beginPath(); ctx.arc(w*0.62,h*0.48,28,0,Math.PI*2); ctx.fillStyle='rgba(255,230,60,0.9)'; ctx.fill();
+      // Water
+      const wa = ctx.createLinearGradient(0,h*0.62,0,h);
+      wa.addColorStop(0,'#e65100'); wa.addColorStop(1,'#4e342e');
+      ctx.fillStyle=wa; ctx.fillRect(0,h*0.62,w,h*0.38);
+      // Reflections
+      ctx.strokeStyle='rgba(255,200,80,0.3)'; ctx.lineWidth=2;
+      for(let i=0;i<5;i++){ctx.beginPath();ctx.moveTo(w*0.4+i*18,h*0.7);ctx.lineTo(w*0.5+i*12,h*0.95);ctx.stroke();}
+      break;
+    }
+    case 1: { // Green forest
+      const gr = ctx.createRadialGradient(w/2,0,20,w/2,h*0.3,h);
+      gr.addColorStop(0,'#c8e6c9'); gr.addColorStop(0.4,'#43a047'); gr.addColorStop(1,'#1b5e20');
+      ctx.fillStyle=gr; ctx.fillRect(0,0,w,h);
+      // Rays of light
+      ctx.save(); ctx.globalAlpha=0.08;
+      for(let i=0;i<6;i++){
+        ctx.beginPath(); ctx.moveTo(w/2,0);
+        ctx.lineTo(w/2-80+i*32,h); ctx.lineTo(w/2-70+i*32,h); ctx.closePath();
+        ctx.fillStyle='#fff176'; ctx.fill();
+      }
+      ctx.restore();
+      // Tree silhouettes
+      ctx.fillStyle='#1b5e20';
+      const trees=[{x:10,h:130},{x:55,h:160},{x:120,h:140},{x:175,h:155},{x:215,h:125},{x:245,h:145}];
+      trees.forEach(t=>{
+        ctx.beginPath(); ctx.moveTo(t.x+20,h*0.95);
+        ctx.lineTo(t.x-10,h*0.95-t.h); ctx.lineTo(t.x+50,h*0.95-t.h); ctx.closePath(); ctx.fill();
+        ctx.fillRect(t.x+16,h*0.95-t.h*0.15,8,t.h*0.15);
+      });
+      break;
+    }
+    case 2: { // Ocean
+      const sky2=ctx.createLinearGradient(0,0,0,h*0.5);
+      sky2.addColorStop(0,'#1565c0'); sky2.addColorStop(1,'#4fc3f7');
+      ctx.fillStyle=sky2; ctx.fillRect(0,0,w,h*0.5);
+      const sea=ctx.createLinearGradient(0,h*0.5,0,h);
+      sea.addColorStop(0,'#0097a7'); sea.addColorStop(1,'#004d40');
+      ctx.fillStyle=sea; ctx.fillRect(0,h*0.5,w,h*0.5);
+      // Sun
+      const sunG=ctx.createRadialGradient(w*0.75,h*0.18,0,w*0.75,h*0.18,35);
+      sunG.addColorStop(0,'rgba(255,250,200,0.95)'); sunG.addColorStop(1,'transparent');
+      ctx.fillStyle=sunG; ctx.fillRect(0,0,w,h*0.5);
+      // Waves
+      ctx.strokeStyle='rgba(255,255,255,0.35)'; ctx.lineWidth=1.5;
+      for(let i=0;i<5;i++){
+        ctx.beginPath(); ctx.moveTo(0,h*0.52+i*18);
+        for(let x=0;x<=w;x+=8) ctx.lineTo(x,h*0.52+i*18+Math.sin(x*0.07+i)*3.5);
+        ctx.stroke();
+      }
+      // Beach
+      const beach=ctx.createLinearGradient(0,h*0.82,0,h);
+      beach.addColorStop(0,'#ffe082'); beach.addColorStop(1,'#ffcc02');
+      ctx.fillStyle=beach; ctx.fillRect(0,h*0.82,w,h*0.18);
+      break;
+    }
+    case 3: { // Garden flowers
+      const gnd=ctx.createLinearGradient(0,0,0,h);
+      gnd.addColorStop(0,'#e8f5e9'); gnd.addColorStop(1,'#2e7d32');
+      ctx.fillStyle=gnd; ctx.fillRect(0,0,w,h);
+      const fc=['#e91e63','#ff9800','#ffeb3b','#f44336','#9c27b0','#00bcd4','#ff5722','#8bc34a'];
+      for(let i=0;i<16;i++){
+        const fx=15+(i%4)*62+(Math.floor(i/4)%2)*30, fy=25+Math.floor(i/4)*60;
+        const col=fc[i%fc.length];
+        for(let p=0;p<6;p++){
+          const a=(p/6)*Math.PI*2;
+          ctx.beginPath(); ctx.ellipse(fx+Math.cos(a)*16,fy+Math.sin(a)*16,12,7,a,0,Math.PI*2);
+          ctx.fillStyle=col; ctx.fill();
+        }
+        ctx.beginPath(); ctx.arc(fx,fy,8,0,Math.PI*2); ctx.fillStyle='#fff176'; ctx.fill();
+        ctx.beginPath(); ctx.moveTo(fx,fy+8); ctx.lineTo(fx+5,fy+28); ctx.lineTo(fx-5,fy+28);
+        ctx.fillStyle='#388e3c'; ctx.fill();
+      }
+      break;
+    }
+    case 4: { // Aurora mountain
+      const nsk=ctx.createLinearGradient(0,0,0,h);
+      nsk.addColorStop(0,'#050014'); nsk.addColorStop(0.5,'#0d0030'); nsk.addColorStop(1,'#130040');
+      ctx.fillStyle=nsk; ctx.fillRect(0,0,w,h);
+      // Stars
+      ctx.fillStyle='rgba(255,255,255,0.85)';
+      for(let i=0;i<50;i++){
+        ctx.beginPath(); ctx.arc(Math.random()*w,Math.random()*h*0.55,Math.random()*1.4,0,Math.PI*2); ctx.fill();
+      }
+      // Aurora bands
+      [['rgba(0,230,118,0.18)',0,30],['rgba(0,200,150,0.12)',20,45],['rgba(100,200,255,0.1)',40,25]].forEach(([col,yo,str])=>{
+        const ag=ctx.createLinearGradient(0,h*0.08+yo,w*1.2,h*0.35+yo);
+        ag.addColorStop(0,'transparent'); ag.addColorStop(0.3,col); ag.addColorStop(0.7,col); ag.addColorStop(1,'transparent');
+        ctx.fillStyle=ag; ctx.fillRect(0,0,w,h*0.6);
+      });
+      // Mountain
+      ctx.fillStyle='#050014';
+      ctx.beginPath(); ctx.moveTo(0,h);
+      ctx.lineTo(0,h*0.72); ctx.lineTo(w*0.18,h*0.45); ctx.lineTo(w*0.35,h*0.62);
+      ctx.lineTo(w*0.55,h*0.32); ctx.lineTo(w*0.7,h*0.52); ctx.lineTo(w,h*0.38); ctx.lineTo(w,h);
+      ctx.closePath(); ctx.fill();
+      break;
+    }
+  }
+  return c.toDataURL('image/jpeg', 0.82);
+}
+
+function genNeutralCanvas(idx) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 260;
+  const ctx = c.getContext('2d');
+  const w = c.width, h = c.height;
+  switch (idx % 5) {
+    case 0: { // Empty gray room
+      ctx.fillStyle='#8a9199'; ctx.fillRect(0,0,w,h);
+      ctx.fillStyle='#6b737a'; ctx.fillRect(0,h*0.65,w,h*0.35);
+      ctx.strokeStyle='#5a6067'; ctx.lineWidth=1;
+      [[0,0,w*0.35,h*0.65],[w,0,w*0.65,h*0.65]].forEach(([x1,y1,x2,y2])=>{
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+      });
+      ctx.strokeStyle='rgba(0,0,0,0.08)';
+      for(let i=1;i<4;i++){ctx.beginPath();ctx.moveTo(0,h*0.65/4*i);ctx.lineTo(w,h*0.65/4*i);ctx.stroke();}
+      break;
+    }
+    case 1: { // Overcast sky
+      const ov=ctx.createLinearGradient(0,0,0,h);
+      ov.addColorStop(0,'#a8b5bd'); ov.addColorStop(0.5,'#8c99a1'); ov.addColorStop(1,'#6b7880');
+      ctx.fillStyle=ov; ctx.fillRect(0,0,w,h);
+      ctx.fillStyle='rgba(255,255,255,0.06)';
+      for(let i=0;i<10;i++){ctx.beginPath();ctx.ellipse(20+i*28,25+(i%3)*22,35,14,0,0,Math.PI*2);ctx.fill();}
+      // Gray ground
+      ctx.fillStyle='#5a6670'; ctx.fillRect(0,h*0.78,w,h*0.22);
+      break;
+    }
+    case 2: { // Concrete texture
+      ctx.fillStyle='#6e7b84'; ctx.fillRect(0,0,w,h);
+      ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=1;
+      const bw=55, bh=28;
+      for(let row=0;row*bh<h;row++){
+        const off=(row%2)*(bw/2);
+        for(let col=-1;col*bw<w;col++) ctx.strokeRect(col*bw+off,row*bh,bw,bh);
+      }
+      // Slight vignette
+      const vig=ctx.createRadialGradient(w/2,h/2,w*0.3,w/2,h/2,w*0.75);
+      vig.addColorStop(0,'transparent'); vig.addColorStop(1,'rgba(0,0,0,0.25)');
+      ctx.fillStyle=vig; ctx.fillRect(0,0,w,h);
+      break;
+    }
+    case 3: { // Foggy road
+      const fog=ctx.createLinearGradient(0,0,0,h);
+      fog.addColorStop(0,'#d0d5d9'); fog.addColorStop(0.5,'#b0b8be'); fog.addColorStop(1,'#8a9299');
+      ctx.fillStyle=fog; ctx.fillRect(0,0,w,h);
+      // Road
+      ctx.fillStyle='#6e777e';
+      ctx.beginPath();
+      ctx.moveTo(w*0.28,h); ctx.lineTo(w*0.44,h*0.42);
+      ctx.lineTo(w*0.56,h*0.42); ctx.lineTo(w*0.72,h); ctx.fill();
+      // Dashes
+      ctx.strokeStyle='rgba(180,185,190,0.6)'; ctx.lineWidth=2; ctx.setLineDash([10,10]);
+      ctx.beginPath(); ctx.moveTo(w/2,h); ctx.lineTo(w/2,h*0.42); ctx.stroke();
+      ctx.setLineDash([]);
+      break;
+    }
+    case 4: { // Dead tree
+      const dtsk=ctx.createLinearGradient(0,0,0,h);
+      dtsk.addColorStop(0,'#b0bec5'); dtsk.addColorStop(1,'#78909c');
+      ctx.fillStyle=dtsk; ctx.fillRect(0,0,w,h);
+      ctx.fillStyle='#546e7a'; ctx.fillRect(0,h*0.8,w,h*0.2);
+      ctx.strokeStyle='#37474f'; ctx.lineCap='round';
+      const branch=(x,y,angle,len,d)=>{
+        if(d<=0||len<5) return;
+        const ex=x+Math.cos(angle)*len, ey=y+Math.sin(angle)*len;
+        ctx.lineWidth=d*1.8; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(ex,ey); ctx.stroke();
+        branch(ex,ey,angle-0.45,len*0.62,d-1);
+        branch(ex,ey,angle+0.45,len*0.62,d-1);
+        if(d>2) branch(ex,ey,angle-0.1,len*0.55,d-1);
+      };
+      branch(w/2,h*0.8,-Math.PI/2,55,5);
+      break;
+    }
+  }
+  return c.toDataURL('image/jpeg', 0.82);
+}
+
+function initPPImages() {
+  if (PP_PLEASANT_POOL) return;
+  PP_PLEASANT_POOL = [];
+  PP_NEUTRAL_POOL  = [];
+  for (let i = 0; i < 5; i++) {
+    PP_PLEASANT_POOL.push(genPleasantCanvas(i));
+    PP_NEUTRAL_POOL.push(genNeutralCanvas(i));
+  }
+}
+
+// ── Front card dot pattern ─────────────────────────
+function buildPPFrontPattern(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el || el.children.length > 0) return;
+  for (let i = 0; i < 16; i++) {
+    const d = document.createElement('div');
+    d.className = 'pp-front-dot';
+    d.style.opacity = (0.15 + Math.random() * 0.35).toFixed(2);
+    el.appendChild(d);
+  }
+}
+
+// ── Screen views ──────────────────────────────────
+function showPPView(name) {
+  ['brief','trial'].forEach(n => {
+    const el = document.getElementById('pp-view-' + n);
+    if (el) el.style.display = n === name ? 'flex' : 'none';
+    if (el && n !== name) el.style.flexDirection = '';
+  });
+  if (name === 'brief') renderPhotoPairBrief();
+}
+
+function renderPhotoPairBrief() {
+  const sessions = loadPPSessions();
+  const n = sessions.length;
+  const hits = sessions.filter(s => s.hit).length;
+  const hitPct = n ? Math.round(hits / n * 100) : null;
+
+  setEl('pp-stat-trials', n);
+  const rateEl = document.getElementById('pp-stat-hitrate');
+  if (rateEl) {
+    rateEl.textContent = hitPct !== null ? hitPct + '%' : '–';
+    rateEl.className = 'psi-stat-val' + (hitPct !== null ? (hitPct > 50 ? ' above' : hitPct < 50 ? ' below' : '') : '');
+  }
+  const noteEl = document.getElementById('pp-stat-note');
+  if (noteEl) {
+    if (n < 10) noteEl.textContent = 'Complete ' + (10 - n) + ' more trial' + (10 - n !== 1 ? 's' : '') + ' for statistical analysis.';
+    else {
+      const sig = hitPct > 58 ? 'Trending above chance.' : hitPct < 42 ? 'Trending below chance.' : 'Within chance range.';
+      noteEl.textContent = n + ' trials — avg ' + hitPct + '% vs 50% chance. ' + sig;
+    }
+  }
+}
+
+function startPPTrial() {
+  initPPImages();
+  showPPView('trial');
+
+  PP_STATE.answered = false;
+  PP_STATE.pleasantSide = Math.random() < 0.5 ? 0 : 1;
+  PP_STATE.pleasantIdx = Math.floor(Math.random() * 5);
+  PP_STATE.neutralIdx  = Math.floor(Math.random() * 5);
+
+  // Reset cards
+  [0,1].forEach(i => {
+    const card = document.getElementById('pp-card-' + i);
+    const verdict = document.getElementById('pp-verdict-' + i);
+    const label = document.getElementById('pp-label-' + i);
+    if (card) { card.classList.remove('flipped'); card.style.pointerEvents = 'auto'; }
+    if (verdict) verdict.style.display = 'none';
+    if (label) label.style.display = 'none';
+    buildPPFrontPattern('pp-pattern-' + i);
+  });
+
+  // Set images
+  const pImg = document.getElementById('pp-img-' + PP_STATE.pleasantSide);
+  const nImg = document.getElementById('pp-img-' + (1 - PP_STATE.pleasantSide));
+  if (pImg) pImg.src = PP_PLEASANT_POOL[PP_STATE.pleasantIdx];
+  if (nImg) nImg.src = PP_NEUTRAL_POOL[PP_STATE.neutralIdx];
+
+  // Reset post-reveal
+  const post = document.getElementById('pp-post-reveal');
+  if (post) post.style.display = 'none';
+  setEl('pp-tap-hint', 'TAP THE CARD YOU FEEL DRAWN TO');
+}
+
+function handlePPTap(side) {
+  if (PP_STATE.answered) return;
+  PP_STATE.answered = true;
+
+  const isHit = side === PP_STATE.pleasantSide;
+
+  // Disable both cards
+  [0,1].forEach(i => {
+    const c = document.getElementById('pp-card-' + i);
+    if (c) c.style.pointerEvents = 'none';
+  });
+
+  // Flip both after short delay
+  setTimeout(() => {
+    [0,1].forEach(i => {
+      const card = document.getElementById('pp-card-' + i);
+      if (card) card.classList.add('flipped');
+    });
+
+    // Show labels and verdict after flip completes
+    setTimeout(() => {
+      [0,1].forEach(i => {
+        const label = document.getElementById('pp-label-' + i);
+        const verdict = document.getElementById('pp-verdict-' + i);
+        if (label) {
+          label.style.display = 'block';
+          if (i === PP_STATE.pleasantSide) {
+            label.textContent = 'PLEASANT'; label.className = 'pp-label-tag pleasant';
+          } else {
+            label.textContent = 'NEUTRAL'; label.className = 'pp-label-tag neutral';
+          }
+        }
+        if (i === side && verdict) {
+          verdict.style.display = 'block';
+          verdict.textContent = isHit ? 'HIT' : 'MISS';
+          verdict.className = 'pp-verdict ' + (isHit ? 'hit' : 'miss');
+        }
+      });
+
+      // Save + show post
+      savePPSession({ hit: isHit, timestamp: new Date().toISOString() });
+      const sessions = loadPPSessions();
+      const hits = sessions.filter(s => s.hit).length;
+      const pct = Math.round(hits / sessions.length * 100);
+
+      const trialEl = document.getElementById('pp-trial-result');
+      if (trialEl) {
+        trialEl.textContent = isHit ? 'HIT' : 'MISS';
+        trialEl.className = 'psi-stat-val' + (isHit ? ' above' : ' below');
+      }
+      const runEl = document.getElementById('pp-running-rate');
+      if (runEl) {
+        runEl.textContent = pct + '%';
+        runEl.className = 'psi-stat-val' + (pct > 50 ? ' above' : pct < 50 ? ' below' : '');
+      }
+
+      setEl('pp-tap-hint', '');
+      const post = document.getElementById('pp-post-reveal');
+      if (post) { post.style.display = 'flex'; post.style.flexDirection = 'column'; }
+    }, 700);
+  }, 80);
+}
+
+// ── Persistence ───────────────────────────────────
+function loadPPSessions()  { try { return JSON.parse(localStorage.getItem('ablty_photopair') || '[]'); } catch(e) { return []; } }
+function savePPSession(s)  { const d = loadPPSessions(); d.unshift(s); try { localStorage.setItem('ablty_photopair', JSON.stringify(d)); } catch(e) {} }
+
+// ═══════════════════════════════════════════════════════
+//  NOISE FIELD PATTERN DETECTION
+// ═══════════════════════════════════════════════════════
+
+const NF_SHAPES = ['circle', 'triangle', 'square', 'star'];
+
+const NF_SHAPE_SVG = {
+  circle:   '<circle cx="40" cy="40" r="26"/>',
+  triangle: '<polygon points="40,10 70,66 10,66"/>',
+  square:   '<rect x="12" y="12" width="56" height="56" rx="3"/>',
+  star:     '<polygon points="40,8 47,30 70,30 52,44 59,66 40,52 21,66 28,44 10,30 33,30"/>',
+};
+
+const NF_STATE = {
+  hiddenShape: null,
+  answered: false,
+};
+
+function showNFView(name) {
+  ['brief','trial'].forEach(n => {
+    const el = document.getElementById('nf-view-' + n);
+    if (el) el.style.display = n === name ? 'flex' : 'none';
+    if (el && n !== name) el.style.flexDirection = '';
+  });
+  if (name === 'brief') renderNoiseBrief();
+}
+
+function renderNoiseBrief() {
+  const sessions = loadNFSessions();
+  const n = sessions.length;
+  const hits = sessions.filter(s => s.hit).length;
+  const hitPct = n ? Math.round(hits / n * 100) : null;
+
+  setEl('nf-stat-trials', n);
+  const rateEl = document.getElementById('nf-stat-hitrate');
+  if (rateEl) {
+    rateEl.textContent = hitPct !== null ? hitPct + '%' : '–';
+    rateEl.className = 'psi-stat-val' + (hitPct !== null ? (hitPct > 25 ? ' above' : hitPct < 20 ? ' below' : '') : '');
+  }
+  const noteEl = document.getElementById('nf-stat-note');
+  if (noteEl) {
+    if (n < 20) noteEl.textContent = 'Complete ' + (20 - n) + ' more trial' + (20-n!==1?'s':'') + ' for statistical analysis.';
+    else {
+      const sig = hitPct > 33 ? 'Consistently above chance.' : hitPct < 18 ? 'Below chance baseline.' : 'Within chance range.';
+      noteEl.textContent = n + ' trials — avg ' + hitPct + '% vs 25% chance. ' + sig;
+    }
+  }
+
+  // Build noise preview on brief screen if PSI hub is showing it
+  buildNoisePreview();
+}
+
+function startNFTrial() {
+  showNFView('trial');
+  NF_STATE.answered = false;
+  NF_STATE.hiddenShape = NF_SHAPES[Math.floor(Math.random() * 4)];
+
+  // Reset buttons
+  NF_SHAPES.forEach(s => {
+    const btn = document.getElementById('nfbtn-' + s);
+    if (btn) { btn.className = 'nf-shape-btn'; btn.disabled = false; }
+  });
+
+  // Hide reveal overlay and post-reveal
+  const overlay = document.getElementById('nf-reveal-overlay');
+  if (overlay) overlay.classList.remove('visible');
+  const post = document.getElementById('nf-post-reveal');
+  if (post) post.style.display = 'none';
+
+  setEl('nf-focus-prompt', 'RELAX YOUR GAZE · SELECT THE SHAPE YOU SENSE');
+
+  // Generate the noise field
+  generateNoiseField('nf-canvas', NF_STATE.hiddenShape);
+}
+
+function generateNoiseField(canvasId, hiddenShape) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+
+  // Build shape mask using an offscreen canvas
+  const mc = document.createElement('canvas');
+  mc.width = w; mc.height = h;
+  const mctx = mc.getContext('2d');
+  const cx = w/2, cy = h/2, r = Math.min(w,h) * 0.27;
+
+  mctx.fillStyle = '#fff';
+  mctx.beginPath();
+  switch (hiddenShape) {
+    case 'circle':
+      mctx.arc(cx, cy, r, 0, Math.PI*2);
+      break;
+    case 'square':
+      mctx.rect(cx - r*0.85, cy - r*0.85, r*1.7, r*1.7);
+      break;
+    case 'triangle':
+      mctx.moveTo(cx, cy - r);
+      mctx.lineTo(cx + r*0.866, cy + r*0.5);
+      mctx.lineTo(cx - r*0.866, cy + r*0.5);
+      mctx.closePath();
+      break;
+    case 'star':
+      for (let i = 0; i < 10; i++) {
+        const angle = (i * Math.PI/5) - Math.PI/2;
+        const rad = i % 2 === 0 ? r : r * 0.42;
+        const px = cx + Math.cos(angle)*rad, py = cy + Math.sin(angle)*rad;
+        i === 0 ? mctx.moveTo(px, py) : mctx.lineTo(px, py);
+      }
+      mctx.closePath();
+      break;
+  }
+  mctx.fill();
+
+  const maskData = mctx.getImageData(0, 0, w, h).data;
+
+  // Generate pixel noise with embedded shape
+  const img = ctx.createImageData(w, h);
+  const data = img.data;
+  const BIAS = 10; // sub-threshold brightness shift — genuinely invisible
+
+  for (let i = 0; i < w * h; i++) {
+    const inShape = maskData[i * 4] > 128;
+    // Background: noise in range [55, 200]
+    const base = 55 + Math.floor(Math.random() * 146);
+    // Shape: same range but +BIAS mean shift
+    const val = Math.min(255, inShape ? base + BIAS : base);
+    const pi = i * 4;
+    data[pi] = val; data[pi+1] = val; data[pi+2] = val; data[pi+3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+function buildNoisePreview() {
+  const c = document.getElementById('psi-noise-preview');
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  const w = c.width, h = c.height;
+  const img = ctx.createImageData(w, h);
+  for (let i = 0; i < w * h * 4; i += 4) {
+    const v = 40 + Math.floor(Math.random() * 180);
+    img.data[i] = v; img.data[i+1] = v; img.data[i+2] = v; img.data[i+3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+function handleNFGuess(shape) {
+  if (NF_STATE.answered) return;
+  NF_STATE.answered = true;
+
+  const isHit = shape === NF_STATE.hiddenShape;
+
+  // Disable all buttons and style
+  NF_SHAPES.forEach(s => {
+    const btn = document.getElementById('nfbtn-' + s);
+    if (!btn) return;
+    btn.disabled = true;
+    if (s === NF_STATE.hiddenShape) btn.classList.add('correct');
+    else if (s === shape && !isHit) btn.classList.add('wrong');
+  });
+
+  // Show reveal overlay
+  const overlay = document.getElementById('nf-reveal-overlay');
+  const revSvg  = document.getElementById('nf-reveal-svg');
+  if (revSvg) revSvg.innerHTML = NF_SHAPE_SVG[NF_STATE.hiddenShape];
+  setTimeout(() => {
+    if (overlay) overlay.classList.add('visible');
+  }, 200);
+
+  // Update prompt
+  setEl('nf-focus-prompt', isHit ? '✓ CORRECT — SHAPE WAS ' + NF_STATE.hiddenShape.toUpperCase() : 'SHAPE WAS ' + NF_STATE.hiddenShape.toUpperCase());
+
+  // Save + post-reveal
+  saveNFSession({ hit: isHit, shape: NF_STATE.hiddenShape, guess: shape, timestamp: new Date().toISOString() });
+  const sessions = loadNFSessions();
+  const hits = sessions.filter(s => s.hit).length;
+  const pct = Math.round(hits / sessions.length * 100);
+
+  const trialEl = document.getElementById('nf-trial-result');
+  if (trialEl) {
+    trialEl.textContent = isHit ? 'HIT' : 'MISS';
+    trialEl.className = 'psi-stat-val' + (isHit ? ' above' : ' below');
+  }
+  const runEl = document.getElementById('nf-running-rate');
+  if (runEl) {
+    runEl.textContent = pct + '%';
+    runEl.className = 'psi-stat-val' + (pct > 25 ? ' above' : pct < 20 ? ' below' : '');
+  }
+
+  setTimeout(() => {
+    const post = document.getElementById('nf-post-reveal');
+    if (post) { post.style.display = 'flex'; post.style.flexDirection = 'column'; }
+  }, 600);
+}
+
+// ── Persistence ───────────────────────────────────
+function loadNFSessions()  { try { return JSON.parse(localStorage.getItem('ablty_noise') || '[]'); } catch(e) { return []; } }
+function saveNFSession(s)  { const d = loadNFSessions(); d.unshift(s); try { localStorage.setItem('ablty_noise', JSON.stringify(d)); } catch(e) {} }
 
 
 window.addEventListener('error', (e) => {
