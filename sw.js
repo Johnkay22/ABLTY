@@ -1,111 +1,64 @@
-// ABLTY Service Worker
-// Handles: offline caching, push notifications, background sync
+// ABLTY Service Worker v3
+// Strategy: network-first for HTML, cache-first for static assets
+// Includes update detection to notify users of new versions
 
-const CACHE_NAME = 'ablty-v2';
+const CACHE_NAME = 'ablty-v3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
 ];
 
-// ── Install: cache static assets ─────────────────────
+// \u2500\u2500 Install: cache static assets and activate immediately \u2500\u2500\u2500\u2500\u2500
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
   );
-  self.skipWaiting();
+  // Don't skipWaiting here \u2014 we want to notify the user instead
+  // so they can choose when to update
 });
 
-// ── Activate: clean old caches ────────────────────────
+// \u2500\u2500 Activate: clean out old caches \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+      Promise.all(
+        keys
+          .filter(k => k !== CACHE_NAME)
+          .map(k => caches.delete(k))
+      )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// ── Fetch: serve from cache, fall back to network ─────
+// \u2500\u2500 Fetch: network-first for HTML, cache-first for everything else \u2500\u2500
 self.addEventListener('fetch', event => {
-  // Only handle same-origin GET requests
   if (event.request.method !== 'GET') return;
   if (!event.request.url.startsWith(self.location.origin)) return;
 
-  event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(response => {
-        // Cache successful responses for static assets
-        if (response.ok && !event.request.url.includes('api.')) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        }
-        return response;
-      }).catch(() => {
-        // Offline fallback for navigation requests
-        if (event.request.mode === 'navigate') {
+  const isHTMLRequest =
+    event.request.mode === 'navigate' ||
+    event.request.headers.get('accept')?.includes('text/html');
+
+  if (isHTMLRequest) {
+    // NETWORK FIRST for HTML
+    // Always tries to get the freshest version from GitHub Pages
+    // Falls back to cache only if offline
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          if (response.ok) {
+            // Update the cache with the fresh version
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return response;
+        })
+        .catch(() => {
+          // Offline fallback
           return caches.match('/index.html');
-        }
-      });
-    })
-  );
-});
-
-// ── Push: receive and display notification ────────────
-const REALITY_CHECKS = [
-  'Are you dreaming right now?',
-  'Stop. Perform a reality check.',
-  'Reality check time.',
-  'Are you awake? Check now.',
-  'Perform a reality check.',
-];
-
-self.addEventListener('push', event => {
-  let title = 'ABLTY';
-  let body  = REALITY_CHECKS[Math.floor(Math.random() * REALITY_CHECKS.length)];
-  let url   = '/#reality-check';
-
-  if (event.data) {
-    try {
-      const data = event.data.json();
-      if (data.title) title = data.title;
-      if (data.body)  body  = data.body;
-      if (data.url)   url   = data.url;
-    } catch(e) {
-      const text = event.data.text();
-      if (text) body = text;
-    }
-  }
-
-  const options = {
-    body,
-    icon:     '/icon-192.png',
-    badge:    '/badge-72.png',
-    tag:      'ablty-reality-check',
-    renotify: true,
-    silent:   false,
-    data:     { url },
-  };
-
-  event.waitUntil(self.registration.showNotification(title, options));
-});
-
-// ── Notification click: open app ──────────────────────
-self.addEventListener('notificationclick', event => {
-  event.notification.close();
-
-  const url = (event.notification.data && event.notification.data.url) || '/#reality-check';
-  const fullUrl = self.location.origin + url;
-
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-      for (const client of windowClients) {
-        if ('focus' in client) {
-          client.postMessage({ type: 'RC_OPEN' });
-          return client.focus();
-        }
-      }
-      if (clients.openWindow) return clients.openWindow(fullUrl);
-    })
-  );
-});
+        })
+    );
+  } else {
+    // CACHE FIRST for everything else (images, fonts, etc.)
+    // This keeps the app fast for assets that don't change often
+    event.respondWith(
