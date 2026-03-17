@@ -6643,15 +6643,58 @@ async function registerSW() {
     const reg = await navigator.serviceWorker.register('/sw.js');
     console.log('[ABLTY] Service worker registered');
     window._swRegistration = reg;
-    // Listen for RC_OPEN message from notification click
+
+    // Detect when a new version is waiting
+    reg.addEventListener('updatefound', () => {
+      const newWorker = reg.installing;
+      newWorker.addEventListener('statechange', () => {
+        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+          showUpdateBanner();
+        }
+      });
+    });
+
     navigator.serviceWorker.addEventListener('message', event => {
       if (event.data && event.data.type === 'RC_OPEN') openRCTask();
     });
-    // Validate push subscription after SW is ready
+
     setTimeout(() => validatePushSubscription(reg), 2000);
   } catch(e) {
     console.warn('[ABLTY] SW registration failed:', e);
   }
+}
+
+function showUpdateBanner() {
+  const existing = document.getElementById('update-banner');
+  if (existing) return;
+  const banner = document.createElement('div');
+  banner.id = 'update-banner';
+  banner.style.cssText = `
+    position: fixed; bottom: 90px; left: 16px; right: 16px; z-index: 9999;
+    background: var(--card); border: 1px solid var(--accent);
+    border-radius: 14px; padding: 14px 18px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-family: var(--font-mono); font-size: 12px; color: var(--text);
+    box-shadow: 0 4px 24px rgba(74,240,200,0.15);
+    animation: fadeIn 0.3s ease;
+  `;
+  banner.innerHTML = `
+    <span style="letter-spacing:1px;">Update available</span>
+    <button onclick="applyUpdate()" style="
+      background: var(--accent); color: #000; border: none;
+      border-radius: 8px; padding: 7px 14px;
+      font-family: var(--font-mono); font-size: 11px;
+      letter-spacing: 1px; cursor: pointer; font-weight: 600;
+    ">REFRESH</button>
+  `;
+  document.body.appendChild(banner);
+}
+
+function applyUpdate() {
+  if (window._swRegistration && window._swRegistration.waiting) {
+    window._swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+  }
+  window.location.reload();
 }
 
 // Check if the push subscription is still valid. If the browser cleared it
