@@ -107,14 +107,14 @@ self.addEventListener('push', event => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch(e) {}
 
-  const msg = data.message ||
+  const msg = data.body ||
     REALITY_CHECKS[Math.floor(Math.random() * REALITY_CHECKS.length)];
 
   event.waitUntil(
     self.registration.showNotification('ABLTY', {
       body: msg,
-      icon: '/icons/icon-192.png',
-      badge: '/icons/icon-192.png',
+      icon: '/icon-192.png',
+      badge: '/badge-72.png',
       tag: 'ablty-rc',
       renotify: true,
       data: { url: '/?rc=1' },
