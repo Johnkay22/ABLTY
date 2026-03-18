@@ -2,7 +2,7 @@
   "name": "ABLTY",
   "short_name": "ABLTY",
   "description": "Cognitive training, remote viewing, and psi research.",
-  "start_url": "/",
+  "start_url": "/app.html",
   "display": "standalone",
   "background_color": "#0e1012",
   "theme_color": "#0e1012",
