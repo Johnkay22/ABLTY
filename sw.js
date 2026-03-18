@@ -5,19 +5,19 @@
 const CACHE_NAME = 'ablty-v3';
 const STATIC_ASSETS = [
   '/',
-  '/index.html',
+  '/app.html',
 ];
 
-// ── Install: cache static assets and activate immediately ─────
+// -- Install: cache static assets and activate immediately -----
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
   );
-  // Don't skipWaiting here — we want to notify the user instead
+  // Don't skipWaiting here - we want to notify the user instead
   // so they can choose when to update
 });
 
-// ── Activate: clean out old caches ────────────────────────────
+// -- Activate: clean out old caches ----------------------------
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
@@ -30,7 +30,7 @@ self.addEventListener('activate', event => {
   );
 });
 
-// ── Fetch: network-first for HTML, cache-first for everything else ──
+// -- Fetch: network-first for HTML, cache-first for everything else --
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   if (!event.request.url.startsWith(self.location.origin)) return;
@@ -41,26 +41,21 @@ self.addEventListener('fetch', event => {
 
   if (isHTMLRequest) {
     // NETWORK FIRST for HTML
-    // Always tries to get the freshest version from GitHub Pages
-    // Falls back to cache only if offline
     event.respondWith(
       fetch(event.request)
         .then(response => {
           if (response.ok) {
-            // Update the cache with the fresh version
             const clone = response.clone();
             caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
           }
           return response;
         })
         .catch(() => {
-          // Offline fallback
-          return caches.match('/index.html');
+          return caches.match('/app.html');
         })
     );
   } else {
     // CACHE FIRST for everything else (images, fonts, etc.)
-    // This keeps the app fast for assets that don't change often
     event.respondWith(
       caches.match(event.request).then(cached => {
         if (cached) return cached;
@@ -72,7 +67,7 @@ self.addEventListener('fetch', event => {
           return response;
         }).catch(() => {
           if (event.request.mode === 'navigate') {
-            return caches.match('/index.html');
+            return caches.match('/app.html');
           }
         });
       })
@@ -80,18 +75,14 @@ self.addEventListener('fetch', event => {
   }
 });
 
-// ── Update detection ──────────────────────────────────────────
-// When a new service worker is waiting, message all open tabs
+// -- Update detection ------------------------------------------
 self.addEventListener('message', event => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
-  if (event.data && event.data.type === 'RC_OPEN') {
-    // handled in main app
-  }
 });
 
-// ── Push: receive and display notification ────────────────────
+// -- Push: receive and display notification -------------------
 const REALITY_CHECKS = [
   'Are you dreaming right now?',
   'Stop. Perform a reality check.',
