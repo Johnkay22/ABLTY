@@ -2766,28 +2766,30 @@ html, body {
   <div id="screen-profile" class="screen">
     <div class="screen-inner">
 
-      <div class="display-lg fade-in">PROFILE</div>
+      <div class="display-lg fade-in">SETTINGS</div>
 
-      <div class="profile-header card fade-in-delay-1">
-        <div class="avatar" id="profile-avatar">S</div>
-        <div class="profile-info">
-          <div class="seeker-label">Seeker ID</div>
-          <div class="seeker-id-lg" id="profile-seeker-id">#–––––</div>
-          <div class="mono-sm" style="margin-top:6px;">Free Tier</div>
+      <!-- Account section -->
+      <div class="section-label fade-in-delay-1">Account</div>
+      <div style="display:flex;flex-direction:column;gap:8px;" class="fade-in-delay-1">
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Seeker ID</div>
+            <div class="setting-desc" id="profile-seeker-id" style="font-family:var(--font-mono);color:var(--text);">#–––––</div>
+          </div>
+          <span class="dev-badge" style="display:inline-block;">GUEST</span>
+        </div>
+        <div class="free-banner fade-in-delay-2">
+          <div class="free-banner-text">
+            <div class="free-banner-title">⚡ Unlock Full Access</div>
+            <div class="free-banner-sub">Unlimited sessions, all modules, cloud sync</div>
+          </div>
+          <button class="upgrade-btn">Upgrade</button>
         </div>
       </div>
 
-      <div class="free-banner fade-in-delay-2">
-        <div class="free-banner-text">
-          <div class="free-banner-title">⚡ Unlock Full Access</div>
-          <div class="free-banner-sub">Unlimited sessions, full analytics, all modules</div>
-        </div>
-        <button class="upgrade-btn">Upgrade</button>
-      </div>
-
-      <div class="section-label fade-in-delay-3">Settings</div>
-
-      <div style="display:flex;flex-direction:column;gap:8px;" class="fade-in-delay-3">
+      <!-- App settings -->
+      <div class="section-label fade-in-delay-2">App</div>
+      <div style="display:flex;flex-direction:column;gap:8px;" class="fade-in-delay-2">
         <div class="setting-row" onclick="navigate('reality-check')" style="cursor:pointer;">
           <div>
             <div class="setting-label">Reality Check Pager</div>
@@ -2795,7 +2797,11 @@ html, body {
           </div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
         </div>
+      </div>
 
+      <!-- Data -->
+      <div class="section-label fade-in-delay-3">Data</div>
+      <div style="display:flex;flex-direction:column;gap:8px;" class="fade-in-delay-3">
         <div class="setting-row" onclick="clearAllData()" style="cursor:pointer;">
           <div>
             <div class="setting-label" style="color:var(--danger);">Clear All Session Data</div>
@@ -2805,10 +2811,30 @@ html, body {
         </div>
       </div>
 
-      <div class="section-label" style="margin-top:4px;">About</div>
-      <div class="setting-row">
-        <div class="mono-sm">ABLTY v0.1.0 — Remote Viewing Module</div>
-        <div class="mono-sm" style="color:var(--dim);">Alpha <span class="dev-badge" id="dev-badge" style="display:none;">DEV</span></div>
+      <!-- Legal -->
+      <div class="section-label fade-in-delay-3">Legal</div>
+      <div style="display:flex;flex-direction:column;gap:8px;" class="fade-in-delay-3">
+        <div class="setting-row" onclick="navigate('terms')" style="cursor:pointer;">
+          <div>
+            <div class="setting-label">Terms of Service</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+        <div class="setting-row" onclick="navigate('privacy')" style="cursor:pointer;">
+          <div>
+            <div class="setting-label">Privacy Policy</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+      </div>
+
+      <!-- About -->
+      <div class="section-label fade-in-delay-3">About</div>
+      <div style="display:flex;flex-direction:column;gap:8px;" class="fade-in-delay-3">
+        <div class="setting-row">
+          <div class="mono-sm">ABLTY</div>
+          <div class="mono-sm" style="color:var(--dim);">v0.1.0 Alpha <span class="dev-badge" id="dev-badge" style="display:none;">DEV</span></div>
+        </div>
       </div>
 
       <button class="admin-btn" onclick="showAdminModal()">⚙ Admin Access</button>
@@ -3812,6 +3838,281 @@ html, body {
     </div>
   </div>
 
+  <!-- ==============================
+       SCREEN: TERMS OF SERVICE
+  ============================== -->
+  <div id="screen-terms" class="screen">
+    <div class="screen-inner">
+
+      <div class="screen-hdr">
+        <button class="screen-hdr-back" onclick="navigate('profile')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div>
+          <div class="screen-hdr-title">TERMS OF SERVICE</div>
+        </div>
+      </div>
+
+      <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.75;white-space:pre-wrap;">ABLTY — TERMS OF SERVICE
+
+Last updated: March 2026
+
+These Terms of Service govern your use of ABLTY (ablty.app). By creating an account or using the app, you agree to these terms.
+
+---
+
+1. WHO WE ARE
+
+ABLTY is a psi research and consciousness training application available at ablty.app. When these terms say &quot;we,&quot; &quot;us,&quot; or &quot;ABLTY,&quot; we mean the operators of ablty.app. You can reach us at abltyapp@gmail.com.
+
+---
+
+2. WHO CAN USE ABLTY
+
+You must be at least 13 years old to use ABLTY. By using the app you confirm that you meet this requirement. If you are under 18, you should review these terms with a parent or guardian.
+
+---
+
+3. YOUR ACCOUNT
+
+Guest use: You can use limited features of ABLTY without creating an account. Guest data is stored locally on your device only. We do not collect or store any information about guests.
+
+Free accounts: Creating a free account requires a valid email address and a username. You are responsible for keeping your account credentials secure. You may not share your account with others.
+
+Premium accounts: Premium access is a paid monthly subscription at $4.99/month processed through Stripe. Subscription terms, billing, and cancellation are governed by Stripe&#x27;s terms of service in addition to these terms.
+
+Usernames: Usernames must be 3 to 20 characters, contain only letters, numbers, and underscores, and must not be offensive or impersonate another person. We reserve the right to remove or change usernames that violate these rules.
+
+---
+
+4. WHAT ABLTY IS AND IS NOT
+
+ABLTY is a training and research tool for exploring psi phenomena, remote viewing, and consciousness-related practices.
+
+ABLTY is not a medical device, a therapeutic tool, or a scientifically validated system for predicting future events. Session scores and analytics are provided for personal exploration and data tracking only. We make no claims about the reality or validity of psi phenomena. Results are for entertainment and personal research purposes.
+
+Nothing in ABLTY should be used to make medical, financial, legal, or safety decisions.
+
+---
+
+5. COMMUNITY FEATURES
+
+Community Remote Viewing: Premium users may participate in a daily shared remote viewing session. All participants attempt the same target. Scores are generated by AI and are objective. By participating you agree that your score and username may appear on public leaderboards.
+
+Conduct: You agree not to attempt to cheat, manipulate scores, or disrupt other users&#x27; experience. We reserve the right to remove any user from community features for any reason.
+
+---
+
+6. SUBSCRIPTIONS AND BILLING
+
+Premium subscriptions are billed monthly at $4.99/month. Billing is handled entirely by Stripe. We do not store your payment information.
+
+You may cancel your subscription at any time. Upon cancellation your account will revert to free tier access at the end of the current billing period. Your data is not deleted upon cancellation.
+
+We reserve the right to change subscription pricing with 30 days notice to your registered email address.
+
+---
+
+7. YOUR DATA
+
+When you create an account, your session data, scores, and analytics are stored in the cloud and associated with your account. You own your data. We do not sell your personal data to third parties.
+
+We may use anonymized, aggregate data (not linked to any individual user) for research purposes.
+
+For full details on what data we collect and how we use it, see our Privacy Policy.
+
+---
+
+8. INTELLECTUAL PROPERTY
+
+ABLTY, its design, code, and content are owned by us. You may not copy, reproduce, or distribute any part of the app without our permission.
+
+Your session sketches and impression notes are yours. We store them to provide the service and do not claim ownership over your content.
+
+---
+
+9. DISCLAIMER OF WARRANTIES
+
+ABLTY is provided &quot;as is&quot; without warranties of any kind. We do not guarantee that the app will be available at all times, error-free, or that results will be accurate or meaningful. Use the app at your own discretion.
+
+---
+
+10. LIMITATION OF LIABILITY
+
+To the fullest extent permitted by Illinois law, ABLTY and its operators are not liable for any indirect, incidental, or consequential damages arising from your use of the app. Our total liability to you for any claim shall not exceed the amount you paid us in the 12 months preceding the claim.
+
+---
+
+11. CHANGES TO THESE TERMS
+
+We may update these terms from time to time. If we make material changes we will notify you by email or by a notice in the app. Continued use of ABLTY after changes take effect constitutes acceptance of the new terms.
+
+---
+
+12. GOVERNING LAW
+
+These terms are governed by the laws of the State of Illinois, United States.
+
+---
+
+13. CONTACT
+
+Questions about these terms: abltyapp@gmail.com
+</div>
+
+    </div>
+  </div>
+
+  <!-- ==============================
+       SCREEN: PRIVACY POLICY
+  ============================== -->
+  <div id="screen-privacy" class="screen">
+    <div class="screen-inner">
+
+      <div class="screen-hdr">
+        <button class="screen-hdr-back" onclick="navigate('profile')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div>
+          <div class="screen-hdr-title">PRIVACY POLICY</div>
+        </div>
+      </div>
+
+      <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.75;white-space:pre-wrap;">ABLTY — PRIVACY POLICY
+
+Last updated: March 2026
+
+This Privacy Policy explains what information ABLTY (ablty.app) collects, how we use it, and your rights regarding your data. By using ABLTY you agree to this policy.
+
+---
+
+1. WHO WE ARE
+
+ABLTY is operated by the team at ablty.app. Contact us at abltyapp@gmail.com with any privacy questions or requests.
+
+---
+
+2. INFORMATION WE COLLECT
+
+We collect different information depending on how you use ABLTY.
+
+Guests (no account):
+We collect no personal information from guests. All guest data (session scores, settings) is stored locally on your device only. We have no access to it.
+
+Free and Premium accounts:
+When you create an account we collect:
+- Email address
+- Username you choose
+- Password (stored as a secure hash — we never see your actual password)
+- Session data you create: RV scores, Zener results, Presentiment results, Photo Pair results, session timestamps, and impression notes you type
+- For Premium users: sketch images from RV sessions
+- Device and browser type (collected automatically by our infrastructure provider)
+- Approximate timezone (used to send Reality Check notifications at appropriate times)
+
+We do not collect:
+- Your real name
+- Phone number
+- Location beyond timezone
+- Any payment information (handled entirely by Stripe — see Section 5)
+
+---
+
+3. HOW WE USE YOUR INFORMATION
+
+We use your information to:
+- Provide and operate the ABLTY service
+- Send Reality Check pager notifications at times you configure
+- Send Community RV reveal notifications at 11:11 PM your local time
+- Display your scores and username on leaderboards (Premium only, with your participation)
+- Sync your session data across devices
+- Respond to support requests sent to abltyapp@gmail.com
+- Improve the app based on aggregate, anonymized usage patterns
+
+We may use anonymized, aggregate data — meaning data that cannot be linked to any individual user — for psi research purposes or to share findings publicly. This data is never personally identifiable.
+
+We do not use your data for advertising. We do not sell your personal data. We do not share your personal data with third parties except as described in Section 5.
+
+---
+
+4. PUSH NOTIFICATIONS
+
+If you enable the Reality Check Pager, we store your push notification subscription and your configured bedtime in order to send notifications at appropriate times. This data is stored on Cloudflare&#x27;s infrastructure and is used solely to deliver notifications. You can disable notifications at any time from within the app.
+
+---
+
+5. THIRD PARTIES WE WORK WITH
+
+We work with the following third parties to operate ABLTY:
+
+Supabase (supabase.com): Our database and authentication provider. Your account data and session history are stored on Supabase infrastructure. Supabase is subject to its own privacy policy.
+
+Stripe (stripe.com): Payment processing for Premium subscriptions. When you subscribe, you interact directly with Stripe. We do not receive or store your payment card details. Stripe is subject to its own privacy policy.
+
+Cloudflare (cloudflare.com): Infrastructure for push notification delivery. Your notification subscription endpoint is stored on Cloudflare Workers KV. Cloudflare is subject to its own privacy policy.
+
+Google (via Gemini API): RV session sketches and impression notes are sent to Google&#x27;s Gemini AI for grading. This data is processed to produce a session score and is not used by Google to train models under current API terms. See Google&#x27;s API terms for details.
+
+We do not work with advertising networks or data brokers.
+
+---
+
+6. DATA RETENTION
+
+Guest data: Stored locally on your device only. We do not retain it.
+
+Free accounts: Session metadata and scores are retained for 90 days. After 90 days, older session records are deleted from our servers. Data on your device is unaffected.
+
+Premium accounts: Session data including sketches is retained indefinitely while your account is active. If you delete your account, your data is deleted within 30 days.
+
+If you cancel a Premium subscription and revert to free tier, your data is retained but older records beyond 90 days become inaccessible until you resubscribe. The data is not deleted — it is preserved in case you resubscribe.
+
+---
+
+7. YOUR RIGHTS
+
+You have the right to:
+- Access the personal data we hold about you
+- Correct inaccurate data
+- Request deletion of your account and associated data
+- Export your session data (Premium feature)
+- Withdraw consent for push notifications at any time via app settings
+
+To exercise any of these rights, contact us at abltyapp@gmail.com. We will respond within 30 days.
+
+---
+
+8. DATA SECURITY
+
+We use industry-standard security practices including encrypted connections (HTTPS), hashed passwords, and access controls. No system is perfectly secure. If you believe your account has been compromised, contact us immediately at abltyapp@gmail.com.
+
+---
+
+9. CHILDREN
+
+ABLTY is not directed at children under 13. We do not knowingly collect personal information from children under 13. If you believe a child under 13 has created an account, contact us at abltyapp@gmail.com and we will delete the account.
+
+---
+
+10. CHANGES TO THIS POLICY
+
+We may update this Privacy Policy from time to time. If we make material changes we will notify you by email or by a notice in the app. The date at the top of this document reflects when it was last updated.
+
+---
+
+11. GOVERNING LAW
+
+This Privacy Policy is governed by the laws of the State of Illinois, United States.
+
+---
+
+12. CONTACT
+
+Privacy questions and data requests: abltyapp@gmail.com
+</div>
+
+    </div>
+  </div>
+
   <nav id="nav">
 <div class="nav-item active" id="nav-home" onclick="navigate('home')">
       <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
@@ -3834,8 +4135,8 @@ html, body {
       <div class="nav-dot"></div>
     </div>
     <div class="nav-item" id="nav-profile" onclick="navigate('profile')">
-      <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      <span>Profile</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      <span>Settings</span>
       <div class="nav-dot"></div>
     </div>
   </nav>
@@ -3967,6 +4268,8 @@ const SCREENS = {
   'psi':                  'screen-psi',
   'photopair':            'screen-photopair',
   'dream-lab':            'screen-dream-lab',
+  'terms':                'screen-terms',
+  'privacy':               'screen-privacy',
 };
 const NAV_SCREENS = ['home', 'analytics', 'profile'];
 
@@ -4010,6 +4313,8 @@ function showScreen(name, hideNav = false) {
     'zener-results':        'nav-psi',
     psi:                    'nav-psi',
     'dream-lab':            'nav-home',
+    terms:                  'nav-profile',
+    privacy:                'nav-profile',
     photopair:              'nav-psi',
   };
   const activeNav = document.getElementById(navMap[name]);
@@ -4043,6 +4348,8 @@ const BACK_MAP = {
   history:              'home',
   detail:               'analytics',
   profile:              'home',
+  terms:                'profile',
+  privacy:              'profile',
 };
 
 let _suppressHistoryPush = false;
