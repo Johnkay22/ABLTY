@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="description" content="ABLTY — Psi research and consciousness training. Based on declassified government programs and peer-reviewed science.">
+<meta name="theme-color" content="#0a0b0d">
+<title>ABLTY — Train Your Signal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0a0b0d;
+  --surface: #0f1012;
+  --card: #141618;
+  --border: rgba(255,255,255,0.07);
+  --border2: rgba(255,255,255,0.14);
+  --text: #f0f0f0;
+  --muted: #6b7280;
+  --dim: #3a3f48;
+  --accent: #4af0c8;
+  --accent2: #5b9ef4;
+  --warn: #f0a94a;
+  --danger: #f05a4a;
+  --display: 'Bebas Neue', sans-serif;
+  --mono: 'DM Mono', monospace;
+  --body: 'DM Sans', sans-serif;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── GRAIN OVERLAY ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* ── SCANLINES ── */
+body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none;
+}
+
+/* ── DESKTOP BLOCK ── */
+#desktop-block {
+  display: none;
+  position: fixed; inset: 0; z-index: 9999;
+  background: var(--bg);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 48px;
+  text-align: center;
+}
+#desktop-block .logo {
+  font-family: var(--display);
+  font-size: 72px;
+  letter-spacing: 8px;
+  color: var(--text);
+}
+#desktop-block .logo span { color: var(--accent); }
+#desktop-block .msg {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+  line-height: 2;
+  max-width: 400px;
+}
+#desktop-block .qr-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--dim);
+  text-transform: uppercase;
+  margin-top: 8px;
+}
+#desktop-block .qr-box {
+  width: 160px; height: 160px;
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  background: var(--card);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+#desktop-block .qr-box img { width: 100%; height: 100%; }
+
+@media (min-width: 768px) {
+  #desktop-block { display: flex; }
+  #mobile-content { display: none; }
+}
+
+/* ── MOBILE CONTENT ── */
+#mobile-content {
+  position: relative; z-index: 1;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── HERO ── */
+.hero {
+  position: relative;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 28px;
+  overflow: hidden;
+}
+
+/* Radial glow behind hero */
+.hero-glow {
+  position: absolute;
+  top: -20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 140%;
+  height: 70%;
+  background: radial-gradient(ellipse at 50% 30%, rgba(74,240,200,0.07) 0%, rgba(91,158,244,0.04) 40%, transparent 70%);
+  pointer-events: none;
+}
+
+/* Animated reticle in hero background */
+.hero-reticle {
+  position: absolute;
+  top: 50%;
+  right: -30%;
+  transform: translateY(-50%);
+  width: 340px; height: 340px;
+  opacity: 0.04;
+}
+.hero-reticle circle, .hero-reticle line {
+  stroke: var(--accent);
+  fill: none;
+}
+
+/* Declassified stamp */
+.stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(74,240,200,0.25);
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 28px;
+  opacity: 0;
+  animation: fadeUp 0.6s ease 0.3s forwards;
+}
+.stamp-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.hero-logo {
+  font-family: var(--display);
+  font-size: 88px;
+  letter-spacing: 8px;
+  line-height: 0.9;
+  color: var(--text);
+  opacity: 0;
+  animation: fadeUp 0.7s ease 0.4s forwards;
+}
+.hero-logo span { color: var(--accent); }
+
+.hero-tagline {
+  font-family: var(--display);
+  font-size: 24px;
+  letter-spacing: 3px;
+  color: var(--muted);
+  margin-top: 10px;
+  opacity: 0;
+  animation: fadeUp 0.7s ease 0.55s forwards;
+}
+
+.hero-desc {
+  font-family: var(--body);
+  font-size: 15px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin-top: 24px;
+  max-width: 380px;
+  opacity: 0;
+  animation: fadeUp 0.7s ease 0.7s forwards;
+}
+.hero-desc strong { color: var(--text); font-weight: 500; }
+
+.hero-cta {
+  margin-top: 36px;
+  opacity: 0;
+  animation: fadeUp 0.7s ease 0.9s forwards;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── CTA BUTTON ── */
+.btn-install {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 340px;
+  padding: 18px 24px;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 14px;
+  font-family: var(--display);
+  font-size: 22px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-install:active { opacity: 0.85; transform: scale(0.97); }
+.btn-install svg { flex-shrink: 0; }
+
+.btn-learn {
+  display: block;
+  width: 100%;
+  max-width: 340px;
+  padding: 16px 24px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border2);
+  border-radius: 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  cursor: pointer;
+  text-align: center;
+  text-transform: uppercase;
+  margin-top: 12px;
+  transition: color 0.15s, border-color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+  text-decoration: none;
+}
+.btn-learn:active { color: var(--text); border-color: var(--text); }
+
+/* Scroll hint */
+.scroll-hint {
+  position: absolute;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  animation: fadeUp 0.6s ease 1.4s forwards;
+}
+.scroll-hint-line {
+  width: 1px; height: 40px;
+  background: linear-gradient(to bottom, var(--accent), transparent);
+  animation: scrollPulse 2s ease-in-out infinite;
+}
+@keyframes scrollPulse {
+  0%, 100% { opacity: 0.3; transform: scaleY(1); }
+  50% { opacity: 0.8; transform: scaleY(1.1); }
+}
+.scroll-hint span {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 3px;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+
+/* ── SECTION BASE ── */
+.section {
+  padding: 72px 28px;
+  position: relative; z-index: 1;
+}
+.section-tag {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.section-title {
+  font-family: var(--display);
+  font-size: 42px;
+  letter-spacing: 2px;
+  line-height: 1;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+.section-body {
+  font-family: var(--body);
+  font-size: 15px;
+  color: var(--muted);
+  line-height: 1.75;
+}
+.section-body strong { color: var(--text); font-weight: 500; }
+
+/* ── DIVIDER ── */
+.divider {
+  width: 100%;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--border2), transparent);
+  position: relative; z-index: 1;
+}
+
+/* ── RESEARCH BLOCK ── */
+.research-section {
+  padding: 72px 28px;
+  position: relative; z-index: 1;
+  background: linear-gradient(180deg, transparent, rgba(74,240,200,0.02) 50%, transparent);
+}
+
+.cite-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+}
+.cite-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 100%;
+  background: var(--accent);
+  opacity: 0.6;
+}
+.cite-label {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 3px;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.cite-title {
+  font-family: var(--body);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+.cite-source {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* ── MODULES SECTION ── */
+.module-item {
+  padding: 24px 0;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+.module-item:last-child { border-bottom: none; }
+.module-num {
+  font-family: var(--display);
+  font-size: 48px;
+  line-height: 1;
+  color: var(--dim);
+  flex-shrink: 0;
+  width: 52px;
+}
+.module-content { flex: 1; }
+.module-name {
+  font-family: var(--display);
+  font-size: 26px;
+  letter-spacing: 2px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.module-tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: var(--accent);
+  text-transform: uppercase;
+  background: rgba(74,240,200,0.08);
+  border: 1px solid rgba(74,240,200,0.2);
+  border-radius: 4px;
+  padding: 2px 7px;
+  margin-bottom: 10px;
+}
+.module-desc {
+  font-family: var(--body);
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+/* ── SIGNAL METER ── */
+.signal-visual {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 32px;
+  margin: 24px 0;
+}
+.signal-bar {
+  width: 4px;
+  border-radius: 2px;
+  background: var(--accent);
+  opacity: 0.4;
+  animation: signalPulse 1.6s ease-in-out infinite;
+}
+@keyframes signalPulse {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.9; }
+}
+
+/* ── STATS ROW ── */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  margin: 32px 0;
+}
+.stat-cell {
+  background: var(--card);
+  padding: 20px 14px;
+  text-align: center;
+}
+.stat-val {
+  font-family: var(--display);
+  font-size: 36px;
+  color: var(--accent);
+  line-height: 1;
+}
+.stat-label {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 1.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+/* ── FINAL CTA ── */
+.final-cta {
+  padding: 72px 28px 96px;
+  text-align: center;
+  position: relative; z-index: 1;
+}
+.final-cta-glow {
+  position: absolute;
+  bottom: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 100%; height: 50%;
+  background: radial-gradient(ellipse at 50% 100%, rgba(74,240,200,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+.final-logo {
+  font-family: var(--display);
+  font-size: 64px;
+  letter-spacing: 6px;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.final-logo span { color: var(--accent); }
+.final-tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 36px;
+}
+.final-cta .btn-install {
+  margin: 0 auto;
+}
+
+/* ── iOS INSTRUCTION MODAL ── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 9998;
+  background: rgba(0,0,0,0.85);
+  display: none;
+  align-items: flex-end;
+  padding: 16px;
+  animation: fadeIn 0.2s ease;
+}
+.modal-overlay.visible { display: flex; }
+.modal-box {
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 20px;
+  padding: 28px 24px 32px;
+  width: 100%;
+}
+.modal-title {
+  font-family: var(--display);
+  font-size: 28px;
+  letter-spacing: 1px;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+.modal-sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--muted);
+  margin-bottom: 24px;
+}
+.ios-step {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.ios-step:last-of-type { border-bottom: none; margin-bottom: 20px; }
+.ios-step-num {
+  font-family: var(--display);
+  font-size: 28px;
+  color: var(--accent);
+  flex-shrink: 0;
+  width: 28px;
+}
+.ios-step-text {
+  font-family: var(--body);
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.ios-step-text strong { color: var(--text); }
+.modal-close {
+  width: 100%;
+  padding: 14px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+/* ── FOOTER ── */
+footer {
+  position: relative; z-index: 1;
+  padding: 24px 28px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+footer a {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--dim);
+  text-decoration: none;
+  text-transform: uppercase;
+}
+footer a:active { color: var(--muted); }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Scroll reveal */
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.reveal.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+</style>
+</head>
+<body>
+
+<!-- DESKTOP BLOCK -->
+<div id="desktop-block">
+  <!-- Animated logo -->
+  <div class="splash-logo-wrap" style="width:300px;height:120px;position:relative;display:flex;align-items:center;justify-content:center;">
+    <svg class="splash-wave" viewBox="0 0 300 120" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;">
+      <defs>
+        <linearGradient id="dWaveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" style="stop-color:#0a0b0d;stop-opacity:1"/>
+          <stop offset="20%" style="stop-color:#4af0c8;stop-opacity:0.8"/>
+          <stop offset="50%" style="stop-color:#5b9ef4;stop-opacity:1"/>
+          <stop offset="80%" style="stop-color:#4af0c8;stop-opacity:0.8"/>
+          <stop offset="100%" style="stop-color:#0a0b0d;stop-opacity:1"/>
+        </linearGradient>
+        <filter id="dGlow">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+      <path id="dwave1" fill="none" stroke="url(#dWaveGrad)" stroke-width="2.5" filter="url(#dGlow)" opacity="0.9"/>
+      <path id="dwave2" fill="none" stroke="url(#dWaveGrad)" stroke-width="1.5" filter="url(#dGlow)" opacity="0.5"/>
+      <path id="dwave3" fill="none" stroke="rgba(74,240,200,0.2)" stroke-width="1" opacity="0.4"/>
+    </svg>
+    <div style="position:relative;z-index:2;display:flex;gap:14px;align-items:center;">
+      <span class="d-letter" id="dl-a" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#fff;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.4);letter-spacing:2px;">A</span>
+      <span class="d-letter" id="dl-b" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#fff;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.4);letter-spacing:2px;">B</span>
+      <span class="d-letter" id="dl-l" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#fff;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.4);letter-spacing:2px;">L</span>
+      <span class="d-letter" id="dl-t" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#4af0c8;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.6);letter-spacing:2px;">T</span>
+      <span class="d-letter" id="dl-y" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#fff;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.4);letter-spacing:2px;">Y</span>
+    </div>
+  </div>
+  <div class="msg">
+    This app is built for mobile.<br>
+    Scan the QR code with your phone<br>to open it on your device.
+  </div>
+  <div>
+    <div class="qr-box">
+      <img src="/qr.png" alt="Scan to open ABLTY on mobile" style="width:100%;height:100%;border-radius:4px;">
+    </div>
+    <div class="qr-label">Scan to open on mobile</div>
+  </div>
+</div>
+
+<!-- MOBILE CONTENT -->
+<div id="mobile-content">
+
+  <!-- ── HERO ── -->
+  <section class="hero" id="hero">
+    <div class="hero-glow"></div>
+
+    <!-- Background reticle -->
+    <svg class="hero-reticle" viewBox="0 0 300 300">
+      <circle cx="150" cy="150" r="120" stroke-width="0.5"/>
+      <circle cx="150" cy="150" r="80" stroke-width="0.5"/>
+      <circle cx="150" cy="150" r="40" stroke-width="0.5"/>
+      <circle cx="150" cy="150" r="8" stroke-width="1"/>
+      <line x1="150" y1="0" x2="150" y2="300" stroke-width="0.5"/>
+      <line x1="0" y1="150" x2="300" y2="150" stroke-width="0.5"/>
+      <line x1="150" y1="30" x2="150" y2="110" stroke-width="1.5"/>
+      <line x1="190" y1="150" x2="270" y2="150" stroke-width="1.5"/>
+    </svg>
+
+    <div>
+      <div class="stamp" style="margin-bottom:20px;">
+        <div class="stamp-dot"></div>
+        Research-Based · Data-Driven
+      </div>
+
+      <!-- Splash animation — wave + letters -->
+      <div class="splash-logo-wrap" style="width:300px;height:120px;position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:18px;">
+        <svg class="splash-wave" viewBox="0 0 300 120" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;">
+          <defs>
+            <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" style="stop-color:#0a0b0d;stop-opacity:1"/>
+              <stop offset="20%" style="stop-color:#4af0c8;stop-opacity:0.8"/>
+              <stop offset="50%" style="stop-color:#5b9ef4;stop-opacity:1"/>
+              <stop offset="80%" style="stop-color:#4af0c8;stop-opacity:0.8"/>
+              <stop offset="100%" style="stop-color:#0a0b0d;stop-opacity:1"/>
+            </linearGradient>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="3" result="blur"/>
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <path id="lwave1" fill="none" stroke="url(#waveGrad)" stroke-width="2.5" filter="url(#glow)" opacity="0.9"/>
+          <path id="lwave2" fill="none" stroke="url(#waveGrad)" stroke-width="1.5" filter="url(#glow)" opacity="0.5"/>
+          <path id="lwave3" fill="none" stroke="rgba(74,240,200,0.2)" stroke-width="1" opacity="0.4"/>
+        </svg>
+        <div style="position:relative;z-index:2;display:flex;gap:14px;align-items:center;">
+          <span class="l-letter" id="ll-a" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#fff;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.4);letter-spacing:2px;">A</span>
+          <span class="l-letter" id="ll-b" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#fff;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.4);letter-spacing:2px;">B</span>
+          <span class="l-letter" id="ll-l" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#fff;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.4);letter-spacing:2px;">L</span>
+          <span class="l-letter" id="ll-t" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#4af0c8;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.6);letter-spacing:2px;">T</span>
+          <span class="l-letter" id="ll-y" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#fff;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.4);letter-spacing:2px;">Y</span>
+        </div>
+      </div>
+
+      <div class="hero-tagline" style="opacity:0;animation:fadeUp 0.7s ease 1.4s forwards;">TRAIN YOUR SIGNAL</div>
+
+      <div class="hero-desc" style="opacity:0;animation:fadeUp 0.7s ease 1.6s forwards;">
+        A personal training environment for <strong>remote viewing, psi research, and consciousness exploration</strong> — built on decades of declassified government science and peer-reviewed research.
+      </div>
+
+      <div class="hero-cta" style="opacity:0;animation:fadeUp 0.7s ease 1.8s forwards;">
+        <button class="btn-install" id="hero-install-btn" onclick="handleInstall()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          INSTALL ABLTY
+        </button>
+        <a href="#learn" class="btn-learn">See how it works</a>
+      </div>
+    </div>
+
+    <div class="scroll-hint">
+      <div class="scroll-hint-line"></div>
+      <span>Scroll</span>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── THE SCIENCE ── -->
+  <section class="research-section" id="learn">
+
+    <div class="reveal">
+      <div class="section-tag">The Research</div>
+      <div class="section-title">THIS IS REAL SCIENCE</div>
+      <div class="section-body">
+        For over two decades, the U.S. government funded classified research into human psi abilities. The results were significant enough to run the program for 23 years. That research is now declassified — and the methodology is the foundation of ABLTY.
+      </div>
+    </div>
+
+    <div class="signal-visual reveal" style="transition-delay:0.1s">
+      <div class="signal-bar" style="height:40%;animation-delay:0s"></div>
+      <div class="signal-bar" style="height:65%;animation-delay:0.1s"></div>
+      <div class="signal-bar" style="height:90%;animation-delay:0.2s"></div>
+      <div class="signal-bar" style="height:55%;animation-delay:0.3s"></div>
+      <div class="signal-bar" style="height:100%;animation-delay:0.4s"></div>
+      <div class="signal-bar" style="height:70%;animation-delay:0.5s"></div>
+      <div class="signal-bar" style="height:45%;animation-delay:0.6s"></div>
+      <div class="signal-bar" style="height:80%;animation-delay:0.7s"></div>
+      <div class="signal-bar" style="height:60%;animation-delay:0.8s"></div>
+      <div class="signal-bar" style="height:35%;animation-delay:0.9s"></div>
+      <div class="signal-bar" style="height:75%;animation-delay:1.0s"></div>
+      <div class="signal-bar" style="height:50%;animation-delay:1.1s"></div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:12px;" class="reveal" style="transition-delay:0.15s">
+
+      <div class="cite-card">
+        <div class="cite-label">Declassified · CIA · 1995</div>
+        <div class="cite-title">Project STARGATE</div>
+        <div class="cite-source">
+          A 23-year, $20 million U.S. government program at Stanford Research Institute investigating remote viewing. Declassified in 1995. Researchers Hal Puthoff and Russell Targ demonstrated statistically significant results across thousands of trials. Program operated under the Defense Intelligence Agency.
+        </div>
+      </div>
+
+      <div class="cite-card">
+        <div class="cite-label">Peer-Reviewed · Journal of Scientific Exploration</div>
+        <div class="cite-title">Meta-Analysis of Remote Viewing Experiments</div>
+        <div class="cite-source">
+          A comprehensive meta-analysis of 653 remote viewing trials conducted across multiple laboratories found an overall hit rate significantly above chance (p &lt; 0.0001). Effect sizes were consistent across independent research groups. — Utts, J. (1996). An Assessment of the Evidence for Psychic Functioning.
+        </div>
+      </div>
+
+      <div class="cite-card">
+        <div class="cite-label">Princeton University · PEAR Lab · 1979–2007</div>
+        <div class="cite-title">Princeton Engineering Anomalies Research</div>
+        <div class="cite-source">
+          28 years of rigorous laboratory research at Princeton University examining human-machine interactions and remote perception. Published over 80 technical reports. The remote perception database includes over 650 formal trials demonstrating consistent anomalous cognition effects.
+        </div>
+      </div>
+
+      <div class="cite-card">
+        <div class="cite-label">Peer-Reviewed · Psychological Bulletin · 1994</div>
+        <div class="cite-title">Ganzfeld ESP Studies</div>
+        <div class="cite-source">
+          A meta-analysis of 11 independent Ganzfeld databases (2,549 sessions) found a hit rate of 33.2% against a 25% chance baseline — a statistically significant result replicated across independent laboratories. — Bem, D. &amp; Honorton, C. Does psi exist?
+        </div>
+      </div>
+
+    </div>
+
+    <div class="stats-row reveal" style="transition-delay:0.2s">
+      <div class="stat-cell">
+        <div class="stat-val">23</div>
+        <div class="stat-label">Years of govt. funded research</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-val">$20M</div>
+        <div class="stat-label">CIA / DIA program budget</div>
+      </div>
+      <div class="stat-cell">
+        <div class="stat-val">p&lt;.0001</div>
+        <div class="stat-label">Statistical significance of results</div>
+      </div>
+    </div>
+
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── MODULES ── -->
+  <section class="section" id="modules">
+
+    <div class="reveal">
+      <div class="section-tag">The Protocols</div>
+      <div class="section-title">FOUR TRAINING SYSTEMS</div>
+      <div class="section-body">
+        Each module is grounded in a specific research methodology. Your data is tracked over time. Patterns emerge. The signal gets clearer.
+      </div>
+    </div>
+
+    <div style="margin-top:32px;">
+
+      <div class="module-item reveal">
+        <div class="module-num">01</div>
+        <div class="module-content">
+          <div class="module-name">REMOTE VIEWING</div>
+          <div class="module-tag">Project Stargate Protocol</div>
+          <div class="module-desc">
+            Receive a blind target reference number. Sketch your impressions before analysis. AI grades your session across 6 dimensions against the hidden target. Based directly on the CRV methodology developed at SRI International for the U.S. government.
+          </div>
+        </div>
+      </div>
+
+      <div class="module-item reveal">
+        <div class="module-num">02</div>
+        <div class="module-content">
+          <div class="module-name">PSI TRAINING</div>
+          <div class="module-tag">Zener · Presentiment · Photo Pair</div>
+          <div class="module-desc">
+            Three protocols in one hub. The Zener card test (25 trials, 20% chance baseline). Presentiment timing — based on Dean Radin's research showing measurable responses to future stimuli before they occur. Photo Pair intuition — tap the card hiding a pleasant image, testing unconscious orientation toward emotionally positive future stimuli.
+          </div>
+        </div>
+      </div>
+
+      <div class="module-item reveal">
+        <div class="module-num">03</div>
+        <div class="module-content">
+          <div class="module-name">DREAM LAB</div>
+          <div class="module-tag">Lucid Dream Training</div>
+          <div class="module-desc">
+            Reality Check Pager sends randomized notifications throughout your day, training the perceptual habit that triggers lucid dreaming. Based on cognitive induction research showing frequency and randomness of checks predicts lucidity onset.
+          </div>
+        </div>
+      </div>
+
+      <div class="module-item reveal">
+        <div class="module-num">04</div>
+        <div class="module-content">
+          <div class="module-name">ASTRAL PROJECTION</div>
+          <div class="module-tag">OBE Induction · Coming Soon</div>
+          <div class="module-desc">
+            Out-of-body experience induction and exit protocols. Guided sessions built around the hypnagogic transition window — the threshold state between waking and sleep where OBE onset is most frequently reported.
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── FINAL CTA ── -->
+  <section class="final-cta reveal">
+    <div class="final-cta-glow"></div>
+    <div class="final-logo">ABL<span>T</span>Y</div>
+    <div class="final-tag">Free to start. Data is yours.</div>
+    <button class="btn-install" id="final-install-btn" onclick="handleInstall()" style="margin: 0 auto;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      INSTALL ABLTY
+    </button>
+  </section>
+
+  <!-- FOOTER -->
+  <footer>
+    <a href="/app.html">Open App</a>
+    <a href="terms.html">Terms</a>
+    <a href="privacy.html">Privacy</a>
+    <a href="mailto:abltyapp@gmail.com">Contact</a>
+  </footer>
+
+</div><!-- /mobile-content -->
+
+<!-- iOS INSTALL MODAL -->
+<div class="modal-overlay" id="ios-modal">
+  <div class="modal-box">
+    <div class="modal-title">Add to Home Screen</div>
+    <div class="modal-sub">Follow these steps in Safari</div>
+
+    <div class="ios-step">
+      <div class="ios-step-num">1</div>
+      <div class="ios-step-text">Tap the <strong>Share button</strong> at the bottom of your browser — it looks like a box with an arrow pointing up.</div>
+    </div>
+    <div class="ios-step">
+      <div class="ios-step-num">2</div>
+      <div class="ios-step-text">Scroll down and tap <strong>"Add to Home Screen"</strong></div>
+    </div>
+    <div class="ios-step">
+      <div class="ios-step-num">3</div>
+      <div class="ios-step-text">Tap <strong>"Add"</strong> in the top right. ABLTY will appear on your home screen like any other app.</div>
+    </div>
+
+    <button class="modal-close" onclick="closeModal()">Got It</button>
+  </div>
+</div>
+
+<script>
+// -- WAVE ANIMATION ------------------------------------------
+let landingWaveT = 0;
+
+function animateLandingWave() {
+  landingWaveT += 0.04;
+  const W = 300, H = 120, CY = H / 2;
+  const makePath = (amp, freq, phase, vShift) => {
+    let d = '';
+    for (let x = 0; x <= W; x += 2) {
+      const y = CY + vShift
+        + amp * Math.sin(freq * x / W * Math.PI * 2 + phase + landingWaveT)
+        + (amp * 0.4) * Math.sin(freq * 1.7 * x / W * Math.PI * 2 - phase * 0.5 + landingWaveT * 1.3);
+      d += (x === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+    }
+    return d;
+  };
+  const w1 = document.getElementById('lwave1');
+  const w2 = document.getElementById('lwave2');
+  const w3 = document.getElementById('lwave3');
+  if (w1) w1.setAttribute('d', makePath(28, 1.5, 0, 0));
+  if (w2) w2.setAttribute('d', makePath(18, 2, Math.PI * 0.6, 8));
+  if (w3) w3.setAttribute('d', makePath(12, 1, Math.PI * 1.2, -8));
+  requestAnimationFrame(animateLandingWave);
+}
+
+function startLandingAnimation() {
+  animateLandingWave();
+  const letters = ['ll-a', 'll-b', 'll-l', 'll-t', 'll-y'];
+  letters.forEach((id, i) => {
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      if (el) { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; }
+    }, 400 + i * 160);
+  });
+  // Desktop letters
+  const dletters = ['dl-a', 'dl-b', 'dl-l', 'dl-t', 'dl-y'];
+  dletters.forEach((id, i) => {
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      if (el) { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; }
+    }, 400 + i * 160);
+  });
+}
+
+let desktopWaveT = 0;
+function animateDesktopWave() {
+  desktopWaveT += 0.04;
+  const W = 300, H = 120, CY = H / 2;
+  const makePath = (amp, freq, phase, vShift) => {
+    let d = '';
+    for (let x = 0; x <= W; x += 2) {
+      const y = CY + vShift
+        + amp * Math.sin(freq * x / W * Math.PI * 2 + phase + desktopWaveT)
+        + (amp * 0.4) * Math.sin(freq * 1.7 * x / W * Math.PI * 2 - phase * 0.5 + desktopWaveT * 1.3);
+      d += (x === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+    }
+    return d;
+  };
+  const w1 = document.getElementById('dwave1');
+  const w2 = document.getElementById('dwave2');
+  const w3 = document.getElementById('dwave3');
+  if (w1) w1.setAttribute('d', makePath(28, 1.5, 0, 0));
+  if (w2) w2.setAttribute('d', makePath(18, 2, Math.PI * 0.6, 8));
+  if (w3) w3.setAttribute('d', makePath(12, 1, Math.PI * 1.2, -8));
+  requestAnimationFrame(animateDesktopWave);
+}
+window.addEventListener('load', animateDesktopWave);
+
+// Trigger letter animation — use DOMContentLoaded + load as backup
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startLandingAnimation);
+} else {
+  startLandingAnimation();
+}
+window.addEventListener('load', startLandingAnimation);
+
+// ── DEVICE DETECTION ──────────────────────────────────
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches
+  || window.navigator.standalone;
+
+// If already installed as PWA, go straight to app
+if (isInStandaloneMode) {
+  window.location.href = '/app.html';
+}
+
+// ── INSTALL PROMPT ────────────────────────────────────
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  updateInstallButtons();
+});
+
+function updateInstallButtons() {
+  // Buttons already show INSTALL — nothing to change unless we want
+  // to differentiate between "add to home screen" states
+}
+
+async function handleInstall() {
+  if (isIOS) {
+    // Show instruction modal
+    document.getElementById('ios-modal').classList.add('visible');
+    return;
+  }
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    if (outcome === 'accepted') {
+      // Brief delay then redirect to app
+      setTimeout(() => { window.location.href = '/app.html'; }, 800);
+    }
+  } else {
+    // Fallback: open the app directly
+    window.location.href = '/app.html';
+  }
+}
+
+function openApp() {
+  window.location.href = '/app.html';
+}
+
+function closeModal() {
+  document.getElementById('ios-modal').classList.remove('visible');
+}
+
+// Close modal on backdrop tap
+document.getElementById('ios-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ── SCROLL REVEAL ─────────────────────────────────────
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// ── SMOOTH SCROLL FOR ANCHOR LINKS ───────────────────
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior: 'smooth' });
+  });
+});
+</script>
+
+</body>
+</html>
