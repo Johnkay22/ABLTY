@@ -7,6 +7,7 @@
 <meta name="theme-color" content="#0a0b0d">
 <title>ABLTY  -  Train Your Signal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="manifest" href="/manifest.json">
@@ -655,6 +656,12 @@ footer a:active { color: var(--muted); }
   cursor: grab;
 }
 .hscroll-track::-webkit-scrollbar { display: none; }
+.hscroll-track::after {
+  content: '';
+  min-width: 28px;
+  flex-shrink: 0;
+  display: block;
+}
 .hscroll-track.grabbing { cursor: grabbing; }
 
 /* Cite cards in horizontal track */
@@ -876,6 +883,12 @@ footer a:active { color: var(--muted); }
   scrollbar-width: none;
 }
 .phone-track::-webkit-scrollbar { display: none; }
+.phone-track::after {
+  content: '';
+  min-width: 28px;
+  flex-shrink: 0;
+  display: block;
+}
 .phone-frame {
   flex: 0 0 200px;
   height: 360px;
@@ -1056,14 +1069,13 @@ footer a:active { color: var(--muted); }
     </div>
   </div>
   <div class="msg">
-    This app is built for mobile.<br>
-    Scan the QR code with your phone<br>to open it on your device.
+    Train your psi abilities with structured protocols built on declassified government research. Remote viewing, consciousness training, and detailed analytics in one app.
   </div>
-  <div>
-    <div class="qr-box">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+    <div class="qr-box" style="background:#fff;padding:12px;border-radius:16px;">
       <img src="/qr.png" alt="Scan to open ABLTY on mobile" style="width:100%;height:100%;border-radius:4px;">
     </div>
-    <div class="qr-label">Scan to open on mobile</div>
+    <div class="qr-label">Scan with your phone camera to install</div>
   </div>
 </div>
 
@@ -1128,11 +1140,10 @@ footer a:active { color: var(--muted); }
       </div>
 
       <div class="hero-cta" style="opacity:0;animation:fadeUp 0.7s ease 1.8s forwards;">
-        <button class="btn-install" id="hero-install-btn" onclick="handleInstall()">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          INSTALL ABLTY
-        </button>
-        <a href="#learn" class="btn-learn">See how it works</a>
+        <a href="#learn" class="btn-install" style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:10px;">
+          SEE HOW IT WORKS
+        </a>
+        <button class="btn-learn" onclick="handleInstall()" style="cursor:pointer;border:none;background:transparent;width:100%;max-width:340px;margin-top:8px;padding:16px 24px;color:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;border:1px solid var(--border2);border-radius:14px;">INSTALL ABLTY</button>
       </div>
     </div>
 
@@ -1143,6 +1154,156 @@ footer a:active { color: var(--muted); }
   </section>
 
   <div class="divider"></div>
+
+
+  <!-- ── MODULES ── -->
+  <section class="section" id="modules">
+
+    <div class="reveal">
+      <div class="section-tag">The Protocols</div>
+      <div class="section-title">FOUR TRAINING SYSTEMS</div>
+      <div class="section-body">
+        Each module is grounded in a specific research methodology. Your data is tracked over time. Patterns emerge. The signal gets clearer.
+      </div>
+    </div>
+
+    <div class="hscroll-wrap reveal" style="transition-delay:0.1s;margin-top:8px;">
+      <div class="hscroll-track" id="module-track">
+
+        <div class="module-card-h">
+          <div class="module-card-num">01</div>
+          <div class="module-card-name">REMOTE VIEWING</div>
+          <div class="module-card-tag">Project Stargate Protocol</div>
+          <div class="module-card-desc">
+            Receive a blind target reference number. Sketch your impressions. AI grades your session across 6 dimensions against the hidden target. Built on CRV methodology developed for the U.S. government at SRI International.
+          </div>
+        </div>
+
+        <div class="module-card-h">
+          <div class="module-card-num">02</div>
+          <div class="module-card-name">PSI TRAINING</div>
+          <div class="module-card-tag">Zener · Presentiment · Photo Pair</div>
+          <div class="module-card-desc">
+            Three protocols. Zener card test (25 trials, 20% chance baseline). Presentiment timing based on Dean Radin's precognition research. Photo Pair intuition testing unconscious orientation toward future emotional stimuli.
+          </div>
+        </div>
+
+        <div class="module-card-h">
+          <div class="module-card-num">03</div>
+          <div class="module-card-name">DREAM LAB</div>
+          <div class="module-card-tag">Lucid Dream Training</div>
+          <div class="module-card-desc">
+            Reality Check Pager sends randomized notifications throughout your day, training the perceptual habit that triggers lucid dreaming. Frequency and randomness of checks predicts lucidity onset.
+          </div>
+        </div>
+
+        <div class="module-card-h">
+          <div class="module-card-num">04</div>
+          <div class="module-card-name">ASTRAL PROJECTION</div>
+          <div class="module-card-tag">OBE Induction · Coming Soon</div>
+          <div class="module-card-desc">
+            Guided OBE induction and exit protocols built around the hypnagogic transition window. The threshold state between waking and sleep where out-of-body onset is most frequently reported.
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </section>
+
+  <div class="divider"></div>
+
+
+  <div class="divider"></div>
+
+
+  <!-- ── AI GRADER SECTION ── -->
+  <section class="grader-section reveal" id="grader">
+    <div class="section-tag">The AI Grader</div>
+    <div class="section-title">YOUR SESSION. SCORED.</div>
+    <div class="section-body">
+      After every Remote Viewing session, your sketch and impressions are analyzed by AI across 6 weighted dimensions. No self-reporting. No guesswork. Objective, consistent scoring on every session you complete.
+    </div>
+
+    <div class="grader-card">
+      <div class="grader-top">
+        <div>
+          <div class="grader-trn">TRN 6047-5129</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:3px;letter-spacing:1px;">REMOTE VIEWING SESSION</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="grader-score-big">84%</div>
+          <div class="grader-score-label">Session Score</div>
+        </div>
+      </div>
+
+      <div class="grader-dims">
+        <div class="grader-dim-row">
+          <div class="grader-dim-label">Form / Shape</div>
+          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:100%;"></div></div>
+          <div class="grader-dim-val">5/5</div>
+        </div>
+        <div class="grader-dim-row">
+          <div class="grader-dim-label">Spatial</div>
+          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:80%;"></div></div>
+          <div class="grader-dim-val">4/5</div>
+        </div>
+        <div class="grader-dim-row">
+          <div class="grader-dim-label">Texture</div>
+          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:60%;"></div></div>
+          <div class="grader-dim-val">3/5</div>
+        </div>
+        <div class="grader-dim-row">
+          <div class="grader-dim-label">Motion</div>
+          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:80%;"></div></div>
+          <div class="grader-dim-val">4/5</div>
+        </div>
+        <div class="grader-dim-row">
+          <div class="grader-dim-label">Emotion</div>
+          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:60%;"></div></div>
+          <div class="grader-dim-val">3/5</div>
+        </div>
+        <div class="grader-dim-row">
+          <div class="grader-dim-label">Color / Light</div>
+          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:60%;"></div></div>
+          <div class="grader-dim-val">3/5</div>
+        </div>
+      </div>
+
+      <div class="grader-summary">
+        <strong>Exceptional geometric match.</strong> The viewer clearly depicted the circular structure with radial spokes. Impressions of "round," "night," and "lights" are direct hits. Strong spatial understanding of the target.
+      </div>
+    </div>
+  </section>
+
+
+  <div class="divider"></div>
+
+
+  <!-- ── MISSION SECTION ── -->
+  <section class="mission-section reveal" id="mission">
+    <div class="mission-line" style="margin-bottom:28px;"></div>
+    <span class="mission-ability">ABIL<span class="t-accent">T</span>Y</span>
+    <div class="mission-body">
+      Every human has the <strong>ability</strong> to perceive beyond what is commonly understood. This is not a belief. It is a finding supported by decades of peer-reviewed science and classified government research.
+    </div>
+    <div class="mission-body">
+      ABLTY exists as a structured training and practice environment. Build your <strong>ability</strong> through consistent protocols. Track your performance with detailed analytics. Understand exactly where your signal is strongest and where to focus your efforts.
+    </div>
+    <div class="mission-body" style="font-style:italic;font-size:15px;color:var(--dim);">
+      The question is not whether the <strong>ability</strong> exists. The question is how far you can develop it.
+    </div>
+    <div class="mission-line"></div>
+
+    <div style="display:flex;justify-content:center;margin-top:36px;" class="reveal">
+      <button class="btn-install" onclick="handleInstall()" style="max-width:300px;">BEGIN YOUR TRAINING</button>
+    </div>
+
+  </section>
+
+
+  <div class="divider"></div>
+
 
   <!-- ── THE SCIENCE ── -->
   <section class="research-section" id="learn">
@@ -1223,147 +1384,15 @@ footer a:active { color: var(--muted); }
       </div>
     </div>
 
-  </section>
-
-  <div class="divider"></div>
-
-  <!-- ── MODULES ── -->
-  <section class="section" id="modules">
-
-    <div class="reveal">
-      <div class="section-tag">The Protocols</div>
-      <div class="section-title">FOUR TRAINING SYSTEMS</div>
-      <div class="section-body">
-        Each module is grounded in a specific research methodology. Your data is tracked over time. Patterns emerge. The signal gets clearer.
-      </div>
-    </div>
-
-    <div class="hscroll-wrap reveal" style="transition-delay:0.1s;margin-top:8px;">
-      <div class="hscroll-track" id="module-track">
-
-        <div class="module-card-h">
-          <div class="module-card-num">01</div>
-          <div class="module-card-name">REMOTE VIEWING</div>
-          <div class="module-card-tag">Project Stargate Protocol</div>
-          <div class="module-card-desc">
-            Receive a blind target reference number. Sketch your impressions. AI grades your session across 6 dimensions against the hidden target. Built on CRV methodology developed for the U.S. government at SRI International.
-          </div>
-        </div>
-
-        <div class="module-card-h">
-          <div class="module-card-num">02</div>
-          <div class="module-card-name">PSI TRAINING</div>
-          <div class="module-card-tag">Zener · Presentiment · Photo Pair</div>
-          <div class="module-card-desc">
-            Three protocols. Zener card test (25 trials, 20% chance baseline). Presentiment timing based on Dean Radin's precognition research. Photo Pair intuition testing unconscious orientation toward future emotional stimuli.
-          </div>
-        </div>
-
-        <div class="module-card-h">
-          <div class="module-card-num">03</div>
-          <div class="module-card-name">DREAM LAB</div>
-          <div class="module-card-tag">Lucid Dream Training</div>
-          <div class="module-card-desc">
-            Reality Check Pager sends randomized notifications throughout your day, training the perceptual habit that triggers lucid dreaming. Frequency and randomness of checks predicts lucidity onset.
-          </div>
-        </div>
-
-        <div class="module-card-h">
-          <div class="module-card-num">04</div>
-          <div class="module-card-name">ASTRAL PROJECTION</div>
-          <div class="module-card-tag">OBE Induction · Coming Soon</div>
-          <div class="module-card-desc">
-            Guided OBE induction and exit protocols built around the hypnagogic transition window. The threshold state between waking and sleep where out-of-body onset is most frequently reported.
-          </div>
-        </div>
-
-      </div>
+    <div style="display:flex;justify-content:center;margin-top:32px;" class="reveal">
+      <button class="btn-install" onclick="handleInstall()" style="max-width:300px;">TEST YOUR ABILITIES</button>
     </div>
 
   </section>
 
-  <div class="divider"></div>
 
   <div class="divider"></div>
 
-  <!-- ── MISSION SECTION ── -->
-  <section class="mission-section reveal" id="mission">
-    <div class="mission-line" style="margin-bottom:28px;"></div>
-    <span class="mission-ability">ABIL<span class="t-accent">T</span>Y</span>
-    <div class="mission-body">
-      Every human has the <strong>ability</strong> to perceive beyond what is commonly understood. This is not a belief. It is a finding supported by decades of peer-reviewed science and classified government research.
-    </div>
-    <div class="mission-body">
-      ABLTY exists as a structured training and practice environment. Build your <strong>ability</strong> through consistent protocols. Track your performance with detailed analytics. Understand exactly where your signal is strongest and where to focus your efforts.
-    </div>
-    <div class="mission-body" style="font-style:italic;font-size:15px;color:var(--dim);">
-      The question is not whether the <strong>ability</strong> exists. The question is how far you can develop it.
-    </div>
-    <div class="mission-line"></div>
-  </section>
-
-  <div class="divider"></div>
-
-  <!-- ── AI GRADER SECTION ── -->
-  <section class="grader-section reveal" id="grader">
-    <div class="section-tag">The AI Grader</div>
-    <div class="section-title">YOUR SESSION. SCORED.</div>
-    <div class="section-body">
-      After every Remote Viewing session, your sketch and impressions are analyzed by AI across 6 weighted dimensions. No self-reporting. No guesswork. Objective, consistent scoring on every session you complete.
-    </div>
-
-    <div class="grader-card">
-      <div class="grader-top">
-        <div>
-          <div class="grader-trn">TRN 6047-5129</div>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:3px;letter-spacing:1px;">REMOTE VIEWING SESSION</div>
-        </div>
-        <div style="text-align:right;">
-          <div class="grader-score-big">84%</div>
-          <div class="grader-score-label">Session Score</div>
-        </div>
-      </div>
-
-      <div class="grader-dims">
-        <div class="grader-dim-row">
-          <div class="grader-dim-label">Form / Shape</div>
-          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:100%;"></div></div>
-          <div class="grader-dim-val">5/5</div>
-        </div>
-        <div class="grader-dim-row">
-          <div class="grader-dim-label">Spatial</div>
-          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:80%;"></div></div>
-          <div class="grader-dim-val">4/5</div>
-        </div>
-        <div class="grader-dim-row">
-          <div class="grader-dim-label">Texture</div>
-          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:60%;"></div></div>
-          <div class="grader-dim-val">3/5</div>
-        </div>
-        <div class="grader-dim-row">
-          <div class="grader-dim-label">Motion</div>
-          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:80%;"></div></div>
-          <div class="grader-dim-val">4/5</div>
-        </div>
-        <div class="grader-dim-row">
-          <div class="grader-dim-label">Emotion</div>
-          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:60%;"></div></div>
-          <div class="grader-dim-val">3/5</div>
-        </div>
-        <div class="grader-dim-row">
-          <div class="grader-dim-label">Color / Light</div>
-          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:60%;"></div></div>
-          <div class="grader-dim-val">3/5</div>
-        </div>
-      </div>
-
-      <div class="grader-summary">
-        <strong>Exceptional geometric match.</strong> The viewer clearly depicted the circular structure with radial spokes. Impressions of "round," "night," and "lights" are direct hits. Strong spatial understanding of the target.
-      </div>
-    </div>
-  </section>
-
-  <div class="divider"></div>
 
   <!-- ── SCREENSHOTS PLACEHOLDER ── -->
   <section class="screenshots-section reveal" id="screenshots">
@@ -1373,24 +1402,30 @@ footer a:active { color: var(--muted); }
     </div>
     <div class="phone-track">
       <div class="phone-frame">
-        <img src="/HomeMenu.png" alt="ABLTY Home Screen">
+        <img src="/HomeMenu.png" alt="ABLTY Home Screen" width="200" height="360">
       </div>
       <div class="phone-frame">
-        <img src="/BlankCanvas.png" alt="RV Canvas Session">
+        <img src="/BlankCanvas.png" alt="RV Canvas Session" width="200" height="360">
       </div>
       <div class="phone-frame">
-        <img src="/Impressions.png" alt="RV Impressions Screen">
+        <img src="/Impressions.png" alt="RV Impressions Screen" width="200" height="360">
       </div>
       <div class="phone-frame">
-        <img src="/RVGoodScore.png" alt="RV Session Results">
+        <img src="/RVGoodScore.png" alt="RV Session Results" width="200" height="360">
       </div>
       <div class="phone-frame">
-        <img src="/Analytics.png" alt="Analytics Dashboard">
+        <img src="/Analytics.png" alt="Analytics Dashboard" width="200" height="360">
       </div>
     </div>
+    <div style="display:flex;justify-content:center;margin-top:32px;padding:0 28px;" class="reveal">
+      <button class="btn-install" onclick="handleInstall()" style="max-width:300px;">START TRAINING</button>
+    </div>
+
   </section>
 
+
   <div class="divider"></div>
+
 
   <!-- ── COMING SOON SECTION ── -->
   <section class="coming-section reveal" id="coming">
@@ -1425,7 +1460,9 @@ footer a:active { color: var(--muted); }
     </div>
   </section>
 
+
   <div class="divider"></div>
+
 
   <!-- ── FINAL CTA ── -->
   <section class="final-cta reveal">
@@ -1437,6 +1474,8 @@ footer a:active { color: var(--muted); }
       INSTALL ABLTY
     </button>
   </section>
+
+
 
   <!-- FOOTER -->
   <footer>
@@ -1573,7 +1612,27 @@ let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredPrompt = e;
+  console.log('[ABLTY Install] beforeinstallprompt fired - native install available');
   updateInstallButtons();
+});
+
+// Debug: log why install prompt may not be available
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    if (!deferredPrompt) {
+      console.log('[ABLTY Install] beforeinstallprompt has not fired yet');
+      console.log('[ABLTY Install] SW registered:', 'serviceWorker' in navigator);
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistration().then(reg => {
+          console.log('[ABLTY Install] SW registration:', reg ? 'active' : 'none');
+          if (reg) console.log('[ABLTY Install] SW state:', reg.active ? reg.active.state : 'no active worker');
+        });
+      }
+      // Check manifest
+      const manifestLink = document.querySelector('link[rel="manifest"]');
+      console.log('[ABLTY Install] Manifest link:', manifestLink ? manifestLink.href : 'missing');
+    }
+  }, 3000);
 });
 
 function updateInstallButtons() {
