@@ -5432,6 +5432,45 @@ function showComingSoon(name) {
 
 // ─── INIT ─────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+
+  // Block browser tab access — app must be used as installed PWA
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone
+    || document.referrer.includes('android-app://');
+
+  if (!isStandalone) {
+    // Show "launch from home screen" overlay instead of the app
+    const gate = document.createElement('div');
+    gate.style.cssText = [
+      'position:fixed;inset:0;z-index:99999',
+      'background:#0a0b0d',
+      'display:flex;flex-direction:column;align-items:center;justify-content:center',
+      'font-family:"DM Sans",sans-serif;text-align:center;padding:40px 32px;gap:20px',
+    ].join(';');
+    gate.innerHTML = `
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:56px;letter-spacing:6px;color:#f0f0f0;line-height:1;">
+        ABL<span style="color:#4af0c8;">T</span>Y
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#4af0c8;text-transform:uppercase;">
+        App Installed
+      </div>
+      <div style="font-size:15px;color:#6b7280;line-height:1.7;max-width:300px;">
+        ABLTY is designed to be used as an installed app. Find the ABLTY icon on your home screen and launch it from there.
+      </div>
+      <div style="margin-top:8px;">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#4af0c8" stroke-width="1.5" stroke-linecap="round" opacity="0.5">
+          <rect x="5" y="2" width="14" height="20" rx="2"/>
+          <line x1="12" y1="18" x2="12" y2="18.01"/>
+        </svg>
+      </div>
+      <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;color:#3a3f48;text-transform:uppercase;margin-top:8px;">
+        Launch from home screen
+      </div>
+    `;
+    document.body.appendChild(gate);
+    return; // Stop all app initialization
+  }
+
   try { loadState(); } catch(e) {
     STATE.seekerId = '#' + Math.floor(10000 + Math.random() * 90000);
   }
