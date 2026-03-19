@@ -3,9 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<meta name="description" content="ABLTY — Psi research and consciousness training. Based on declassified government programs and peer-reviewed science.">
+<meta name="description" content="ABLTY  -  Psi research and consciousness training. Based on declassified government programs and peer-reviewed science.">
 <meta name="theme-color" content="#0a0b0d">
-<title>ABLTY — Train Your Signal</title>
+<title>ABLTY  -  Train Your Signal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -637,6 +637,390 @@ footer a:active { color: var(--muted); }
   opacity: 1;
   transform: translateY(0);
 }
+
+/* ── PARALLAX ── */
+.parallax-slow { will-change: transform; }
+.parallax-med  { will-change: transform; }
+
+/* ── HORIZONTAL SCROLL TRACKS ── */
+.hscroll-track {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  overflow-y: visible;
+  padding: 20px 28px 24px;
+  margin: 0 -28px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  cursor: grab;
+}
+.hscroll-track::-webkit-scrollbar { display: none; }
+.hscroll-track.grabbing { cursor: grabbing; }
+
+/* Cite cards in horizontal track */
+.hscroll-track .cite-card {
+  flex: 0 0 280px;
+  margin-bottom: 0;
+}
+
+/* Module cards in horizontal track */
+.module-card-h {
+  flex: 0 0 260px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 24px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+.module-card-h::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.module-card-h:active::before { opacity: 1; }
+.module-card-h:active { border-color: var(--border2); }
+.module-card-num {
+  font-family: var(--display);
+  font-size: 56px;
+  line-height: 1;
+  color: var(--dim);
+  margin-bottom: 8px;
+}
+.module-card-name {
+  font-family: var(--display);
+  font-size: 22px;
+  letter-spacing: 1.5px;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.module-card-tag {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: var(--accent);
+  text-transform: uppercase;
+  background: rgba(74,240,200,0.08);
+  border: 1px solid rgba(74,240,200,0.2);
+  border-radius: 4px;
+  padding: 2px 7px;
+  margin-bottom: 12px;
+}
+.module-card-desc {
+  font-family: var(--body);
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+/* Scroll fade edges */
+.hscroll-wrap {
+  position: relative;
+}
+.hscroll-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 40px; height: 100%;
+  background: linear-gradient(to right, transparent, var(--bg));
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ── MISSION SECTION ── */
+.mission-section {
+  padding: 80px 28px;
+  position: relative; z-index: 1;
+  text-align: center;
+  background: linear-gradient(180deg, transparent, rgba(74,240,200,0.025) 50%, transparent);
+}
+.mission-ability {
+  font-family: var(--display);
+  font-size: 72px;
+  letter-spacing: 4px;
+  line-height: 1;
+  color: var(--text);
+  margin-bottom: 28px;
+  display: block;
+}
+.mission-ability .t-accent { color: var(--accent); }
+.mission-body {
+  font-family: var(--body);
+  font-size: 17px;
+  color: var(--muted);
+  line-height: 1.8;
+  max-width: 360px;
+  margin: 0 auto 28px;
+}
+.mission-body strong { color: var(--text); font-weight: 500; }
+.mission-line {
+  width: 40px; height: 2px;
+  background: var(--accent);
+  margin: 0 auto;
+  opacity: 0.5;
+}
+
+/* ── GRADER SECTION ── */
+.grader-section {
+  padding: 72px 28px;
+  position: relative; z-index: 1;
+}
+.grader-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+  margin-top: 28px;
+}
+.grader-top {
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.grader-trn {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--muted);
+}
+.grader-score-big {
+  font-family: var(--display);
+  font-size: 52px;
+  color: var(--accent);
+  line-height: 1;
+}
+.grader-score-label {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+  text-align: right;
+  margin-top: 2px;
+}
+.grader-dims {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-bottom: 1px solid var(--border);
+}
+.grader-dim-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.grader-dim-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--muted);
+  text-transform: uppercase;
+  width: 120px;
+  flex-shrink: 0;
+}
+.grader-dim-bar {
+  flex: 1;
+  height: 3px;
+  background: var(--border2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.grader-dim-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width 1s ease;
+}
+.grader-dim-val {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text);
+  width: 24px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.grader-summary {
+  padding: 16px 20px;
+  font-family: var(--body);
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+  font-style: italic;
+}
+.grader-summary strong { color: var(--accent); font-style: normal; }
+
+/* ── SCREENSHOTS PLACEHOLDER ── */
+.screenshots-section {
+  padding: 72px 0 72px;
+  position: relative; z-index: 1;
+}
+.screenshots-section .section-pad {
+  padding: 0 28px;
+  text-align: center;
+}
+.phone-track {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 24px 28px 8px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.phone-track::-webkit-scrollbar { display: none; }
+.phone-frame {
+  flex: 0 0 200px;
+  height: 360px;
+  background: var(--card);
+  border: 2px solid var(--border2);
+  border-radius: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  position: relative;
+  overflow: hidden;
+}
+.phone-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+  border-radius: 30px;
+}
+.phone-placeholder {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--dim);
+  text-transform: uppercase;
+  text-align: center;
+  padding: 16px;
+}
+.phone-frame::before {
+  content: '';
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px; height: 4px;
+  background: var(--border2);
+  border-radius: 2px;
+  z-index: 3;
+}
+
+/* ── COMING SOON SECTION ── */
+.coming-section {
+  padding: 72px 28px;
+  position: relative; z-index: 1;
+  text-align: center;
+}
+.coming-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 28px;
+}
+.coming-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.coming-card::after {
+  content: 'COMING SOON';
+  position: absolute;
+  top: 16px; right: 16px;
+  font-family: var(--mono);
+  font-size: 7px;
+  letter-spacing: 2px;
+  color: var(--warn);
+  background: rgba(240,169,74,0.1);
+  border: 1px solid rgba(240,169,74,0.25);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+.coming-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.coming-name {
+  font-family: var(--display);
+  font-size: 22px;
+  letter-spacing: 1px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.coming-desc {
+  font-family: var(--body);
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+  padding-right: 80px;
+}
+
+/* ── LEGAL MODAL ── */
+.legal-modal-overlay {
+  position: fixed; inset: 0; z-index: 9997;
+  background: rgba(0,0,0,0.9);
+  display: none;
+  flex-direction: column;
+}
+.legal-modal-overlay.visible { display: flex; }
+.legal-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--card);
+}
+.legal-modal-title {
+  font-family: var(--display);
+  font-size: 24px;
+  letter-spacing: 1px;
+  color: var(--text);
+}
+.legal-modal-close {
+  width: 36px; height: 36px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+.legal-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  font-family: var(--body);
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.75;
+  white-space: pre-wrap;
+  -webkit-overflow-scrolling: touch;
+}
 </style>
 </head>
 <body>
@@ -708,7 +1092,7 @@ footer a:active { color: var(--muted); }
         Research-Based · Data-Driven
       </div>
 
-      <!-- Splash animation — wave + letters -->
+      <!-- Splash animation  -  wave + letters -->
       <div class="splash-logo-wrap" style="width:300px;height:120px;position:relative;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;">
         <svg class="splash-wave" viewBox="0 0 300 120" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;">
           <defs>
@@ -740,7 +1124,7 @@ footer a:active { color: var(--muted); }
       <div class="hero-tagline" style="opacity:0;animation:fadeUp 0.7s ease 1.4s forwards;">TRAIN YOUR SIGNAL</div>
 
       <div class="hero-desc" style="opacity:0;animation:fadeUp 0.7s ease 1.6s forwards;">
-        A personal training environment for <strong>remote viewing, psi research, and consciousness exploration</strong> — built on decades of declassified government science and peer-reviewed research.
+        A personal training environment for <strong>remote viewing, psi research, and consciousness exploration</strong>, built on decades of declassified government science and peer-reviewed research.
       </div>
 
       <div class="hero-cta" style="opacity:0;animation:fadeUp 0.7s ease 1.8s forwards;">
@@ -767,7 +1151,7 @@ footer a:active { color: var(--muted); }
       <div class="section-tag">The Research</div>
       <div class="section-title">THIS IS REAL SCIENCE</div>
       <div class="section-body">
-        For over two decades, the U.S. government funded classified research into human psi abilities. The results were significant enough to run the program for 23 years. That research is now declassified — and the methodology is the foundation of ABLTY.
+        For over two decades, the U.S. government funded classified research into human psi abilities. The results were significant enough to run the program for 23 years. That research is now declassified  -  and the methodology is the foundation of ABLTY.
       </div>
     </div>
 
@@ -786,40 +1170,42 @@ footer a:active { color: var(--muted); }
       <div class="signal-bar" style="height:50%;animation-delay:1.1s"></div>
     </div>
 
-    <div style="display:flex;flex-direction:column;gap:12px;" class="reveal" style="transition-delay:0.15s">
+    <div class="hscroll-wrap reveal" style="transition-delay:0.15s">
+      <div class="hscroll-track" id="cite-track">
 
-      <div class="cite-card">
-        <div class="cite-label">Declassified · CIA · 1995</div>
-        <div class="cite-title">Project STARGATE</div>
-        <div class="cite-source">
-          A 23-year, $20 million U.S. government program at Stanford Research Institute investigating remote viewing. Declassified in 1995. Researchers Hal Puthoff and Russell Targ demonstrated statistically significant results across thousands of trials. Program operated under the Defense Intelligence Agency.
+        <div class="cite-card">
+          <div class="cite-label">Declassified · CIA · 1995</div>
+          <div class="cite-title">Project STARGATE</div>
+          <div class="cite-source">
+            A 23-year, $20 million U.S. government program at Stanford Research Institute investigating remote viewing. Declassified in 1995. Researchers Hal Puthoff and Russell Targ demonstrated statistically significant results across thousands of trials. Operated under the Defense Intelligence Agency.
+          </div>
         </div>
-      </div>
 
-      <div class="cite-card">
-        <div class="cite-label">Peer-Reviewed · Journal of Scientific Exploration</div>
-        <div class="cite-title">Meta-Analysis of Remote Viewing Experiments</div>
-        <div class="cite-source">
-          A comprehensive meta-analysis of 653 remote viewing trials conducted across multiple laboratories found an overall hit rate significantly above chance (p &lt; 0.0001). Effect sizes were consistent across independent research groups. — Utts, J. (1996). An Assessment of the Evidence for Psychic Functioning.
+        <div class="cite-card">
+          <div class="cite-label">Peer-Reviewed · Journal of Scientific Exploration</div>
+          <div class="cite-title">Meta-Analysis of Remote Viewing Experiments</div>
+          <div class="cite-source">
+            A meta-analysis of 653 remote viewing trials across multiple laboratories found an overall hit rate significantly above chance (p &lt; 0.0001). Effect sizes were consistent across independent research groups. Utts, J. (1996).
+          </div>
         </div>
-      </div>
 
-      <div class="cite-card">
-        <div class="cite-label">Princeton University · PEAR Lab · 1979–2007</div>
-        <div class="cite-title">Princeton Engineering Anomalies Research</div>
-        <div class="cite-source">
-          28 years of rigorous laboratory research at Princeton University examining human-machine interactions and remote perception. Published over 80 technical reports. The remote perception database includes over 650 formal trials demonstrating consistent anomalous cognition effects.
+        <div class="cite-card">
+          <div class="cite-label">Princeton University · PEAR Lab · 1979-2007</div>
+          <div class="cite-title">Princeton Engineering Anomalies Research</div>
+          <div class="cite-source">
+            28 years of rigorous laboratory research at Princeton University examining human remote perception. Over 80 technical reports published. The remote perception database includes 650+ formal trials demonstrating consistent anomalous cognition effects.
+          </div>
         </div>
-      </div>
 
-      <div class="cite-card">
-        <div class="cite-label">Peer-Reviewed · Psychological Bulletin · 1994</div>
-        <div class="cite-title">Ganzfeld ESP Studies</div>
-        <div class="cite-source">
-          A meta-analysis of 11 independent Ganzfeld databases (2,549 sessions) found a hit rate of 33.2% against a 25% chance baseline — a statistically significant result replicated across independent laboratories. — Bem, D. &amp; Honorton, C. Does psi exist?
+        <div class="cite-card">
+          <div class="cite-label">Peer-Reviewed · Psychological Bulletin · 1994</div>
+          <div class="cite-title">Ganzfeld ESP Studies</div>
+          <div class="cite-source">
+            A meta-analysis of 11 independent Ganzfeld databases (2,549 sessions) found a hit rate of 33.2% against a 25% chance baseline. A statistically significant result replicated across independent laboratories. Bem, D. &amp; Honorton, C.
+          </div>
         </div>
-      </div>
 
+      </div>
     </div>
 
     <div class="stats-row reveal" style="transition-delay:0.2s">
@@ -852,54 +1238,191 @@ footer a:active { color: var(--muted); }
       </div>
     </div>
 
-    <div style="margin-top:32px;">
+    <div class="hscroll-wrap reveal" style="transition-delay:0.1s;margin-top:8px;">
+      <div class="hscroll-track" id="module-track">
 
-      <div class="module-item reveal">
-        <div class="module-num">01</div>
-        <div class="module-content">
-          <div class="module-name">REMOTE VIEWING</div>
-          <div class="module-tag">Project Stargate Protocol</div>
-          <div class="module-desc">
-            Receive a blind target reference number. Sketch your impressions before analysis. AI grades your session across 6 dimensions against the hidden target. Based directly on the CRV methodology developed at SRI International for the U.S. government.
+        <div class="module-card-h">
+          <div class="module-card-num">01</div>
+          <div class="module-card-name">REMOTE VIEWING</div>
+          <div class="module-card-tag">Project Stargate Protocol</div>
+          <div class="module-card-desc">
+            Receive a blind target reference number. Sketch your impressions. AI grades your session across 6 dimensions against the hidden target. Built on CRV methodology developed for the U.S. government at SRI International.
           </div>
         </div>
-      </div>
 
-      <div class="module-item reveal">
-        <div class="module-num">02</div>
-        <div class="module-content">
-          <div class="module-name">PSI TRAINING</div>
-          <div class="module-tag">Zener · Presentiment · Photo Pair</div>
-          <div class="module-desc">
-            Three protocols in one hub. The Zener card test (25 trials, 20% chance baseline). Presentiment timing — based on Dean Radin's research showing measurable responses to future stimuli before they occur. Photo Pair intuition — tap the card hiding a pleasant image, testing unconscious orientation toward emotionally positive future stimuli.
+        <div class="module-card-h">
+          <div class="module-card-num">02</div>
+          <div class="module-card-name">PSI TRAINING</div>
+          <div class="module-card-tag">Zener · Presentiment · Photo Pair</div>
+          <div class="module-card-desc">
+            Three protocols. Zener card test (25 trials, 20% chance baseline). Presentiment timing based on Dean Radin's precognition research. Photo Pair intuition testing unconscious orientation toward future emotional stimuli.
           </div>
         </div>
-      </div>
 
-      <div class="module-item reveal">
-        <div class="module-num">03</div>
-        <div class="module-content">
-          <div class="module-name">DREAM LAB</div>
-          <div class="module-tag">Lucid Dream Training</div>
-          <div class="module-desc">
-            Reality Check Pager sends randomized notifications throughout your day, training the perceptual habit that triggers lucid dreaming. Based on cognitive induction research showing frequency and randomness of checks predicts lucidity onset.
+        <div class="module-card-h">
+          <div class="module-card-num">03</div>
+          <div class="module-card-name">DREAM LAB</div>
+          <div class="module-card-tag">Lucid Dream Training</div>
+          <div class="module-card-desc">
+            Reality Check Pager sends randomized notifications throughout your day, training the perceptual habit that triggers lucid dreaming. Frequency and randomness of checks predicts lucidity onset.
           </div>
         </div>
-      </div>
 
-      <div class="module-item reveal">
-        <div class="module-num">04</div>
-        <div class="module-content">
-          <div class="module-name">ASTRAL PROJECTION</div>
-          <div class="module-tag">OBE Induction · Coming Soon</div>
-          <div class="module-desc">
-            Out-of-body experience induction and exit protocols. Guided sessions built around the hypnagogic transition window — the threshold state between waking and sleep where OBE onset is most frequently reported.
+        <div class="module-card-h">
+          <div class="module-card-num">04</div>
+          <div class="module-card-name">ASTRAL PROJECTION</div>
+          <div class="module-card-tag">OBE Induction · Coming Soon</div>
+          <div class="module-card-desc">
+            Guided OBE induction and exit protocols built around the hypnagogic transition window. The threshold state between waking and sleep where out-of-body onset is most frequently reported.
           </div>
         </div>
-      </div>
 
+      </div>
     </div>
 
+  </section>
+
+  <div class="divider"></div>
+
+  <div class="divider"></div>
+
+  <!-- ── MISSION SECTION ── -->
+  <section class="mission-section reveal" id="mission">
+    <div class="mission-line" style="margin-bottom:28px;"></div>
+    <span class="mission-ability">ABIL<span class="t-accent">T</span>Y</span>
+    <div class="mission-body">
+      Every human has the <strong>ability</strong> to perceive beyond what is commonly understood. This is not a belief. It is a finding supported by decades of peer-reviewed science and classified government research.
+    </div>
+    <div class="mission-body">
+      ABLTY exists as a structured training and practice environment. Build your <strong>ability</strong> through consistent protocols. Track your performance with detailed analytics. Understand exactly where your signal is strongest and where to focus your efforts.
+    </div>
+    <div class="mission-body" style="font-style:italic;font-size:15px;color:var(--dim);">
+      The question is not whether the <strong>ability</strong> exists. The question is how far you can develop it.
+    </div>
+    <div class="mission-line"></div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── AI GRADER SECTION ── -->
+  <section class="grader-section reveal" id="grader">
+    <div class="section-tag">The AI Grader</div>
+    <div class="section-title">YOUR SESSION. SCORED.</div>
+    <div class="section-body">
+      After every Remote Viewing session, your sketch and impressions are analyzed by AI across 6 weighted dimensions. No self-reporting. No guesswork. Objective, consistent scoring on every session you complete.
+    </div>
+
+    <div class="grader-card">
+      <div class="grader-top">
+        <div>
+          <div class="grader-trn">TRN 6047-5129</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:3px;letter-spacing:1px;">REMOTE VIEWING SESSION</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="grader-score-big">84%</div>
+          <div class="grader-score-label">Session Score</div>
+        </div>
+      </div>
+
+      <div class="grader-dims">
+        <div class="grader-dim-row">
+          <div class="grader-dim-label">Form / Shape</div>
+          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:100%;"></div></div>
+          <div class="grader-dim-val">5/5</div>
+        </div>
+        <div class="grader-dim-row">
+          <div class="grader-dim-label">Spatial</div>
+          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:80%;"></div></div>
+          <div class="grader-dim-val">4/5</div>
+        </div>
+        <div class="grader-dim-row">
+          <div class="grader-dim-label">Texture</div>
+          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:60%;"></div></div>
+          <div class="grader-dim-val">3/5</div>
+        </div>
+        <div class="grader-dim-row">
+          <div class="grader-dim-label">Motion</div>
+          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:80%;"></div></div>
+          <div class="grader-dim-val">4/5</div>
+        </div>
+        <div class="grader-dim-row">
+          <div class="grader-dim-label">Emotion</div>
+          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:60%;"></div></div>
+          <div class="grader-dim-val">3/5</div>
+        </div>
+        <div class="grader-dim-row">
+          <div class="grader-dim-label">Color / Light</div>
+          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:60%;"></div></div>
+          <div class="grader-dim-val">3/5</div>
+        </div>
+      </div>
+
+      <div class="grader-summary">
+        <strong>Exceptional geometric match.</strong> The viewer clearly depicted the circular structure with radial spokes. Impressions of "round," "night," and "lights" are direct hits. Strong spatial understanding of the target.
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── SCREENSHOTS PLACEHOLDER ── -->
+  <section class="screenshots-section reveal" id="screenshots">
+    <div class="section-pad">
+      <div class="section-tag">The Experience</div>
+      <div class="section-title">SEE IT IN ACTION</div>
+    </div>
+    <div class="phone-track">
+      <div class="phone-frame">
+        <img src="/HomeMenu.png" alt="ABLTY Home Screen">
+      </div>
+      <div class="phone-frame">
+        <img src="/BlankCanvas.png" alt="RV Canvas Session">
+      </div>
+      <div class="phone-frame">
+        <img src="/Impressions.png" alt="RV Impressions Screen">
+      </div>
+      <div class="phone-frame">
+        <img src="/RVGoodScore.png" alt="RV Session Results">
+      </div>
+      <div class="phone-frame">
+        <img src="/Analytics.png" alt="Analytics Dashboard">
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── COMING SOON SECTION ── -->
+  <section class="coming-section reveal" id="coming">
+    <div class="section-tag">What Is Coming</div>
+    <div class="section-title">THE NEXT EVOLUTION</div>
+    <div class="section-body">
+      ABLTY is a living research platform. These features are in development now.
+    </div>
+
+    <div class="coming-cards">
+      <div class="coming-card">
+        <div class="coming-icon">🎯</div>
+        <div>
+          <div class="coming-name">DAILY COMMUNITY RV</div>
+          <div class="coming-desc">Every day, every ABLTY user attempts the same hidden target. Results reveal at 11:11 PM. One shared experiment. Global data.</div>
+        </div>
+      </div>
+      <div class="coming-card">
+        <div class="coming-icon">🏆</div>
+        <div>
+          <div class="coming-name">GLOBAL LEADERBOARDS</div>
+          <div class="coming-desc">AI-graded rankings across all protocols. Objective scores only. See who has the most advanced abilities on the planet.</div>
+        </div>
+      </div>
+      <div class="coming-card">
+        <div class="coming-icon">🌙</div>
+        <div>
+          <div class="coming-name">ASTRAL PROJECTION</div>
+          <div class="coming-desc">Guided OBE induction protocols built around the hypnagogic transition window. The threshold between waking and sleep.</div>
+        </div>
+      </div>
+    </div>
   </section>
 
   <div class="divider"></div>
@@ -908,8 +1431,8 @@ footer a:active { color: var(--muted); }
   <section class="final-cta reveal">
     <div class="final-cta-glow"></div>
     <div class="final-logo">ABL<span>T</span>Y</div>
-    <div class="final-tag">Free to start. Data is yours.</div>
-    <button class="btn-install" id="final-install-btn" onclick="handleInstall()" style="margin: 0 auto;">
+    <div class="final-tag">Free to start. Your data is yours.</div>
+    <button class="btn-install" id="final-install-btn" onclick="handleInstall()">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       INSTALL ABLTY
     </button>
@@ -918,12 +1441,21 @@ footer a:active { color: var(--muted); }
   <!-- FOOTER -->
   <footer>
     <a href="/app.html">Open App</a>
-    <a href="terms.html">Terms</a>
-    <a href="privacy.html">Privacy</a>
+    <a href="#" onclick="openLegal('terms');return false;">Terms</a>
+    <a href="#" onclick="openLegal('privacy');return false;">Privacy</a>
     <a href="mailto:abltyapp@gmail.com">Contact</a>
   </footer>
 
 </div><!-- /mobile-content -->
+
+<!-- LEGAL MODALS -->
+<div class="legal-modal-overlay" id="legal-modal">
+  <div class="legal-modal-header">
+    <div class="legal-modal-title" id="legal-modal-title">Terms of Service</div>
+    <div class="legal-modal-close" onclick="closeLegal()">x</div>
+  </div>
+  <div class="legal-modal-body" id="legal-modal-body"></div>
+</div>
 
 <!-- iOS INSTALL MODAL -->
 <div class="modal-overlay" id="ios-modal">
@@ -933,7 +1465,7 @@ footer a:active { color: var(--muted); }
 
     <div class="ios-step">
       <div class="ios-step-num">1</div>
-      <div class="ios-step-text">Tap the <strong>Share button</strong> at the bottom of your browser — it looks like a box with an arrow pointing up.</div>
+      <div class="ios-step-text">Tap the <strong>Share button</strong> at the bottom of your browser  -  it looks like a box with an arrow pointing up.</div>
     </div>
     <div class="ios-step">
       <div class="ios-step-num">2</div>
@@ -1017,7 +1549,7 @@ function animateDesktopWave() {
 }
 window.addEventListener('load', animateDesktopWave);
 
-// Trigger letter animation — use DOMContentLoaded + load as backup
+// Trigger letter animation  -  use DOMContentLoaded + load as backup
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', startLandingAnimation);
 } else {
@@ -1045,7 +1577,7 @@ window.addEventListener('beforeinstallprompt', e => {
 });
 
 function updateInstallButtons() {
-  // Buttons already show INSTALL — nothing to change unless we want
+  // Buttons already show INSTALL  -  nothing to change unless we want
   // to differentiate between "add to home screen" states
 }
 
@@ -1064,12 +1596,12 @@ async function handleInstall() {
       setTimeout(() => { window.location.href = '/app.html'; }, 800);
     }
   } else {
-    // No prompt available yet — show instructions based on platform
+    // No prompt available yet  -  show instructions based on platform
     if (/Android/.test(navigator.userAgent)) {
-      // Android but prompt not ready — show manual instructions
+      // Android but prompt not ready  -  show manual instructions
       showAndroidInstructions();
     } else {
-      // Unknown — open app
+      // Unknown  -  open app
       window.location.href = '/app.html';
     }
   }
@@ -1123,6 +1655,306 @@ const observer = new IntersectionObserver(entries => {
 }, { threshold: 0.1 });
 
 document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+
+// ── LEGAL CONTENT ─────────────────────────────────────
+const LEGAL_CONTENT = {
+  terms: `ABLTY  -  TERMS OF SERVICE
+
+Last updated: March 2026
+
+These Terms of Service govern your use of ABLTY (ablty.app). By creating an account or using the app, you agree to these terms.
+
+---
+
+1. WHO WE ARE
+
+ABLTY is a psi research and consciousness training application available at ablty.app. When these terms say "we," "us," or "ABLTY," we mean the operators of ablty.app. You can reach us at abltyapp@gmail.com.
+
+---
+
+2. WHO CAN USE ABLTY
+
+You must be at least 13 years old to use ABLTY. By using the app you confirm that you meet this requirement. If you are under 18, you should review these terms with a parent or guardian.
+
+---
+
+3. YOUR ACCOUNT
+
+Guest use: You can use limited features of ABLTY without creating an account. Guest data is stored locally on your device only. We do not collect or store any information about guests.
+
+Free accounts: Creating a free account requires a valid email address and a username. You are responsible for keeping your account credentials secure. You may not share your account with others.
+
+Premium accounts: Premium access is a paid monthly subscription at $4.99/month processed through Stripe. Subscription terms, billing, and cancellation are governed by Stripe's terms of service in addition to these terms.
+
+Usernames: Usernames must be 3 to 20 characters, contain only letters, numbers, and underscores, and must not be offensive or impersonate another person. We reserve the right to remove or change usernames that violate these rules.
+
+---
+
+4. WHAT ABLTY IS AND IS NOT
+
+ABLTY is a training and research tool for exploring psi phenomena, remote viewing, and consciousness-related practices.
+
+ABLTY is not a medical device, a therapeutic tool, or a scientifically validated system for predicting future events. Session scores and analytics are provided for personal exploration and data tracking only. We make no claims about the reality or validity of psi phenomena. Results are for entertainment and personal research purposes.
+
+Nothing in ABLTY should be used to make medical, financial, legal, or safety decisions.
+
+---
+
+5. COMMUNITY FEATURES
+
+Community Remote Viewing: Premium users may participate in a daily shared remote viewing session. All participants attempt the same target. Scores are generated by AI and are objective. By participating you agree that your score and username may appear on public leaderboards.
+
+Conduct: You agree not to attempt to cheat, manipulate scores, or disrupt other users' experience. We reserve the right to remove any user from community features for any reason.
+
+---
+
+6. SUBSCRIPTIONS AND BILLING
+
+Premium subscriptions are billed monthly at $4.99/month. Billing is handled entirely by Stripe. We do not store your payment information.
+
+You may cancel your subscription at any time. Upon cancellation your account will revert to free tier access at the end of the current billing period. Your data is not deleted upon cancellation.
+
+We reserve the right to change subscription pricing with 30 days notice to your registered email address.
+
+---
+
+7. YOUR DATA
+
+When you create an account, your session data, scores, and analytics are stored in the cloud and associated with your account. You own your data. We do not sell your personal data to third parties.
+
+We may use anonymized, aggregate data (not linked to any individual user) for research purposes.
+
+For full details on what data we collect and how we use it, see our Privacy Policy.
+
+---
+
+8. INTELLECTUAL PROPERTY
+
+ABLTY, its design, code, and content are owned by us. You may not copy, reproduce, or distribute any part of the app without our permission.
+
+Your session sketches and impression notes are yours. We store them to provide the service and do not claim ownership over your content.
+
+---
+
+9. DISCLAIMER OF WARRANTIES
+
+ABLTY is provided "as is" without warranties of any kind. We do not guarantee that the app will be available at all times, error-free, or that results will be accurate or meaningful. Use the app at your own discretion.
+
+---
+
+10. LIMITATION OF LIABILITY
+
+To the fullest extent permitted by Illinois law, ABLTY and its operators are not liable for any indirect, incidental, or consequential damages arising from your use of the app. Our total liability to you for any claim shall not exceed the amount you paid us in the 12 months preceding the claim.
+
+---
+
+11. CHANGES TO THESE TERMS
+
+We may update these terms from time to time. If we make material changes we will notify you by email or by a notice in the app. Continued use of ABLTY after changes take effect constitutes acceptance of the new terms.
+
+---
+
+12. GOVERNING LAW
+
+These terms are governed by the laws of the State of Illinois, United States.
+
+---
+
+13. CONTACT
+
+Questions about these terms: abltyapp@gmail.com
+`,
+  privacy: `ABLTY  -  PRIVACY POLICY
+
+Last updated: March 2026
+
+This Privacy Policy explains what information ABLTY (ablty.app) collects, how we use it, and your rights regarding your data. By using ABLTY you agree to this policy.
+
+---
+
+1. WHO WE ARE
+
+ABLTY is operated by the team at ablty.app. Contact us at abltyapp@gmail.com with any privacy questions or requests.
+
+---
+
+2. INFORMATION WE COLLECT
+
+We collect different information depending on how you use ABLTY.
+
+Guests (no account):
+We collect no personal information from guests. All guest data (session scores, settings) is stored locally on your device only. We have no access to it.
+
+Free and Premium accounts:
+When you create an account we collect:
+- Email address
+- Username you choose
+- Password (stored as a secure hash  -  we never see your actual password)
+- Session data you create: RV scores, Zener results, Presentiment results, Photo Pair results, session timestamps, and impression notes you type
+- For Premium users: sketch images from RV sessions
+- Device and browser type (collected automatically by our infrastructure provider)
+- Approximate timezone (used to send Reality Check notifications at appropriate times)
+
+We do not collect:
+- Your real name
+- Phone number
+- Location beyond timezone
+- Any payment information (handled entirely by Stripe  -  see Section 5)
+
+---
+
+3. HOW WE USE YOUR INFORMATION
+
+We use your information to:
+- Provide and operate the ABLTY service
+- Send Reality Check pager notifications at times you configure
+- Send Community RV reveal notifications at 11:11 PM your local time
+- Display your scores and username on leaderboards (Premium only, with your participation)
+- Sync your session data across devices
+- Respond to support requests sent to abltyapp@gmail.com
+- Improve the app based on aggregate, anonymized usage patterns
+
+We may use anonymized, aggregate data  -  meaning data that cannot be linked to any individual user  -  for psi research purposes or to share findings publicly. This data is never personally identifiable.
+
+We do not use your data for advertising. We do not sell your personal data. We do not share your personal data with third parties except as described in Section 5.
+
+---
+
+4. PUSH NOTIFICATIONS
+
+If you enable the Reality Check Pager, we store your push notification subscription and your configured bedtime in order to send notifications at appropriate times. This data is stored on Cloudflare's infrastructure and is used solely to deliver notifications. You can disable notifications at any time from within the app.
+
+---
+
+5. THIRD PARTIES WE WORK WITH
+
+We work with the following third parties to operate ABLTY:
+
+Supabase (supabase.com): Our database and authentication provider. Your account data and session history are stored on Supabase infrastructure. Supabase is subject to its own privacy policy.
+
+Stripe (stripe.com): Payment processing for Premium subscriptions. When you subscribe, you interact directly with Stripe. We do not receive or store your payment card details. Stripe is subject to its own privacy policy.
+
+Cloudflare (cloudflare.com): Infrastructure for push notification delivery. Your notification subscription endpoint is stored on Cloudflare Workers KV. Cloudflare is subject to its own privacy policy.
+
+Google (via Gemini API): RV session sketches and impression notes are sent to Google's Gemini AI for grading. This data is processed to produce a session score and is not used by Google to train models under current API terms. See Google's API terms for details.
+
+We do not work with advertising networks or data brokers.
+
+---
+
+6. DATA RETENTION
+
+Guest data: Stored locally on your device only. We do not retain it.
+
+Free accounts: Session metadata and scores are retained for 90 days. After 90 days, older session records are deleted from our servers. Data on your device is unaffected.
+
+Premium accounts: Session data including sketches is retained indefinitely while your account is active. If you delete your account, your data is deleted within 30 days.
+
+If you cancel a Premium subscription and revert to free tier, your data is retained but older records beyond 90 days become inaccessible until you resubscribe. The data is not deleted  -  it is preserved in case you resubscribe.
+
+---
+
+7. YOUR RIGHTS
+
+You have the right to:
+- Access the personal data we hold about you
+- Correct inaccurate data
+- Request deletion of your account and associated data
+- Export your session data (Premium feature)
+- Withdraw consent for push notifications at any time via app settings
+
+To exercise any of these rights, contact us at abltyapp@gmail.com. We will respond within 30 days.
+
+---
+
+8. DATA SECURITY
+
+We use industry-standard security practices including encrypted connections (HTTPS), hashed passwords, and access controls. No system is perfectly secure. If you believe your account has been compromised, contact us immediately at abltyapp@gmail.com.
+
+---
+
+9. CHILDREN
+
+ABLTY is not directed at children under 13. We do not knowingly collect personal information from children under 13. If you believe a child under 13 has created an account, contact us at abltyapp@gmail.com and we will delete the account.
+
+---
+
+10. CHANGES TO THIS POLICY
+
+We may update this Privacy Policy from time to time. If we make material changes we will notify you by email or by a notice in the app. The date at the top of this document reflects when it was last updated.
+
+---
+
+11. GOVERNING LAW
+
+This Privacy Policy is governed by the laws of the State of Illinois, United States.
+
+---
+
+12. CONTACT
+
+Privacy questions and data requests: abltyapp@gmail.com
+`
+};
+
+function openLegal(type) {
+  const modal = document.getElementById('legal-modal');
+  const title = document.getElementById('legal-modal-title');
+  const body  = document.getElementById('legal-modal-body');
+  title.textContent = type === 'terms' ? 'Terms of Service' : 'Privacy Policy';
+  body.textContent  = LEGAL_CONTENT[type];
+  modal.classList.add('visible');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLegal() {
+  document.getElementById('legal-modal').classList.remove('visible');
+  document.body.style.overflow = '';
+}
+
+// Close legal modal on backdrop tap
+document.getElementById('legal-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeLegal();
+});
+
+
+// ── PARALLAX ──────────────────────────────────────────
+function initParallax() {
+  const hero = document.querySelector('.hero');
+  const reticle = document.querySelector('.hero-reticle');
+  const glow = document.querySelector('.hero-glow');
+
+  window.addEventListener('scroll', () => {
+    const scrollY = window.scrollY;
+    if (reticle) reticle.style.transform = 'translateY(calc(-50% + ' + (scrollY * 0.3) + 'px))';
+    if (glow)    glow.style.transform    = 'translateX(-50%) translateY(' + (scrollY * 0.15) + 'px)';
+  }, { passive: true });
+}
+initParallax();
+
+// ── DRAG TO SCROLL ─────────────────────────────────────
+function initDragScroll(trackId) {
+  const track = document.getElementById(trackId);
+  if (!track) return;
+  let isDown = false, startX, scrollLeft;
+  track.addEventListener('mousedown', e => {
+    isDown = true;
+    track.classList.add('grabbing');
+    startX = e.pageX - track.offsetLeft;
+    scrollLeft = track.scrollLeft;
+  });
+  track.addEventListener('mouseleave', () => { isDown = false; track.classList.remove('grabbing'); });
+  track.addEventListener('mouseup', () => { isDown = false; track.classList.remove('grabbing'); });
+  track.addEventListener('mousemove', e => {
+    if (!isDown) return;
+    e.preventDefault();
+    const x = e.pageX - track.offsetLeft;
+    track.scrollLeft = scrollLeft - (x - startX) * 1.5;
+  });
+}
+initDragScroll('cite-track');
+initDragScroll('module-track');
 
 // ── SMOOTH SCROLL FOR ANCHOR LINKS ───────────────────
 document.querySelectorAll('a[href^="#"]').forEach(a => {
