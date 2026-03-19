@@ -9,6 +9,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -129,6 +131,8 @@ body::after {
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: center;
+  text-align: center;
   padding: 0 28px;
   overflow: hidden;
 }
@@ -162,6 +166,7 @@ body::after {
 /* Declassified stamp */
 .stamp {
   display: inline-flex;
+  align-self: center;
   align-items: center;
   gap: 8px;
   border: 1px solid rgba(74,240,200,0.25);
@@ -217,6 +222,7 @@ body::after {
   max-width: 380px;
   opacity: 0;
   animation: fadeUp 0.7s ease 0.7s forwards;
+  text-align: center;
 }
 .hero-desc strong { color: var(--text); font-weight: 500; }
 
@@ -224,6 +230,10 @@ body::after {
   margin-top: 36px;
   opacity: 0;
   animation: fadeUp 0.7s ease 0.9s forwards;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
 }
 
 @keyframes fadeUp {
@@ -310,6 +320,7 @@ body::after {
 .section {
   padding: 72px 28px;
   position: relative; z-index: 1;
+  text-align: center;
 }
 .section-tag {
   font-family: var(--mono);
@@ -346,6 +357,7 @@ body::after {
 /* ── RESEARCH BLOCK ── */
 .research-section {
   padding: 72px 28px;
+  text-align: center;
   position: relative; z-index: 1;
   background: linear-gradient(180deg, transparent, rgba(74,240,200,0.02) 50%, transparent);
 }
@@ -491,6 +503,9 @@ body::after {
 .final-cta {
   padding: 72px 28px 96px;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   position: relative; z-index: 1;
 }
 .final-cta-glow {
@@ -694,7 +709,7 @@ footer a:active { color: var(--muted); }
       </div>
 
       <!-- Splash animation — wave + letters -->
-      <div class="splash-logo-wrap" style="width:300px;height:120px;position:relative;display:flex;align-items:center;justify-content:center;margin-bottom:18px;">
+      <div class="splash-logo-wrap" style="width:300px;height:120px;position:relative;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;">
         <svg class="splash-wave" viewBox="0 0 300 120" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;">
           <defs>
             <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -1049,9 +1064,40 @@ async function handleInstall() {
       setTimeout(() => { window.location.href = '/app.html'; }, 800);
     }
   } else {
-    // Fallback: open the app directly
-    window.location.href = '/app.html';
+    // No prompt available yet — show instructions based on platform
+    if (/Android/.test(navigator.userAgent)) {
+      // Android but prompt not ready — show manual instructions
+      showAndroidInstructions();
+    } else {
+      // Unknown — open app
+      window.location.href = '/app.html';
+    }
   }
+}
+
+function showAndroidInstructions() {
+  const modal = document.getElementById('ios-modal');
+  const title = modal.querySelector('.modal-title');
+  const sub   = modal.querySelector('.modal-sub');
+  const steps = modal.querySelector('.ios-step').parentElement;
+  if (title) title.textContent = 'Add to Home Screen';
+  if (sub)   sub.textContent   = 'Follow these steps in Chrome';
+  if (steps) steps.innerHTML = `
+    <div class="ios-step">
+      <div class="ios-step-num">1</div>
+      <div class="ios-step-text">Tap the <strong>three-dot menu</strong> in the top right of Chrome.</div>
+    </div>
+    <div class="ios-step">
+      <div class="ios-step-num">2</div>
+      <div class="ios-step-text">Tap <strong>"Add to Home screen"</strong></div>
+    </div>
+    <div class="ios-step">
+      <div class="ios-step-num">3</div>
+      <div class="ios-step-text">Tap <strong>"Add"</strong>. ABLTY will appear on your home screen like any other app.</div>
+    </div>
+    <button class="modal-close" onclick="closeModal()">Got It</button>
+  `;
+  modal.classList.add('visible');
 }
 
 function openApp() {
@@ -1088,5 +1134,11 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
 });
 </script>
 
+<script>
+// Register service worker so beforeinstallprompt fires
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+</script>
 </body>
 </html>
