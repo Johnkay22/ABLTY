@@ -1606,6 +1606,11 @@ if (isInStandaloneMode) {
   window.location.href = '/app.html';
 }
 
+// If opened via notification link with rc param, redirect to app
+if (window.location.search.includes('rc=1')) {
+  window.location.href = '/app.html?rc=1';
+}
+
 // ── INSTALL PROMPT ────────────────────────────────────
 let deferredPrompt = null;
 
