@@ -108,7 +108,7 @@ self.addEventListener('push', event => {
       badge: '/badge-72.png',
       tag: 'ablty-rc',
       renotify: true,
-      data: { url: '/?rc=1' },
+      data: { url: '/app.html?rc=1' },
     })
   );
 });
@@ -124,7 +124,7 @@ self.addEventListener('notificationclick', event => {
           return;
         }
       }
-      return clients.openWindow('/?rc=1');
+      return clients.openWindow('/app.html?rc=1');
     })
   );
 });
