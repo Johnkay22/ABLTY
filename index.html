@@ -1147,63 +1147,105 @@ footer a:active { color: var(--muted); }
       </div>
     </div>
 
-    <div class="scroll-hint">
-      <div class="scroll-hint-line"></div>
-      <span>Scroll</span>
-    </div>
   </section>
 
-  <div class="divider"></div>
+  <!-- ═══════════════════════════════════════════════
+       SCROLL HINT - centered under hero CTA
+  ═══════════════════════════════════════════════ -->
+  <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 0 32px;opacity:0;animation:fadeUp 0.6s ease 2.2s forwards;">
+    <div style="width:1px;height:36px;background:linear-gradient(to bottom,var(--accent),transparent);animation:scrollPulse 2s ease-in-out infinite;"></div>
+    <span style="font-family:var(--mono);font-size:8px;letter-spacing:3px;color:var(--dim);text-transform:uppercase;">Scroll</span>
+  </div>
 
+  <!-- ═══════════════════════════════════════════════
+       01  -  FOUR TRAINING SYSTEMS
+  ═══════════════════════════════════════════════ -->
+  <section id="modules" style="padding:72px 0 0;">
 
-  <!-- ── MODULES ── -->
-  <section class="section" id="modules">
-
-    <div class="reveal">
-      <div class="section-tag">The Protocols</div>
-      <div class="section-title">FOUR TRAINING SYSTEMS</div>
-      <div class="section-body">
-        Each module is grounded in a specific research methodology. Your data is tracked over time. Patterns emerge. The signal gets clearer.
-      </div>
+    <div style="padding:0 24px 32px;text-align:center;" class="reveal">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:12px;">The Protocols</div>
+      <div style="font-family:var(--display);font-size:48px;letter-spacing:2px;color:var(--text);line-height:1;">FOUR TRAINING<br>SYSTEMS</div>
     </div>
 
-    <div class="hscroll-wrap reveal" style="transition-delay:0.1s;margin-top:8px;">
-      <div class="hscroll-track" id="module-track">
+    <div class="hscroll-wrap reveal" style="transition-delay:0.1s;">
+      <div class="hscroll-track" id="module-track" style="padding:8px 24px 28px;">
 
+        <!-- 01 RV -->
         <div class="module-card-h">
+          <div class="module-card-visual">
+            <svg width="100" height="90" viewBox="0 0 100 90" fill="none">
+              <circle cx="50" cy="45" r="32" stroke="#4af0c8" stroke-width="0.5" opacity="0.2"/>
+              <circle cx="50" cy="45" r="20" stroke="#4af0c8" stroke-width="0.75" opacity="0.35"/>
+              <circle cx="50" cy="45" r="8"  stroke="#4af0c8" stroke-width="1"    opacity="0.6"/>
+              <circle cx="50" cy="45" r="2"  fill="#4af0c8" opacity="0.8"/>
+              <line x1="50" y1="10" x2="50" y2="80" stroke="#4af0c8" stroke-width="0.5" opacity="0.2"/>
+              <line x1="15" y1="45" x2="85" y2="45" stroke="#4af0c8" stroke-width="0.5" opacity="0.2"/>
+              <line x1="50" y1="13" x2="50" y2="30" stroke="#4af0c8" stroke-width="2" opacity="0.7"/>
+              <line x1="62" y1="45" x2="80" y2="45" stroke="#4af0c8" stroke-width="2" opacity="0.7"/>
+              <text x="50" y="84" text-anchor="middle" font-family="DM Mono,monospace" font-size="6.5" fill="#4af0c8" opacity="0.4" letter-spacing="1.5">TRN 6047-5129</text>
+            </svg>
+          </div>
           <div class="module-card-num">01</div>
           <div class="module-card-name">REMOTE VIEWING</div>
           <div class="module-card-tag">Project Stargate Protocol</div>
-          <div class="module-card-desc">
-            Receive a blind target reference number. Sketch your impressions. AI grades your session across 6 dimensions against the hidden target. Built on CRV methodology developed for the U.S. government at SRI International.
-          </div>
+          <div class="module-card-desc">Sketch and record your impressions in-app. Our AI grader scores your session across 6 dimensions using the same evaluation framework developed for the U.S. government program.</div>
         </div>
 
+        <!-- 02 PSI -->
         <div class="module-card-h">
+          <div class="module-card-visual">
+            <svg width="110" height="90" viewBox="0 0 110 90" fill="none">
+              <circle cx="18" cy="42" r="11" stroke="#5b9ef4" stroke-width="1.5" opacity="0.6"/>
+              <line x1="36" y1="31" x2="36" y2="53" stroke="#5b9ef4" stroke-width="1.5" opacity="0.6"/>
+              <line x1="27" y1="42" x2="45" y2="42" stroke="#5b9ef4" stroke-width="1.5" opacity="0.6"/>
+              <rect x="53" y="31" width="20" height="20" stroke="#4af0c8" stroke-width="1.5" opacity="0.65" rx="1"/>
+              <polygon points="84,31 91,51 77,51" stroke="#4af0c8" stroke-width="1.5" opacity="0.55" fill="none"/>
+              <text x="55" y="72" text-anchor="middle" font-family="DM Mono,monospace" font-size="7" fill="#6b7280" letter-spacing="0.5">CHANCE BASELINE 20%</text>
+              <text x="55" y="83" text-anchor="middle" font-family="DM Mono,monospace" font-size="6" fill="#3a3f48" letter-spacing="0.5">3 PROTOCOLS</text>
+            </svg>
+          </div>
           <div class="module-card-num">02</div>
           <div class="module-card-name">PSI TRAINING</div>
           <div class="module-card-tag">Zener · Presentiment · Photo Pair</div>
-          <div class="module-card-desc">
-            Three protocols. Zener card test (25 trials, 20% chance baseline). Presentiment timing based on Dean Radin's precognition research. Photo Pair intuition testing unconscious orientation toward future emotional stimuli.
-          </div>
+          <div class="module-card-desc">Test and train your psi abilities across three research-backed protocols. Each designed to isolate a different dimension of anomalous perception. Beat chance. Build a record.</div>
         </div>
 
+        <!-- 03 Dream Lab -->
         <div class="module-card-h">
+          <div class="module-card-visual">
+            <svg width="100" height="90" viewBox="0 0 100 90" fill="none">
+              <path d="M58 16 Q42 27 42 44 Q42 62 58 69 Q36 66 30 47 Q26 27 44 16 Q50 13 58 16Z" fill="#5b2d8e" opacity="0.35"/>
+              <path d="M58 16 Q42 27 42 44 Q42 62 58 69 Q36 66 30 47 Q26 27 44 16 Q50 13 58 16Z" stroke="#9b6fd4" stroke-width="1" opacity="0.55"/>
+              <circle cx="50" cy="19" r="2"   fill="#9b6fd4" opacity="0.8"/>
+              <circle cx="38" cy="31" r="1.5" fill="#9b6fd4" opacity="0.5"/>
+              <circle cx="63" cy="26" r="1"   fill="#9b6fd4" opacity="0.4"/>
+              <circle cx="70" cy="46" r="1.5" fill="#5b9ef4" opacity="0.35"/>
+              <circle cx="75" cy="30" r="1"   fill="#4af0c8" opacity="0.3"/>
+              <path d="M62 63 Q70 58 78 63 Q86 68 94 63" stroke="#4af0c8" stroke-width="1" opacity="0.35" fill="none"/>
+            </svg>
+          </div>
           <div class="module-card-num">03</div>
           <div class="module-card-name">DREAM LAB</div>
           <div class="module-card-tag">Lucid Dream Training</div>
-          <div class="module-card-desc">
-            Reality Check Pager sends randomized notifications throughout your day, training the perceptual habit that triggers lucid dreaming. Frequency and randomness of checks predicts lucidity onset.
-          </div>
+          <div class="module-card-desc">Randomized reality checks throughout your day train the perceptual habit that triggers lucid dreaming at night.</div>
         </div>
 
-        <div class="module-card-h">
-          <div class="module-card-num">04</div>
-          <div class="module-card-name">ASTRAL PROJECTION</div>
-          <div class="module-card-tag">OBE Induction · Coming Soon</div>
-          <div class="module-card-desc">
-            Guided OBE induction and exit protocols built around the hypnagogic transition window. The threshold state between waking and sleep where out-of-body onset is most frequently reported.
+        <!-- 04 Astral -->
+        <div class="module-card-h" style="opacity:0.5;">
+          <div class="module-card-visual" style="border:1px dashed rgba(255,255,255,0.08);">
+            <svg width="100" height="90" viewBox="0 0 100 90" fill="none">
+              <ellipse cx="54" cy="56" rx="13" ry="17" stroke="#6b7280" stroke-width="1" opacity="0.35"/>
+              <ellipse cx="54" cy="56" rx="13" ry="17" fill="#141618"/>
+              <ellipse cx="44" cy="30" rx="11" ry="15" stroke="#4af0c8" stroke-width="1" stroke-dasharray="3 2.5" opacity="0.4"/>
+              <path d="M44 45 Q49 52 54 45" stroke="#4af0c8" stroke-width="0.75" opacity="0.3" fill="none"/>
+              <circle cx="44" cy="17" r="3" stroke="#4af0c8" stroke-width="0.75" opacity="0.3"/>
+              <text x="50" y="82" text-anchor="middle" font-family="DM Mono,monospace" font-size="6" fill="#3a3f48" letter-spacing="1.5">COMING SOON</text>
+            </svg>
           </div>
+          <div class="module-card-num" style="color:#3a3f48;">04</div>
+          <div class="module-card-name" style="color:#6b7280;">ASTRAL PROJECTION</div>
+          <div class="module-card-tag" style="color:#3a3f48;border-color:rgba(255,255,255,0.07);background:transparent;">OBE Induction</div>
+          <div class="module-card-desc" style="color:#3a3f48;">Guided out-of-body induction. In development.</div>
         </div>
 
       </div>
@@ -1211,21 +1253,18 @@ footer a:active { color: var(--muted); }
 
   </section>
 
-  <div class="divider"></div>
+  <!-- ═══════════════════════════════════════════════
+       02  -  AI GRADER
+  ═══════════════════════════════════════════════ -->
+  <section id="grader" style="padding:80px 24px 0;">
 
-
-  <div class="divider"></div>
-
-
-  <!-- ── AI GRADER SECTION ── -->
-  <section class="grader-section reveal" id="grader">
-    <div class="section-tag">The AI Grader</div>
-    <div class="section-title">YOUR SESSION. SCORED.</div>
-    <div class="section-body">
-      After every Remote Viewing session, your sketch and impressions are analyzed by AI across 6 weighted dimensions. No self-reporting. No guesswork. Objective, consistent scoring on every session you complete.
+    <div class="reveal" style="margin-bottom:28px;">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:12px;">The AI Grader</div>
+      <div style="font-family:var(--display);font-size:48px;letter-spacing:2px;color:var(--text);line-height:1;">YOUR SESSION.<br>SCORED.</div>
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-top:10px;">6 Dimensions · Objective · Every Session</div>
     </div>
 
-    <div class="grader-card">
+    <div class="grader-card reveal" style="transition-delay:0.15s;">
       <div class="grader-top">
         <div>
           <div class="grader-trn">TRN 6047-5129</div>
@@ -1236,7 +1275,6 @@ footer a:active { color: var(--muted); }
           <div class="grader-score-label">Session Score</div>
         </div>
       </div>
-
       <div class="grader-dims">
         <div class="grader-dim-row">
           <div class="grader-dim-label">Form / Shape</div>
@@ -1269,54 +1307,159 @@ footer a:active { color: var(--muted); }
           <div class="grader-dim-val">3/5</div>
         </div>
       </div>
-
       <div class="grader-summary">
-        <strong>Exceptional geometric match.</strong> The viewer clearly depicted the circular structure with radial spokes. Impressions of "round," "night," and "lights" are direct hits. Strong spatial understanding of the target.
+        <strong>Exceptional geometric match.</strong> The viewer clearly depicted the circular structure with radial spokes. Impressions of "round," "night," and "lights" are direct hits.
       </div>
-    </div>
-  </section>
-
-
-  <div class="divider"></div>
-
-
-  <!-- ── MISSION SECTION ── -->
-  <section class="mission-section reveal" id="mission">
-    <div class="mission-line" style="margin-bottom:28px;"></div>
-    <span class="mission-ability">ABIL<span class="t-accent">T</span>Y</span>
-    <div class="mission-body">
-      Every human has the <strong>ability</strong> to perceive beyond what is commonly understood. This is not a belief. It is a finding supported by decades of peer-reviewed science and classified government research.
-    </div>
-    <div class="mission-body">
-      ABLTY exists as a structured training and practice environment. Build your <strong>ability</strong> through consistent protocols. Track your performance with detailed analytics. Understand exactly where your signal is strongest and where to focus your efforts.
-    </div>
-    <div class="mission-body" style="font-style:italic;font-size:15px;color:var(--dim);">
-      The question is not whether the <strong>ability</strong> exists. The question is how far you can develop it.
-    </div>
-    <div class="mission-line"></div>
-
-    <div style="display:flex;justify-content:center;margin-top:36px;" class="reveal">
-      <button class="btn-install" onclick="handleInstall()" style="max-width:300px;">BEGIN YOUR TRAINING</button>
     </div>
 
   </section>
 
+  <!-- ═══════════════════════════════════════════════
+       03  -  STATS & ANALYTICS
+  ═══════════════════════════════════════════════ -->
+  <section id="analytics-section" style="padding:80px 24px 0;">
 
-  <div class="divider"></div>
+    <div class="reveal" style="margin-bottom:36px;">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:12px;">Your Progress</div>
+      <div style="font-family:var(--display);font-size:48px;letter-spacing:2px;color:var(--text);line-height:1;">TRACK EVERY<br>SESSION.</div>
+    </div>
 
-
-  <!-- ── THE SCIENCE ── -->
-  <section class="research-section" id="learn">
-
-    <div class="reveal">
-      <div class="section-tag">The Research</div>
-      <div class="section-title">THIS IS REAL SCIENCE</div>
-      <div class="section-body">
-        For over two decades, the U.S. government funded classified research into human psi abilities. The results were significant enough to run the program for 23 years. That research is now declassified  -  and the methodology is the foundation of ABLTY.
+    <!-- Big stat row -->
+    <div class="reveal" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;transition-delay:0.1s;">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 16px;">
+        <div style="font-family:var(--display);font-size:48px;color:var(--accent);line-height:1;">6</div>
+        <div style="font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-top:6px;line-height:1.5;">Graded<br>Dimensions</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 16px;">
+        <div style="font-family:var(--display);font-size:48px;color:var(--accent);line-height:1;">100%</div>
+        <div style="font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-top:6px;line-height:1.5;">Objective<br>AI Scoring</div>
       </div>
     </div>
 
-    <div class="signal-visual reveal" style="transition-delay:0.1s">
+    <!-- Trend chart mockup -->
+    <div class="reveal" style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;transition-delay:0.15s;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <div>
+          <div style="font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;">RV Score Trend</div>
+          <div style="font-family:var(--display);font-size:28px;color:var(--text);margin-top:2px;">+18% <span style="font-size:16px;color:var(--accent);">this month</span></div>
+        </div>
+        <div style="font-family:var(--mono);font-size:9px;color:var(--dim);">30 days</div>
+      </div>
+      <!-- SVG line chart -->
+      <svg viewBox="0 0 280 80" style="width:100%;height:80px;" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#4af0c8" stop-opacity="0.2"/>
+            <stop offset="100%" stop-color="#4af0c8" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <!-- Area fill -->
+        <path d="M0 65 L20 58 L50 60 L80 48 L110 50 L140 38 L170 35 L200 28 L230 22 L260 15 L280 12 L280 80 L0 80Z" fill="url(#chartGrad)"/>
+        <!-- Line -->
+        <path d="M0 65 L20 58 L50 60 L80 48 L110 50 L140 38 L170 35 L200 28 L230 22 L260 15 L280 12" stroke="#4af0c8" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- Dots at key points -->
+        <circle cx="140" cy="38" r="2.5" fill="#4af0c8" opacity="0.6"/>
+        <circle cx="280" cy="12" r="3" fill="#4af0c8"/>
+      </svg>
+    </div>
+
+    <!-- Stat cards row -->
+    <div class="reveal" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;transition-delay:0.2s;">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 10px;text-align:center;">
+        <div style="font-family:var(--display);font-size:28px;color:var(--text);line-height:1;">24</div>
+        <div style="font-family:var(--mono);font-size:7px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-top:4px;line-height:1.4;">RV<br>Sessions</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 10px;text-align:center;">
+        <div style="font-family:var(--display);font-size:28px;color:var(--accent);line-height:1;">84%</div>
+        <div style="font-family:var(--mono);font-size:7px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-top:4px;line-height:1.4;">Best<br>Score</div>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 10px;text-align:center;">
+        <div style="font-family:var(--display);font-size:28px;color:var(--text);line-height:1;">7</div>
+        <div style="font-family:var(--mono);font-size:7px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-top:4px;line-height:1.4;">Day<br>Streak</div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:center;margin-top:32px;" class="reveal" style="transition-delay:0.25s;">
+      <button class="btn-install" onclick="handleInstall()" style="max-width:300px;">START TRAINING</button>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       04  -  EVERY HUMAN HAS THE ABILITY
+  ═══════════════════════════════════════════════ -->
+  <section id="mission" style="padding:96px 0;position:relative;overflow:hidden;">
+
+    <!-- Background wave texture -->
+    <svg style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0.04;" viewBox="0 0 320 300" preserveAspectRatio="none">
+      <path d="M0 80 Q80 50 160 80 Q240 110 320 80" stroke="#4af0c8" stroke-width="1.5" fill="none"/>
+      <path d="M0 140 Q80 110 160 140 Q240 170 320 140" stroke="#4af0c8" stroke-width="1" fill="none"/>
+      <path d="M0 200 Q80 170 160 200 Q240 230 320 200" stroke="#5b9ef4" stroke-width="0.75" fill="none"/>
+    </svg>
+
+    <div class="reveal" style="padding:0 24px;text-align:center;">
+
+      <!-- Large ability statement -->
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:32px;opacity:0.8;">Our Mission</div>
+
+      <div style="font-family:var(--display);font-size:64px;letter-spacing:3px;line-height:0.95;color:var(--text);margin-bottom:8px;">EVERY</div>
+      <div style="font-family:var(--display);font-size:64px;letter-spacing:3px;line-height:0.95;color:var(--text);margin-bottom:8px;">HUMAN</div>
+      <div style="font-family:var(--display);font-size:64px;letter-spacing:3px;line-height:0.95;color:var(--text);margin-bottom:8px;">HAS THE</div>
+      <div style="font-family:var(--display);font-size:80px;letter-spacing:3px;line-height:0.95;margin-bottom:40px;">
+        <span style="color:var(--text);">ABIL</span><span style="color:var(--accent);">T</span><span style="color:var(--text);">Y</span>
+      </div>
+
+      <div style="width:40px;height:2px;background:var(--accent);opacity:0.4;margin:0 auto 32px;"></div>
+
+      <div style="font-family:var(--body);font-size:16px;color:var(--muted);line-height:1.8;max-width:320px;margin:0 auto 20px;">
+        To perceive beyond what is commonly understood. This is not a belief. It is documented in <strong style="color:var(--text);font-weight:500;">decades of peer-reviewed science</strong> and declassified government research.
+      </div>
+
+      <div style="font-family:var(--body);font-size:15px;color:var(--muted);line-height:1.8;max-width:320px;margin:0 auto 28px;">
+        Build your <strong style="color:var(--text);font-weight:500;">ability</strong> through consistent structured protocols. Track it with detailed analytics. Focus your training where your signal is strongest.
+      </div>
+
+      <div style="font-family:var(--mono);font-size:11px;letter-spacing:1.5px;color:var(--dim);font-style:italic;max-width:280px;margin:0 auto;line-height:1.9;">
+        "The question is not whether the ability exists.<br>The question is how far you can develop it."
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       05  -  SEE IT IN ACTION
+  ═══════════════════════════════════════════════ -->
+  <section id="screenshots" style="padding:72px 0 0;">
+
+    <div style="padding:0 24px 8px;text-align:center;" class="reveal">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:12px;">The Experience</div>
+      <div style="font-family:var(--display);font-size:48px;letter-spacing:2px;color:var(--text);line-height:1;">SEE IT IN<br>ACTION</div>
+    </div>
+
+    <div class="phone-track reveal" style="transition-delay:0.1s;">
+      <div class="phone-frame"><img src="/HomeMenu.png" alt="ABLTY Home Screen" width="200" height="360"></div>
+      <div class="phone-frame"><img src="/BlankCanvas.png" alt="RV Canvas" width="200" height="360"></div>
+      <div class="phone-frame"><img src="/Impressions.png" alt="Impressions" width="200" height="360"></div>
+      <div class="phone-frame"><img src="/RVGoodScore.png" alt="RV Results" width="200" height="360"></div>
+      <div class="phone-frame"><img src="/Analytics.png" alt="Analytics" width="200" height="360"></div>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       06  -  THIS IS REAL SCIENCE
+  ═══════════════════════════════════════════════ -->
+  <section id="learn" style="padding:80px 0 0;">
+
+    <div style="padding:0 24px;" class="reveal">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:12px;">The Research</div>
+      <div style="font-family:var(--display);font-size:48px;letter-spacing:2px;color:var(--text);line-height:1;margin-bottom:8px;">THIS IS<br>REAL SCIENCE</div>
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--muted);line-height:1.6;">23 years. $20 million. Declassified 1995.</div>
+    </div>
+
+    <!-- Signal bars -->
+    <div style="display:flex;align-items:flex-end;gap:3px;height:28px;margin:24px 24px 0;justify-content:center;" class="reveal" style="transition-delay:0.05s;">
       <div class="signal-bar" style="height:40%;animation-delay:0s"></div>
       <div class="signal-bar" style="height:65%;animation-delay:0.1s"></div>
       <div class="signal-bar" style="height:90%;animation-delay:0.2s"></div>
@@ -1331,151 +1474,147 @@ footer a:active { color: var(--muted); }
       <div class="signal-bar" style="height:50%;animation-delay:1.1s"></div>
     </div>
 
-    <div class="hscroll-wrap reveal" style="transition-delay:0.15s">
-      <div class="hscroll-track" id="cite-track">
+    <!-- Cite cards horizontal -->
+    <div class="hscroll-wrap reveal" style="transition-delay:0.1s;margin-top:20px;">
+      <div class="hscroll-track" id="cite-track" style="padding:8px 24px 24px;">
 
         <div class="cite-card">
-          <div class="cite-label">Declassified · CIA · 1995</div>
+          <div class="cite-label">CIA · Declassified · 1995</div>
+          <div class="cite-stat">23</div>
+          <div class="cite-stat-label">Years of U.S. government funding</div>
           <div class="cite-title">Project STARGATE</div>
-          <div class="cite-source">
-            A 23-year, $20 million U.S. government program at Stanford Research Institute investigating remote viewing. Declassified in 1995. Researchers Hal Puthoff and Russell Targ demonstrated statistically significant results across thousands of trials. Operated under the Defense Intelligence Agency.
-          </div>
+          <div class="cite-source-short">SRI International. Defense Intelligence Agency. Hal Puthoff &amp; Russell Targ.</div>
         </div>
 
         <div class="cite-card">
-          <div class="cite-label">Peer-Reviewed · Journal of Scientific Exploration</div>
-          <div class="cite-title">Meta-Analysis of Remote Viewing Experiments</div>
-          <div class="cite-source">
-            A meta-analysis of 653 remote viewing trials across multiple laboratories found an overall hit rate significantly above chance (p &lt; 0.0001). Effect sizes were consistent across independent research groups. Utts, J. (1996).
-          </div>
+          <div class="cite-label">Journal of Scientific Exploration · 1996</div>
+          <div class="cite-stat">p&lt;.0001</div>
+          <div class="cite-stat-label">Statistical significance</div>
+          <div class="cite-title">RV Meta-Analysis</div>
+          <div class="cite-source-short">653 trials across independent laboratories. Consistent effect sizes. Utts, J.</div>
         </div>
 
         <div class="cite-card">
-          <div class="cite-label">Princeton University · PEAR Lab · 1979-2007</div>
-          <div class="cite-title">Princeton Engineering Anomalies Research</div>
-          <div class="cite-source">
-            28 years of rigorous laboratory research at Princeton University examining human remote perception. Over 80 technical reports published. The remote perception database includes 650+ formal trials demonstrating consistent anomalous cognition effects.
-          </div>
+          <div class="cite-label">Princeton University · 1979-2007</div>
+          <div class="cite-stat">650+</div>
+          <div class="cite-stat-label">Formal remote perception trials</div>
+          <div class="cite-title">PEAR Lab</div>
+          <div class="cite-source-short">28 years. 80+ technical reports. Consistent anomalous cognition effects.</div>
         </div>
 
         <div class="cite-card">
-          <div class="cite-label">Peer-Reviewed · Psychological Bulletin · 1994</div>
-          <div class="cite-title">Ganzfeld ESP Studies</div>
-          <div class="cite-source">
-            A meta-analysis of 11 independent Ganzfeld databases (2,549 sessions) found a hit rate of 33.2% against a 25% chance baseline. A statistically significant result replicated across independent laboratories. Bem, D. &amp; Honorton, C.
-          </div>
+          <div class="cite-label">Psychological Bulletin · 1994</div>
+          <div class="cite-stat">33.2%</div>
+          <div class="cite-stat-label">Hit rate vs 25% chance baseline</div>
+          <div class="cite-title">Ganzfeld Studies</div>
+          <div class="cite-source-short">2,549 sessions across 11 independent databases. Bem &amp; Honorton.</div>
         </div>
 
       </div>
     </div>
 
-    <div class="stats-row reveal" style="transition-delay:0.2s">
-      <div class="stat-cell">
-        <div class="stat-val">23</div>
-        <div class="stat-label">Years of govt. funded research</div>
+    <!-- Stats row -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin:20px 24px 0;" class="reveal" style="transition-delay:0.15s;">
+      <div style="background:var(--card);padding:18px 12px;text-align:center;">
+        <div style="font-family:var(--display);font-size:32px;color:var(--accent);line-height:1;">23</div>
+        <div style="font-family:var(--mono);font-size:7px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-top:6px;line-height:1.4;">Years govt. funded</div>
       </div>
-      <div class="stat-cell">
-        <div class="stat-val">$20M</div>
-        <div class="stat-label">CIA / DIA program budget</div>
+      <div style="background:var(--card);padding:18px 12px;text-align:center;">
+        <div style="font-family:var(--display);font-size:32px;color:var(--accent);line-height:1;">$20M</div>
+        <div style="font-family:var(--mono);font-size:7px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-top:6px;line-height:1.4;">CIA / DIA budget</div>
       </div>
-      <div class="stat-cell">
-        <div class="stat-val">p&lt;.0001</div>
-        <div class="stat-label">Statistical significance of results</div>
+      <div style="background:var(--card);padding:18px 12px;text-align:center;">
+        <div style="font-family:var(--display);font-size:32px;color:var(--accent);line-height:1;">p&lt;.0001</div>
+        <div style="font-family:var(--mono);font-size:7px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-top:6px;line-height:1.4;">Significance</div>
       </div>
     </div>
 
-    <div style="display:flex;justify-content:center;margin-top:32px;" class="reveal">
+    <div style="display:flex;justify-content:center;margin:32px 0 0;padding:0 24px;" class="reveal" style="transition-delay:0.2s;">
       <button class="btn-install" onclick="handleInstall()" style="max-width:300px;">TEST YOUR ABILITIES</button>
     </div>
 
   </section>
 
+  <!-- ═══════════════════════════════════════════════
+       07  -  COMING SOON
+  ═══════════════════════════════════════════════ -->
+  <section id="coming" style="padding:80px 24px 0;">
 
-  <div class="divider"></div>
-
-
-  <!-- ── SCREENSHOTS PLACEHOLDER ── -->
-  <section class="screenshots-section reveal" id="screenshots">
-    <div class="section-pad">
-      <div class="section-tag">The Experience</div>
-      <div class="section-title">SEE IT IN ACTION</div>
-    </div>
-    <div class="phone-track">
-      <div class="phone-frame">
-        <img src="/HomeMenu.png" alt="ABLTY Home Screen" width="200" height="360">
-      </div>
-      <div class="phone-frame">
-        <img src="/BlankCanvas.png" alt="RV Canvas Session" width="200" height="360">
-      </div>
-      <div class="phone-frame">
-        <img src="/Impressions.png" alt="RV Impressions Screen" width="200" height="360">
-      </div>
-      <div class="phone-frame">
-        <img src="/RVGoodScore.png" alt="RV Session Results" width="200" height="360">
-      </div>
-      <div class="phone-frame">
-        <img src="/Analytics.png" alt="Analytics Dashboard" width="200" height="360">
-      </div>
-    </div>
-    <div style="display:flex;justify-content:center;margin-top:32px;padding:0 28px;" class="reveal">
-      <button class="btn-install" onclick="handleInstall()" style="max-width:300px;">START TRAINING</button>
+    <div class="reveal" style="text-align:center;margin-bottom:32px;">
+      <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--warn);text-transform:uppercase;margin-bottom:12px;">What Is Coming</div>
+      <div style="font-family:var(--display);font-size:48px;letter-spacing:2px;color:var(--text);line-height:1;">THE NEXT<br>EVOLUTION</div>
     </div>
 
-  </section>
+    <div style="display:flex;flex-direction:column;gap:12px;">
 
-
-  <div class="divider"></div>
-
-
-  <!-- ── COMING SOON SECTION ── -->
-  <section class="coming-section reveal" id="coming">
-    <div class="section-tag">What Is Coming</div>
-    <div class="section-title">THE NEXT EVOLUTION</div>
-    <div class="section-body">
-      ABLTY is a living research platform. These features are in development now.
-    </div>
-
-    <div class="coming-cards">
-      <div class="coming-card">
-        <div class="coming-icon">🎯</div>
+      <div class="coming-card reveal" style="transition-delay:0.05s;">
+        <div class="coming-card-visual">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <circle cx="20" cy="20" r="14" stroke="#4af0c8" stroke-width="1" opacity="0.5"/>
+            <ellipse cx="20" cy="20" rx="7" ry="14" stroke="#4af0c8" stroke-width="0.75" opacity="0.3"/>
+            <line x1="6" y1="20" x2="34" y2="20" stroke="#4af0c8" stroke-width="0.75" opacity="0.3"/>
+            <circle cx="20" cy="20" r="3" fill="#4af0c8" opacity="0.6"/>
+          </svg>
+        </div>
         <div>
           <div class="coming-name">DAILY COMMUNITY RV</div>
-          <div class="coming-desc">Every day, every ABLTY user attempts the same hidden target. Results reveal at 11:11 PM. One shared experiment. Global data.</div>
+          <div class="coming-desc">Same target. Every user. Reveals at 11:11 PM.</div>
         </div>
       </div>
-      <div class="coming-card">
-        <div class="coming-icon">🏆</div>
+
+      <div class="coming-card reveal" style="transition-delay:0.1s;">
+        <div class="coming-card-visual">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <rect x="6" y="24" width="7" height="10" fill="#4af0c8" opacity="0.4" rx="1"/>
+            <rect x="17" y="16" width="7" height="18" fill="#4af0c8" opacity="0.6" rx="1"/>
+            <rect x="28" y="8" width="7" height="26" fill="#4af0c8" opacity="0.9" rx="1"/>
+            <line x1="4" y1="34" x2="36" y2="34" stroke="#6b7280" stroke-width="0.75" opacity="0.4"/>
+          </svg>
+        </div>
         <div>
           <div class="coming-name">GLOBAL LEADERBOARDS</div>
-          <div class="coming-desc">AI-graded rankings across all protocols. Objective scores only. See who has the most advanced abilities on the planet.</div>
+          <div class="coming-desc">AI-graded. Objective. Who has the most advanced abilities?</div>
         </div>
       </div>
-      <div class="coming-card">
-        <div class="coming-icon">🌙</div>
+
+      <div class="coming-card reveal" style="transition-delay:0.15s;">
+        <div class="coming-card-visual">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
+            <ellipse cx="22" cy="26" rx="7" ry="10" stroke="#6b7280" stroke-width="1" opacity="0.35"/>
+            <ellipse cx="16" cy="16" rx="6" ry="9" stroke="#9b6fd4" stroke-width="1" stroke-dasharray="2 2" opacity="0.6"/>
+            <circle cx="16" cy="9" r="2" stroke="#9b6fd4" stroke-width="0.75" opacity="0.5"/>
+          </svg>
+        </div>
         <div>
           <div class="coming-name">ASTRAL PROJECTION</div>
-          <div class="coming-desc">Guided OBE induction protocols built around the hypnagogic transition window. The threshold between waking and sleep.</div>
+          <div class="coming-desc">Guided OBE induction. Hypnagogic threshold protocols.</div>
         </div>
       </div>
+
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════
+       08  -  FINAL CTA
+  ═══════════════════════════════════════════════ -->
+  <section style="padding:96px 24px 80px;text-align:center;position:relative;">
+    <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:100%;height:60%;background:radial-gradient(ellipse at 50% 100%,rgba(74,240,200,0.06) 0%,transparent 70%);pointer-events:none;"></div>
+
+    <!-- Wave above final CTA -->
+    <svg viewBox="0 0 320 30" style="width:100%;opacity:0.12;margin-bottom:40px;" preserveAspectRatio="none">
+      <path d="M0 15 Q40 5 80 15 Q120 25 160 15 Q200 5 240 15 Q280 25 320 15" stroke="#4af0c8" stroke-width="1.5" fill="none"/>
+    </svg>
+
+    <div class="reveal">
+      <div style="font-family:var(--display);font-size:72px;letter-spacing:6px;color:var(--text);line-height:1;margin-bottom:6px;">ABL<span style="color:var(--accent);">T</span>Y</div>
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:36px;">Free to start. Your data is yours.</div>
+      <button class="btn-install" id="final-install-btn" onclick="handleInstall()" style="margin:0 auto;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        INSTALL ABLTY
+      </button>
     </div>
   </section>
-
-
-  <div class="divider"></div>
-
-
-  <!-- ── FINAL CTA ── -->
-  <section class="final-cta reveal">
-    <div class="final-cta-glow"></div>
-    <div class="final-logo">ABL<span>T</span>Y</div>
-    <div class="final-tag">Free to start. Your data is yours.</div>
-    <button class="btn-install" id="final-install-btn" onclick="handleInstall()">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      INSTALL ABLTY
-    </button>
-  </section>
-
-
 
   <!-- FOOTER -->
   <footer>
@@ -1485,7 +1624,7 @@ footer a:active { color: var(--muted); }
     <a href="mailto:abltyapp@gmail.com">Contact</a>
   </footer>
 
-</div><!-- /mobile-content -->
+</div><!-- /mobile-content --></div><!-- /mobile-content -->
 
 <!-- LEGAL MODALS -->
 <div class="legal-modal-overlay" id="legal-modal">
