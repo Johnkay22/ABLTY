@@ -5697,8 +5697,14 @@ function renderSettingsState() {
   const loggedOutEl   = document.getElementById('settings-logged-out');
   const loggedInEl    = document.getElementById('settings-logged-in');
 
-  if (loggedOutEl) loggedOutEl.style.display = loggedIn ? 'none' : 'flex';
-  if (loggedInEl)  loggedInEl.style.display  = loggedIn ? 'flex' : 'none';
+  if (loggedOutEl) {
+    if (loggedIn) { loggedOutEl.style.display = 'none'; }
+    else { loggedOutEl.style.display = 'flex'; loggedOutEl.style.flexDirection = 'column'; loggedOutEl.style.gap = '8px'; }
+  }
+  if (loggedInEl) {
+    if (loggedIn) { loggedInEl.style.display = 'flex'; loggedInEl.style.flexDirection = 'column'; loggedInEl.style.gap = '8px'; }
+    else { loggedInEl.style.display = 'none'; }
+  }
 
   if (loggedIn) {
     // PLACEHOLDER: Cursor populates with real user data from Supabase
