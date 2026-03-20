@@ -2205,11 +2205,12 @@ html, body {
   grid-template-columns: 1fr 1fr;
   gap: 14px;
   perspective: 900px;
+  height: 100%;
 }
 .pp-card {
-  aspect-ratio: 3/4;
   cursor: pointer;
   position: relative;
+  min-height: 180px;
 }
 .pp-card-inner {
   width: 100%; height: 100%;
@@ -2359,6 +2360,30 @@ html, body {
   line-height: 1;
 }
 
+
+/* -- WBTB TIMER ---------------------------------------- */
+.wbtb-dur-btn {
+  flex: 1; padding: 14px 8px; border-radius: 12px;
+  font-family: var(--font-display); font-size: 22px; letter-spacing: 1px;
+  color: var(--muted); background: var(--card); border: 1px solid var(--border);
+  cursor: pointer; transition: all 0.15s; -webkit-tap-highlight-color: transparent;
+}
+.wbtb-dur-btn.active { background: rgba(74,240,200,0.1); border-color: var(--accent); color: var(--accent); }
+.wbtb-ring-svg { transform: rotate(-90deg); display: block; }
+.wbtb-ring-bg  { fill: none; stroke: var(--border2); }
+.wbtb-ring-fill { fill: none; stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+.wbtb-ring-wrap { display: flex; align-items: center; justify-content: center; padding: 20px 0 4px; position: relative; }
+.wbtb-ring-text { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.wbtb-time-display { font-family: var(--font-display); font-size: 64px; letter-spacing: 2px; color: var(--accent); line-height: 1; }
+.wbtb-time-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
+.wbtb-cycle-dots { display: flex; gap: 10px; justify-content: center; padding: 10px 0 20px; }
+.wbtb-cycle-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border2); transition: background 0.3s; }
+.wbtb-cycle-dot.done    { background: var(--accent); }
+.wbtb-cycle-dot.current { background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+.wbtb-btn-row { display: flex; gap: 10px; padding: 16px 24px calc(20px + var(--safe-bottom)); flex-shrink: 0; border-top: 1px solid var(--border); }
+.wbtb-btn { flex: 1; padding: 18px; border-radius: 14px; font-family: var(--font-display); font-size: 22px; letter-spacing: 2px; cursor: pointer; border: none; -webkit-tap-highlight-color: transparent; }
+.wbtb-btn-start { background: var(--accent); color: #000; }
+.wbtb-btn-stop  { background: var(--card); border: 1px solid var(--border); color: var(--muted); }
 </style>
 </head>
 <body>
@@ -2832,16 +2857,15 @@ html, body {
 
       <!-- LOGGED OUT STATE -->
       <div class="settings-logged-out fade-in-delay-1" id="settings-logged-out">
-        <!-- Unlock full access — full width banner -->
-        <div style="background:linear-gradient(135deg,rgba(74,240,200,0.08),rgba(91,158,244,0.06));border:1px solid rgba(74,240,200,0.2);border-radius:16px;padding:20px;margin-bottom:4px;">
-          <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:8px;">⚡ Unlock Full Access</div>
-          <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:16px;">Cloud sync, all modules, leaderboards and more.</div>
-          <div style="display:flex;gap:8px;">
-            <button class="btn btn-primary" style="flex:1;" onclick="openAuthScreen('signup')">Create Account</button>
-            <button class="btn btn-ghost" style="flex:1;" onclick="openAuthScreen('login')">Sign In</button>
-          </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary" style="flex:1;" onclick="openAuthScreen('signup')">Create Account</button>
+          <button class="btn btn-ghost" style="flex:1;" onclick="openAuthScreen('login')">Sign In</button>
         </div>
-        <button style="width:100%;padding:14px;background:var(--accent);color:#000;border:none;border-radius:14px;font-family:var(--font-display);font-size:20px;letter-spacing:2px;cursor:pointer;" onclick="showUpgradeModal('settings','Premium','Unlock unlimited sessions, all modules, and global leaderboards.')">UPGRADE TO PREMIUM</button>
+        <div style="background:linear-gradient(135deg,rgba(74,240,200,0.06),rgba(91,158,244,0.04));border:1px solid rgba(74,240,200,0.18);border-radius:16px;padding:18px 20px;">
+          <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:6px;">⚡ Unlock Full Access</div>
+          <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:16px;">Cloud sync, all modules, leaderboards and more.</div>
+          <button style="width:100%;padding:14px;background:var(--accent);color:#000;border:none;border-radius:12px;font-family:var(--font-display);font-size:20px;letter-spacing:2px;cursor:pointer;" onclick="showUpgradeModal('settings','Premium','Unlock unlimited sessions, all modules, and global leaderboards.')">UPGRADE TO PREMIUM</button>
+        </div>
       </div>
 
       <!-- LOGGED IN STATE (hidden until auth  -  Cursor wires this) -->
@@ -3614,20 +3638,7 @@ html, body {
         </div>
       </div>
 
-      <!-- MILD -->
-      <div class="module-card fade-in-delay-3" onclick="navigate('mild')" style="flex-shrink:0;">
-        <div class="card-visual" style="background:linear-gradient(135deg,#080a0e 0%,#100a18 100%);">
-          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;flex-direction:column;">
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:4px;color:rgba(160,130,255,0.6);">TONIGHT I WILL</div>
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:4px;color:rgba(160,130,255,0.6);">NOTICE I AM DREAMING</div>
-          </div>
-        </div>
-        <div class="card-overlay">
-          <div class="card-tag">Protocol 3</div>
-          <div class="display-md">MILD</div>
-          <div class="mono-sm" style="margin-top:4px">Mnemonic Induction · Pre-sleep Intention</div>
-        </div>
-      </div>
+
 
     </div>
   </div>
@@ -3813,10 +3824,11 @@ html, body {
   <!-- ══════════════════════════════════
        SCREEN: PHOTO PAIR INTUITION
   ═══════════════════════════════════ -->
-  <div id="screen-photopair" class="screen">
-    <div class="screen-inner">
+  <div id="screen-photopair" class="screen" style="display:flex;flex-direction:column;">
 
-      <div class="screen-hdr">
+    <!-- Header — always visible -->
+    <div style="padding:56px 20px 0;flex-shrink:0;">
+      <div class="screen-hdr" style="padding:0 0 16px;">
         <button class="screen-hdr-back" onclick="navigate('psi')">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
         </button>
@@ -3825,90 +3837,93 @@ html, body {
           <div class="screen-hdr-sub">Implicit psi · Emotional valence</div>
         </div>
       </div>
+    </div>
 
-      <!-- BRIEF VIEW -->
-      <div id="pp-view-brief">
-        <div class="psi-stat-bar">
-          <div class="psi-stat-cell">
-            <div class="mono-label">Trials</div>
-            <div class="psi-stat-val" id="pp-stat-trials">0</div>
-          </div>
-          <div class="psi-stat-cell">
-            <div class="mono-label">Hit Rate</div>
-            <div class="psi-stat-val" id="pp-stat-hitrate">-</div>
-          </div>
-          <div class="psi-stat-cell">
-            <div class="mono-label">Chance</div>
-            <div class="psi-stat-val" style="color:var(--muted);">50%</div>
-          </div>
+    <!-- BRIEF / STATS VIEW -->
+    <div id="pp-view-brief" style="flex:1;overflow-y:auto;padding:0 20px calc(24px + var(--safe-bottom));">
+
+      <!-- Stat bar -->
+      <div class="psi-stat-bar" style="margin-bottom:8px;">
+        <div class="psi-stat-cell">
+          <div class="mono-label">Trials</div>
+          <div class="psi-stat-val" id="pp-stat-trials">0</div>
         </div>
-        <div class="psi-chance-note" id="pp-stat-note">Complete 10+ trials for statistical analysis.</div>
-
-        <div class="card" style="padding:16px;background:var(--card);border:1px solid var(--border);border-radius:14px;">
-          <div class="mono-label" style="margin-bottom:8px;">How It Works</div>
-          <div class="body-sm">Two cards are shown face-down. One hides a <strong>pleasant image</strong> (nature, animals, beauty). The other hides a <strong>neutral image</strong> (empty spaces, overcast scenes). Tap the card you feel drawn to. <span style="color:var(--accent);">Chance is 50%.</span></div>
-          <div class="body-sm" style="margin-top:10px;color:var(--muted);font-family:var(--font-mono);font-size:10px;">Based on non-intentional psi research showing unconscious orientation toward emotionally positive future stimuli. Emotional charge is the key variable.</div>
+        <div class="psi-stat-cell">
+          <div class="mono-label">Hit Rate</div>
+          <div class="psi-stat-val" id="pp-stat-hitrate">-</div>
         </div>
+        <div class="psi-stat-cell">
+          <div class="mono-label">Chance</div>
+          <div class="psi-stat-val" style="color:var(--muted);">50%</div>
+        </div>
+      </div>
+      <div class="psi-chance-note" id="pp-stat-note" style="margin-bottom:16px;">Complete 10+ trials for statistical analysis.</div>
 
-        <button class="btn btn-primary" onclick="startPPTrial()">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="2" y="3" width="8" height="11" rx="1"/><rect x="14" y="3" width="8" height="11" rx="1"/><line x1="6" y1="18" x2="6" y2="21"/><line x1="18" y1="18" x2="18" y2="21"/><line x1="3" y1="21" x2="21" y2="21"/></svg>
-          BEGIN TRIAL
-        </button>
+      <!-- How it works -->
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px;">
+        <div class="mono-label" style="margin-bottom:8px;">How It Works</div>
+        <div class="body-sm">Two cards are shown face-down. One hides a <strong>pleasant image</strong>. The other hides a <strong>neutral image</strong>. Tap the card you feel drawn to. <span style="color:var(--accent);">Chance is 50%.</span></div>
+        <div style="margin-top:8px;font-family:var(--font-mono);font-size:9px;color:var(--muted);line-height:1.6;letter-spacing:0.5px;">Based on non-intentional psi research. Emotional charge is the key variable.</div>
       </div>
 
-      <!-- TRIAL VIEW -->
-      <div id="pp-view-trial" style="display:none;flex-direction:column;gap:16px;">
-        <div class="pp-tap-hint" id="pp-tap-hint">TAP THE CARD YOU FEEL DRAWN TO</div>
+      <button class="btn btn-primary" style="width:100%;" onclick="startPPTrial()">BEGIN TRIAL</button>
+    </div>
 
-        <div class="pp-grid">
-          <!-- Left card -->
-          <div class="pp-card" id="pp-card-0" onclick="handlePPTap(0)">
-            <div class="pp-card-inner">
-              <div class="pp-card-face pp-card-front">
-                <div class="pp-card-front-pattern" id="pp-pattern-0"></div>
-                <div class="pp-card-qlabel">?</div>
-              </div>
-              <div class="pp-card-face pp-card-back">
-                <img id="pp-img-0" src="" alt="" />
-                <div class="pp-verdict" id="pp-verdict-0" style="display:none;"></div>
-                <div class="pp-label-tag" id="pp-label-0" style="display:none;"></div>
-              </div>
+    <!-- TRIAL VIEW — fills screen properly -->
+    <div id="pp-view-trial" style="display:none;flex-direction:column;flex:1;padding:0 20px calc(16px + var(--safe-bottom));gap:12px;">
+
+      <div class="pp-tap-hint" id="pp-tap-hint" style="padding-top:8px;">TAP THE CARD YOU FEEL DRAWN TO</div>
+
+      <!-- Cards: fixed height calculated from viewport -->
+      <div class="pp-grid" style="flex:1;min-height:0;">
+        <!-- Left card -->
+        <div class="pp-card" id="pp-card-0" onclick="handlePPTap(0)" style="height:100%;">
+          <div class="pp-card-inner">
+            <div class="pp-card-face pp-card-front">
+              <div class="pp-card-front-pattern" id="pp-pattern-0"></div>
+              <div class="pp-card-qlabel">?</div>
             </div>
-          </div>
-          <!-- Right card -->
-          <div class="pp-card" id="pp-card-1" onclick="handlePPTap(1)">
-            <div class="pp-card-inner">
-              <div class="pp-card-face pp-card-front">
-                <div class="pp-card-front-pattern" id="pp-pattern-1"></div>
-                <div class="pp-card-qlabel">?</div>
-              </div>
-              <div class="pp-card-face pp-card-back">
-                <img id="pp-img-1" src="" alt="" />
-                <div class="pp-verdict" id="pp-verdict-1" style="display:none;"></div>
-                <div class="pp-label-tag" id="pp-label-1" style="display:none;"></div>
-              </div>
+            <div class="pp-card-face pp-card-back">
+              <img id="pp-img-0" src="" alt="" />
+              <div class="pp-verdict" id="pp-verdict-0" style="display:none;"></div>
+              <div class="pp-label-tag" id="pp-label-0" style="display:none;"></div>
             </div>
           </div>
         </div>
-
-        <!-- Post-reveal -->
-        <div id="pp-post-reveal" style="display:none;flex-direction:column;gap:10px;">
-          <div class="psi-stat-bar">
-            <div class="psi-stat-cell">
-              <div class="mono-label">This Trial</div>
-              <div class="psi-stat-val" id="pp-trial-result" style="font-size:22px;">-</div>
+        <!-- Right card -->
+        <div class="pp-card" id="pp-card-1" onclick="handlePPTap(1)" style="height:100%;">
+          <div class="pp-card-inner">
+            <div class="pp-card-face pp-card-front">
+              <div class="pp-card-front-pattern" id="pp-pattern-1"></div>
+              <div class="pp-card-qlabel">?</div>
             </div>
-            <div class="psi-stat-cell">
-              <div class="mono-label">Running</div>
-              <div class="psi-stat-val" id="pp-running-rate" style="font-size:22px;">-</div>
+            <div class="pp-card-face pp-card-back">
+              <img id="pp-img-1" src="" alt="" />
+              <div class="pp-verdict" id="pp-verdict-1" style="display:none;"></div>
+              <div class="pp-label-tag" id="pp-label-1" style="display:none;"></div>
             </div>
           </div>
-          <button class="btn btn-primary" onclick="startPPTrial()">NEXT TRIAL</button>
-          <button class="btn btn-ghost" onclick="showPPView('brief')">View Stats</button>
         </div>
+      </div>
+
+      <!-- Post-reveal -->
+      <div id="pp-post-reveal" style="display:none;flex-direction:column;gap:8px;">
+        <div class="psi-stat-bar">
+          <div class="psi-stat-cell">
+            <div class="mono-label">This Trial</div>
+            <div class="psi-stat-val" id="pp-trial-result" style="font-size:22px;">-</div>
+          </div>
+          <div class="psi-stat-cell">
+            <div class="mono-label">Running</div>
+            <div class="psi-stat-val" id="pp-running-rate" style="font-size:22px;">-</div>
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;" onclick="startPPTrial()">NEXT TRIAL</button>
+        <button class="btn btn-ghost" style="width:100%;" onclick="showPPView('brief')">View Stats</button>
       </div>
 
     </div>
+
   </div>
 
   <!-- ==============================
@@ -3936,7 +3951,7 @@ These Terms of Service govern your use of ABLTY (ablty.app). By creating an acco
 
 1. WHO WE ARE
 
-ABLTY is a psi research and consciousness training application available at ablty.app. When these terms say &quot;we,&quot; &quot;us,&quot; or &quot;ABLTY,&quot; we mean the operators of ablty.app. You can reach us at abltyapp@gmail.com.
+ABLTY is a psi research and consciousness training application available at ablty.app. When these terms say &quot;we,&quot; &quot;us,&quot; or &quot;ABLTY,&quot; we mean the operators of ablty.app. You can reach us at <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="80e1e2ecf4f9e1f0f0c0e7ede1e9ecaee3efed">[email&#160;protected]</a>.
 
 ---
 
@@ -4030,7 +4045,7 @@ These terms are governed by the laws of the State of Illinois, United States.
 
 13. CONTACT
 
-Questions about these terms: abltyapp@gmail.com
+Questions about these terms: <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="3150535d454850414171565c50585d1f525e5c">[email&#160;protected]</a>
 </div>
 
     </div>
@@ -4061,7 +4076,7 @@ This Privacy Policy explains what information ABLTY (ablty.app) collects, how we
 
 1. WHO WE ARE
 
-ABLTY is operated by the team at ablty.app. Contact us at abltyapp@gmail.com with any privacy questions or requests.
+ABLTY is operated by the team at ablty.app. Contact us at <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="a1c0c3cdd5d8c0d1d1e1c6ccc0c8cd8fc2cecc">[email&#160;protected]</a> with any privacy questions or requests.
 
 ---
 
@@ -4098,7 +4113,7 @@ We use your information to:
 - Send Community RV reveal notifications at 11:11 PM your local time
 - Display your scores and username on leaderboards (Premium only, with your participation)
 - Sync your session data across devices
-- Respond to support requests sent to abltyapp@gmail.com
+- Respond to support requests sent to <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="f796959b838e968787b7909a969e9bd994989a">[email&#160;protected]</a>
 - Improve the app based on aggregate, anonymized usage patterns
 
 We may use anonymized, aggregate data  -  meaning data that cannot be linked to any individual user  -  for psi research purposes or to share findings publicly. This data is never personally identifiable.
@@ -4150,19 +4165,19 @@ You have the right to:
 - Export your session data (Premium feature)
 - Withdraw consent for push notifications at any time via app settings
 
-To exercise any of these rights, contact us at abltyapp@gmail.com. We will respond within 30 days.
+To exercise any of these rights, contact us at <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="d6b7b4baa2afb7a6a696b1bbb7bfbaf8b5b9bb">[email&#160;protected]</a>. We will respond within 30 days.
 
 ---
 
 8. DATA SECURITY
 
-We use industry-standard security practices including encrypted connections (HTTPS), hashed passwords, and access controls. No system is perfectly secure. If you believe your account has been compromised, contact us immediately at abltyapp@gmail.com.
+We use industry-standard security practices including encrypted connections (HTTPS), hashed passwords, and access controls. No system is perfectly secure. If you believe your account has been compromised, contact us immediately at <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="5031323c242931202010373d31393c7e333f3d">[email&#160;protected]</a>.
 
 ---
 
 9. CHILDREN
 
-ABLTY is not directed at children under 13. We do not knowingly collect personal information from children under 13. If you believe a child under 13 has created an account, contact us at abltyapp@gmail.com and we will delete the account.
+ABLTY is not directed at children under 13. We do not knowingly collect personal information from children under 13. If you believe a child under 13 has created an account, contact us at <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="ceafaca2bab7afbebe8ea9a3afa7a2e0ada1a3">[email&#160;protected]</a> and we will delete the account.
 
 ---
 
@@ -4180,7 +4195,7 @@ This Privacy Policy is governed by the laws of the State of Illinois, United Sta
 
 12. CONTACT
 
-Privacy questions and data requests: abltyapp@gmail.com
+Privacy questions and data requests: <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="6607040a121f07161626010b070f0a4805090b">[email&#160;protected]</a>
 </div>
 
     </div>
@@ -4222,7 +4237,7 @@ Privacy questions and data requests: abltyapp@gmail.com
      IMPORTANT: The index is never sent to client
      during a live session  -  only revealed post-submit.
 ═══════════════════════════════════════════════ -->
-<script>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 // ─── TARGET POOL ──────────────────────────────
 // In production: target selection + reveal happens
 // server-side via Cloudflare Worker.
@@ -4342,7 +4357,6 @@ const SCREENS = {
   'photopair':            'screen-photopair',
   'dream-lab':            'screen-dream-lab',
   'wbtb':                 'screen-wbtb',
-  'mild':                 'screen-mild',
   'terms':                'screen-terms',
   'privacy':               'screen-privacy',
 };
@@ -4389,7 +4403,6 @@ function showScreen(name, hideNav = false) {
     psi:                    'nav-psi',
     'dream-lab':            'nav-home',
     wbtb:                   'nav-home',
-    mild:                   'nav-home',
     terms:                  'nav-profile',
     privacy:                'nav-profile',
     photopair:              'nav-psi',
@@ -4426,7 +4439,6 @@ const BACK_MAP = {
   detail:               'analytics',
   profile:              'home',
   wbtb:                 'dream-lab',
-  mild:                 'dream-lab',
   terms:                'profile',
   privacy:              'profile',
 };
@@ -4474,7 +4486,6 @@ function navigate(name) {
   if (name === 'psi')      renderPSIHub();
   if (name === 'dream-lab') renderDreamLab();
   if (name === 'wbtb')      { /* init wbtb */ }
-  if (name === 'mild')      { const mc = document.getElementById('mild-mantra-card'); if (mc) mc.style.display = 'none'; }
   if (name === 'photopair') renderPhotoPairBrief();
   if (name === 'home')     updateHomeRCStreak();
 }
@@ -5992,35 +6003,6 @@ function updateWBTBWakeDisplay(secs) {
 // ═══════════════════════════════════════════════════════
 //  MILD
 // ═══════════════════════════════════════════════════════
-
-const MILD_MANTRAS = [
-  'Tonight I will notice when I am dreaming and take control.',
-  'The moment I see something strange, I will realize I am dreaming.',
-  'I will remember to ask myself: am I dreaming? And the answer will be yes.',
-  'My dreaming mind is awake and aware. I will notice the signs.',
-  'Tonight I become lucid. I will remember to look for the dream.',
-];
-
-function generateMILDMantra() {
-  const intention   = (document.getElementById('mild-intention')?.value || '').trim();
-  const mantraCard  = document.getElementById('mild-mantra-card');
-  const mantraText  = document.getElementById('mild-mantra-text');
-  if (!mantraCard || !mantraText) return;
-
-  let mantra;
-  if (intention) {
-    mantra = intention.endsWith('.') || intention.endsWith('!') ? intention : intention + '.';
-    if (!mantra.toLowerCase().includes('dream') && !mantra.toLowerCase().includes('lucid')) {
-      mantra += ' I will notice I am dreaming.';
-    }
-  } else {
-    mantra = MILD_MANTRAS[Math.floor(Math.random() * MILD_MANTRAS.length)];
-  }
-
-  mantraText.textContent = mantra;
-  mantraCard.style.display = 'block';
-  mantraCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-}
 
 function clearAllData() {
   if (confirm('Clear all session data? This cannot be undone.')) {
@@ -9225,69 +9207,6 @@ window.addEventListener('error', (e) => {
   </div>
 
 
-  <!-- ══════════════════════════════════
-       SCREEN: MILD
-  ═══════════════════════════════════ -->
-  <div id="screen-mild" class="screen">
-    <div class="screen-inner">
-
-      <div class="screen-hdr">
-        <button class="screen-hdr-back" onclick="navigate('dream-lab')">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-        </button>
-        <div>
-          <div class="screen-hdr-title">MILD</div>
-          <div class="screen-hdr-sub">Mnemonic Induction of Lucid Dreams</div>
-        </div>
-      </div>
-
-      <!-- Steps -->
-      <div style="margin-bottom:24px;">
-        <div class="mild-step-row">
-          <div class="mild-step-num">01</div>
-          <div>
-            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--text);margin-bottom:4px;">Set Your Intention</div>
-            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.55;">Write a brief intention for tonight. What will you do when you realize you are dreaming?</div>
-          </div>
-        </div>
-        <div class="mild-step-row">
-          <div class="mild-step-num">02</div>
-          <div>
-            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--text);margin-bottom:4px;">Repeat Your Mantra</div>
-            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.55;">As you fall asleep, repeat your mantra. Visualize yourself becoming lucid. Hold the intention at the edge of consciousness.</div>
-          </div>
-        </div>
-        <div class="mild-step-row">
-          <div class="mild-step-num">03</div>
-          <div>
-            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--text);margin-bottom:4px;">Return on Wake</div>
-            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.55;">If you wake from a dream, re-enter it consciously. Recall the dream scene and set the intention before falling back asleep.</div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Intention input -->
-      <div class="mild-intention-wrap">
-        <div class="mild-intention-label">Tonight's Intention</div>
-        <textarea class="mild-mantra-input" id="mild-intention" placeholder="I will notice when I am dreaming and..."></textarea>
-      </div>
-
-      <!-- Generated mantra -->
-      <div id="mild-mantra-card" style="margin-top:16px;display:none;">
-        <div class="section-label">Your Mantra</div>
-        <div class="mild-intention-wrap" style="margin-top:8px;">
-          <div class="mild-intention-text" id="mild-mantra-text"></div>
-        </div>
-      </div>
-
-      <button class="btn btn-primary" style="margin-top:24px;width:100%;" onclick="generateMILDMantra()">GENERATE MANTRA</button>
-
-      <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:1px;color:var(--dim);text-align:center;margin-top:16px;line-height:1.8;">
-        Based on Laberge's MILD protocol (1980).<br>Most effective when practiced during WBTB.
-      </div>
-
-    </div>
-  </div>
 
 
   <!-- WBTB WAKE SCREEN -->
@@ -9303,7 +9222,7 @@ window.addEventListener('error', (e) => {
     </div>
 
     <div class="wbtb-wake-btn-row">
-      <button class="btn btn-primary" onclick="navigate('mild');closeWBTBWakeScreen();">SET MILD INTENTION</button>
+      <button class="btn btn-primary" onclick="closeWBTBWakeScreen()">Got It</button>
       <button class="btn btn-ghost" onclick="closeWBTBWakeScreen()">Dismiss</button>
     </div>
   </div>
@@ -9322,18 +9241,4 @@ window.addEventListener('error', (e) => {
         <button class="edit-tag-btn" data-tag="morning" onclick="toggleEditTag(this)">Morning</button>
         <button class="edit-tag-btn" data-tag="night" onclick="toggleEditTag(this)">Night</button>
         <button class="edit-tag-btn" data-tag="focused" onclick="toggleEditTag(this)">Focused</button>
-        <button class="edit-tag-btn" data-tag="distracted" onclick="toggleEditTag(this)">Distracted</button>
-        <button class="edit-tag-btn" data-tag="noisy" onclick="toggleEditTag(this)">Noisy environment</button>
-        <button class="edit-tag-btn" data-tag="quiet" onclick="toggleEditTag(this)">Quiet</button>
-        <button class="edit-tag-btn" data-tag="caffeine" onclick="toggleEditTag(this)">Caffeinated</button>
-        <button class="edit-tag-btn" data-tag="fasted" onclick="toggleEditTag(this)">Fasted</button>
-      </div>
-      <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-bottom:6px;">Notes</div>
-      <textarea class="edit-note-input" id="edit-note-input" placeholder="Optional. Describe your state, anything notable..."></textarea>
-      <button class="modal-close-btn" style="margin-top:14px;" onclick="saveEditModal()">Save</button>
-      <button class="modal-close-btn" style="margin-top:8px;background:transparent;border-color:transparent;color:var(--muted);" onclick="closeEditModal()">Cancel</button>
-    </div>
-  </div>
-
-</body>
-</html>
+        <button class="edit-
