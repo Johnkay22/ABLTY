@@ -2308,10 +2308,69 @@ html, body {
   text-align: center; margin-top: 4px;
 }
 
+/* ── TOAST NOTIFICATION ──────────────────────────── */
+#app-toast {
+  position: fixed;
+  top: calc(16px + var(--safe-top, 0px));
+  left: 16px; right: 16px;
+  z-index: 9998;
+  background: var(--card2);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+  transform: translateY(-80px);
+  opacity: 0;
+  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), opacity 0.3s ease;
+  pointer-events: none;
+}
+#app-toast.toast-visible {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+.toast-icon {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  font-size: 11px;
+  font-family: var(--font-mono);
+}
+.toast-icon-error   { background: rgba(240,90,74,0.15);  color: var(--danger); }
+.toast-icon-success { background: rgba(74,240,200,0.12); color: var(--accent); }
+.toast-icon-info    { background: rgba(91,158,244,0.12); color: var(--accent2); }
+.toast-icon-warn    { background: rgba(240,169,74,0.12); color: var(--warn); }
+.toast-msg {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.3px;
+  color: var(--text);
+  line-height: 1.4;
+  flex: 1;
+}
+.toast-close {
+  background: none; border: none;
+  color: var(--muted); font-size: 16px;
+  cursor: pointer; padding: 0; flex-shrink: 0;
+  line-height: 1;
+}
+
 </style>
 </head>
 <body>
 <div id="app">
+
+  <!-- TOAST NOTIFICATION -->
+  <div id="app-toast" role="alert" aria-live="polite">
+    <div class="toast-icon" id="toast-icon"></div>
+    <div class="toast-msg" id="toast-msg"></div>
+    <button class="toast-close" onclick="hideToast()" aria-label="Dismiss">x</button>
+  </div>
+
 
   <!-- ══════════════════════════════════
        SCREEN: HOME
@@ -2768,22 +2827,41 @@ html, body {
 
       <div class="display-lg fade-in">SETTINGS</div>
 
-      <!-- Account section -->
+      <!-- Account section — two states -->
       <div class="section-label fade-in-delay-1">Account</div>
-      <div style="display:flex;flex-direction:column;gap:8px;" class="fade-in-delay-1">
-        <div class="setting-row">
-          <div>
-            <div class="setting-label">Seeker ID</div>
-            <div class="setting-desc" id="profile-seeker-id" style="font-family:var(--font-mono);color:var(--text);">#–––––</div>
-          </div>
-          <span class="dev-badge" style="display:inline-block;">GUEST</span>
-        </div>
-        <div class="free-banner fade-in-delay-2">
+
+      <!-- LOGGED OUT STATE -->
+      <div class="settings-logged-out fade-in-delay-1" id="settings-logged-out">
+        <button class="btn btn-primary" style="width:100%;" onclick="openAuthScreen('signup')">CREATE FREE ACCOUNT</button>
+        <button class="btn btn-ghost" style="width:100%;" onclick="openAuthScreen('login')">Sign In</button>
+        <div class="free-banner">
           <div class="free-banner-text">
             <div class="free-banner-title">⚡ Unlock Full Access</div>
-            <div class="free-banner-sub">Unlimited sessions, all modules, cloud sync</div>
+            <div class="free-banner-sub">Cloud sync, all modules, leaderboards</div>
           </div>
-          <button class="upgrade-btn">Upgrade</button>
+          <button class="upgrade-btn" onclick="showUpgradeModal('full')">Upgrade</button>
+        </div>
+      </div>
+
+      <!-- LOGGED IN STATE (hidden until auth — Cursor wires this) -->
+      <div class="settings-logged-in fade-in-delay-1" id="settings-logged-in">
+        <div class="settings-user-card">
+          <div class="settings-avatar" id="settings-avatar">S</div>
+          <div>
+            <div class="settings-username" id="settings-username">Seeker</div>
+            <div id="settings-tier-badge" class="tier-badge tier-free" style="margin-top:4px;">FREE</div>
+          </div>
+          <button class="settings-signout-btn" onclick="handleSignOut()">Sign Out</button>
+        </div>
+        <!-- Sync status indicator -->
+        <div class="setting-row" id="sync-status-row">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="sync-dot sync-dot-synced" id="sync-dot"></div>
+            <div>
+              <div class="setting-label">Data Sync</div>
+              <div class="setting-desc" id="sync-status-label">Synced to cloud</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -3515,20 +3593,16 @@ html, body {
         </div>
       </div>
 
-      <!-- Coming Soon — WBTB Timer -->
-      <div class="module-card fade-in-delay-2" onclick="showComingSoon('WBTB Timer')" style="flex-shrink:0;opacity:0.5;">
-        <div class="card-visual" style="background:linear-gradient(135deg,#0a0c10 0%,#0d1020 100%);">
+      <!-- WBTB Timer -->
+      <div class="module-card fade-in-delay-2" onclick="navigate('wbtb')" style="flex-shrink:0;">
+        <div class="card-visual" style="background:linear-gradient(135deg,#0a0f1a,#0d1525);overflow:hidden;">
           <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="rgba(91,158,244,0.4)" stroke-width="1.2" stroke-linecap="round">
-              <circle cx="24" cy="24" r="18"/>
-              <line x1="24" y1="10" x2="24" y2="24"/>
-              <line x1="24" y1="24" x2="34" y2="30"/>
-              <line x1="10" y1="8" x2="14" y2="12"/>
-              <line x1="38" y1="8" x2="34" y2="12"/>
+            <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
+              <circle cx="30" cy="30" r="24" stroke="rgba(74,240,200,0.2)" stroke-width="2"/>
+              <circle cx="30" cy="30" r="24" stroke="rgba(74,240,200,0.6)" stroke-width="2" stroke-dasharray="150.8" stroke-dashoffset="50" stroke-linecap="round" transform="rotate(-90 30 30)"/>
+              <text x="30" y="27" text-anchor="middle" font-family="Bebas Neue,sans-serif" font-size="13" fill="#4af0c8" letter-spacing="1">5:30</text>
+              <text x="30" y="38" text-anchor="middle" font-family="DM Mono,monospace" font-size="5.5" fill="#6b7280" letter-spacing="1">HOURS</text>
             </svg>
-          </div>
-          <div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:5px 12px;">
-            <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:2px;color:rgba(255,255,255,0.35);text-transform:uppercase;">Soon</span>
           </div>
         </div>
         <div class="card-overlay">
@@ -3538,15 +3612,12 @@ html, body {
         </div>
       </div>
 
-      <!-- Coming Soon — MILD -->
-      <div class="module-card fade-in-delay-3" onclick="showComingSoon('MILD')" style="flex-shrink:0;opacity:0.5;">
+      <!-- MILD -->
+      <div class="module-card fade-in-delay-3" onclick="navigate('mild')" style="flex-shrink:0;">
         <div class="card-visual" style="background:linear-gradient(135deg,#080a0e 0%,#100a18 100%);">
           <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:8px;flex-direction:column;">
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:4px;color:rgba(160,130,255,0.35);">TONIGHT I WILL</div>
-            <div style="font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:4px;color:rgba(160,130,255,0.35);">NOTICE I AM DREAMING</div>
-          </div>
-          <div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:5px 12px;">
-            <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:2px;color:rgba(255,255,255,0.35);text-transform:uppercase;">Soon</span>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:4px;color:rgba(160,130,255,0.6);">TONIGHT I WILL</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:11px;letter-spacing:4px;color:rgba(160,130,255,0.6);">NOTICE I AM DREAMING</div>
           </div>
         </div>
         <div class="card-overlay">
@@ -4268,6 +4339,8 @@ const SCREENS = {
   'psi':                  'screen-psi',
   'photopair':            'screen-photopair',
   'dream-lab':            'screen-dream-lab',
+  'wbtb':                 'screen-wbtb',
+  'mild':                 'screen-mild',
   'terms':                'screen-terms',
   'privacy':               'screen-privacy',
 };
@@ -4313,6 +4386,8 @@ function showScreen(name, hideNav = false) {
     'zener-results':        'nav-psi',
     psi:                    'nav-psi',
     'dream-lab':            'nav-home',
+    wbtb:                   'nav-home',
+    mild:                   'nav-home',
     terms:                  'nav-profile',
     privacy:                'nav-profile',
     photopair:              'nav-psi',
@@ -4348,6 +4423,8 @@ const BACK_MAP = {
   history:              'home',
   detail:               'analytics',
   profile:              'home',
+  wbtb:                 'dream-lab',
+  mild:                 'dream-lab',
   terms:                'profile',
   privacy:              'profile',
 };
@@ -4381,6 +4458,11 @@ window.addEventListener('popstate', (e) => {
 });
 
 function navigate(name) {
+  // Auth screens are overlays, not SCREENS map entries
+  if (name === 'login')  { openAuthScreen('login');  return; }
+  if (name === 'signup') { openAuthScreen('signup'); return; }
+  if (name === 'forgot') { openAuthScreen('forgot'); return; }
+
   showScreen(name, false);
   if (name === 'analytics' || name === 'history') renderAnalytics();
   if (name === 'profile')  renderProfile();
@@ -4389,6 +4471,8 @@ function navigate(name) {
   if (name === 'timestamp') renderTimestampBrief();
   if (name === 'psi')      renderPSIHub();
   if (name === 'dream-lab') renderDreamLab();
+  if (name === 'wbtb')      { /* init wbtb */ }
+  if (name === 'mild')      { const mc = document.getElementById('mild-mantra-card'); if (mc) mc.style.display = 'none'; }
   if (name === 'photopair') renderPhotoPairBrief();
   if (name === 'home')     updateHomeRCStreak();
 }
@@ -4877,6 +4961,7 @@ function mockGrade() {
 
 // ─── PROFILE RENDER ───────────────────────────
 function renderProfile() {
+  renderSettingsState();
   const seekerEl = document.getElementById('profile-seeker-id');
   const avatarEl = document.getElementById('profile-avatar');
 
@@ -5417,6 +5502,356 @@ function checkRCHash() {
   }
 }
 
+
+// ── TOAST NOTIFICATION ────────────────────────────────
+let _toastTimer = null;
+
+function showToast(msg, type = 'error', duration = 3500) {
+  const toast   = document.getElementById('app-toast');
+  const iconEl  = document.getElementById('toast-icon');
+  const msgEl   = document.getElementById('toast-msg');
+  if (!toast || !iconEl || !msgEl) return;
+
+  const icons = {
+    error:   '!',
+    success: 'ok',
+    info:    'i',
+    warn:    '!',
+  };
+
+  iconEl.className = 'toast-icon toast-icon-' + type;
+  iconEl.textContent = icons[type] || '!';
+  msgEl.textContent = msg;
+
+  toast.classList.add('toast-visible');
+
+  if (_toastTimer) clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(hideToast, duration);
+}
+
+function hideToast() {
+  const toast = document.getElementById('app-toast');
+  if (toast) toast.classList.remove('toast-visible');
+  if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
+}
+
+
+// ═══════════════════════════════════════════════════════
+//  TIER SYSTEM
+// ═══════════════════════════════════════════════════════
+
+// MOCK auth state — Cursor replaces with real Supabase session
+// Possible values: 'guest' | 'free' | 'premium'
+function getCurrentTier() {
+  // PLACEHOLDER: Cursor replaces with Supabase session check
+  return localStorage.getItem('ablty_tier') || 'guest';
+}
+
+function isLoggedIn() {
+  // PLACEHOLDER: Cursor replaces with real auth check
+  return localStorage.getItem('ablty_logged_in') === '1';
+}
+
+// Feature access map
+const TIER_ACCESS = {
+  rv:           ['guest','free','premium'],
+  zener:        ['guest','free','premium'],
+  timestamp:    ['free','premium'],
+  photopair:    ['free','premium'],
+  'dream-lab':  ['free','premium'],
+  'reality-check': ['free','premium'],
+  analytics:    ['free','premium'],
+  wbtb:         ['free','premium'],
+  mild:         ['free','premium'],
+  community_rv: ['premium'],
+  leaderboards: ['premium'],
+};
+
+function canAccess(feature) {
+  const tier = getCurrentTier();
+  return (TIER_ACCESS[feature] || ['premium']).includes(tier);
+}
+
+// ═══════════════════════════════════════════════════════
+//  UPGRADE MODAL
+// ═══════════════════════════════════════════════════════
+
+function showUpgradeModal(featureKey, featureName, featureDesc) {
+  const modal    = document.getElementById('upgrade-modal');
+  const nameEl   = document.getElementById('upgrade-feature-name');
+  const titleEl  = document.getElementById('upgrade-modal-title');
+  const descEl   = document.getElementById('upgrade-modal-desc');
+  const ctaBtn   = document.getElementById('upgrade-cta-btn');
+  const freeBtn  = document.getElementById('upgrade-free-btn');
+  if (!modal) return;
+
+  const tier = getCurrentTier();
+
+  if (nameEl)  nameEl.textContent  = featureName || 'Premium Feature';
+  if (titleEl) titleEl.textContent = 'Unlock ' + (featureName || 'This Feature');
+  if (descEl)  descEl.textContent  = featureDesc || 'This feature requires a free account or Premium subscription.';
+
+  // If already logged in (free tier), show upgrade CTA only
+  if (tier === 'free') {
+    if (freeBtn) freeBtn.style.display = 'none';
+    if (ctaBtn)  ctaBtn.textContent = 'UPGRADE TO PREMIUM';
+  } else {
+    if (freeBtn) freeBtn.style.display = 'block';
+    if (ctaBtn)  ctaBtn.textContent = 'UPGRADE TO PREMIUM';
+  }
+
+  modal.classList.add('visible');
+}
+
+function handleUpgradeOverlayClick(e) {
+  if (e.target === document.getElementById('upgrade-modal')) closeUpgradeModal();
+}
+
+function closeUpgradeModal() {
+  const modal = document.getElementById('upgrade-modal');
+  if (modal) modal.classList.remove('visible');
+}
+
+function handleUpgradeCTA() {
+  closeUpgradeModal();
+  // PLACEHOLDER: Cursor wires Stripe payment link
+  showToast('Payments coming soon. Stay tuned.', 'info');
+}
+
+function handleFreeAccountCTA() {
+  closeUpgradeModal();
+  openAuthScreen('signup');
+}
+
+// Gated navigate — checks tier before navigating to a feature
+function gatedNavigate(feature, featureName, featureDesc) {
+  if (canAccess(feature)) {
+    navigate(feature);
+  } else {
+    showUpgradeModal(feature, featureName, featureDesc);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  SETTINGS SCREEN — TWO STATES
+// ═══════════════════════════════════════════════════════
+
+function renderSettingsState() {
+  const loggedIn      = isLoggedIn();
+  const loggedOutEl   = document.getElementById('settings-logged-out');
+  const loggedInEl    = document.getElementById('settings-logged-in');
+
+  if (loggedOutEl) loggedOutEl.style.display = loggedIn ? 'none' : 'flex';
+  if (loggedInEl)  loggedInEl.style.display  = loggedIn ? 'flex' : 'none';
+
+  if (loggedIn) {
+    // PLACEHOLDER: Cursor populates with real user data from Supabase
+    const username = localStorage.getItem('ablty_username') || 'Seeker';
+    const tier     = getCurrentTier();
+
+    const avatarEl   = document.getElementById('settings-avatar');
+    const usernameEl = document.getElementById('settings-username');
+    const tierBadge  = document.getElementById('settings-tier-badge');
+
+    if (avatarEl)   avatarEl.textContent   = username.charAt(0).toUpperCase();
+    if (usernameEl) usernameEl.textContent = username;
+    if (tierBadge) {
+      const tierLabels = { free: 'FREE', premium: 'PREMIUM' };
+      const tierClasses = { free: 'tier-free', premium: 'tier-premium' };
+      tierBadge.textContent = tierLabels[tier] || tier.toUpperCase();
+      tierBadge.className   = 'tier-badge ' + (tierClasses[tier] || 'tier-guest');
+    }
+
+    updateSyncStatus('synced');
+  }
+}
+
+function handleSignOut() {
+  if (!confirm('Sign out of your account?')) return;
+  // PLACEHOLDER: Cursor replaces with Supabase signOut()
+  localStorage.removeItem('ablty_logged_in');
+  localStorage.removeItem('ablty_username');
+  localStorage.removeItem('ablty_tier');
+  renderSettingsState();
+  renderProfile();
+  showToast('Signed out.', 'success');
+}
+
+// ═══════════════════════════════════════════════════════
+//  SYNC STATUS INDICATOR
+// ═══════════════════════════════════════════════════════
+
+function updateSyncStatus(status) {
+  // status: 'local' | 'syncing' | 'synced'
+  const dot   = document.getElementById('sync-dot');
+  const label = document.getElementById('sync-status-label');
+  if (!dot || !label) return;
+
+  const states = {
+    local:   { cls: 'sync-dot-local',   text: 'Local only' },
+    syncing: { cls: 'sync-dot-syncing', text: 'Syncing...' },
+    synced:  { cls: 'sync-dot-synced',  text: 'Synced to cloud' },
+  };
+  const s = states[status] || states.local;
+  dot.className   = 'sync-dot ' + s.cls;
+  label.textContent = s.text;
+}
+
+// ═══════════════════════════════════════════════════════
+//  LOADING SKELETONS
+// ═══════════════════════════════════════════════════════
+
+function showAnalyticsSkeleton() {
+  const analyticsEl = document.getElementById('screen-analytics');
+  if (!analyticsEl) return;
+  const inner = analyticsEl.querySelector('.screen-inner');
+  if (!inner) return;
+
+  inner.innerHTML = `
+    <div class="display-lg fade-in">ANALYTICS</div>
+    <div class="skeleton-wrap" style="margin-top:16px;">
+      <div class="skeleton skeleton-card" style="height:90px;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="skeleton skeleton-block" style="height:72px;"></div>
+        <div class="skeleton skeleton-block" style="height:72px;"></div>
+        <div class="skeleton skeleton-block" style="height:72px;"></div>
+        <div class="skeleton skeleton-block" style="height:72px;"></div>
+      </div>
+      <div class="skeleton skeleton-chart"></div>
+      <div class="skeleton skeleton-text" style="width:60%;"></div>
+      <div class="skeleton skeleton-text" style="width:80%;"></div>
+      <div class="skeleton skeleton-text" style="width:45%;"></div>
+    </div>
+  `;
+}
+
+// ═══════════════════════════════════════════════════════
+//  WBTB TIMER
+// ═══════════════════════════════════════════════════════
+
+let wbtbDuration  = 4.5;  // hours
+let wbtbTimer     = null;
+let wbtbStartTime = null;
+let wbtbTotalSecs = 0;
+let wbtbRunning   = false;
+const WBTB_CIRCUMFERENCE = 2 * Math.PI * 88; // r=88
+
+function setWBTBDuration(btn, hours) {
+  wbtbDuration = hours;
+  document.querySelectorAll('.wbtb-dur-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+
+  const h = Math.floor(hours);
+  const m = Math.round((hours - h) * 60);
+  const display = document.getElementById('wbtb-time-display');
+  if (display) display.textContent = h + ':' + String(m).padStart(2,'0');
+
+  // Reset ring
+  const ring = document.getElementById('wbtb-ring-fill');
+  if (ring) ring.style.strokeDashoffset = '0';
+  updateWBTBCycles(0);
+}
+
+function updateWBTBCycles(elapsedHours) {
+  const dots = document.querySelectorAll('.wbtb-cycle-dot');
+  const cycleDuration = wbtbDuration / 6;
+  dots.forEach((dot, i) => {
+    const cycleEnd = cycleDuration * (i + 1);
+    dot.className = 'wbtb-cycle-dot';
+    if (elapsedHours >= cycleEnd) dot.classList.add('done');
+    else if (elapsedHours >= cycleDuration * i) dot.classList.add('current');
+  });
+}
+
+function startWBTB() {
+  if (wbtbRunning) return;
+  wbtbRunning   = true;
+  wbtbStartTime = Date.now();
+  wbtbTotalSecs = Math.round(wbtbDuration * 3600);
+
+  const startBtn = document.getElementById('wbtb-start-btn');
+  const stopBtn  = document.getElementById('wbtb-stop-btn');
+  if (startBtn) startBtn.style.display = 'none';
+  if (stopBtn)  stopBtn.style.display  = 'block';
+
+  const label = document.getElementById('wbtb-time-label');
+  if (label) label.textContent = 'remaining';
+
+  wbtbTimer = setInterval(tickWBTB, 1000);
+  showToast('WBTB timer started. Sleep well.', 'success');
+}
+
+function tickWBTB() {
+  const elapsed    = (Date.now() - wbtbStartTime) / 1000;
+  const remaining  = Math.max(0, wbtbTotalSecs - elapsed);
+  const h          = Math.floor(remaining / 3600);
+  const m          = Math.floor((remaining % 3600) / 60);
+  const s          = Math.floor(remaining % 60);
+
+  const display = document.getElementById('wbtb-time-display');
+  if (display) display.textContent = h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+
+  const ring = document.getElementById('wbtb-ring-fill');
+  if (ring) {
+    const progress = elapsed / wbtbTotalSecs;
+    ring.style.strokeDashoffset = String(WBTB_CIRCUMFERENCE * (1 - Math.min(progress, 1)));
+  }
+
+  updateWBTBCycles(elapsed / 3600);
+
+  if (remaining <= 0) {
+    stopWBTB();
+    showToast('Wake up! Time for your WBTB session.', 'info', 8000);
+  }
+}
+
+function stopWBTB() {
+  wbtbRunning = false;
+  if (wbtbTimer) { clearInterval(wbtbTimer); wbtbTimer = null; }
+
+  const startBtn = document.getElementById('wbtb-start-btn');
+  const stopBtn  = document.getElementById('wbtb-stop-btn');
+  if (startBtn) startBtn.style.display = 'block';
+  if (stopBtn)  stopBtn.style.display  = 'none';
+
+  setWBTBDuration(null, wbtbDuration);
+  const label = document.getElementById('wbtb-time-label');
+  if (label) label.textContent = 'hours';
+}
+
+// ═══════════════════════════════════════════════════════
+//  MILD
+// ═══════════════════════════════════════════════════════
+
+const MILD_MANTRAS = [
+  'Tonight I will notice when I am dreaming and take control.',
+  'The moment I see something strange, I will realize I am dreaming.',
+  'I will remember to ask myself: am I dreaming? And the answer will be yes.',
+  'My dreaming mind is awake and aware. I will notice the signs.',
+  'Tonight I become lucid. I will remember to look for the dream.',
+];
+
+function generateMILDMantra() {
+  const intention   = (document.getElementById('mild-intention')?.value || '').trim();
+  const mantraCard  = document.getElementById('mild-mantra-card');
+  const mantraText  = document.getElementById('mild-mantra-text');
+  if (!mantraCard || !mantraText) return;
+
+  let mantra;
+  if (intention) {
+    mantra = intention.endsWith('.') || intention.endsWith('!') ? intention : intention + '.';
+    if (!mantra.toLowerCase().includes('dream') && !mantra.toLowerCase().includes('lucid')) {
+      mantra += ' I will notice I am dreaming.';
+    }
+  } else {
+    mantra = MILD_MANTRAS[Math.floor(Math.random() * MILD_MANTRAS.length)];
+  }
+
+  mantraText.textContent = mantra;
+  mantraCard.style.display = 'block';
+  mantraCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
 function clearAllData() {
   if (confirm('Clear all session data? This cannot be undone.')) {
     STATE.sessions = [];
@@ -5427,7 +5862,7 @@ function clearAllData() {
 }
 
 function showComingSoon(name) {
-  alert(`${name} module — coming soon.`);
+  showToast(name + ' — coming soon.', 'info');
 }
 
 // ─── INIT ─────────────────────────────────────
@@ -6538,6 +6973,127 @@ function skipOnboarding() {
 function obStartZener() {
   skipOnboarding();
   setTimeout(() => navigate('zener'), 300);
+}
+
+
+
+// ── AUTH SCREENS ──────────────────────────────────────
+function openAuthScreen(screen) {
+  // Close any open auth screen first
+  ['login','signup','forgot'].forEach(s => {
+    const el = document.getElementById('screen-' + s);
+    if (el) el.classList.remove('active');
+  });
+  const el = document.getElementById('screen-' + screen);
+  if (el) el.classList.add('active');
+}
+
+function closeAuthScreen(screen) {
+  const el = document.getElementById('screen-' + screen);
+  if (el) el.classList.remove('active');
+}
+
+function setAuthError(fieldId, errId, msg) {
+  const field = document.getElementById(fieldId);
+  const err   = document.getElementById(errId);
+  if (field) field.classList.toggle('error', !!msg);
+  if (err)   { err.textContent = msg || ''; err.classList.toggle('visible', !!msg); }
+}
+
+function clearAuthErrors(fields) {
+  fields.forEach(([f, e]) => setAuthError(f, e, ''));
+}
+
+// Validate username: 3-20 chars, letters/numbers/underscores only
+function validateUsername(val) {
+  if (!val) return 'Username is required';
+  if (val.length < 3) return 'At least 3 characters';
+  if (val.length > 20) return 'Max 20 characters';
+  if (!/^[a-zA-Z0-9_]+$/.test(val)) return 'Letters, numbers, and underscores only';
+  return '';
+}
+
+async function handleLogin() {
+  const email    = (document.getElementById('login-email')?.value || '').trim();
+  const password = document.getElementById('login-password')?.value || '';
+  clearAuthErrors([['login-email','login-email-err'],['login-password','login-password-err']]);
+
+  let valid = true;
+  if (!email) { setAuthError('login-email','login-email-err','Email is required'); valid = false; }
+  if (!password) { setAuthError('login-password','login-password-err','Password is required'); valid = false; }
+  if (!valid) return;
+
+  const btn = document.getElementById('login-btn');
+  if (btn) btn.disabled = true;
+
+  // PLACEHOLDER — Cursor will replace with real Supabase call
+  console.log('[AUTH] handleLogin called — Supabase not yet wired');
+  showToast('Auth not yet connected — coming soon.', 'info');
+  if (btn) btn.disabled = false;
+}
+
+async function handleSignup() {
+  const username = (document.getElementById('signup-username')?.value || '').trim();
+  const email    = (document.getElementById('signup-email')?.value || '').trim();
+  const password = document.getElementById('signup-password')?.value || '';
+  const confirm  = document.getElementById('signup-confirm')?.value || '';
+
+  clearAuthErrors([
+    ['signup-username','signup-username-err'],
+    ['signup-email','signup-email-err'],
+    ['signup-password','signup-password-err'],
+    ['signup-confirm','signup-confirm-err'],
+  ]);
+
+  let valid = true;
+  const usernameErr = validateUsername(username);
+  if (usernameErr) { setAuthError('signup-username','signup-username-err', usernameErr); valid = false; }
+  if (!email) { setAuthError('signup-email','signup-email-err','Email is required'); valid = false; }
+  if (password.length < 8) { setAuthError('signup-password','signup-password-err','Min 8 characters'); valid = false; }
+  if (password !== confirm) { setAuthError('signup-confirm','signup-confirm-err','Passwords do not match'); valid = false; }
+  if (!valid) return;
+
+  const btn = document.getElementById('signup-btn');
+  if (btn) btn.disabled = true;
+
+  // PLACEHOLDER — Cursor will replace with real Supabase call
+  console.log('[AUTH] handleSignup called — Supabase not yet wired');
+  showToast('Auth not yet connected — coming soon.', 'info');
+  if (btn) btn.disabled = false;
+}
+
+async function handleForgotPassword() {
+  const email = (document.getElementById('forgot-email')?.value || '').trim();
+  setAuthError('forgot-email','forgot-email-err','');
+
+  if (!email) { setAuthError('forgot-email','forgot-email-err','Email is required'); return; }
+
+  const btn = document.getElementById('forgot-btn');
+  if (btn) btn.disabled = true;
+
+  // PLACEHOLDER — Cursor will replace with real Supabase call
+  console.log('[AUTH] handleForgotPassword called — Supabase not yet wired');
+  // Show success state
+  const formBody = document.getElementById('forgot-form-body');
+  const successWrap = document.getElementById('forgot-success');
+  const successMsg  = document.getElementById('forgot-success-msg');
+  if (formBody)   formBody.style.display = 'none';
+  if (successWrap) successWrap.style.display = 'flex';
+  if (successMsg)  successMsg.textContent = 'We sent a reset link to ' + email + '. It expires in 24 hours.';
+  if (btn) btn.disabled = false;
+}
+
+function obGoToSignup() {
+  skipOnboarding();
+  openAuthScreen('signup');
+}
+
+function obGuestMode() {
+  localStorage.setItem('ablty_onboarded', '1');
+  localStorage.setItem('ablty_guest_mode', '1');
+  const ob = document.getElementById('onboarding-screen');
+  if (ob) ob.style.display = 'none';
+  showToast('Running in guest mode. Create a free account to save your progress.', 'info', 5000);
 }
 
 function obStartRV() {
@@ -8142,6 +8698,7 @@ window.addEventListener('error', (e) => {
         <div class="ob-progress">
           <div class="ob-prog-seg active"></div>
           <div class="ob-prog-seg"></div>
+          <div class="ob-prog-seg"></div>
         </div>
         <div class="ob-btn-row">
           <button class="ob-skip" onclick="skipOnboarding()">Skip</button>
@@ -8184,16 +8741,374 @@ window.addEventListener('error', (e) => {
         <div class="ob-progress">
           <div class="ob-prog-seg active"></div>
           <div class="ob-prog-seg active"></div>
+          <div class="ob-prog-seg"></div>
         </div>
         <div class="ob-btn-row">
           <button class="ob-skip" onclick="obNext(1)">← Back</button>
-          <button class="ob-skip" style="flex:1;text-align:center;" onclick="skipOnboarding()">Go to Home</button>
+          <button class="ob-cta ob-cta-rv" style="flex:1;" onclick="obNext(3)">Continue →</button>
         </div>
       </div>
 
     </div>
 
+    <!-- Slide 3: Account -->
+    <div class="ob-slide" id="ob-slide-3">
+
+      <div class="ob-header">
+        <div class="ob-logo">ABL<span class="ob-logo-accent">T</span>Y</div>
+        <div class="ob-headline">Save Your Progress</div>
+      </div>
+
+      <div class="ob-content" style="padding-top:8px;">
+
+        <div class="ob-account-visual">
+          <div class="ob-account-icon-wrap">
+            <div class="ob-account-ring"></div>
+            <div class="ob-account-ring"></div>
+            <div class="ob-account-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4af0c8" stroke-width="1.5" stroke-linecap="round">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="ob-benefit-row">
+          <div class="ob-benefit-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4af0c8" stroke-width="2" stroke-linecap="round"><path d="M3 15v4c0 1.1.9 2 2 2h14a2 2 0 002-2v-4M17 9l-5 5-5-5M12 12.8V2.5"/></svg>
+          </div>
+          <div>
+            <div class="ob-benefit-title">Cloud Sync</div>
+            <div class="ob-benefit-sub">Your sessions, scores, and progress sync across devices automatically.</div>
+          </div>
+        </div>
+
+        <div class="ob-benefit-row">
+          <div class="ob-benefit-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4af0c8" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <div>
+            <div class="ob-benefit-title">Full Analytics</div>
+            <div class="ob-benefit-sub">Track score trends, calibration, and session history over time.</div>
+          </div>
+        </div>
+
+        <div class="ob-benefit-row">
+          <div class="ob-benefit-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4af0c8" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          </div>
+          <div>
+            <div class="ob-benefit-title">Reality Check Pager</div>
+            <div class="ob-benefit-sub">Scheduled notifications and streak tracking require a free account.</div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="ob-footer">
+        <div class="ob-progress">
+          <div class="ob-prog-seg active"></div>
+          <div class="ob-prog-seg active"></div>
+          <div class="ob-prog-seg active"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+          <button class="ob-cta-create" onclick="obGoToSignup()">CREATE FREE ACCOUNT</button>
+          <button class="ob-cta-guest" onclick="obGuestMode()">Continue as Guest</button>
+        </div>
+      </div>
+
+    </div>
+
+
   </div>
+
+  <!-- ══════════════════════════════════
+       AUTH: LOGIN
+  ═══════════════════════════════════ -->
+  <div class="auth-screen" id="screen-login">
+    <div class="auth-header">
+      <button class="auth-back-btn" onclick="closeAuthScreen('login')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="auth-title">SIGN IN</div>
+    </div>
+    <div class="auth-body">
+      <div class="auth-field-group">
+        <div class="auth-label">Email</div>
+        <input class="auth-input" id="login-email" type="email" placeholder="your@email.com" autocomplete="email" inputmode="email">
+        <div class="auth-field-error" id="login-email-err"></div>
+      </div>
+      <div class="auth-field-group">
+        <div class="auth-label">Password</div>
+        <input class="auth-input" id="login-password" type="password" placeholder="Password" autocomplete="current-password">
+        <div class="auth-field-error" id="login-password-err"></div>
+      </div>
+      <div class="auth-link-row" style="text-align:right;margin-top:-8px;">
+        <button class="auth-link" onclick="openAuthScreen('forgot')">Forgot password?</button>
+      </div>
+      <button class="auth-submit-btn" id="login-btn" onclick="handleLogin()">SIGN IN</button>
+      <div class="auth-divider-row">
+        <div class="auth-divider-line"></div>
+        <div class="auth-divider-text">or</div>
+        <div class="auth-divider-line"></div>
+      </div>
+      <div class="auth-link-row">
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">No account? </span>
+        <button class="auth-link" onclick="openAuthScreen('signup')">Create one free</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       AUTH: SIGN UP
+  ═══════════════════════════════════ -->
+  <div class="auth-screen" id="screen-signup">
+    <div class="auth-header">
+      <button class="auth-back-btn" onclick="closeAuthScreen('signup')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="auth-title">CREATE ACCOUNT</div>
+    </div>
+    <div class="auth-body">
+      <div class="auth-field-group">
+        <div class="auth-label">Username</div>
+        <input class="auth-input" id="signup-username" type="text" placeholder="your_username" autocomplete="username" maxlength="20">
+        <div class="auth-field-error" id="signup-username-err"></div>
+      </div>
+      <div class="auth-field-group">
+        <div class="auth-label">Email</div>
+        <input class="auth-input" id="signup-email" type="email" placeholder="your@email.com" autocomplete="email" inputmode="email">
+        <div class="auth-field-error" id="signup-email-err"></div>
+      </div>
+      <div class="auth-field-group">
+        <div class="auth-label">Password</div>
+        <input class="auth-input" id="signup-password" type="password" placeholder="Min 8 characters" autocomplete="new-password">
+        <div class="auth-field-error" id="signup-password-err"></div>
+      </div>
+      <div class="auth-field-group">
+        <div class="auth-label">Confirm Password</div>
+        <input class="auth-input" id="signup-confirm" type="password" placeholder="Repeat password" autocomplete="new-password">
+        <div class="auth-field-error" id="signup-confirm-err"></div>
+      </div>
+      <button class="auth-submit-btn" id="signup-btn" onclick="handleSignup()">CREATE ACCOUNT</button>
+      <div class="auth-legal">
+        By creating an account you agree to our
+        <button onclick="navigate('terms')">Terms of Service</button>
+        and
+        <button onclick="navigate('privacy')">Privacy Policy</button>
+      </div>
+      <div class="auth-divider-row">
+        <div class="auth-divider-line"></div>
+        <div class="auth-divider-text">or</div>
+        <div class="auth-divider-line"></div>
+      </div>
+      <div class="auth-link-row">
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">Already have an account? </span>
+        <button class="auth-link" onclick="openAuthScreen('login')">Sign in</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       AUTH: FORGOT PASSWORD
+  ═══════════════════════════════════ -->
+  <div class="auth-screen" id="screen-forgot">
+    <div class="auth-header">
+      <button class="auth-back-btn" onclick="closeAuthScreen('forgot')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="auth-title">RESET PASSWORD</div>
+    </div>
+    <div class="auth-body" id="forgot-form-body">
+      <div style="font-family:var(--font-body);font-size:14px;color:var(--muted);line-height:1.65;margin-bottom:8px;">
+        Enter your email and we will send you a reset link.
+      </div>
+      <div class="auth-field-group">
+        <div class="auth-label">Email</div>
+        <input class="auth-input" id="forgot-email" type="email" placeholder="your@email.com" inputmode="email">
+        <div class="auth-field-error" id="forgot-email-err"></div>
+      </div>
+      <button class="auth-submit-btn" id="forgot-btn" onclick="handleForgotPassword()">SEND RESET LINK</button>
+      <div class="auth-link-row">
+        <button class="auth-link" onclick="openAuthScreen('login')">Back to sign in</button>
+      </div>
+    </div>
+    <!-- Success state -->
+    <div class="auth-success-wrap" id="forgot-success" style="display:none;">
+      <div class="auth-success-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4af0c8" stroke-width="1.5" stroke-linecap="round">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+          <polyline points="22,6 12,13 2,6"/>
+        </svg>
+      </div>
+      <div class="auth-success-title">Check Your Email</div>
+      <div class="auth-success-sub" id="forgot-success-msg">We sent a reset link to your email address. It expires in 24 hours.</div>
+      <button class="auth-link" onclick="closeAuthScreen('forgot')" style="margin-top:8px;">Back to sign in</button>
+    </div>
+  </div>
+
+
+  <!-- UPGRADE MODAL -->
+  <div class="upgrade-modal-overlay" id="upgrade-modal" onclick="handleUpgradeOverlayClick(event)">
+    <div class="upgrade-modal-box">
+      <div class="upgrade-modal-handle"></div>
+      <div class="upgrade-feature-name" id="upgrade-feature-name">Premium Feature</div>
+      <div class="upgrade-modal-title" id="upgrade-modal-title">Unlock ABLTY</div>
+      <div class="upgrade-modal-desc" id="upgrade-modal-desc">Create a free account or upgrade to Premium to access this feature.</div>
+
+      <div class="upgrade-tier-row">
+        <div class="upgrade-tier-cell">
+          <div class="upgrade-tier-name">Guest</div>
+          <div class="upgrade-tier-features">1 RV/day<br>2 Zener/day<br>Local only</div>
+          <div class="upgrade-tier-price" style="font-size:14px;color:var(--muted);">Free</div>
+        </div>
+        <div class="upgrade-tier-cell">
+          <div class="upgrade-tier-name">Free</div>
+          <div class="upgrade-tier-features">2 RV/day<br>All PSI protocols<br>Dream Lab<br>Cloud sync</div>
+          <div class="upgrade-tier-price" style="font-size:14px;color:var(--accent2);">Free</div>
+        </div>
+        <div class="upgrade-tier-cell highlighted">
+          <div class="upgrade-tier-name">Premium</div>
+          <div class="upgrade-tier-features">Unlimited RV<br>All modules<br>Leaderboards<br>Community RV</div>
+          <div class="upgrade-tier-price">$4.99</div>
+          <div class="upgrade-tier-price-sub">/month</div>
+        </div>
+      </div>
+
+      <button class="upgrade-cta-premium" id="upgrade-cta-btn" onclick="handleUpgradeCTA()">UPGRADE TO PREMIUM</button>
+      <button class="upgrade-cta-free" id="upgrade-free-btn" onclick="handleFreeAccountCTA()">CREATE FREE ACCOUNT</button>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════
+       SCREEN: WBTB TIMER
+  ═══════════════════════════════════ -->
+  <div id="screen-wbtb" class="screen">
+    <div class="screen-inner" style="padding-bottom:0;">
+
+      <div class="screen-hdr">
+        <button class="screen-hdr-back" onclick="navigate('dream-lab')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div>
+          <div class="screen-hdr-title">WBTB TIMER</div>
+          <div class="screen-hdr-sub">Wake Back to Bed</div>
+        </div>
+      </div>
+
+      <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.65;margin-bottom:24px;">
+        Set your sleep duration. The timer wakes you after 5-6 sleep cycles, then tracks your 20-30 min waking period before returning to sleep for REM-rich lucid dreaming.
+      </div>
+
+      <!-- Sleep duration selector -->
+      <div class="section-label">Sleep Duration</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;">
+        <button class="wbtb-dur-btn active" data-hours="4.5" onclick="setWBTBDuration(this, 4.5)">4.5h</button>
+        <button class="wbtb-dur-btn" data-hours="5" onclick="setWBTBDuration(this, 5)">5h</button>
+        <button class="wbtb-dur-btn" data-hours="6" onclick="setWBTBDuration(this, 6)">6h</button>
+        <button class="wbtb-dur-btn" data-hours="7.5" onclick="setWBTBDuration(this, 7.5)">7.5h</button>
+      </div>
+
+      <!-- Ring timer -->
+      <div class="wbtb-ring-wrap" id="wbtb-ring-wrap">
+        <svg class="wbtb-ring-svg" width="200" height="200" viewBox="0 0 200 200">
+          <circle class="wbtb-ring-bg"   cx="100" cy="100" r="88" stroke-width="6"/>
+          <circle class="wbtb-ring-fill" cx="100" cy="100" r="88" stroke-width="6"
+            id="wbtb-ring-fill"
+            stroke-dasharray="552.9"
+            stroke-dashoffset="0"/>
+        </svg>
+        <div class="wbtb-ring-text">
+          <div class="wbtb-time-display" id="wbtb-time-display">4:30</div>
+          <div class="wbtb-time-label" id="wbtb-time-label">hours</div>
+        </div>
+      </div>
+
+      <!-- Cycle dots -->
+      <div class="wbtb-cycle-dots" id="wbtb-cycle-dots">
+        <div class="wbtb-cycle-dot current" title="Cycle 1"></div>
+        <div class="wbtb-cycle-dot" title="Cycle 2"></div>
+        <div class="wbtb-cycle-dot" title="Cycle 3"></div>
+        <div class="wbtb-cycle-dot" title="Cycle 4"></div>
+        <div class="wbtb-cycle-dot" title="Cycle 5"></div>
+        <div class="wbtb-cycle-dot" title="Cycle 6"></div>
+      </div>
+
+    </div>
+
+    <div class="wbtb-btn-row">
+      <button class="wbtb-btn wbtb-btn-stop" id="wbtb-stop-btn" onclick="stopWBTB()" style="display:none;">STOP</button>
+      <button class="wbtb-btn wbtb-btn-start" id="wbtb-start-btn" onclick="startWBTB()">START TIMER</button>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════
+       SCREEN: MILD
+  ═══════════════════════════════════ -->
+  <div id="screen-mild" class="screen">
+    <div class="screen-inner">
+
+      <div class="screen-hdr">
+        <button class="screen-hdr-back" onclick="navigate('dream-lab')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div>
+          <div class="screen-hdr-title">MILD</div>
+          <div class="screen-hdr-sub">Mnemonic Induction of Lucid Dreams</div>
+        </div>
+      </div>
+
+      <!-- Steps -->
+      <div style="margin-bottom:24px;">
+        <div class="mild-step-row">
+          <div class="mild-step-num">01</div>
+          <div>
+            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--text);margin-bottom:4px;">Set Your Intention</div>
+            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.55;">Write a brief intention for tonight. What will you do when you realize you are dreaming?</div>
+          </div>
+        </div>
+        <div class="mild-step-row">
+          <div class="mild-step-num">02</div>
+          <div>
+            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--text);margin-bottom:4px;">Repeat Your Mantra</div>
+            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.55;">As you fall asleep, repeat your mantra. Visualize yourself becoming lucid. Hold the intention at the edge of consciousness.</div>
+          </div>
+        </div>
+        <div class="mild-step-row">
+          <div class="mild-step-num">03</div>
+          <div>
+            <div style="font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--text);margin-bottom:4px;">Return on Wake</div>
+            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.55;">If you wake from a dream, re-enter it consciously. Recall the dream scene and set the intention before falling back asleep.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Intention input -->
+      <div class="mild-intention-wrap">
+        <div class="mild-intention-label">Tonight's Intention</div>
+        <textarea class="mild-mantra-input" id="mild-intention" placeholder="I will notice when I am dreaming and..."></textarea>
+      </div>
+
+      <!-- Generated mantra -->
+      <div id="mild-mantra-card" style="margin-top:16px;display:none;">
+        <div class="section-label">Your Mantra</div>
+        <div class="mild-intention-wrap" style="margin-top:8px;">
+          <div class="mild-intention-text" id="mild-mantra-text"></div>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" style="margin-top:24px;width:100%;" onclick="generateMILDMantra()">GENERATE MANTRA</button>
+
+      <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:1px;color:var(--dim);text-align:center;margin-top:16px;line-height:1.8;">
+        Based on Laberge's MILD protocol (1980).<br>Most effective when practiced during WBTB.
+      </div>
+
+    </div>
+  </div>
+
 
 
   <!-- SESSION EDIT MODAL (tags + notes) -->
