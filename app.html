@@ -5488,6 +5488,47 @@ function completeRCTask() {
 }
 
 // Check URL hash on load for notification tap
+function checkWBTBHash() {
+  const search = window.location.search;
+  if (search.includes('wbtb=1')) {
+    const tryOpen = () => {
+      if (splashDone) { openWBTBWakeScreen(); }
+      else setTimeout(tryOpen, 100);
+    };
+    tryOpen();
+    try { history.replaceState({}, '', '/app.html'); } catch(e) {}
+  } else if (search.includes('wbtb=return')) {
+    const tryReturn = () => {
+      if (splashDone) { showWBTBReturnPrompt(); }
+      else setTimeout(tryReturn, 100);
+    };
+    tryReturn();
+    try { history.replaceState({}, '', '/app.html'); } catch(e) {}
+  }
+}
+
+function showWBTBReturnPrompt() {
+  // Close wake screen if open
+  closeWBTBWakeScreen();
+  // Show a full-screen return prompt
+  const screen = document.getElementById('wbtb-wake-screen');
+  if (screen) {
+    const title = screen.querySelector('.wbtb-wake-title');
+    const sub   = screen.querySelector('.wbtb-wake-sub');
+    const cd    = document.getElementById('wbtb-wake-countdown');
+    const cdlb  = document.getElementById('wbtb-wake-countdown-label');
+    const tip   = screen.querySelector('.wbtb-wake-tip');
+    if (title) title.textContent = 'SLEEP NOW';
+    if (sub)   sub.textContent   = 'WBTB Wake Window Complete';
+    if (cd)    cd.textContent    = '';
+    if (cdlb)  cdlb.textContent  = '';
+    if (tip)   tip.innerHTML     = 'Your 25-minute wake window is complete. <strong>Return to sleep now</strong> while holding your lucid dream intention.';
+    screen.classList.add('active');
+    // No countdown needed for return screen
+    if (wbtbWakeTimer) { clearInterval(wbtbWakeTimer); wbtbWakeTimer = null; }
+  }
+}
+
 function checkRCHash() {
   if (window.location.hash === '#reality-check' || window.location.search.includes('rc=1')) {
     history.replaceState(null, '', '/');
@@ -5765,11 +5806,64 @@ function updateWBTBCycles(elapsedHours) {
   });
 }
 
-function startWBTB() {
+async function startWBTB() {
   if (wbtbRunning) return;
+
+  // Request notification permission first
+  if (getPushStatus() !== 'granted') {
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted') {
+      showToast('Notifications required for WBTB alarm.', 'warn');
+      return;
+    }
+  }
+
+  // Get push subscription
+  let sub = null;
+  try {
+    const reg = window._swRegistration || await navigator.serviceWorker.ready;
+    sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      // Subscribe with VAPID
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+      });
+    }
+  } catch(e) {
+    showToast('Could not set up alarm: ' + e.message, 'error');
+    return;
+  }
+
+  const fireAt = Date.now() + Math.round(wbtbDuration * 3600 * 1000);
+
+  try {
+    const resp = await fetch(WORKER_URL + '/wbtb-schedule', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        endpoint:  sub.endpoint,
+        keys: {
+          p256dh: btoa(String.fromCharCode(...new Uint8Array(sub.getKey('p256dh')))),
+          auth:   btoa(String.fromCharCode(...new Uint8Array(sub.getKey('auth')))),
+        },
+        fireAt,
+        duration: wbtbDuration,
+      }),
+    });
+    if (!resp.ok) throw new Error('Server error ' + resp.status);
+  } catch(e) {
+    showToast('Could not schedule alarm: ' + e.message, 'error');
+    return;
+  }
+
   wbtbRunning   = true;
   wbtbStartTime = Date.now();
   wbtbTotalSecs = Math.round(wbtbDuration * 3600);
+  wbtbFireAt    = fireAt;
+
+  // Store in localStorage so we can restore if app reopens
+  localStorage.setItem('ablty_wbtb', JSON.stringify({ fireAt, duration: wbtbDuration, startTime: wbtbStartTime }));
 
   const startBtn = document.getElementById('wbtb-start-btn');
   const stopBtn  = document.getElementById('wbtb-stop-btn');
@@ -5780,15 +5874,15 @@ function startWBTB() {
   if (label) label.textContent = 'remaining';
 
   wbtbTimer = setInterval(tickWBTB, 1000);
-  showToast('WBTB timer started. Sleep well.', 'success');
+  showToast('Alarm set. Sleep well.', 'success', 4000);
 }
 
 function tickWBTB() {
-  const elapsed    = (Date.now() - wbtbStartTime) / 1000;
-  const remaining  = Math.max(0, wbtbTotalSecs - elapsed);
-  const h          = Math.floor(remaining / 3600);
-  const m          = Math.floor((remaining % 3600) / 60);
-  const s          = Math.floor(remaining % 60);
+  const elapsed   = (Date.now() - wbtbStartTime) / 1000;
+  const remaining = Math.max(0, wbtbTotalSecs - elapsed);
+  const h = Math.floor(remaining / 3600);
+  const m = Math.floor((remaining % 3600) / 60);
+  const s = Math.floor(remaining % 60);
 
   const display = document.getElementById('wbtb-time-display');
   if (display) display.textContent = h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
@@ -5801,15 +5895,26 @@ function tickWBTB() {
 
   updateWBTBCycles(elapsed / 3600);
 
-  if (remaining <= 0) {
-    stopWBTB();
-    showToast('Wake up! Time for your WBTB session.', 'info', 8000);
-  }
+  if (remaining <= 0) stopWBTB();
 }
 
-function stopWBTB() {
+async function stopWBTB() {
   wbtbRunning = false;
   if (wbtbTimer) { clearInterval(wbtbTimer); wbtbTimer = null; }
+  localStorage.removeItem('ablty_wbtb');
+
+  // Cancel server-side alarm if still pending
+  try {
+    const reg = window._swRegistration || await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      await fetch(WORKER_URL + '/wbtb-cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ endpoint: sub.endpoint }),
+      });
+    }
+  } catch(e) { /* ignore cancel errors */ }
 
   const startBtn = document.getElementById('wbtb-start-btn');
   const stopBtn  = document.getElementById('wbtb-stop-btn');
@@ -5819,6 +5924,69 @@ function stopWBTB() {
   setWBTBDuration(null, wbtbDuration);
   const label = document.getElementById('wbtb-time-label');
   if (label) label.textContent = 'hours';
+}
+
+// Restore WBTB timer if app reopens during active session
+function restoreWBTBIfActive() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('ablty_wbtb') || 'null');
+    if (!saved) return;
+    const remaining = saved.fireAt - Date.now();
+    if (remaining <= 0) { localStorage.removeItem('ablty_wbtb'); return; }
+    // Resume visual countdown
+    wbtbRunning   = true;
+    wbtbStartTime = saved.startTime;
+    wbtbDuration  = saved.duration;
+    wbtbFireAt    = saved.fireAt;
+    wbtbTotalSecs = Math.round(saved.duration * 3600);
+    wbtbTimer     = setInterval(tickWBTB, 1000);
+    // Update button state if on WBTB screen
+    const startBtn = document.getElementById('wbtb-start-btn');
+    const stopBtn  = document.getElementById('wbtb-stop-btn');
+    if (startBtn) startBtn.style.display = 'none';
+    if (stopBtn)  stopBtn.style.display  = 'block';
+  } catch(e) {}
+}
+
+// WBTB wake screen
+let wbtbWakeTimer = null;
+let wbtbFireAt    = 0;
+const WBTB_WAKE_DURATION = 25 * 60; // 25 minutes
+
+function openWBTBWakeScreen() {
+  const screen = document.getElementById('wbtb-wake-screen');
+  if (screen) screen.classList.add('active');
+  startWBTBWakeCountdown();
+}
+
+function closeWBTBWakeScreen() {
+  const screen = document.getElementById('wbtb-wake-screen');
+  if (screen) screen.classList.remove('active');
+  if (wbtbWakeTimer) { clearInterval(wbtbWakeTimer); wbtbWakeTimer = null; }
+}
+
+function startWBTBWakeCountdown() {
+  let secsLeft = WBTB_WAKE_DURATION;
+  updateWBTBWakeDisplay(secsLeft);
+  wbtbWakeTimer = setInterval(() => {
+    secsLeft--;
+    updateWBTBWakeDisplay(secsLeft);
+    if (secsLeft <= 0) {
+      clearInterval(wbtbWakeTimer);
+      wbtbWakeTimer = null;
+      const cd = document.getElementById('wbtb-wake-countdown');
+      const lb = document.getElementById('wbtb-wake-countdown-label');
+      if (cd) cd.textContent = 'Sleep now';
+      if (lb) lb.textContent = 'Return to sleep immediately';
+    }
+  }, 1000);
+}
+
+function updateWBTBWakeDisplay(secs) {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  const el = document.getElementById('wbtb-wake-countdown');
+  if (el) el.textContent = String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -5914,6 +6082,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   runSplash();
   checkRCHash();
+  checkWBTBHash();
+  restoreWBTBIfActive();
   setTimeout(updateHomeRCStreak, 100);
   setTimeout(() => buildDreamParticles('dream-particles'), 150);
   // Seed history so hardware back button has a state to pop
@@ -7565,7 +7735,9 @@ async function registerSW() {
     });
 
     navigator.serviceWorker.addEventListener('message', event => {
-      if (event.data && event.data.type === 'RC_OPEN') openRCTask();
+      if (event.data && event.data.type === 'RC_OPEN')     openRCTask();
+      if (event.data && event.data.type === 'WBTB_OPEN')   openWBTBWakeScreen();
+      if (event.data && event.data.type === 'WBTB_RETURN') showWBTBReturnPrompt();
     });
 
     setTimeout(() => validatePushSubscription(reg), 2000);
@@ -9114,6 +9286,25 @@ window.addEventListener('error', (e) => {
         Based on Laberge's MILD protocol (1980).<br>Most effective when practiced during WBTB.
       </div>
 
+    </div>
+  </div>
+
+
+  <!-- WBTB WAKE SCREEN -->
+  <div class="wbtb-wake-screen" id="wbtb-wake-screen">
+    <div class="wbtb-wake-title">WAKE UP</div>
+    <div class="wbtb-wake-sub">WBTB Window Active</div>
+
+    <div class="wbtb-wake-countdown" id="wbtb-wake-countdown">25:00</div>
+    <div class="wbtb-wake-countdown-label">Minutes remaining in wake window</div>
+
+    <div class="wbtb-wake-tip">
+      Stay awake but <strong>relaxed</strong>. Read about lucid dreaming, do the MILD protocol, or sit quietly. Avoid bright screens and full consciousness. Return to sleep before the timer ends.
+    </div>
+
+    <div class="wbtb-wake-btn-row">
+      <button class="btn btn-primary" onclick="navigate('mild');closeWBTBWakeScreen();">SET MILD INTENTION</button>
+      <button class="btn btn-ghost" onclick="closeWBTBWakeScreen()">Dismiss</button>
     </div>
   </div>
 
