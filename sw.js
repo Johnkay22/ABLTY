@@ -2,7 +2,7 @@
 // Strategy: network-first for HTML, cache-first for static assets
 // Includes update detection to notify users of new versions
 
-const CACHE_NAME = 'ablty-v4';
+const CACHE_NAME = 'ablty-v5';
 const STATIC_ASSETS = [
   '/',
   '/app.html',
@@ -95,36 +95,61 @@ const REALITY_CHECKS = [
 ];
 
 self.addEventListener('push', event => {
-  let data = {};
-  try { data = event.data ? event.data.json() : {}; } catch(e) {}
+  let body = '';
+  let url  = '/app.html?rc=1';
+  let tag  = 'ablty-rc';
+  let silent = false;
 
-  const msg = data.body ||
-    REALITY_CHECKS[Math.floor(Math.random() * REALITY_CHECKS.length)];
+  if (event.data) {
+    try {
+      const d = event.data.json();
+      body = d.body || '';
+    } catch(e) {
+      body = event.data.text ? event.data.text() : '';
+    }
+  }
+
+  // Detect WBTB notification types by body content
+  if (body && body.includes('WBTB return')) {
+    url  = '/app.html?wbtb=return';
+    tag  = 'ablty-wbtb-return';
+  } else if (body && body.includes('WBTB wake')) {
+    url  = '/app.html?wbtb=1';
+    tag  = 'ablty-wbtb';
+  } else if (!body) {
+    body = REALITY_CHECKS[Math.floor(Math.random() * REALITY_CHECKS.length)];
+  }
 
   event.waitUntil(
     self.registration.showNotification('ABLTY', {
-      body: msg,
-      icon: '/icon-192.png',
-      badge: '/badge-72.png',
-      tag: 'ablty-rc',
+      body,
+      icon:     '/icon-192.png',
+      badge:    '/badge-72.png',
+      tag,
       renotify: true,
-      data: { url: '/app.html?rc=1' },
+      silent,
+      data: { url },
     })
   );
 });
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
+  const notifUrl = (event.notification.data && event.notification.data.url) || '/app.html?rc=1';
+  const isWBTB       = notifUrl.includes('wbtb=1');
+  const isWBTBReturn = notifUrl.includes('wbtb=return');
+  const fullUrl  = self.location.origin + notifUrl;
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
       for (const client of list) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
           client.focus();
-          client.postMessage({ type: 'RC_OPEN' });
+          client.postMessage({ type: isWBTBReturn ? 'WBTB_RETURN' : isWBTB ? 'WBTB_OPEN' : 'RC_OPEN' });
           return;
         }
       }
-      return clients.openWindow('/app.html?rc=1');
+      return clients.openWindow(fullUrl);
     })
   );
 });
