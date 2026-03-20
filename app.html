@@ -2856,14 +2856,16 @@ html, body {
       <div class="section-label fade-in-delay-1">Account</div>
 
       <!-- LOGGED OUT STATE -->
-      <div class="settings-logged-out fade-in-delay-1" id="settings-logged-out">
+      <div class="settings-logged-out fade-in-delay-1" id="settings-logged-out" style="display:flex;flex-direction:column;gap:8px;">
+        <!-- Create Account + Sign In side by side -->
         <div style="display:flex;gap:8px;">
-          <button class="btn btn-primary" style="flex:1;" onclick="openAuthScreen('signup')">Create Account</button>
-          <button class="btn btn-ghost" style="flex:1;" onclick="openAuthScreen('login')">Sign In</button>
+          <button class="btn btn-primary" style="flex:1;min-width:0;" onclick="openAuthScreen('signup')">Create Account</button>
+          <button class="btn btn-ghost" style="flex:1;min-width:0;" onclick="openAuthScreen('login')">Sign In</button>
         </div>
+        <!-- Upgrade box — same total width as button row above -->
         <div style="background:linear-gradient(135deg,rgba(74,240,200,0.06),rgba(91,158,244,0.04));border:1px solid rgba(74,240,200,0.18);border-radius:16px;padding:18px 20px;">
           <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:6px;">⚡ Unlock Full Access</div>
-          <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:16px;">Cloud sync, all modules, leaderboards and more.</div>
+          <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:14px;">Cloud sync, all modules, leaderboards and more.</div>
           <button style="width:100%;padding:14px;background:var(--accent);color:#000;border:none;border-radius:12px;font-family:var(--font-display);font-size:20px;letter-spacing:2px;cursor:pointer;" onclick="showUpgradeModal('settings','Premium','Unlock unlimited sessions, all modules, and global leaderboards.')">UPGRADE TO PREMIUM</button>
         </div>
       </div>
