@@ -2206,11 +2206,15 @@ html, body {
   gap: 14px;
   perspective: 900px;
   height: 100%;
+  max-height: 340px;
+  align-self: center;
+  width: 100%;
 }
 .pp-card {
   cursor: pointer;
   position: relative;
-  min-height: 180px;
+  min-height: 160px;
+  max-height: 340px;
 }
 .pp-card-inner {
   width: 100%; height: 100%;
@@ -4238,7 +4242,7 @@ html, body {
         <div style="margin-top:8px;font-family:var(--font-mono);font-size:9px;color:var(--muted);line-height:1.6;letter-spacing:0.5px;">Based on non-intentional psi research. Emotional charge is the key variable.</div>
       </div>
 
-      <button class="btn btn-primary" style="width:100%;" onclick="startPPTrial()">BEGIN TRIAL</button>
+      <button class="btn btn-primary" style="width:100%;" onclick="startPPTrial()">NEW TRIAL</button>
     </div>
 
     <!-- TRIAL VIEW — fills screen properly -->
@@ -4249,7 +4253,7 @@ html, body {
       <!-- Cards: fixed height calculated from viewport -->
       <div class="pp-grid" style="flex:1;min-height:0;">
         <!-- Left card -->
-        <div class="pp-card" id="pp-card-0" onclick="handlePPTap(0)" style="height:100%;">
+        <div class="pp-card" id="pp-card-0" onclick="handlePPTap(0)">
           <div class="pp-card-inner">
             <div class="pp-card-face pp-card-front">
               <div class="pp-card-front-pattern" id="pp-pattern-0"></div>
@@ -4263,7 +4267,7 @@ html, body {
           </div>
         </div>
         <!-- Right card -->
-        <div class="pp-card" id="pp-card-1" onclick="handlePPTap(1)" style="height:100%;">
+        <div class="pp-card" id="pp-card-1" onclick="handlePPTap(1)">
           <div class="pp-card-inner">
             <div class="pp-card-face pp-card-front">
               <div class="pp-card-front-pattern" id="pp-pattern-1"></div>
@@ -4291,7 +4295,7 @@ html, body {
           </div>
         </div>
         <button class="btn btn-primary" style="width:100%;" onclick="startPPTrial()">NEXT TRIAL</button>
-        <button class="btn btn-ghost" style="width:100%;" onclick="showPPView('brief')">View Stats</button>
+        <button class="btn btn-ghost" style="width:100%;" onclick="showPPView('brief')">Stats / Back</button>
       </div>
 
     </div>
@@ -6397,44 +6401,6 @@ function showComingSoon(name) {
 
 // ─── INIT ─────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-
-  // Block browser tab access  -  app must be used as installed PWA
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-    || window.navigator.standalone
-    || document.referrer.includes('android-app://');
-
-  if (!isStandalone) {
-    // Show "launch from home screen" overlay instead of the app
-    const gate = document.createElement('div');
-    gate.style.cssText = [
-      'position:fixed;inset:0;z-index:99999',
-      'background:#0a0b0d',
-      'display:flex;flex-direction:column;align-items:center;justify-content:center',
-      'font-family:"DM Sans",sans-serif;text-align:center;padding:40px 32px;gap:20px',
-    ].join(';');
-    gate.innerHTML = `
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:56px;letter-spacing:6px;color:#f0f0f0;line-height:1;">
-        ABL<span style="color:#4af0c8;">T</span>Y
-      </div>
-      <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:3px;color:#4af0c8;text-transform:uppercase;">
-        App Installed
-      </div>
-      <div style="font-size:15px;color:#6b7280;line-height:1.7;max-width:300px;">
-        ABLTY is designed to be used as an installed app. Find the ABLTY icon on your home screen and launch it from there.
-      </div>
-      <div style="margin-top:8px;">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#4af0c8" stroke-width="1.5" stroke-linecap="round" opacity="0.5">
-          <rect x="5" y="2" width="14" height="20" rx="2"/>
-          <line x1="12" y1="18" x2="12" y2="18.01"/>
-        </svg>
-      </div>
-      <div style="font-family:'DM Mono',monospace;font-size:9px;letter-spacing:2px;color:#3a3f48;text-transform:uppercase;margin-top:8px;">
-        Launch from home screen
-      </div>
-    `;
-    document.body.appendChild(gate);
-    return; // Stop all app initialization
-  }
 
   try { loadState(); } catch(e) {
     STATE.seekerId = '#' + Math.floor(10000 + Math.random() * 90000);
@@ -8933,11 +8899,10 @@ function buildPPFrontPattern(containerId) {
 
 // ── Screen views ──────────────────────────────────
 function showPPView(name) {
-  ['brief','trial'].forEach(n => {
-    const el = document.getElementById('pp-view-' + n);
-    if (el) el.style.display = n === name ? 'flex' : 'none';
-    if (el && n !== name) el.style.flexDirection = '';
-  });
+  const brief = document.getElementById('pp-view-brief');
+  const trial = document.getElementById('pp-view-trial');
+  if (brief) { brief.style.display = name === 'brief' ? 'flex' : 'none'; brief.style.flexDirection = 'column'; }
+  if (trial) { trial.style.display = name === 'trial' ? 'flex' : 'none'; trial.style.flexDirection = 'column'; }
   if (name === 'brief') renderPhotoPairBrief();
 }
 
