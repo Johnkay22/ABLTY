@@ -3667,6 +3667,29 @@ html, body {
           <div id="presentiment-stats-wrap"></div>
         </div>
 
+        <!-- Photo Pair Stats -->
+        <div class="chart-card" id="pp-analytics-card">
+          <div class="chart-title">Photo Pair</div>
+          <div class="mono-sm" style="color:var(--dim);margin-bottom:12px;">Implicit psi · Emotional valence</div>
+          <div id="pp-analytics-wrap">
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center;">
+                <div class="mono-label">Trials</div>
+                <div style="font-family:var(--font-display);font-size:26px;color:var(--text);line-height:1;margin-top:4px;" id="pp-analytics-trials">0</div>
+              </div>
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center;">
+                <div class="mono-label">Hit Rate</div>
+                <div style="font-family:var(--font-display);font-size:26px;color:var(--text);line-height:1;margin-top:4px;" id="pp-analytics-hitrate">-</div>
+              </div>
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center;">
+                <div class="mono-label">Chance</div>
+                <div style="font-family:var(--font-display);font-size:26px;color:var(--muted);line-height:1;margin-top:4px;">50%</div>
+              </div>
+            </div>
+            <div class="mono-sm" id="pp-analytics-note" style="color:var(--dim);text-align:center;">Complete 10+ trials for statistical analysis.</div>
+          </div>
+        </div>
+
       </div>
 
       <!-- LOG PANEL -->
@@ -4189,27 +4212,27 @@ html, body {
     </div>
 
     <!-- BRIEF / STATS VIEW -->
-    <div id="pp-view-brief" style="flex:1;overflow-y:auto;padding:0 20px calc(24px + var(--safe-bottom));">
+    <div id="pp-view-brief" style="display:flex;flex-direction:column;gap:14px;padding:16px 20px calc(24px + var(--safe-bottom));">
 
-      <!-- Stat bar -->
-      <div class="psi-stat-bar" style="margin-bottom:8px;">
-        <div class="psi-stat-cell">
+      <!-- Quick stat summary — compact, not full height -->
+      <div style="display:flex;gap:8px;">
+        <div style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 10px;text-align:center;">
           <div class="mono-label">Trials</div>
-          <div class="psi-stat-val" id="pp-stat-trials">0</div>
+          <div style="font-family:var(--font-display);font-size:28px;color:var(--text);line-height:1;margin-top:4px;" id="pp-stat-trials">0</div>
         </div>
-        <div class="psi-stat-cell">
+        <div style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 10px;text-align:center;">
           <div class="mono-label">Hit Rate</div>
-          <div class="psi-stat-val" id="pp-stat-hitrate">-</div>
+          <div style="font-family:var(--font-display);font-size:28px;color:var(--text);line-height:1;margin-top:4px;" id="pp-stat-hitrate">-</div>
         </div>
-        <div class="psi-stat-cell">
+        <div style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 10px;text-align:center;">
           <div class="mono-label">Chance</div>
-          <div class="psi-stat-val" style="color:var(--muted);">50%</div>
+          <div style="font-family:var(--font-display);font-size:28px;color:var(--muted);line-height:1;margin-top:4px;">50%</div>
         </div>
       </div>
-      <div class="psi-chance-note" id="pp-stat-note" style="margin-bottom:16px;">Complete 10+ trials for statistical analysis.</div>
+      <div class="psi-chance-note" id="pp-stat-note">Complete 10+ trials for statistical analysis. Full stats in Analytics.</div>
 
       <!-- How it works -->
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:16px;">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;">
         <div class="mono-label" style="margin-bottom:8px;">How It Works</div>
         <div class="body-sm">Two cards are shown face-down. One hides a <strong>pleasant image</strong>. The other hides a <strong>neutral image</strong>. Tap the card you feel drawn to. <span style="color:var(--accent);">Chance is 50%.</span></div>
         <div style="margin-top:8px;font-family:var(--font-mono);font-size:9px;color:var(--muted);line-height:1.6;letter-spacing:0.5px;">Based on non-intentional psi research. Emotional charge is the key variable.</div>
@@ -6795,6 +6818,7 @@ function renderAnalytics() {
   buildTODChart(rvSessions);
   buildTagCorrelation(rvSessions);
   buildPresentimentStats();
+  renderPPAnalyticsCard();
 
   // ── Performance charts ─────────────────────────
   buildBarChartMotivated('rv-chart-wrap',    rvSessions.slice(-10), s => s.score,   100, '%', undefined, 3, 'RV session');
@@ -8922,19 +8946,53 @@ function renderPhotoPairBrief() {
   const n = sessions.length;
   const hits = sessions.filter(s => s.hit).length;
   const hitPct = n ? Math.round(hits / n * 100) : null;
+  const hitStr = hitPct !== null ? hitPct + '%' : '-';
+  const aboveBelow = hitPct !== null ? (hitPct > 50 ? ' above' : hitPct < 50 ? ' below' : '') : '';
 
+  // Brief view stats
   setEl('pp-stat-trials', n);
   const rateEl = document.getElementById('pp-stat-hitrate');
   if (rateEl) {
-    rateEl.textContent = hitPct !== null ? hitPct + '%' : '-';
-    rateEl.className = 'psi-stat-val' + (hitPct !== null ? (hitPct > 50 ? ' above' : hitPct < 50 ? ' below' : '') : '');
+    rateEl.textContent = hitStr;
+    rateEl.style.color = hitPct !== null ? (hitPct > 50 ? 'var(--accent)' : hitPct < 50 ? 'var(--danger)' : 'var(--text)') : 'var(--text)';
   }
   const noteEl = document.getElementById('pp-stat-note');
   if (noteEl) {
-    if (n < 10) noteEl.textContent = 'Complete ' + (10 - n) + ' more trial' + (10 - n !== 1 ? 's' : '') + ' for statistical analysis.';
+    if (n < 10) noteEl.textContent = (10 - n) + ' more trial' + (10 - n !== 1 ? 's' : '') + ' needed for analysis. Full stats in Analytics.';
     else {
       const sig = hitPct > 58 ? 'Trending above chance.' : hitPct < 42 ? 'Trending below chance.' : 'Within chance range.';
-      noteEl.textContent = n + ' trials  -  avg ' + hitPct + '% vs 50% chance. ' + sig;
+      noteEl.textContent = n + ' trials - ' + hitPct + '% vs 50% chance. ' + sig + ' Full stats in Analytics.';
+    }
+  }
+
+  // Analytics card stats (also update when visible)
+  renderPPAnalyticsCard(sessions, n, hits, hitPct, hitStr, aboveBelow);
+}
+
+function renderPPAnalyticsCard(sessions, n, hits, hitPct, hitStr, aboveBelow) {
+  if (n === undefined) {
+    sessions = loadPPSessions();
+    n = sessions.length;
+    hits = sessions.filter(s => s.hit).length;
+    hitPct = n ? Math.round(hits / n * 100) : null;
+    hitStr = hitPct !== null ? hitPct + '%' : '-';
+    aboveBelow = hitPct !== null ? (hitPct > 50 ? ' above' : hitPct < 50 ? ' below' : '') : '';
+  }
+
+  const trialsEl  = document.getElementById('pp-analytics-trials');
+  const hitrateEl = document.getElementById('pp-analytics-hitrate');
+  const noteEl2   = document.getElementById('pp-analytics-note');
+
+  if (trialsEl)  trialsEl.textContent  = n;
+  if (hitrateEl) {
+    hitrateEl.textContent = hitStr;
+    hitrateEl.style.color = hitPct !== null ? (hitPct > 50 ? 'var(--accent)' : hitPct < 50 ? 'var(--danger)' : 'var(--text)') : 'var(--text)';
+  }
+  if (noteEl2) {
+    if (n < 10) noteEl2.textContent = (10 - n) + ' more trial' + (10 - n !== 1 ? 's' : '') + ' needed for statistical analysis.';
+    else {
+      const sig = hitPct > 58 ? 'Trending above chance.' : hitPct < 42 ? 'Trending below chance.' : 'Within chance range.';
+      noteEl2.textContent = n + ' trials - avg ' + hitPct + '% vs 50% chance. ' + sig;
     }
   }
 }
@@ -9596,4 +9654,512 @@ window.addEventListener('error', (e) => {
         <button class="edit-tag-btn" data-tag="morning" onclick="toggleEditTag(this)">Morning</button>
         <button class="edit-tag-btn" data-tag="night" onclick="toggleEditTag(this)">Night</button>
         <button class="edit-tag-btn" data-tag="focused" onclick="toggleEditTag(this)">Focused</button>
-        <button class="edit-
+        <button class="edit-tag-btn" data-tag="distracted" onclick="toggleEditTag(this)">Distracted</button>
+      </div>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:12px;">Notes</div>
+      <textarea id="edit-notes-input" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;font-family:var(--font-body);font-size:13px;color:var(--text);resize:none;margin-top:6px;min-height:60px;outline:none;" placeholder="Optional notes..."></textarea>
+      <button class="modal-close-btn" style="margin-top:12px;" onclick="saveEditModal()">Save</button>
+      <button class="modal-close-btn" style="margin-top:8px;background:transparent;border-color:transparent;color:var(--muted);" onclick="closeEditModal()">Cancel</button>
+    </div>
+  </div>
+
+
+  <!-- ADMIN MODAL -->
+  <div class="modal-overlay" id="admin-modal" style="display:none;" onclick="closeAdminModal(event)">
+    <div class="modal-box">
+      <div class="modal-tag">Admin</div>
+      <div class="modal-title">Dev Access</div>
+      <div class="modal-body">Enter the admin password to unlock unlimited sessions on this device.</div>
+      <input class="admin-input" id="admin-password-input" type="password" placeholder="••••••••" maxlength="32" onkeydown="if(event.key==='Enter')submitAdminPassword()" />
+      <div class="admin-error" id="admin-error">Incorrect password</div>
+      <button class="modal-close-btn" style="margin-top:12px;" onclick="submitAdminPassword()">Unlock</button>
+      <button class="modal-close-btn" style="margin-top:8px;background:transparent;border-color:transparent;color:var(--muted);" onclick="closeAdminModal()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- DAILY LIMIT MODAL -->
+  <div class="modal-overlay" id="limit-modal" style="display:none;" onclick="closeLimitModal(event)">
+    <div class="modal-box" style="text-align:center;">
+      <div class="limit-icon">&#9678;</div>
+      <div class="modal-tag" style="text-align:center;">Session Limit</div>
+      <div class="modal-title" style="text-align:center;">Daily Limit Reached</div>
+      <div class="modal-body" style="text-align:center;margin-top:8px;">
+        Come back tomorrow.<br><br>
+        <span style="color:var(--accent);font-family:var(--font-mono);font-size:11px;letter-spacing:1px;">Premium Access Coming Soon</span>
+      </div>
+      <button class="modal-close-btn" onclick="closeLimitModal()">Got It</button>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════
+       SPLASH SCREEN
+  ═══════════════════════════════════ -->
+  <div id="splash-screen">
+    <div class="splash-logo-wrap">
+      <canvas id="splash-canvas" width="300" height="300"></canvas>
+      <div class="splash-letters">
+        <span class="splash-letter" id="sl-a">A</span>
+        <span class="splash-letter" id="sl-b">B</span>
+        <span class="splash-letter" id="sl-l">L</span>
+        <span class="splash-letter accent" id="sl-t">T</span>
+        <span class="splash-letter" id="sl-y">Y</span>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ══════════════════════════════════
+       ONBOARDING SCREEN
+  ═══════════════════════════════════ -->
+  <div id="onboarding-screen">
+
+    <!-- Slide 1: What ABLTY is -->
+    <div class="ob-slide active" id="ob-slide-1">
+
+      <div class="ob-header">
+        <div class="ob-logo">ABL<span class="ob-logo-accent">T</span>Y</div>
+        <div class="ob-headline">Psi Training Platform</div>
+      </div>
+
+      <div class="ob-content">
+        <div class="ob-row">
+          <div class="ob-num">01</div>
+          <div class="ob-row-text">
+            <div class="ob-row-label">Remote Viewing</div>
+            <div class="ob-row-sub">Sketch blind targets. AI grades your session across 6 dimensions. Track signal quality over time.</div>
+          </div>
+        </div>
+        <div class="ob-row">
+          <div class="ob-num">02</div>
+          <div class="ob-row-text">
+            <div class="ob-row-label">PSI Training</div>
+            <div class="ob-row-sub">Zener ESP card test and Presentiment precognition protocol - both calibrated against statistical chance.</div>
+          </div>
+        </div>
+        <div class="ob-row">
+          <div class="ob-num">03</div>
+          <div class="ob-row-text">
+            <div class="ob-row-label">Reality Check Pager</div>
+            <div class="ob-row-sub">Randomized daily notifications that build perceptual awareness - the foundation of lucid dreaming practice.</div>
+          </div>
+        </div>
+        <div class="ob-row">
+          <div class="ob-num">04</div>
+          <div class="ob-row-text">
+            <div class="ob-row-label">Analytics</div>
+            <div class="ob-row-sub">Calibration score, streaks, condition correlation, and performance trends across all protocols.</div>
+          </div>
+        </div>
+        <div class="ob-disclaimer">Results are measured across repeated sessions - not individual attempts. There are no correct answers, only signal and noise.</div>
+      </div>
+
+      <div class="ob-footer">
+        <div class="ob-progress">
+          <div class="ob-prog-seg active"></div>
+          <div class="ob-prog-seg"></div>
+          <div class="ob-prog-seg"></div>
+        </div>
+        <div class="ob-btn-row">
+          <button class="ob-skip" onclick="skipOnboarding()">Skip</button>
+          <button class="ob-cta ob-cta-rv" style="flex:1;" onclick="obNext(2)">Continue &rarr;</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Slide 2: Choose where to start -->
+    <div class="ob-slide" id="ob-slide-2">
+
+      <div class="ob-header">
+        <div class="ob-logo">ABL<span class="ob-logo-accent">T</span>Y</div>
+        <div class="ob-headline">Where do you want to start?</div>
+      </div>
+
+      <div class="ob-slide-2-sub">All modules are available from the home screen at any time.</div>
+
+      <div class="ob-module-grid">
+        <button class="ob-module-btn primary" onclick="obStartRV()">
+          <span>Remote Viewing</span>
+          <span class="ob-module-arrow">&rarr;</span>
+        </button>
+        <button class="ob-module-btn" onclick="obStartZener()">
+          <span>Zener ESP Test</span>
+          <span class="ob-module-arrow">&rarr;</span>
+        </button>
+        <button class="ob-module-btn" onclick="obStartPresentiment()">
+          <span>Presentiment</span>
+          <span class="ob-module-arrow">&rarr;</span>
+        </button>
+        <button class="ob-module-btn" onclick="obStartRC()">
+          <span>Reality Check Pager</span>
+          <span class="ob-module-arrow">&rarr;</span>
+        </button>
+      </div>
+
+      <div class="ob-footer" style="margin-top:auto;">
+        <div class="ob-progress">
+          <div class="ob-prog-seg active"></div>
+          <div class="ob-prog-seg active"></div>
+          <div class="ob-prog-seg"></div>
+        </div>
+        <div class="ob-btn-row">
+          <button class="ob-skip" onclick="obNext(1)">&larr; Back</button>
+          <button class="ob-cta ob-cta-rv" style="flex:1;" onclick="obNext(3)">Continue &rarr;</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Slide 3: Account -->
+    <div class="ob-slide" id="ob-slide-3">
+
+      <div class="ob-header">
+        <div class="ob-logo">ABL<span class="ob-logo-accent">T</span>Y</div>
+        <div class="ob-headline">Save Your Progress</div>
+      </div>
+
+      <div class="ob-content" style="padding-top:8px;">
+
+        <div class="ob-account-visual">
+          <div class="ob-account-icon-wrap">
+            <div class="ob-account-ring"></div>
+            <div class="ob-account-ring"></div>
+            <div class="ob-account-center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4af0c8" stroke-width="1.5" stroke-linecap="round">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="ob-benefit-row">
+          <div class="ob-benefit-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4af0c8" stroke-width="2" stroke-linecap="round"><path d="M3 15v4c0 1.1.9 2 2 2h14a2 2 0 002-2v-4M17 9l-5 5-5-5M12 12.8V2.5"/></svg>
+          </div>
+          <div>
+            <div class="ob-benefit-title">Cloud Sync</div>
+            <div class="ob-benefit-sub">Your sessions, scores, and progress sync across devices automatically.</div>
+          </div>
+        </div>
+
+        <div class="ob-benefit-row">
+          <div class="ob-benefit-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4af0c8" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+          <div>
+            <div class="ob-benefit-title">Full Analytics</div>
+            <div class="ob-benefit-sub">Track score trends, calibration, and session history over time.</div>
+          </div>
+        </div>
+
+        <div class="ob-benefit-row">
+          <div class="ob-benefit-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4af0c8" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+          </div>
+          <div>
+            <div class="ob-benefit-title">Reality Check Pager</div>
+            <div class="ob-benefit-sub">Scheduled notifications and streak tracking require a free account.</div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="ob-footer">
+        <div class="ob-progress">
+          <div class="ob-prog-seg active"></div>
+          <div class="ob-prog-seg active"></div>
+          <div class="ob-prog-seg active"></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+          <button class="ob-cta-create" onclick="obGoToSignup()">CREATE FREE ACCOUNT</button>
+          <button class="ob-cta-guest" onclick="obGuestMode()">Continue as Guest</button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+
+</div><!-- /app -->
+
+<!-- ═══════════════════════════════════════════════
+     TARGET POOL
+     Replace src values with real images.
+     IMPORTANT: The index is never sent to client
+     during a live session - only revealed post-submit.
+═══════════════════════════════════════════════ -->
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+// ── LEGAL CONTENT ─────────────────────────────────────
+const LEGAL_CONTENT = {
+  terms: `ABLTY — TERMS OF SERVICE
+
+Last updated: March 2026
+
+These Terms of Service govern your use of ABLTY (ablty.app). By creating an account or using the app, you agree to these terms.
+
+---
+
+1. WHO WE ARE
+
+ABLTY is a psi research and consciousness training application available at ablty.app. When these terms say "we," "us," or "ABLTY," we mean the operators of ablty.app. You can reach us at abltyapp@gmail.com.
+
+---
+
+2. WHO CAN USE ABLTY
+
+You must be at least 13 years old to use ABLTY. By using the app you confirm that you meet this requirement. If you are under 18, you should review these terms with a parent or guardian.
+
+---
+
+3. YOUR ACCOUNT
+
+Guest use: You can use limited features of ABLTY without creating an account. Guest data is stored locally on your device only. We do not collect or store any information about guests.
+
+Free accounts: Creating a free account requires a valid email address and a username. You are responsible for keeping your account credentials secure. You may not share your account with others.
+
+Premium accounts: Premium access is a paid monthly subscription at $4.99/month processed through Stripe. Subscription terms, billing, and cancellation are governed by Stripe's terms of service in addition to these terms.
+
+Usernames: Usernames must be 3 to 20 characters, contain only letters, numbers, and underscores, and must not be offensive or impersonate another person. We reserve the right to remove or change usernames that violate these rules.
+
+---
+
+4. WHAT ABLTY IS AND IS NOT
+
+ABLTY is a training and research tool for exploring psi phenomena, remote viewing, and consciousness-related practices.
+
+ABLTY is not a medical device, a therapeutic tool, or a scientifically validated system for predicting future events. Session scores and analytics are provided for personal exploration and data tracking only. We make no claims about the reality or validity of psi phenomena. Results are for entertainment and personal research purposes.
+
+Nothing in ABLTY should be used to make medical, financial, legal, or safety decisions.
+
+---
+
+5. COMMUNITY FEATURES
+
+Community Remote Viewing: Premium users may participate in a daily shared remote viewing session. All participants attempt the same target. Scores are generated by AI and are objective. By participating you agree that your score and username may appear on public leaderboards.
+
+Conduct: You agree not to attempt to cheat, manipulate scores, or disrupt other users' experience. We reserve the right to remove any user from community features for any reason.
+
+---
+
+6. SUBSCRIPTIONS AND BILLING
+
+Premium subscriptions are billed monthly at $4.99/month. Billing is handled entirely by Stripe. We do not store your payment information.
+
+You may cancel your subscription at any time. Upon cancellation your account will revert to free tier access at the end of the current billing period. Your data is not deleted upon cancellation.
+
+We reserve the right to change subscription pricing with 30 days notice to your registered email address.
+
+---
+
+7. YOUR DATA
+
+When you create an account, your session data, scores, and analytics are stored in the cloud and associated with your account. You own your data. We do not sell your personal data to third parties.
+
+We may use anonymized, aggregate data (not linked to any individual user) for research purposes.
+
+For full details on what data we collect and how we use it, see our Privacy Policy.
+
+---
+
+8. INTELLECTUAL PROPERTY
+
+ABLTY, its design, code, and content are owned by us. You may not copy, reproduce, or distribute any part of the app without our permission.
+
+Your session sketches and impression notes are yours. We store them to provide the service and do not claim ownership over your content.
+
+---
+
+9. DISCLAIMER OF WARRANTIES
+
+ABLTY is provided "as is" without warranties of any kind. We do not guarantee that the app will be available at all times, error-free, or that results will be accurate or meaningful. Use the app at your own discretion.
+
+---
+
+10. LIMITATION OF LIABILITY
+
+To the fullest extent permitted by Illinois law, ABLTY and its operators are not liable for any indirect, incidental, or consequential damages arising from your use of the app. Our total liability to you for any claim shall not exceed the amount you paid us in the 12 months preceding the claim.
+
+---
+
+11. CHANGES TO THESE TERMS
+
+We may update these terms from time to time. If we make material changes we will notify you by email or by a notice in the app. Continued use of ABLTY after changes take effect constitutes acceptance of the new terms.
+
+---
+
+12. GOVERNING LAW
+
+These terms are governed by the laws of the State of Illinois, United States.
+
+---
+
+13. CONTACT
+
+Questions about these terms: abltyapp@gmail.com
+`,
+  privacy: `ABLTY — PRIVACY POLICY
+
+Last updated: March 2026
+
+This Privacy Policy explains what information ABLTY (ablty.app) collects, how we use it, and your rights regarding your data. By using ABLTY you agree to this policy.
+
+---
+
+1. WHO WE ARE
+
+ABLTY is operated by the team at ablty.app. Contact us at abltyapp@gmail.com with any privacy questions or requests.
+
+---
+
+2. INFORMATION WE COLLECT
+
+We collect different information depending on how you use ABLTY.
+
+Guests (no account):
+We collect no personal information from guests. All guest data (session scores, settings) is stored locally on your device only. We have no access to it.
+
+Free and Premium accounts:
+When you create an account we collect:
+- Email address
+- Username you choose
+- Password (stored as a secure hash — we never see your actual password)
+- Session data you create: RV scores, Zener results, Presentiment results, Photo Pair results, session timestamps, and impression notes you type
+- For Premium users: sketch images from RV sessions
+- Device and browser type (collected automatically by our infrastructure provider)
+- Approximate timezone (used to send Reality Check notifications at appropriate times)
+
+We do not collect:
+- Your real name
+- Phone number
+- Location beyond timezone
+- Any payment information (handled entirely by Stripe — see Section 5)
+
+---
+
+3. HOW WE USE YOUR INFORMATION
+
+We use your information to:
+- Provide and operate the ABLTY service
+- Send Reality Check pager notifications at times you configure
+- Send Community RV reveal notifications at 11:11 PM your local time
+- Display your scores and username on leaderboards (Premium only, with your participation)
+- Sync your session data across devices
+- Respond to support requests sent to abltyapp@gmail.com
+- Improve the app based on aggregate, anonymized usage patterns
+
+We may use anonymized, aggregate data — meaning data that cannot be linked to any individual user — for psi research purposes or to share findings publicly. This data is never personally identifiable.
+
+We do not use your data for advertising. We do not sell your personal data. We do not share your personal data with third parties except as described in Section 5.
+
+---
+
+4. PUSH NOTIFICATIONS
+
+If you enable the Reality Check Pager, we store your push notification subscription and your configured bedtime in order to send notifications at appropriate times. This data is stored on Cloudflare's infrastructure and is used solely to deliver notifications. You can disable notifications at any time from within the app.
+
+---
+
+5. THIRD PARTIES WE WORK WITH
+
+We work with the following third parties to operate ABLTY:
+
+Supabase (supabase.com): Our database and authentication provider. Your account data and session history are stored on Supabase infrastructure. Supabase is subject to its own privacy policy.
+
+Stripe (stripe.com): Payment processing for Premium subscriptions. When you subscribe, you interact directly with Stripe. We do not receive or store your payment card details. Stripe is subject to its own privacy policy.
+
+Cloudflare (cloudflare.com): Infrastructure for push notification delivery. Your notification subscription endpoint is stored on Cloudflare Workers KV. Cloudflare is subject to its own privacy policy.
+
+Google (via Gemini API): RV session sketches and impression notes are sent to Google's Gemini AI for grading. This data is processed to produce a session score and is not used by Google to train models under current API terms. See Google's API terms for details.
+
+We do not work with advertising networks or data brokers.
+
+---
+
+6. DATA RETENTION
+
+Guest data: Stored locally on your device only. We do not retain it.
+
+Free accounts: Session metadata and scores are retained for 90 days. After 90 days, older session records are deleted from our servers. Data on your device is unaffected.
+
+Premium accounts: Session data including sketches is retained indefinitely while your account is active. If you delete your account, your data is deleted within 30 days.
+
+If you cancel a Premium subscription and revert to free tier, your data is retained but older records beyond 90 days become inaccessible until you resubscribe. The data is not deleted — it is preserved in case you resubscribe.
+
+---
+
+7. YOUR RIGHTS
+
+You have the right to:
+- Access the personal data we hold about you
+- Correct inaccurate data
+- Request deletion of your account and associated data
+- Export your session data (Premium feature)
+- Withdraw consent for push notifications at any time via app settings
+
+To exercise any of these rights, contact us at abltyapp@gmail.com. We will respond within 30 days.
+
+---
+
+8. DATA SECURITY
+
+We use industry-standard security practices including encrypted connections (HTTPS), hashed passwords, and access controls. No system is perfectly secure. If you believe your account has been compromised, contact us immediately at abltyapp@gmail.com.
+
+---
+
+9. CHILDREN
+
+ABLTY is not directed at children under 13. We do not knowingly collect personal information from children under 13. If you believe a child under 13 has created an account, contact us at abltyapp@gmail.com and we will delete the account.
+
+---
+
+10. CHANGES TO THIS POLICY
+
+We may update this Privacy Policy from time to time. If we make material changes we will notify you by email or by a notice in the app. The date at the top of this document reflects when it was last updated.
+
+---
+
+11. GOVERNING LAW
+
+This Privacy Policy is governed by the laws of the State of Illinois, United States.
+
+---
+
+12. CONTACT
+
+Privacy questions and data requests: abltyapp@gmail.com
+`
+};
+
+function openLegal(type) {
+  const modal  = document.getElementById('legal-modal');
+  const title  = document.getElementById('legal-modal-title');
+  const body   = document.getElementById('legal-modal-body');
+  if (!modal || !title || !body) return;
+  title.textContent = type === 'terms' ? 'Terms of Service' : 'Privacy Policy';
+  body.textContent  = LEGAL_CONTENT[type] || '';
+  modal.style.display = 'flex';
+}
+
+function closeLegal() {
+  const modal = document.getElementById('legal-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+// ── SMOOTH SCROLL ──────────────────────────────────────
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    document.querySelector(a.getAttribute('href'))?.scrollIntoView({ behavior: 'smooth' });
+  });
+});
+
+// ── SERVICE WORKER REGISTRATION ───────────────────────
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
