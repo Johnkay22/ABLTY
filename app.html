@@ -3715,6 +3715,8 @@ html, body {
           <button class="log-filter-btn active" data-filter="all"    onclick="setLogFilter('all')">All</button>
           <button class="log-filter-btn"        data-filter="rv"     onclick="setLogFilter('rv')">RV</button>
           <button class="log-filter-btn"        data-filter="zener"  onclick="setLogFilter('zener')">Zener</button>
+          <button class="log-filter-btn"        data-filter="ts"     onclick="setLogFilter('ts')">Presentiment</button>
+          <button class="log-filter-btn"        data-filter="pp"     onclick="setLogFilter('pp')">Photo Pair</button>
           <button class="log-filter-btn"        data-filter="high"   onclick="setLogFilter('high')">High Score</button>
           <button class="log-filter-btn"        data-filter="tagged" onclick="setLogFilter('tagged')">Tagged</button>
         </div>
@@ -6748,6 +6750,7 @@ function switchAnalyticsTab(tab) {
 }
 
 function renderAnalytics() {
+  showAnalyticsSkeleton(); // Show skeleton while data loads (Cursor replaces with async await)
   const rvSessions  = STATE.sessions || [];
   const zenerRuns   = loadZenerSessions();
 
@@ -6805,7 +6808,7 @@ function renderAnalytics() {
   if (logTotalEl) logTotalEl.textContent = rvSessions.length + zenerRuns.length;
   if (logBestEl)  logBestEl.textContent  = rvBest !== null ? rvBest + '%' : '-';
 
-  buildCombinedLog(rvSessions, zenerRuns);
+  buildCombinedLog(rvSessions, zenerRuns); // PP and TS loaded inside buildCombinedLog
   renderStreakBanner(rvSessions, zenerRuns);
   renderCalibration(rvSessions);
 }
@@ -6934,40 +6937,92 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   const el = document.getElementById('combined-log-list');
   if (!el) return;
 
-  if (!rvSessions.length && !zenerRuns.length) {
-    el.innerHTML = `<div class="empty-state"><div class="empty-icon">◎</div><div class="mono-label">No sessions yet</div><div class="body-sm" style="margin-top:6px;">Complete your first session to begin building your log.</div></div>`;
+  const ppSessions = loadPPSessions().map(s => ({
+    ...s,
+    type: 'pp',
+    score: s.hit ? 100 : 0,
+    timestamp: s.timestamp || new Date().toISOString(),
+  }));
+
+  const tsSessions = loadTimestampTrials().map(s => ({
+    ...s,
+    type: 'ts',
+    score: s.hit ? 100 : 0,
+    timestamp: s.timestamp || new Date().toISOString(),
+  }));
+
+  const rv = rvSessions.map(s => ({ ...s, type: 'rv' }));
+  const ze = zenerRuns.map(r => ({ ...r, type: 'zener', score: r.hitPct }));
+
+  let all = [...rv, ...ze, ...ppSessions, ...tsSessions]
+    .filter(s => s.timestamp)
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  // Apply filter
+  const f = currentLogFilter;
+  if (f === 'rv')     all = all.filter(s => s.type === 'rv');
+  if (f === 'zener')  all = all.filter(s => s.type === 'zener');
+  if (f === 'ts')     all = all.filter(s => s.type === 'ts');
+  if (f === 'pp')     all = all.filter(s => s.type === 'pp');
+  if (f === 'high')   all = all.filter(s => s.score >= 60);
+  if (f === 'tagged') all = all.filter(s => s.type === 'rv' && s.tags && s.tags.length);
+
+  if (!all.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon">&#9678;</div><div class="mono-label">No sessions yet</div><div class="body-sm" style="margin-top:6px;">Complete your first session to begin building your log.</div></div>`;
     return;
   }
 
-  // Merge and sort by timestamp descending
-  const rv = rvSessions.map(s => ({ ...s, type: 'rv' }));
-  const ze = zenerRuns.map(r => ({ ...r, type: 'zener', score: r.hitPct }));
-  const all = [...rv, ...ze].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  const TYPE_TAG  = { rv: 'RV', zener: 'ZNR', ts: 'PSI', pp: 'PSI' };
+  const TYPE_LABEL = {
+    rv:    s => s.targetLabel || '-',
+    zener: s => `${s.hits}/25 hits`,
+    ts:    s => s.hit ? 'Hit' : 'Miss',
+    pp:    s => s.hit ? 'Hit' : 'Miss',
+  };
+  const TYPE_TITLE = {
+    rv:    s => 'TRN ' + (s.trn || ''),
+    zener: s => 'ZENER',
+    ts:    s => 'PRESENTIMENT',
+    pp:    s => 'PHOTO PAIR',
+  };
+  const TYPE_SCORE_DISPLAY = {
+    rv:    s => s.score + '%',
+    zener: s => s.score + '%',
+    ts:    s => s.hit ? 'HIT' : 'MISS',
+    pp:    s => s.hit ? 'HIT' : 'MISS',
+  };
 
-  el.innerHTML = all.map((s, idx) => {
+  el.innerHTML = all.map(s => {
     const d       = new Date(s.timestamp);
     const dateStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
-    const cls     = s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low';
-    const typeTag = s.type === 'rv' ? 'RV' : 'ZNR';
-    const label   = s.type === 'rv' ? (s.targetLabel || '-') : `${s.hits}/25 hits`;
+    const typeTag = TYPE_TAG[s.type] || '?';
+    const label   = TYPE_LABEL[s.type] ? TYPE_LABEL[s.type](s) : '-';
+    const title   = TYPE_TITLE[s.type] ? TYPE_TITLE[s.type](s) : s.type.toUpperCase();
+    const scoreDisplay = TYPE_SCORE_DISPLAY[s.type] ? TYPE_SCORE_DISPLAY[s.type](s) : '-';
     const thumb   = s.type === 'rv' ? (s.sketchData || s.targetSrc || '') : '';
-    const sessionId = s.id;
+    const sessionId   = s.id;
     const sessionType = s.type;
+    const isHitMiss   = s.type === 'ts' || s.type === 'pp';
+    const cls = isHitMiss
+      ? (s.hit ? 'high' : 'low')
+      : (s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low');
 
-    return `<div class="session-card" onclick="openSessionDetail('${sessionType}', ${sessionId})" style="cursor:pointer;">
+    return `<div class="session-card" onclick="openSessionDetail('${sessionType}','${sessionId}')" style="cursor:pointer;">
       <div class="session-thumb">
-        ${thumb ? `<img src="${thumb}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:8px;color:var(--dim);">${typeTag}</div>`}
+        ${thumb
+          ? `<img src="${thumb}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">`
+          : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:8px;color:var(--dim);">${typeTag}</div>`}
       </div>
       <div class="session-info">
         <div style="display:flex;align-items:center;gap:6px;">
-          <div class="display-sm">${s.type === 'rv' ? 'TRN ' + (s.trn || '') : 'ZENER'}</div>
+          <div class="display-sm">${title}</div>
           <span style="font-family:var(--font-mono);font-size:8px;letter-spacing:1px;background:var(--card2);border:1px solid var(--border);border-radius:4px;padding:2px 5px;color:var(--muted);">${typeTag}</span>
         </div>
         <div class="mono-sm" style="margin-top:4px;">${dateStr}</div>
         <div class="mono-sm" style="margin-top:2px;color:var(--dim);">${label}</div>
-        ${s.type === 'rv' && s.notes && s.notes.trim() ? `<div class="mono-sm" style="margin-top:3px;color:var(--muted);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;">${s.notes.slice(0,60)}${s.notes.length>60?'…':''}</div>` : ''}
+        ${s.type === 'rv' && s.notes && s.notes.trim() ? `<div class="mono-sm" style="margin-top:3px;color:var(--muted);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;">${s.notes.slice(0,60)}${s.notes.length>60?'..':''}</div>` : ''}
       </div>
-      <div class="session-score ${cls}">${s.score}%</div>
+      <div class="session-score ${cls}">${scoreDisplay}</div>
     </div>`;
   }).join('');
 }
@@ -6991,16 +7046,115 @@ function openSessionDetail(type, id) {
   if (screenEl) screenEl.scrollTop = 0;
 
   if (type === 'rv') {
-    const session = STATE.sessions.find(s => s.id === id);
+    const session = STATE.sessions.find(s => String(s.id) === String(id));
     if (!session) return;
     renderRVDetail(session);
-  } else {
+  } else if (type === 'zener') {
     const runs = loadZenerSessions();
-    const run = runs.find(r => r.id === id);
+    const run = runs.find(r => String(r.id) === String(id));
     if (!run) return;
     renderZenerDetail(run);
+  } else if (type === 'pp') {
+    const sessions = loadPPSessions();
+    const session = sessions.find(s => String(s.id) === String(id));
+    if (!session) return;
+    renderPPDetail(session);
+  } else if (type === 'ts') {
+    const trials = loadTimestampTrials();
+    const trial = trials.find(t => String(t.id) === String(id));
+    if (!trial) return;
+    renderTSDetail(trial);
   }
 }
+
+function renderPPDetail(s) {
+  const d = new Date(s.timestamp);
+  const dateStr = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
+
+  setEl('detail-type-label', 'PHOTO PAIR');
+  setEl('detail-date', dateStr);
+
+  // Score ring — show Hit/Miss as 100/0
+  const ring   = document.getElementById('detail-score-ring');
+  const pctEl  = document.getElementById('detail-score-pct');
+  const lblEl  = document.getElementById('detail-score-label');
+  setEl('detail-score-label', 'Result');
+  if (ring) {
+    ring.style.stroke = s.hit ? 'var(--accent)' : 'var(--danger)';
+    setTimeout(() => { ring.style.strokeDashoffset = s.hit ? 0 : 364.4; }, 100);
+  }
+  if (pctEl) pctEl.textContent = s.hit ? 'HIT' : 'MISS';
+
+  // Hide RV-specific elements
+  const imagesRow = document.getElementById('detail-images-row');
+  if (imagesRow) imagesRow.style.display = 'none';
+  const dimWrap = document.getElementById('detail-dimensions-wrap');
+  if (dimWrap) dimWrap.style.display = 'none';
+  const summaryCard = document.getElementById('detail-summary-card');
+  if (summaryCard) {
+    summaryCard.style.display = 'block';
+    setEl('detail-summary', s.hit
+      ? 'You selected the pleasant image. Your unconscious orientation matched the emotional valence of the target.'
+      : 'You selected the neutral image. No match on this trial.'
+    );
+  }
+
+  const hitList = document.getElementById('detail-hit-list');
+  if (hitList) {
+    hitList.innerHTML = `
+      <div class="hit-item">
+        <div class="hit-badge ${s.hit ? 'hit' : 'noise'}">${s.hit ? 'Hit' : 'Miss'}</div>
+        <div class="hit-text">Chance baseline is 50%. ${s.hit ? 'You matched the pleasant image.' : 'You selected the neutral image.'}</div>
+      </div>`;
+  }
+  const zWrap = document.getElementById('detail-zener-wrap');
+  if (zWrap) zWrap.style.display = 'none';
+}
+
+function renderTSDetail(s) {
+  const d = new Date(s.timestamp);
+  const dateStr = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
+
+  setEl('detail-type-label', 'PRESENTIMENT');
+  setEl('detail-date', dateStr);
+
+  const ring   = document.getElementById('detail-score-ring');
+  const pctEl  = document.getElementById('detail-score-pct');
+  setEl('detail-score-label', 'Result');
+  if (ring) {
+    ring.style.stroke = s.hit ? 'var(--accent)' : 'var(--danger)';
+    setTimeout(() => { ring.style.strokeDashoffset = s.hit ? 0 : 364.4; }, 100);
+  }
+  if (pctEl) pctEl.textContent = s.hit ? 'HIT' : 'MISS';
+
+  const imagesRow = document.getElementById('detail-images-row');
+  if (imagesRow) imagesRow.style.display = 'none';
+  const dimWrap = document.getElementById('detail-dimensions-wrap');
+  if (dimWrap) dimWrap.style.display = 'none';
+  const summaryCard = document.getElementById('detail-summary-card');
+  if (summaryCard) {
+    summaryCard.style.display = 'block';
+    const eventMs = s.eventMs !== undefined ? s.eventMs : null;
+    const tappedMs = s.tappedMs !== undefined ? s.tappedMs : null;
+    const diff = (eventMs !== null && tappedMs !== null) ? Math.round(eventMs - tappedMs) : null;
+    setEl('detail-summary', s.hit
+      ? `Correct. You tapped ${diff !== null ? (diff > 0 ? diff + 'ms before the event.' : Math.abs(diff) + 'ms after the event.') : 'at the right time.'}`
+      : `Miss. ${diff !== null ? 'Event fired ' + Math.abs(diff) + 'ms ' + (diff > 0 ? 'after' : 'before') + ' your tap.' : ''}`
+    );
+  }
+
+  const hitList = document.getElementById('detail-hit-list');
+  if (hitList) {
+    hitList.innerHTML = `
+      <div class="hit-item">
+        <div class="hit-badge ${s.hit ? 'hit' : 'noise'}">${s.hit ? 'Hit' : 'Miss'}</div>
+        <div class="hit-text">Chance baseline is 50%. Measures unconscious precognitive timing.</div>
+      </div>`;
+  }
+  const zWrap = document.getElementById('detail-zener-wrap');
+  if (zWrap) zWrap.style.display = 'none';
+}
+
 
 function renderRVDetail(s) {
   const d = new Date(s.timestamp);
@@ -7630,9 +7784,7 @@ function setLogFilter(filter) {
   document.querySelectorAll('.log-filter-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.filter === filter);
   });
-  const rvSessions = STATE.sessions || [];
-  const zenerRuns  = loadZenerSessions();
-  buildCombinedLog(rvSessions, zenerRuns);
+  buildCombinedLog(STATE.sessions || [], loadZenerSessions());
 }
 
 // ── Time of Day pattern ─────────────────────
@@ -9145,10 +9297,11 @@ window.addEventListener('error', (e) => {
       <div class="modal-tag" style="text-align:center;">Session Limit</div>
       <div class="modal-title" style="text-align:center;">Daily Limit Reached</div>
       <div class="modal-body" style="text-align:center;margin-top:8px;">
-        Come back tomorrow.<br><br>
-        <span style="color:var(--accent);font-family:var(--font-mono);font-size:11px;letter-spacing:1px;">Premium Access Coming Soon</span>
+        You have used your daily RV sessions.<br><br>
+        <span style="color:var(--muted);font-family:var(--font-mono);font-size:10px;letter-spacing:1px;">Resets at midnight &middot; or upgrade for unlimited</span>
       </div>
-      <button class="modal-close-btn" onclick="closeLimitModal()">Got It</button>
+      <button class="modal-close-btn" style="margin-top:12px;" onclick="closeLimitModal();showUpgradeModal('rv_limit','Remote Viewing','Upgrade to Premium for unlimited daily RV sessions.')">Upgrade to Premium</button>
+      <button class="modal-close-btn" style="margin-top:8px;background:transparent;border-color:transparent;color:var(--muted);" onclick="closeLimitModal()">Come Back Tomorrow</button>
     </div>
   </div>
 
