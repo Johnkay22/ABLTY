@@ -3227,7 +3227,7 @@ html, body {
         <div class="settings-user-card">
           <div class="settings-avatar" id="settings-avatar">S</div>
           <div>
-            <div class="settings-username" id="settings-username">Seeker</div>
+            <div class="settings-username" id="settings-username" onclick="openUsernameEdit()" style="cursor:pointer;">Seeker</div>
             <div id="settings-tier-badge" class="tier-badge tier-free" style="margin-top:4px;">FREE</div>
           </div>
           <button class="settings-signout-btn" onclick="handleSignOut()">Sign Out</button>
@@ -6090,7 +6090,7 @@ function gatedNavigate(feature, featureName, featureDesc) {
 //  SETTINGS SCREEN  -  TWO STATES
 // ═══════════════════════════════════════════════════════
 
-function renderSettingsState() {
+async function renderSettingsState() {
   const loggedIn      = isLoggedIn();
   const loggedOutEl   = document.getElementById('settings-logged-out');
   const loggedInEl    = document.getElementById('settings-logged-in');
@@ -6104,8 +6104,26 @@ function renderSettingsState() {
     else { loggedInEl.style.display = 'none'; }
   }
 
+  if (loggedIn && supabase) {
+    try {
+      const { data: authData } = await supabase.auth.getSession();
+      const session = authData?.session;
+      if (session?.user?.id) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username, tier, username_changed_at')
+          .eq('id', session.user.id)
+          .single();
+        if (profile) {
+          localStorage.setItem('ablty_username', profile.username || 'Seeker');
+          localStorage.setItem('ablty_tier', profile.tier || 'free');
+          localStorage.setItem('ablty_username_changed_at', profile.username_changed_at || '');
+        }
+      }
+    } catch(e) {}
+  }
+
   if (loggedIn) {
-    // PLACEHOLDER: Cursor populates with real user data from Supabase
     const username = localStorage.getItem('ablty_username') || 'Seeker';
     const tier     = getCurrentTier();
 
@@ -6158,6 +6176,106 @@ function updateSyncStatus(status) {
   const s = states[status] || states.local;
   dot.className   = 'sync-dot ' + s.cls;
   label.textContent = s.text;
+}
+
+let _usernameEditOriginal = '';
+
+function openUsernameEdit() {
+  if (!isLoggedIn()) return;
+
+  const changedAt = localStorage.getItem('ablty_username_changed_at');
+  if (changedAt) {
+    const changedTs = new Date(changedAt).getTime();
+    if (Number.isFinite(changedTs)) {
+      const daysSince = (Date.now() - changedTs) / (1000 * 60 * 60 * 24);
+      if (daysSince < 30) {
+        const canOn = new Date(changedTs + 30 * 24 * 60 * 60 * 1000);
+        showToast(
+          'You can change your username again on ' + canOn.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) + '.',
+          'info',
+          5000
+        );
+        return;
+      }
+    }
+  }
+
+  const el = document.getElementById('settings-username');
+  if (!el) return;
+  if (document.getElementById('username-edit-input')) return;
+
+  _usernameEditOriginal = (localStorage.getItem('ablty_username') || el.textContent || 'Seeker').trim();
+  const escaped = _usernameEditOriginal
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  el.innerHTML = `
+    <input id="username-edit-input" value="${escaped}" maxlength="20"
+      style="background:var(--card);border:1px solid var(--accent);border-radius:8px;
+             padding:6px 10px;font-family:var(--font-display);font-size:20px;
+             color:var(--text);outline:none;width:150px;" />
+    <button onclick="saveUsernameEdit()"
+      style="margin-left:8px;font-family:var(--font-mono);font-size:10px;
+             color:var(--accent);background:none;border:none;cursor:pointer;">Save</button>
+    <button onclick="cancelUsernameEdit()"
+      style="margin-left:4px;font-family:var(--font-mono);font-size:10px;
+             color:var(--muted);background:none;border:none;cursor:pointer;">Cancel</button>`;
+
+  const input = document.getElementById('username-edit-input');
+  if (input) {
+    input.focus();
+    input.select();
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') saveUsernameEdit();
+      if (e.key === 'Escape') cancelUsernameEdit();
+    });
+  }
+}
+
+async function saveUsernameEdit() {
+  const input = document.getElementById('username-edit-input');
+  if (!input) return;
+  const newUsername = input.value.trim();
+  const err = validateUsername(newUsername);
+  if (err) { showToast(err, 'error'); return; }
+
+  if (!supabase) {
+    showToast('Auth is not configured.', 'error');
+    return;
+  }
+
+  const { data: authData } = await supabase.auth.getSession();
+  const session = authData?.session;
+  if (!session?.user?.id) {
+    showToast('You are not signed in.', 'error');
+    return;
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      username: newUsername,
+      username_changed_at: new Date().toISOString(),
+    })
+    .eq('id', session.user.id);
+
+  if (error) {
+    showToast(error.code === '23505' ? 'That username is already taken.' : 'Could not save username.', 'error');
+    return;
+  }
+
+  localStorage.setItem('ablty_username', newUsername);
+  localStorage.setItem('ablty_username_changed_at', new Date().toISOString());
+  await renderSettingsState();
+  showToast('Username updated.', 'success');
+}
+
+function cancelUsernameEdit() {
+  const el = document.getElementById('settings-username');
+  if (!el) return;
+  el.textContent = _usernameEditOriginal || (localStorage.getItem('ablty_username') || 'Seeker');
 }
 
 // ═══════════════════════════════════════════════════════
