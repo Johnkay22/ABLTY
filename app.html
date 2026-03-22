@@ -5996,15 +5996,12 @@ function hideToast() {
 //  TIER SYSTEM
 // ═══════════════════════════════════════════════════════
 
-// MOCK auth state  -  Cursor replaces with real Supabase session
-// Possible values: 'guest' | 'free' | 'premium'
 function getCurrentTier() {
-  // PLACEHOLDER: Cursor replaces with Supabase session check
-  return localStorage.getItem('ablty_tier') || 'guest';
+  if (!isLoggedIn()) return 'guest';
+  return localStorage.getItem('ablty_tier') || 'free';
 }
 
 function isLoggedIn() {
-  // PLACEHOLDER: Cursor replaces with real auth check
   return localStorage.getItem('ablty_logged_in') === '1';
 }
 
@@ -6128,12 +6125,15 @@ function renderSettingsState() {
   }
 }
 
-function handleSignOut() {
+async function handleSignOut() {
   if (!confirm('Sign out of your account?')) return;
-  // PLACEHOLDER: Cursor replaces with Supabase signOut()
+  if (supabase) {
+    try { await supabase.auth.signOut(); } catch(e) {}
+  }
   localStorage.removeItem('ablty_logged_in');
   localStorage.removeItem('ablty_username');
   localStorage.removeItem('ablty_tier');
+  localStorage.removeItem('ablty_username_changed_at');
   renderSettingsState();
   renderProfile();
   showToast('Signed out.', 'success');
@@ -7708,6 +7708,46 @@ function validateUsername(val) {
   return '';
 }
 
+async function onSignedIn(user) {
+  if (!supabase || !user) return;
+
+  let username = 'Seeker';
+  let tier = 'free';
+  let changedAt = '';
+
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('username, tier, username_changed_at')
+      .eq('id', user.id)
+      .single();
+
+    if (profile) {
+      username = profile.username || username;
+      tier = profile.tier || tier;
+      changedAt = profile.username_changed_at || '';
+    }
+  } catch(e) {}
+
+  localStorage.setItem('ablty_logged_in', '1');
+  localStorage.setItem('ablty_username', username);
+  localStorage.setItem('ablty_tier', tier);
+  localStorage.setItem('ablty_username_changed_at', changedAt || '');
+
+  renderSettingsState();
+  renderProfile();
+  updateSyncStatus('syncing');
+
+  try {
+    if (typeof syncLocalDataToSupabase === 'function') {
+      await syncLocalDataToSupabase(user.id);
+    }
+    updateSyncStatus('synced');
+  } catch(e) {
+    updateSyncStatus('local');
+  }
+}
+
 async function handleLogin() {
   const email    = (document.getElementById('login-email')?.value || '').trim();
   const password = document.getElementById('login-password')?.value || '';
@@ -7721,9 +7761,22 @@ async function handleLogin() {
   const btn = document.getElementById('login-btn');
   if (btn) btn.disabled = true;
 
-  // PLACEHOLDER  -  Cursor will replace with real Supabase call
-  console.log('[AUTH] handleLogin called  -  Supabase not yet wired');
-  showToast('Auth not yet connected  -  coming soon.', 'info');
+  if (!supabase) {
+    setAuthError('login-email','login-email-err','Auth is not configured');
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    setAuthError('login-email','login-email-err', error.message);
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  await onSignedIn(data.user);
+  closeAuthScreen('login');
+  showToast('Signed in.', 'success');
   if (btn) btn.disabled = false;
 }
 
@@ -7751,9 +7804,72 @@ async function handleSignup() {
   const btn = document.getElementById('signup-btn');
   if (btn) btn.disabled = true;
 
-  // PLACEHOLDER  -  Cursor will replace with real Supabase call
-  console.log('[AUTH] handleSignup called  -  Supabase not yet wired');
-  showToast('Auth not yet connected  -  coming soon.', 'info');
+  if (!supabase) {
+    setAuthError('signup-email','signup-email-err', 'Auth is not configured');
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  const { data: existingUsers } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('username', username)
+    .limit(1);
+
+  if (existingUsers && existingUsers.length) {
+    setAuthError('signup-username','signup-username-err', 'That username is already taken');
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: 'https://ablty.app/app.html' },
+  });
+
+  if (error) {
+    setAuthError('signup-email','signup-email-err', error.message);
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  const signedUpUser = data?.user;
+  if (signedUpUser) {
+    const { error: profileErr } = await supabase.from('profiles').insert({
+      id: signedUpUser.id,
+      username,
+      tier: 'free',
+    });
+    if (profileErr && profileErr.code === '23505') {
+      setAuthError('signup-username','signup-username-err', 'That username is already taken');
+      if (btn) btn.disabled = false;
+      return;
+    }
+    await supabase.from('user_settings').insert({ user_id: signedUpUser.id });
+    if (typeof migrateGuestData === 'function') {
+      await migrateGuestData(signedUpUser.id);
+    }
+  }
+
+  localStorage.removeItem('ablty_guest_mode');
+
+  const formBody = document.querySelector('#screen-signup .auth-body');
+  if (formBody) {
+    formBody.innerHTML = `
+      <div class="auth-success-wrap">
+        <div class="auth-success-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#4af0c8" stroke-width="1.5" stroke-linecap="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+        </div>
+        <div class="auth-success-title">Check Your Email</div>
+        <div class="auth-success-sub">We sent a verification link to ${email}. Tap it to activate your account.</div>
+        <button class="auth-link" onclick="closeAuthScreen('signup')" style="margin-top:8px;">Back to App</button>
+      </div>`;
+  }
+
   if (btn) btn.disabled = false;
 }
 
@@ -7766,15 +7882,18 @@ async function handleForgotPassword() {
   const btn = document.getElementById('forgot-btn');
   if (btn) btn.disabled = true;
 
-  // PLACEHOLDER  -  Cursor will replace with real Supabase call
-  console.log('[AUTH] handleForgotPassword called  -  Supabase not yet wired');
-  // Show success state
+  if (supabase) {
+    await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: 'https://ablty.app/app.html',
+    });
+  }
+
   const formBody = document.getElementById('forgot-form-body');
   const successWrap = document.getElementById('forgot-success');
   const successMsg  = document.getElementById('forgot-success-msg');
   if (formBody)   formBody.style.display = 'none';
   if (successWrap) successWrap.style.display = 'flex';
-  if (successMsg)  successMsg.textContent = 'We sent a reset link to ' + email + '. It expires in 24 hours.';
+  if (successMsg)  successMsg.textContent = 'If that email exists, we sent a reset link. It expires in 1 hour.';
   if (btn) btn.disabled = false;
 }
 
