@@ -5236,6 +5236,7 @@ async function submitSession() {
   STATE.sessions.unshift(session);
   saveState();
   incrementDailyCount();
+  syncSessionToSupabase('rv_sessions', mapRVSessionRow(session, 'personal'));
 }
 
 function updateGradingStatus(msg) {
@@ -6767,6 +6768,7 @@ function saveZenerSession(run) {
   const runs = loadZenerSessions();
   runs.unshift(run);
   try { localStorage.setItem('ablty_zener', JSON.stringify(runs)); } catch(e) {}
+  syncSessionToSupabase('zener_runs', mapZenerRunRow(run));
 }
 
 // ═══════════════════════════════════════════════════════
@@ -7748,6 +7750,142 @@ async function onSignedIn(user) {
   }
 }
 
+function mapRVSessionRow(session, sessionType = 'personal') {
+  const targetIdNum = parseInt(String(session?.targetId || '').replace(/\D/g, ''), 10);
+  return {
+    id: Number(session?.id) || Date.now(),
+    session_type: sessionType,
+    trn: session?.trn || null,
+    target_id: Number.isFinite(targetIdNum) ? targetIdNum : null,
+    target_src: session?.targetSrc || null,
+    target_label: session?.targetLabel || null,
+    category: session?.category || null,
+    score: Number.isFinite(Number(session?.score)) ? Number(session.score) : null,
+    dimension_scores: session?.dimension_scores || null,
+    hits: Array.isArray(session?.hits) ? session.hits : [],
+    noise: Array.isArray(session?.noise) ? session.noise : [],
+    aol: Array.isArray(session?.aol) ? session.aol : [],
+    summary: session?.summary || null,
+    notes: session?.notes || null,
+    duration: Number.isFinite(Number(session?.duration)) ? Number(session.duration) : null,
+    sketch_data: session?.sketchData || null,
+    timestamp: session?.timestamp || new Date().toISOString(),
+    tags: Array.isArray(session?.tags) ? session.tags : [],
+  };
+}
+
+function mapZenerRunRow(run) {
+  return {
+    id: Number(run?.id) || Date.now(),
+    hits: Number.isFinite(Number(run?.hits)) ? Number(run.hits) : 0,
+    hit_pct: Number.isFinite(Number(run?.hitPct)) ? Number(run.hitPct) : 0,
+    symbol_stats: run?.symbolStats || {},
+    timestamp: run?.timestamp || new Date().toISOString(),
+  };
+}
+
+function mapTSTrialRow(trial) {
+  return {
+    id: Number(trial?.id) || Date.now(),
+    event_time: trial?.eventTime ?? null,
+    tap_time: trial?.tapTime ?? null,
+    delta: trial?.delta ?? null,
+    miss: !!trial?.miss,
+    hit: !!trial?.hit,
+    timestamp: trial?.timestamp || new Date().toISOString(),
+  };
+}
+
+function mapPPSessionRow(session) {
+  let fallbackId = Date.now();
+  if (session?.timestamp) {
+    const parsed = Date.parse(session.timestamp);
+    if (Number.isFinite(parsed)) fallbackId = parsed;
+  }
+  return {
+    id: Number(session?.id) || fallbackId,
+    hit: !!session?.hit,
+    timestamp: session?.timestamp || new Date().toISOString(),
+  };
+}
+
+async function syncSessionToSupabase(table, data) {
+  if (!supabase || !isLoggedIn()) return;
+  try {
+    const { data: authData } = await supabase.auth.getSession();
+    const session = authData?.session;
+    if (!session?.user?.id) return;
+    updateSyncStatus('syncing');
+    await supabase.from(table).insert({ ...data, user_id: session.user.id });
+    updateSyncStatus('synced');
+  } catch(e) {
+    updateSyncStatus('local');
+  }
+}
+
+async function migrateGuestData(userId) {
+  if (!supabase || !userId) return;
+  const errors = [];
+
+  try {
+    const rv = Array.isArray(STATE.sessions) ? STATE.sessions : [];
+    if (rv.length) {
+      const rows = rv.map((s) => ({ ...mapRVSessionRow(s, 'personal'), user_id: userId }));
+      await supabase.from('rv_sessions').upsert(rows, { onConflict: 'id' });
+      STATE.sessions = [];
+      saveState();
+    }
+  } catch(e) {
+    errors.push('RV');
+  }
+
+  try {
+    const ze = loadZenerSessions();
+    if (ze.length) {
+      const rows = ze.map((r) => ({ ...mapZenerRunRow(r), user_id: userId }));
+      await supabase.from('zener_runs').upsert(rows, { onConflict: 'id' });
+      localStorage.removeItem('ablty_zener');
+    }
+  } catch(e) {
+    errors.push('Zener');
+  }
+
+  try {
+    const ts = loadTimestampAll();
+    if (ts.length) {
+      const rows = ts.map((t) => ({ ...mapTSTrialRow(t), user_id: userId }));
+      await supabase.from('ts_trials').upsert(rows, { onConflict: 'id' });
+      localStorage.removeItem('ablty_timestamp');
+      localStorage.removeItem('ablty_timestamp_all');
+    }
+  } catch(e) {
+    errors.push('Presentiment');
+  }
+
+  try {
+    const pp = loadPPSessions();
+    if (pp.length) {
+      const rows = pp.map((s, idx) => {
+        const mapped = mapPPSessionRow(s);
+        if (!Number.isFinite(Number(mapped.id))) mapped.id = Date.now() + idx;
+        return { ...mapped, user_id: userId };
+      });
+      await supabase.from('pp_sessions').upsert(rows, { onConflict: 'id' });
+      localStorage.removeItem('ablty_photopair');
+    }
+  } catch(e) {
+    errors.push('Photo Pair');
+  }
+
+  if (errors.length) {
+    showToast('Some data could not be transferred: ' + errors.join(', '), 'warn', 6000);
+  }
+}
+
+async function syncLocalDataToSupabase(userId) {
+  await migrateGuestData(userId);
+}
+
 async function handleLogin() {
   const email    = (document.getElementById('login-email')?.value || '').trim();
   const password = document.getElementById('login-password')?.value || '';
@@ -8577,6 +8715,8 @@ function saveTimestampTrial(trial) {
     taps.unshift(trial);
     try { localStorage.setItem('ablty_timestamp', JSON.stringify(taps)); } catch(e) {}
   }
+
+  syncSessionToSupabase('ts_trials', mapTSTrialRow(trial));
 }
 
 // ─── BRIEF SCREEN ─────────────────────────────
@@ -9366,7 +9506,12 @@ function handlePPTap(side) {
 
 // ── Persistence ───────────────────────────────────
 function loadPPSessions()  { try { return JSON.parse(localStorage.getItem('ablty_photopair') || '[]'); } catch(e) { return []; } }
-function savePPSession(s)  { const d = loadPPSessions(); d.unshift(s); try { localStorage.setItem('ablty_photopair', JSON.stringify(d)); } catch(e) {} }
+function savePPSession(s)  {
+  const d = loadPPSessions();
+  d.unshift(s);
+  try { localStorage.setItem('ablty_photopair', JSON.stringify(d)); } catch(e) {}
+  syncSessionToSupabase('pp_sessions', mapPPSessionRow(s));
+}
 window.addEventListener('error', (e) => {
   console.error('[ABLTY ERROR]', e.message, e.filename, e.lineno);
 });
