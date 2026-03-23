@@ -3242,6 +3242,11 @@ html, body {
             </div>
           </div>
         </div>
+        <div id="settings-upgrade-row" style="display:none;background:linear-gradient(135deg,rgba(74,240,200,0.06),rgba(91,158,244,0.04));border:1px solid rgba(74,240,200,0.18);border-radius:16px;padding:18px 20px;">
+          <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:6px;">⚡ Unlock Full Access</div>
+          <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:14px;">Unlimited sessions, all modules, leaderboards and more.</div>
+          <button id="settings-upgrade-btn" style="width:100%;padding:14px;background:var(--accent);color:#000;border:none;border-radius:12px;font-family:var(--font-display);font-size:20px;letter-spacing:2px;cursor:pointer;" onclick="handleUpgradeCTA()">UPGRADE TO PREMIUM</button>
+        </div>
       </div>
 
       <!-- App settings -->
@@ -6113,6 +6118,7 @@ async function renderSettingsState() {
   const loggedIn      = isLoggedIn();
   const loggedOutEl   = document.getElementById('settings-logged-out');
   const loggedInEl    = document.getElementById('settings-logged-in');
+  const upgradeRowEl  = document.getElementById('settings-upgrade-row');
 
   if (loggedOutEl) {
     if (loggedIn) { loggedOutEl.style.display = 'none'; }
@@ -6158,8 +6164,11 @@ async function renderSettingsState() {
       tierBadge.textContent = tierLabels[tier] || tier.toUpperCase();
       tierBadge.className   = 'tier-badge ' + (tierClasses[tier] || 'tier-guest');
     }
+    if (upgradeRowEl) upgradeRowEl.style.display = tier === 'free' ? 'block' : 'none';
 
     updateSyncStatus('synced');
+  } else {
+    if (upgradeRowEl) upgradeRowEl.style.display = 'none';
   }
 }
 
@@ -6935,7 +6944,6 @@ function switchAnalyticsTab(tab) {
 }
 
 function renderAnalytics() {
-  showAnalyticsSkeleton(); // Show skeleton while data loads (Cursor replaces with async await)
   const rvSessions  = STATE.sessions || [];
   const zenerRuns   = loadZenerSessions();
 
@@ -8110,7 +8118,10 @@ async function handleSignup() {
   const { data, error } = await sb.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: 'https://ablty.app/app.html' },
+    options: {
+      emailRedirectTo: 'https://ablty.app/app.html',
+      data: { username },
+    },
   });
 
   if (error) {
@@ -8126,12 +8137,34 @@ async function handleSignup() {
       username,
       tier: 'free',
     });
-    if (profileErr && profileErr.code === '23505') {
-      setAuthError('signup-username','signup-username-err', 'That username is already taken');
+    if (profileErr) {
+      if (profileErr.code === '23505') {
+        // Common when a DB trigger auto-creates profiles; apply chosen username instead.
+        const { error: profileUpdateErr } = await sb
+          .from('profiles')
+          .update({ username, tier: 'free' })
+          .eq('id', signedUpUser.id);
+        if (profileUpdateErr) {
+          setAuthError('signup-username','signup-username-err', profileUpdateErr.code === '23505'
+            ? 'That username is already taken'
+            : 'Could not save your username');
+          if (btn) btn.disabled = false;
+          return;
+        }
+      } else {
+        setAuthError('signup-email','signup-email-err', 'Could not create your profile. Please try again.');
+        if (btn) btn.disabled = false;
+        return;
+      }
+    }
+    const { error: settingsErr } = await sb.from('user_settings').insert({ user_id: signedUpUser.id });
+    if (settingsErr && settingsErr.code !== '23505') {
+      setAuthError('signup-email','signup-email-err', 'Account created, but settings setup failed. Please sign in again.');
       if (btn) btn.disabled = false;
       return;
     }
-    await sb.from('user_settings').insert({ user_id: signedUpUser.id });
+    localStorage.setItem('ablty_username', username);
+    localStorage.setItem('ablty_tier', 'free');
     if (typeof migrateGuestData === 'function') {
       await migrateGuestData(signedUpUser.id);
     }
