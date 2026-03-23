@@ -4619,8 +4619,10 @@ Privacy questions and data requests: <a href="/cdn-cgi/l/email-protection" class
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
 const SUPABASE_URL  = 'https://ghjajyxcjfqidcmqdzdp.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdoamFqeXhjamZxaWRjbXFkemRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNDk0MDcsImV4cCI6MjA4OTcyNTQwN30.uk7t-h7NR0i4Roejg8CI13RVggmKa5Zxs-dnCrxv_vE';
-const supabase = window.supabase && typeof window.supabase.createClient === 'function'
-  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON)
+// UMD bundle exposes `var supabase` globally; do not redeclare that name.
+const _supabaseSdk = window.supabase;
+const sb = _supabaseSdk && typeof _supabaseSdk.createClient === 'function'
+  ? _supabaseSdk.createClient(SUPABASE_URL, SUPABASE_ANON)
   : null;
 
 // ─── TARGET POOL ──────────────────────────────
@@ -5943,12 +5945,12 @@ function checkRCHash() {
 }
 
 function checkAuthCallback() {
-  if (!supabase) return;
+  if (!sb) return;
   const params = new URLSearchParams(window.location.hash.slice(1));
   const accessToken  = params.get('access_token');
   const refreshToken = params.get('refresh_token');
   if (accessToken && refreshToken) {
-    supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+    sb.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
       .then(({ data }) => {
         if (data?.user && typeof onSignedIn === 'function') onSignedIn(data.user);
       })
@@ -6068,12 +6070,12 @@ function closeUpgradeModal() {
 
 function handleUpgradeCTA() {
   closeUpgradeModal();
-  if (!supabase) {
+  if (!sb) {
     showToast('Auth is not configured.', 'error');
     return;
   }
 
-  supabase.auth.getSession().then(({ data }) => {
+  sb.auth.getSession().then(({ data }) => {
     const session = data?.session;
     if (!session?.user?.email) {
       showToast('Create a free account first, then upgrade.', 'info');
@@ -6121,12 +6123,12 @@ async function renderSettingsState() {
     else { loggedInEl.style.display = 'none'; }
   }
 
-  if (loggedIn && supabase) {
+  if (loggedIn && sb) {
     try {
-      const { data: authData } = await supabase.auth.getSession();
+      const { data: authData } = await sb.auth.getSession();
       const session = authData?.session;
       if (session?.user?.id) {
-        const { data: profile } = await supabase
+        const { data: profile } = await sb
           .from('profiles')
           .select('username, tier, username_changed_at')
           .eq('id', session.user.id)
@@ -6163,8 +6165,8 @@ async function renderSettingsState() {
 
 async function handleSignOut() {
   if (!confirm('Sign out of your account?')) return;
-  if (supabase) {
-    try { await supabase.auth.signOut(); } catch(e) {}
+  if (sb) {
+    try { await sb.auth.signOut(); } catch(e) {}
   }
   localStorage.removeItem('ablty_logged_in');
   localStorage.removeItem('ablty_username');
@@ -6258,19 +6260,19 @@ async function saveUsernameEdit() {
   const err = validateUsername(newUsername);
   if (err) { showToast(err, 'error'); return; }
 
-  if (!supabase) {
+  if (!sb) {
     showToast('Auth is not configured.', 'error');
     return;
   }
 
-  const { data: authData } = await supabase.auth.getSession();
+  const { data: authData } = await sb.auth.getSession();
   const session = authData?.session;
   if (!session?.user?.id) {
     showToast('You are not signed in.', 'error');
     return;
   }
 
-  const { error } = await supabase
+  const { error } = await sb
     .from('profiles')
     .update({
       username: newUsername,
@@ -6571,15 +6573,15 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.location.search.includes('payment=success')) {
     showToast('Welcome to ABLTY Premium.', 'success', 5000);
     try { history.replaceState({}, '', '/app.html'); } catch(e) {}
-    if (supabase) {
-      supabase.auth.getSession().then(({ data }) => {
+    if (sb) {
+      sb.auth.getSession().then(({ data }) => {
         const session = data?.session;
         if (session?.user && typeof onSignedIn === 'function') onSignedIn(session.user);
       }).catch(() => {});
     }
   }
-  if (supabase) {
-    supabase.auth.onAuthStateChange((event, session) => {
+  if (sb) {
+    sb.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session && typeof onSignedIn === 'function') onSignedIn(session.user);
       if (event === 'SIGNED_OUT') {
         ['ablty_logged_in','ablty_username','ablty_tier','ablty_username_changed_at']
@@ -7856,14 +7858,14 @@ function validateUsername(val) {
 }
 
 async function onSignedIn(user) {
-  if (!supabase || !user) return;
+  if (!sb || !user) return;
 
   let username = 'Seeker';
   let tier = 'free';
   let changedAt = '';
 
   try {
-    const { data: profile } = await supabase
+    const { data: profile } = await sb
       .from('profiles')
       .select('username, tier, username_changed_at')
       .eq('id', user.id)
@@ -7955,13 +7957,13 @@ function mapPPSessionRow(session) {
 }
 
 async function syncSessionToSupabase(table, data) {
-  if (!supabase || !isLoggedIn()) return;
+  if (!sb || !isLoggedIn()) return;
   try {
-    const { data: authData } = await supabase.auth.getSession();
+    const { data: authData } = await sb.auth.getSession();
     const session = authData?.session;
     if (!session?.user?.id) return;
     updateSyncStatus('syncing');
-    await supabase.from(table).insert({ ...data, user_id: session.user.id });
+    await sb.from(table).insert({ ...data, user_id: session.user.id });
     updateSyncStatus('synced');
   } catch(e) {
     updateSyncStatus('local');
@@ -7969,14 +7971,14 @@ async function syncSessionToSupabase(table, data) {
 }
 
 async function migrateGuestData(userId) {
-  if (!supabase || !userId) return;
+  if (!sb || !userId) return;
   const errors = [];
 
   try {
     const rv = Array.isArray(STATE.sessions) ? STATE.sessions : [];
     if (rv.length) {
       const rows = rv.map((s) => ({ ...mapRVSessionRow(s, 'personal'), user_id: userId }));
-      await supabase.from('rv_sessions').upsert(rows, { onConflict: 'id' });
+      await sb.from('rv_sessions').upsert(rows, { onConflict: 'id' });
       STATE.sessions = [];
       saveState();
     }
@@ -7988,7 +7990,7 @@ async function migrateGuestData(userId) {
     const ze = loadZenerSessions();
     if (ze.length) {
       const rows = ze.map((r) => ({ ...mapZenerRunRow(r), user_id: userId }));
-      await supabase.from('zener_runs').upsert(rows, { onConflict: 'id' });
+      await sb.from('zener_runs').upsert(rows, { onConflict: 'id' });
       localStorage.removeItem('ablty_zener');
     }
   } catch(e) {
@@ -7999,7 +8001,7 @@ async function migrateGuestData(userId) {
     const ts = loadTimestampAll();
     if (ts.length) {
       const rows = ts.map((t) => ({ ...mapTSTrialRow(t), user_id: userId }));
-      await supabase.from('ts_trials').upsert(rows, { onConflict: 'id' });
+      await sb.from('ts_trials').upsert(rows, { onConflict: 'id' });
       localStorage.removeItem('ablty_timestamp');
       localStorage.removeItem('ablty_timestamp_all');
     }
@@ -8015,7 +8017,7 @@ async function migrateGuestData(userId) {
         if (!Number.isFinite(Number(mapped.id))) mapped.id = Date.now() + idx;
         return { ...mapped, user_id: userId };
       });
-      await supabase.from('pp_sessions').upsert(rows, { onConflict: 'id' });
+      await sb.from('pp_sessions').upsert(rows, { onConflict: 'id' });
       localStorage.removeItem('ablty_photopair');
     }
   } catch(e) {
@@ -8044,13 +8046,13 @@ async function handleLogin() {
   const btn = document.getElementById('login-btn');
   if (btn) btn.disabled = true;
 
-  if (!supabase) {
+  if (!sb) {
     setAuthError('login-email','login-email-err','Auth is not configured');
     if (btn) btn.disabled = false;
     return;
   }
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (error) {
     setAuthError('login-email','login-email-err', error.message);
     if (btn) btn.disabled = false;
@@ -8087,13 +8089,13 @@ async function handleSignup() {
   const btn = document.getElementById('signup-btn');
   if (btn) btn.disabled = true;
 
-  if (!supabase) {
+  if (!sb) {
     setAuthError('signup-email','signup-email-err', 'Auth is not configured');
     if (btn) btn.disabled = false;
     return;
   }
 
-  const { data: existingUsers } = await supabase
+  const { data: existingUsers } = await sb
     .from('profiles')
     .select('id')
     .eq('username', username)
@@ -8105,7 +8107,7 @@ async function handleSignup() {
     return;
   }
 
-  const { data, error } = await supabase.auth.signUp({
+  const { data, error } = await sb.auth.signUp({
     email,
     password,
     options: { emailRedirectTo: 'https://ablty.app/app.html' },
@@ -8119,7 +8121,7 @@ async function handleSignup() {
 
   const signedUpUser = data?.user;
   if (signedUpUser) {
-    const { error: profileErr } = await supabase.from('profiles').insert({
+    const { error: profileErr } = await sb.from('profiles').insert({
       id: signedUpUser.id,
       username,
       tier: 'free',
@@ -8129,7 +8131,7 @@ async function handleSignup() {
       if (btn) btn.disabled = false;
       return;
     }
-    await supabase.from('user_settings').insert({ user_id: signedUpUser.id });
+    await sb.from('user_settings').insert({ user_id: signedUpUser.id });
     if (typeof migrateGuestData === 'function') {
       await migrateGuestData(signedUpUser.id);
     }
@@ -8165,8 +8167,8 @@ async function handleForgotPassword() {
   const btn = document.getElementById('forgot-btn');
   if (btn) btn.disabled = true;
 
-  if (supabase) {
-    await supabase.auth.resetPasswordForEmail(email, {
+  if (sb) {
+    await sb.auth.resetPasswordForEmail(email, {
       redirectTo: 'https://ablty.app/app.html',
     });
   }
