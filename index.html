@@ -604,6 +604,54 @@ body::after {
   cursor: pointer;
 }
 
+/* ── INSTALL SUCCESS SCREEN ── */
+#install-success-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  background: var(--bg);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 28px;
+  text-align: center;
+}
+#install-success-screen.visible { display: flex; }
+.install-success-title {
+  font-family: var(--display);
+  font-size: 52px;
+  letter-spacing: 2px;
+  color: var(--text);
+  line-height: 1;
+}
+.install-success-title .t-accent { color: var(--accent); }
+.install-success-icon-wrap {
+  width: 128px;
+  height: 128px;
+  border-radius: 24px;
+  background: var(--card);
+  border: 1px solid var(--border2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 28px rgba(74,240,200,0.15);
+}
+.install-success-icon-wrap img {
+  width: 96px;
+  height: 96px;
+  border-radius: 18px;
+  display: block;
+}
+.install-success-sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
 /* ── FOOTER ── */
 footer {
   position: relative; z-index: 1;
@@ -1658,6 +1706,16 @@ footer a:active { color: var(--muted); }
   </div>
 </div>
 
+<!-- INSTALL SUCCESS SCREEN -->
+<div id="install-success-screen" aria-live="polite">
+  <div class="install-success-title">ABL<span class="t-accent">T</span>Y Installed</div>
+  <div class="install-success-icon-wrap">
+    <img src="/icon-192.png" alt="ABLTY app icon">
+  </div>
+  <div class="install-success-sub">Open from your home screen anytime</div>
+  <button class="btn-install" onclick="openApp()" style="max-width:260px;">Open App</button>
+</div>
+
 <script>
 // -- WAVE ANIMATION ------------------------------------------
 let landingWaveT = 0;
@@ -1752,6 +1810,15 @@ if (window.location.search.includes('rc=1')) {
 
 // ── INSTALL PROMPT ────────────────────────────────────
 let deferredPrompt = null;
+let installSuccessShown = false;
+
+function showInstallSuccessScreen() {
+  if (installSuccessShown) return;
+  installSuccessShown = true;
+  const success = document.getElementById('install-success-screen');
+  if (success) success.classList.add('visible');
+  document.body.style.overflow = 'hidden';
+}
 
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
@@ -1795,8 +1862,7 @@ async function handleInstall() {
     const { outcome } = await deferredPrompt.userChoice;
     deferredPrompt = null;
     if (outcome === 'accepted') {
-      // Brief delay then redirect to app
-      setTimeout(() => { window.location.href = '/app.html'; }, 800);
+      showInstallSuccessScreen();
     }
   } else {
     // No prompt available yet  -  show instructions based on platform
@@ -1838,6 +1904,10 @@ function showAndroidInstructions() {
 function openApp() {
   window.location.href = '/app.html';
 }
+
+window.addEventListener('appinstalled', () => {
+  showInstallSuccessScreen();
+});
 
 function closeModal() {
   document.getElementById('ios-modal').classList.remove('visible');
