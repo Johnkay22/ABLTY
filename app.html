@@ -5105,9 +5105,13 @@ function isDevMode() {
   try { return localStorage.getItem('ablty_dev') === '1'; } catch(e) { return false; }
 }
 
+function isPremiumTier() {
+  return getCurrentTier() === 'premium';
+}
+
 function startRVSession() {
-  // Check daily limit (skip if dev mode)
-  if (!isDevMode() && getDailyCount() >= RV_DAILY_LIMIT) {
+  // Check daily limit (skip for dev mode and premium users)
+  if (!isDevMode() && !isPremiumTier() && getDailyCount() >= RV_DAILY_LIMIT) {
     document.getElementById('limit-modal').style.display = 'flex';
     return;
   }
