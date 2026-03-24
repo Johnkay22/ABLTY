@@ -6013,6 +6013,26 @@ function isLoggedIn() {
   return localStorage.getItem('ablty_logged_in') === '1';
 }
 
+function clearLocalAuthCache() {
+  ['ablty_logged_in', 'ablty_username', 'ablty_tier', 'ablty_username_changed_at']
+    .forEach((k) => localStorage.removeItem(k));
+}
+
+async function reconcileAuthState() {
+  if (!sb) return;
+  try {
+    const { data } = await sb.auth.getSession();
+    const hasSession = !!data?.session?.user?.id;
+    if (!hasSession) {
+      clearLocalAuthCache();
+    } else {
+      localStorage.setItem('ablty_logged_in', '1');
+    }
+  } catch (e) {
+    clearLocalAuthCache();
+  }
+}
+
 // Feature access map
 const TIER_ACCESS = {
   rv:           ['guest','free','premium'],
@@ -6083,6 +6103,9 @@ function handleUpgradeCTA() {
   sb.auth.getSession().then(({ data }) => {
     const session = data?.session;
     if (!session?.user?.email) {
+      clearLocalAuthCache();
+      renderSettingsState();
+      renderProfile();
       showToast('Create a free account first, then upgrade.', 'info');
       openAuthScreen('signup');
       return;
@@ -6593,12 +6616,15 @@ document.addEventListener('DOMContentLoaded', () => {
     sb.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session && typeof onSignedIn === 'function') onSignedIn(session.user);
       if (event === 'SIGNED_OUT') {
-        ['ablty_logged_in','ablty_username','ablty_tier','ablty_username_changed_at']
-          .forEach(k => localStorage.removeItem(k));
+        clearLocalAuthCache();
         renderSettingsState();
         renderProfile();
       }
     });
+    reconcileAuthState().then(() => {
+      renderSettingsState();
+      renderProfile();
+    }).catch(() => {});
   }
 
   runSplash();
