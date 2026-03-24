@@ -1931,6 +1931,41 @@ html, body {
   border-color: var(--accent); color: var(--accent);
   background: rgba(74,240,200,0.06);
 }
+.log-sort-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: -4px 0 12px;
+}
+.log-sort-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.log-sort-btns {
+  display: flex;
+  gap: 6px;
+}
+.log-sort-btn {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--muted);
+  cursor: pointer;
+  text-transform: uppercase;
+}
+.log-sort-btn.active {
+  border-color: var(--accent2);
+  color: var(--accent2);
+  background: rgba(91,158,244,0.08);
+}
 .empty-motivate {
   text-align: center; padding: 28px 16px;
 }
@@ -3794,6 +3829,13 @@ html, body {
           <button class="log-filter-btn"        data-filter="high"   onclick="setLogFilter('high')">High Score</button>
           <button class="log-filter-btn"        data-filter="tagged" onclick="setLogFilter('tagged')">Tagged</button>
         </div>
+      <div class="log-sort-row">
+        <div class="log-sort-label">Sort</div>
+        <div class="log-sort-btns">
+          <button class="log-sort-btn active" id="log-sort-date" data-sort="date" onclick="setLogSort('date')">Date</button>
+          <button class="log-sort-btn" id="log-sort-score" data-sort="score" onclick="setLogSort('score')">Score</button>
+        </div>
+      </div>
 
         <div id="combined-log-list" style="display:flex;flex-direction:column;gap:8px;"></div>
 
@@ -4938,7 +4980,13 @@ function navigate(name) {
   if (name === 'forgot') { openAuthScreen('forgot'); return; }
 
   showScreen(name, false);
-  if (name === 'analytics' || name === 'history') renderAnalytics();
+  if (name === 'analytics' || name === 'history') {
+    if (isLoggedIn() && typeof refreshCloudDataCaches === 'function') {
+      refreshCloudDataCaches().finally(() => renderAnalytics());
+    } else {
+      renderAnalytics();
+    }
+  }
   if (name === 'profile')  renderProfile();
   if (name === 'zener')    renderZenerBrief();
   if (name === 'reality-check') { renderRCScreen(); initRCCarousel(); }
@@ -7256,19 +7304,17 @@ function buildCombinedLog(rvSessions, zenerRuns) {
     timestamp: s.timestamp || new Date().toISOString(),
   }));
 
-  const tsSessions = loadTimestampTrials().map(s => ({
+  const tsSessions = loadTimestampAll().map(s => ({
     ...s,
     type: 'ts',
-    score: s.hit ? 100 : 0,
+    score: (typeof s.hit === 'boolean' ? s.hit : !s.miss) ? 100 : 0,
     timestamp: s.timestamp || new Date().toISOString(),
   }));
 
   const rv = rvSessions.map(s => ({ ...s, type: 'rv' }));
   const ze = zenerRuns.map(r => ({ ...r, type: 'zener', score: r.hitPct }));
 
-  let all = [...rv, ...ze, ...ppSessions, ...tsSessions]
-    .filter(s => s.timestamp)
-    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  let all = [...rv, ...ze, ...ppSessions, ...tsSessions].filter(s => s.timestamp);
 
   // Apply filter
   const f = currentLogFilter;
@@ -7279,6 +7325,28 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   if (f === 'high')   all = all.filter(s => s.score >= 60);
   if (f === 'tagged') all = all.filter(s => s.type === 'rv' && s.tags && s.tags.length);
 
+  const toEpoch = (v) => {
+    const t = Date.parse(v || '');
+    return Number.isFinite(t) ? t : 0;
+  };
+  const toScore = (s) => {
+    if (Number.isFinite(Number(s?.score))) return Number(s.score);
+    if (s?.type === 'ts' || s?.type === 'pp') {
+      const hit = typeof s.hit === 'boolean' ? s.hit : !s.miss;
+      return hit ? 100 : 0;
+    }
+    return 0;
+  };
+  if (currentLogSort === 'score') {
+    all.sort((a, b) => {
+      const scoreDiff = toScore(b) - toScore(a);
+      if (scoreDiff !== 0) return scoreDiff;
+      return toEpoch(b.timestamp) - toEpoch(a.timestamp);
+    });
+  } else {
+    all.sort((a, b) => toEpoch(b.timestamp) - toEpoch(a.timestamp));
+  }
+
   if (!all.length) {
     el.innerHTML = `<div class="empty-state"><div class="empty-icon">&#9678;</div><div class="mono-label">No sessions yet</div><div class="body-sm" style="margin-top:6px;">Complete your first session to begin building your log.</div></div>`;
     return;
@@ -7288,7 +7356,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   const TYPE_LABEL = {
     rv:    s => s.targetLabel || '-',
     zener: s => `${s.hits}/25 hits`,
-    ts:    s => s.hit ? 'Hit' : 'Miss',
+    ts:    s => ((typeof s.hit === 'boolean' ? s.hit : !s.miss) ? 'Hit' : 'Miss'),
     pp:    s => s.hit ? 'Hit' : 'Miss',
   };
   const TYPE_TITLE = {
@@ -7300,7 +7368,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   const TYPE_SCORE_DISPLAY = {
     rv:    s => s.score + '%',
     zener: s => s.score + '%',
-    ts:    s => s.hit ? 'HIT' : 'MISS',
+    ts:    s => (typeof s.hit === 'boolean' ? s.hit : !s.miss) ? 'HIT' : 'MISS',
     pp:    s => s.hit ? 'HIT' : 'MISS',
   };
 
@@ -7315,8 +7383,9 @@ function buildCombinedLog(rvSessions, zenerRuns) {
     const sessionId   = s.id;
     const sessionType = s.type;
     const isHitMiss   = s.type === 'ts' || s.type === 'pp';
+    const isHitLike   = s.type === 'ts' ? (typeof s.hit === 'boolean' ? s.hit : !s.miss) : s.hit;
     const cls = isHitMiss
-      ? (s.hit ? 'high' : 'low')
+      ? (isHitLike ? 'high' : 'low')
       : (s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low');
 
     return `<div class="session-card" onclick="openSessionDetail('${sessionType}','${sessionId}')" style="cursor:pointer;">
@@ -7372,7 +7441,7 @@ function openSessionDetail(type, id) {
     if (!session) return;
     renderPPDetail(session);
   } else if (type === 'ts') {
-    const trials = loadTimestampTrials();
+    const trials = loadTimestampAll();
     const trial = trials.find(t => String(t.id) === String(id));
     if (!trial) return;
     renderTSDetail(trial);
@@ -7426,6 +7495,7 @@ function renderPPDetail(s) {
 function renderTSDetail(s) {
   const d = new Date(s.timestamp);
   const dateStr = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
+  const tsHit = (typeof s.hit === 'boolean') ? s.hit : !s.miss;
 
   setEl('detail-type-label', 'PRESENTIMENT');
   setEl('detail-date', dateStr);
@@ -7434,10 +7504,10 @@ function renderTSDetail(s) {
   const pctEl  = document.getElementById('detail-score-pct');
   setEl('detail-score-label', 'Result');
   if (ring) {
-    ring.style.stroke = s.hit ? 'var(--accent)' : 'var(--danger)';
-    setTimeout(() => { ring.style.strokeDashoffset = s.hit ? 0 : 364.4; }, 100);
+    ring.style.stroke = tsHit ? 'var(--accent)' : 'var(--danger)';
+    setTimeout(() => { ring.style.strokeDashoffset = tsHit ? 0 : 364.4; }, 100);
   }
-  if (pctEl) pctEl.textContent = s.hit ? 'HIT' : 'MISS';
+  if (pctEl) pctEl.textContent = tsHit ? 'HIT' : 'MISS';
 
   const imagesRow = document.getElementById('detail-images-row');
   if (imagesRow) imagesRow.style.display = 'none';
@@ -7449,7 +7519,7 @@ function renderTSDetail(s) {
     const eventMs = s.eventMs !== undefined ? s.eventMs : null;
     const tappedMs = s.tappedMs !== undefined ? s.tappedMs : null;
     const diff = (eventMs !== null && tappedMs !== null) ? Math.round(eventMs - tappedMs) : null;
-    setEl('detail-summary', s.hit
+    setEl('detail-summary', tsHit
       ? `Correct. You tapped ${diff !== null ? (diff > 0 ? diff + 'ms before the event.' : Math.abs(diff) + 'ms after the event.') : 'at the right time.'}`
       : `Miss. ${diff !== null ? 'Event fired ' + Math.abs(diff) + 'ms ' + (diff > 0 ? 'after' : 'before') + ' your tap.' : ''}`
     );
@@ -7459,7 +7529,7 @@ function renderTSDetail(s) {
   if (hitList) {
     hitList.innerHTML = `
       <div class="hit-item">
-        <div class="hit-badge ${s.hit ? 'hit' : 'noise'}">${s.hit ? 'Hit' : 'Miss'}</div>
+        <div class="hit-badge ${tsHit ? 'hit' : 'noise'}">${tsHit ? 'Hit' : 'Miss'}</div>
         <div class="hit-text">Chance baseline is 50%. Measures unconscious precognitive timing.</div>
       </div>`;
   }
@@ -8059,6 +8129,9 @@ async function onSignedIn(user) {
     if (typeof syncLocalDataToSupabase === 'function') {
       await syncLocalDataToSupabase(user.id);
     }
+    if (typeof loadAnalyticsFromCloud === 'function') {
+      await loadAnalyticsFromCloud(user.id);
+    }
     updateSyncStatus('synced');
   } catch(e) {
     updateSyncStatus('local');
@@ -8147,8 +8220,6 @@ async function migrateGuestData(userId) {
     if (rv.length) {
       const rows = rv.map((s) => ({ ...mapRVSessionRow(s, 'personal'), user_id: userId }));
       await sb.from('rv_sessions').upsert(rows, { onConflict: 'id' });
-      STATE.sessions = [];
-      saveState();
     }
   } catch(e) {
     errors.push('RV');
@@ -8159,7 +8230,6 @@ async function migrateGuestData(userId) {
     if (ze.length) {
       const rows = ze.map((r) => ({ ...mapZenerRunRow(r), user_id: userId }));
       await sb.from('zener_runs').upsert(rows, { onConflict: 'id' });
-      localStorage.removeItem('ablty_zener');
     }
   } catch(e) {
     errors.push('Zener');
@@ -8170,8 +8240,6 @@ async function migrateGuestData(userId) {
     if (ts.length) {
       const rows = ts.map((t) => ({ ...mapTSTrialRow(t), user_id: userId }));
       await sb.from('ts_trials').upsert(rows, { onConflict: 'id' });
-      localStorage.removeItem('ablty_timestamp');
-      localStorage.removeItem('ablty_timestamp_all');
     }
   } catch(e) {
     errors.push('Presentiment');
@@ -8186,7 +8254,6 @@ async function migrateGuestData(userId) {
         return { ...mapped, user_id: userId };
       });
       await sb.from('pp_sessions').upsert(rows, { onConflict: 'id' });
-      localStorage.removeItem('ablty_photopair');
     }
   } catch(e) {
     errors.push('Photo Pair');
@@ -8199,6 +8266,112 @@ async function migrateGuestData(userId) {
 
 async function syncLocalDataToSupabase(userId) {
   await migrateGuestData(userId);
+}
+
+async function refreshCloudDataCaches() {
+  if (!sb || !isLoggedIn() || typeof loadAnalyticsFromCloud !== 'function') return;
+  try {
+    const { data } = await sb.auth.getSession();
+    const userId = data?.session?.user?.id;
+    if (!userId) return;
+    await loadAnalyticsFromCloud(userId);
+  } catch (e) {}
+}
+
+async function loadAnalyticsFromCloud(userId) {
+  if (!sb || !userId) return;
+  try {
+    const [rvRes, zeRes, tsRes, ppRes] = await Promise.all([
+      sb.from('rv_sessions')
+        .select('id, session_type, trn, target_id, target_src, target_label, category, score, dimension_scores, hits, noise, aol, summary, notes, duration, sketch_data, timestamp, tags')
+        .eq('user_id', userId)
+        .order('timestamp', { ascending: false })
+        .limit(200),
+      sb.from('zener_runs')
+        .select('id, hits, hit_pct, symbol_stats, timestamp')
+        .eq('user_id', userId)
+        .order('timestamp', { ascending: false })
+        .limit(200),
+      sb.from('ts_trials')
+        .select('id, event_time, tap_time, delta, miss, hit, timestamp')
+        .eq('user_id', userId)
+        .order('timestamp', { ascending: false })
+        .limit(500),
+      sb.from('pp_sessions')
+        .select('id, hit, timestamp')
+        .eq('user_id', userId)
+        .order('timestamp', { ascending: false })
+        .limit(500),
+    ]);
+
+    const rvRows = Array.isArray(rvRes?.data) ? rvRes.data : [];
+    const zeRows = Array.isArray(zeRes?.data) ? zeRes.data : [];
+    const tsRows = Array.isArray(tsRes?.data) ? tsRes.data : [];
+    const ppRows = Array.isArray(ppRes?.data) ? ppRes.data : [];
+
+    const rvLocal = rvRows.map((r) => ({
+      id: Number(r.id) || Date.now(),
+      trn: r.trn || '',
+      targetId: r.target_id || null,
+      targetSrc: r.target_src || '',
+      targetLabel: r.target_label || '',
+      category: r.category || '',
+      score: Number.isFinite(Number(r.score)) ? Number(r.score) : 0,
+      dimension_scores: r.dimension_scores || {},
+      hits: Array.isArray(r.hits) ? r.hits : [],
+      noise: Array.isArray(r.noise) ? r.noise : [],
+      aol: Array.isArray(r.aol) ? r.aol : [],
+      summary: r.summary || '',
+      notes: r.notes || '',
+      duration: Number.isFinite(Number(r.duration)) ? Number(r.duration) : null,
+      sketchData: r.sketch_data || '',
+      timestamp: r.timestamp || new Date().toISOString(),
+      tags: Array.isArray(r.tags) ? r.tags : [],
+      sessionType: r.session_type || 'personal',
+    }));
+    if (rvLocal.length) {
+      STATE.sessions = rvLocal;
+      saveState();
+      localStorage.setItem('ablty_rv_cloud_cache', JSON.stringify(rvLocal));
+    }
+
+    const zeLocal = zeRows.map((r) => ({
+      id: Number(r.id) || Date.now(),
+      hits: Number.isFinite(Number(r.hits)) ? Number(r.hits) : 0,
+      hitPct: Number.isFinite(Number(r.hit_pct)) ? Number(r.hit_pct) : 0,
+      symbolStats: r.symbol_stats || {},
+      timestamp: r.timestamp || new Date().toISOString(),
+    }));
+    if (zeLocal.length) {
+      localStorage.setItem('ablty_zener', JSON.stringify(zeLocal));
+      localStorage.setItem('ablty_zener_cloud_cache', JSON.stringify(zeLocal));
+    }
+
+    const tsLocal = tsRows.map((r) => ({
+      id: Number(r.id) || Date.now(),
+      eventTime: r.event_time ?? null,
+      tapTime: r.tap_time ?? null,
+      delta: r.delta ?? null,
+      miss: !!r.miss,
+      hit: !!r.hit,
+      timestamp: r.timestamp || new Date().toISOString(),
+    }));
+    if (tsLocal.length) {
+      localStorage.setItem('ablty_timestamp_all', JSON.stringify(tsLocal));
+      localStorage.setItem('ablty_timestamp', JSON.stringify(tsLocal.filter((t) => !t.miss)));
+      localStorage.setItem('ablty_ts_cloud_cache', JSON.stringify(tsLocal));
+    }
+
+    const ppLocal = ppRows.map((r) => ({
+      id: Number(r.id) || Date.now(),
+      hit: !!r.hit,
+      timestamp: r.timestamp || new Date().toISOString(),
+    }));
+    if (ppLocal.length) {
+      localStorage.setItem('ablty_photopair', JSON.stringify(ppLocal));
+      localStorage.setItem('ablty_pp_cloud_cache', JSON.stringify(ppLocal));
+    }
+  } catch(e) {}
 }
 
 async function handleLogin() {
@@ -8378,6 +8551,7 @@ function obStartRC() {
 // ═══════════════════════════════════════════════════════
 
 let currentLogFilter = 'all';
+let currentLogSort = 'date';
 let editingSessionId = null;
 let editingSessionType = null;
 
@@ -8385,6 +8559,18 @@ function setLogFilter(filter) {
   currentLogFilter = filter;
   document.querySelectorAll('.log-filter-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.filter === filter);
+  });
+  const sortDateBtn = document.getElementById('log-sort-date');
+  const sortScoreBtn = document.getElementById('log-sort-score');
+  if (sortDateBtn) sortDateBtn.classList.toggle('active', currentLogSort === 'date');
+  if (sortScoreBtn) sortScoreBtn.classList.toggle('active', currentLogSort === 'score');
+  buildCombinedLog(STATE.sessions || [], loadZenerSessions());
+}
+
+function setLogSort(mode) {
+  currentLogSort = mode === 'score' ? 'score' : 'date';
+  document.querySelectorAll('.log-sort-btn').forEach((b) => {
+    b.classList.toggle('active', b.dataset.sort === currentLogSort);
   });
   buildCombinedLog(STATE.sessions || [], loadZenerSessions());
 }
@@ -8671,65 +8857,7 @@ function buildBarChartMotivated(wrapId, data, valFn, maxVal, suffix, baselinePct
   wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;">${bars}${baseLine}</svg>`;
 }
 
-// ── Log filtering ────────────────────────────
-function buildCombinedLog(rvSessions, zenerRuns) {
-  const el = document.getElementById('combined-log-list');
-  if (!el) return;
-
-  if (!rvSessions.length && !zenerRuns.length) {
-    el.innerHTML = `<div class="empty-state"><div class="empty-icon">◎</div><div class="mono-label">No sessions yet</div><div class="body-sm" style="margin-top:6px;">Complete your first session to begin building your log.</div></div>`;
-    return;
-  }
-
-  let rv = rvSessions.map(s => ({ ...s, type: 'rv' }));
-  let ze = zenerRuns.map(r => ({ ...r, type: 'zener', score: r.hitPct }));
-  let all = [...rv, ...ze].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-  // Apply filter
-  if (currentLogFilter === 'rv') all = all.filter(s => s.type === 'rv');
-  else if (currentLogFilter === 'zener') all = all.filter(s => s.type === 'zener');
-  else if (currentLogFilter === 'high') all = all.filter(s => s.score >= 60);
-  else if (currentLogFilter === 'tagged') all = all.filter(s => s.tags && s.tags.length);
-
-  if (!all.length) {
-    el.innerHTML = `<div class="empty-motivate"><div class="empty-motivate-icon">◎</div><div class="empty-motivate-title">No Matches</div><div class="empty-motivate-sub">No sessions match this filter yet.</div></div>`;
-    return;
-  }
-
-  el.innerHTML = all.map(s => {
-    const d       = new Date(s.timestamp);
-    const dateStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
-    const cls     = s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low';
-    const typeTag = s.type === 'rv' ? 'RV' : 'ZNR';
-    const label   = s.type === 'rv' ? (s.targetLabel || '-') : `${s.hits}/25 hits`;
-    const thumb   = s.type === 'rv' ? (s.sketchData || s.targetSrc || '') : '';
-
-    const tagsHtml = (s.tags && s.tags.length)
-      ? `<div class="session-tags">${s.tags.map(t => `<span class="session-tag">${t}</span>`).join('')}</div>`
-      : '';
-
-    return `<div class="session-card" style="cursor:pointer;">
-      <div class="session-thumb" onclick="openSessionDetail('${s.type}', ${s.id})">
-        ${thumb
-          ? `<img src="${thumb}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">`
-          : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:8px;color:var(--dim);">${typeTag}</div>`}
-      </div>
-      <div class="session-info" onclick="openSessionDetail('${s.type}', ${s.id})">
-        <div style="display:flex;align-items:center;gap:6px;">
-          <div class="display-sm">${s.type === 'rv' ? 'TRN ' + (s.trn || '') : 'ZENER'}</div>
-          <span style="font-family:var(--font-mono);font-size:8px;letter-spacing:1px;background:var(--card2);border:1px solid var(--border);border-radius:4px;padding:2px 5px;color:var(--muted);">${typeTag}</span>
-        </div>
-        <div class="mono-sm" style="margin-top:4px;">${dateStr}</div>
-        <div class="mono-sm" style="margin-top:2px;color:var(--dim);">${label}</div>
-        ${tagsHtml}
-      </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
-        <div class="session-score ${cls}">${s.score}%</div>
-        <button onclick="openEditModal('${s.type}',${s.id})" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-family:var(--font-mono);font-size:9px;color:var(--muted);cursor:pointer;letter-spacing:1px;">+ TAG</button>
-      </div>
-    </div>`;
-  }).join('');
-}
+// Duplicate legacy buildCombinedLog removed.
 
 // ── Edit modal ───────────────────────────────
 function openEditModal(type, id) {
@@ -9006,10 +9134,26 @@ const TS_STATE = {
 // ─── PERSISTENCE ──────────────────────────────
 // Two keys: ablty_timestamp for tap trials, ablty_timestamp_all for all trials (incl misses)
 function loadTimestampTrials() {
-  try { return JSON.parse(localStorage.getItem('ablty_timestamp') || '[]'); } catch(e) { return []; }
+  try {
+    const local = JSON.parse(localStorage.getItem('ablty_timestamp') || '[]');
+    if (Array.isArray(local) && local.length) return local;
+    if (isLoggedIn()) {
+      const cloud = JSON.parse(localStorage.getItem('ablty_ts_cloud_cache') || '[]');
+      if (Array.isArray(cloud) && cloud.length) return cloud.filter(t => !t.miss);
+    }
+    return Array.isArray(local) ? local : [];
+  } catch(e) { return []; }
 }
 function loadTimestampAll() {
-  try { return JSON.parse(localStorage.getItem('ablty_timestamp_all') || '[]'); } catch(e) { return []; }
+  try {
+    const local = JSON.parse(localStorage.getItem('ablty_timestamp_all') || '[]');
+    if (Array.isArray(local) && local.length) return local;
+    if (isLoggedIn()) {
+      const cloud = JSON.parse(localStorage.getItem('ablty_ts_cloud_cache') || '[]');
+      if (Array.isArray(cloud) && cloud.length) return cloud;
+    }
+    return Array.isArray(local) ? local : [];
+  } catch(e) { return []; }
 }
 
 function saveTimestampTrial(trial) {
@@ -9814,7 +9958,17 @@ function handlePPTap(side) {
 }
 
 // ── Persistence ───────────────────────────────────
-function loadPPSessions()  { try { return JSON.parse(localStorage.getItem('ablty_photopair') || '[]'); } catch(e) { return []; } }
+function loadPPSessions()  {
+  try {
+    const local = JSON.parse(localStorage.getItem('ablty_photopair') || '[]');
+    if (Array.isArray(local) && local.length) return local;
+    if (isLoggedIn()) {
+      const cloud = JSON.parse(localStorage.getItem('ablty_pp_cloud_cache') || '[]');
+      if (Array.isArray(cloud) && cloud.length) return cloud;
+    }
+    return Array.isArray(local) ? local : [];
+  } catch(e) { return []; }
+}
 function savePPSession(s)  {
   const d = loadPPSessions();
   d.unshift(s);
