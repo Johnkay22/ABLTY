@@ -6249,11 +6249,15 @@ async function renderSettingsState() {
           .from('profiles')
           .select('username, tier, username_changed_at')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
         if (profile) {
           localStorage.setItem('ablty_username', profile.username || 'Seeker');
           localStorage.setItem('ablty_tier', profile.tier || 'free');
           localStorage.setItem('ablty_username_changed_at', profile.username_changed_at || '');
+        } else if (typeof onSignedIn === 'function') {
+          // Backfill missing profile rows for confirmed users.
+          await onSignedIn(session.user);
+          return;
         }
       }
     } catch(e) {}
