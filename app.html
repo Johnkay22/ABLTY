@@ -7988,17 +7988,58 @@ async function onSignedIn(user) {
   let changedAt = '';
 
   try {
-    const { data: profile } = await sb
+    const normalizeUsername = (v) => {
+      const s = String(v || '').trim();
+      return /^[a-zA-Z0-9_]{3,20}$/.test(s) ? s : '';
+    };
+    const fallbackUsername = (() => {
+      const seed = String(user.id || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toLowerCase() || 'seeker';
+      return ('seeker_' + seed).slice(0, 20);
+    })();
+    const desiredUsername = normalizeUsername(user?.user_metadata?.username)
+      || normalizeUsername(localStorage.getItem('ablty_pending_username'))
+      || fallbackUsername;
+
+    let profile = null;
+    const { data: existingProfile } = await sb
       .from('profiles')
       .select('username, tier, username_changed_at')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
+    profile = existingProfile || null;
+
+    if (!profile) {
+      let chosen = desiredUsername;
+      let { error: createErr } = await sb
+        .from('profiles')
+        .upsert({ id: user.id, username: chosen, tier: 'free' }, { onConflict: 'id' });
+
+      if (createErr && createErr.code === '23505' && chosen !== fallbackUsername) {
+        chosen = fallbackUsername;
+        const retry = await sb
+          .from('profiles')
+          .upsert({ id: user.id, username: chosen, tier: 'free' }, { onConflict: 'id' });
+        createErr = retry.error || null;
+      }
+
+      if (!createErr) {
+        await sb.from('user_settings').upsert({ user_id: user.id }, { onConflict: 'user_id' });
+      }
+
+      const { data: ensuredProfile } = await sb
+        .from('profiles')
+        .select('username, tier, username_changed_at')
+        .eq('id', user.id)
+        .maybeSingle();
+      profile = ensuredProfile || (createErr ? null : { username: chosen, tier: 'free', username_changed_at: '' });
+    }
 
     if (profile) {
       username = profile.username || username;
       tier = profile.tier || tier;
       changedAt = profile.username_changed_at || '';
     }
+    localStorage.removeItem('ablty_pending_username');
   } catch(e) {}
 
   localStorage.setItem('ablty_logged_in', '1');
@@ -8245,44 +8286,13 @@ async function handleSignup() {
     return;
   }
 
-  const signedUpUser = data?.user;
-  if (signedUpUser) {
-    const { error: profileErr } = await sb.from('profiles').insert({
-      id: signedUpUser.id,
-      username,
-      tier: 'free',
-    });
-    if (profileErr) {
-      if (profileErr.code === '23505') {
-        // Common when a DB trigger auto-creates profiles; apply chosen username instead.
-        const { error: profileUpdateErr } = await sb
-          .from('profiles')
-          .update({ username, tier: 'free' })
-          .eq('id', signedUpUser.id);
-        if (profileUpdateErr) {
-          setAuthError('signup-username','signup-username-err', profileUpdateErr.code === '23505'
-            ? 'That username is already taken'
-            : 'Could not save your username');
-          if (btn) btn.disabled = false;
-          return;
-        }
-      } else {
-        setAuthError('signup-email','signup-email-err', 'Could not create your profile. Please try again.');
-        if (btn) btn.disabled = false;
-        return;
-      }
-    }
-    const { error: settingsErr } = await sb.from('user_settings').insert({ user_id: signedUpUser.id });
-    if (settingsErr && settingsErr.code !== '23505') {
-      setAuthError('signup-email','signup-email-err', 'Account created, but settings setup failed. Please sign in again.');
-      if (btn) btn.disabled = false;
-      return;
-    }
-    localStorage.setItem('ablty_username', username);
-    localStorage.setItem('ablty_tier', 'free');
-    if (typeof migrateGuestData === 'function') {
-      await migrateGuestData(signedUpUser.id);
-    }
+  if (data?.user?.id) {
+    // Persist desired username for first confirmed sign-in profile provisioning.
+    localStorage.setItem('ablty_pending_username', username);
+  }
+
+  if (data?.session?.user && typeof onSignedIn === 'function') {
+    await onSignedIn(data.session.user);
   }
 
   localStorage.removeItem('ablty_guest_mode');
