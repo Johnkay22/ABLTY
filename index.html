@@ -659,6 +659,27 @@ body::after {
   color: var(--muted);
   text-transform: uppercase;
 }
+.install-success-homehint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+.install-success-homehint img {
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  border: 1px solid var(--border2);
+  box-shadow: 0 0 14px rgba(74,240,200,0.12);
+}
+.install-success-homehint-text {
+  font-family: var(--body);
+  font-size: 14px;
+  color: var(--text);
+  line-height: 1.5;
+  max-width: 320px;
+}
 
 /* ── FOOTER ── */
 footer {
@@ -1721,8 +1742,13 @@ footer a:active { color: var(--muted); }
     <div class="install-success-icon-wrap">
       <img src="/icon-192.png" alt="ABLTY app icon">
     </div>
-    <div class="install-success-sub" id="install-success-subtext">Open from your home screen anytime</div>
-    <button class="btn-install" onclick="openApp()" style="max-width:260px;">OPEN APP</button>
+    <div class="install-success-sub">OPEN FROM YOUR HOME SCREEN</div>
+    <div class="install-success-homehint" id="install-success-subtext">
+      <img src="/icon-192.png" alt="ABLTY icon on your home screen">
+      <div class="install-success-homehint-text">
+        Tap this ABLTY icon on your phone's home screen to launch the app.
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1909,20 +1935,6 @@ function showAndroidInstructions() {
     <button class="modal-close" onclick="closeModal()">Got It</button>
   `;
   modal.classList.add('visible');
-}
-
-function openApp() {
-  const standaloneNow = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-  if (standaloneNow) {
-    window.location.href = '/app.html';
-    return;
-  }
-  const sub = document.getElementById('install-success-subtext');
-  if (sub) {
-    sub.textContent = 'Open the ABLTY icon from your home screen to launch the installed app.';
-  }
-  // Fallback keeps users on the install flow instead of opening browser app mode.
-  window.location.href = '/';
 }
 
 window.addEventListener('appinstalled', () => {
