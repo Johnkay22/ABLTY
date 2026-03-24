@@ -4817,6 +4817,38 @@ const store = {
   remove(key) { try { localStorage.removeItem(key); } catch(e) {} },
 };
 
+function safeParseArray(raw, fallback = []) {
+  try {
+    const parsed = JSON.parse(raw || '[]');
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function trimRecent(list, max) {
+  return (Array.isArray(list) ? list : []).slice(0, max);
+}
+
+function normalizePersistentCaches() {
+  try {
+    const rv = trimRecent(safeParseArray(store.get('ablty_sessions')), MAX_RV_LOCAL_SESSIONS);
+    if (rv.length) store.set('ablty_sessions', JSON.stringify(rv));
+
+    const ze = trimRecent(safeParseArray(store.get('ablty_zener')), MAX_ZENER_LOCAL_RUNS);
+    if (ze.length) store.set('ablty_zener', JSON.stringify(ze));
+
+    const tsAll = trimRecent(safeParseArray(store.get('ablty_timestamp_all')), MAX_TS_LOCAL_TRIALS);
+    if (tsAll.length) store.set('ablty_timestamp_all', JSON.stringify(tsAll));
+
+    const tsTap = trimRecent(safeParseArray(store.get('ablty_timestamp')), MAX_TS_LOCAL_TRIALS);
+    if (tsTap.length) store.set('ablty_timestamp', JSON.stringify(tsTap));
+
+    const pp = trimRecent(safeParseArray(store.get('ablty_photopair')), MAX_PP_LOCAL_TRIALS);
+    if (pp.length) store.set('ablty_photopair', JSON.stringify(pp));
+  } catch (e) {}
+}
+
 function saveState() {
   const sessions = Array.isArray(STATE.sessions) ? STATE.sessions : [];
   const pruned = sessions.slice(0, MAX_RV_LOCAL_SESSIONS).map((s, idx) => {
@@ -7102,12 +7134,24 @@ function renderZenerResults(run) {
 
 // ─── ZENER PERSISTENCE ─────────────────────────
 function loadZenerSessions() {
-  try { return JSON.parse(localStorage.getItem('ablty_zener') || '[]'); } catch(e) { return []; }
+  try {
+    const local = JSON.parse(localStorage.getItem('ablty_zener') || '[]');
+    if (Array.isArray(local) && local.length) return local;
+    if (isLoggedIn()) {
+      const cloud = JSON.parse(localStorage.getItem('ablty_zener_cloud_cache') || '[]');
+      if (Array.isArray(cloud) && cloud.length) return cloud;
+    }
+    return Array.isArray(local) ? local : [];
+  } catch(e) { return []; }
 }
 function saveZenerSession(run) {
   const runs = loadZenerSessions();
   runs.unshift(run);
-  try { localStorage.setItem('ablty_zener', JSON.stringify(runs)); } catch(e) {}
+  const pruned = runs.slice(0, MAX_ZENER_LOCAL_RUNS);
+  try {
+    localStorage.setItem('ablty_zener', JSON.stringify(pruned));
+    localStorage.setItem('ablty_zener_cloud_cache', JSON.stringify(pruned));
+  } catch(e) {}
   syncSessionToSupabase('zener_runs', mapZenerRunRow(run));
 }
 
@@ -9338,13 +9382,15 @@ function saveTimestampTrial(trial) {
   // Always save to _all
   const allTrials = loadTimestampAll();
   allTrials.unshift(normalized);
-  try { localStorage.setItem('ablty_timestamp_all', JSON.stringify(allTrials)); } catch(e) {}
+  const prunedAll = allTrials.slice(0, MAX_TS_LOCAL_TRIALS);
+  try { localStorage.setItem('ablty_timestamp_all', JSON.stringify(prunedAll)); } catch(e) {}
 
   // Only save to _timestamp (delta analysis pool) if NOT a miss
   if (!normalized.miss) {
     const taps = loadTimestampTrials();
     taps.unshift(normalized);
-    try { localStorage.setItem('ablty_timestamp', JSON.stringify(taps)); } catch(e) {}
+    const prunedTaps = taps.slice(0, MAX_TS_LOCAL_TRIALS);
+    try { localStorage.setItem('ablty_timestamp', JSON.stringify(prunedTaps)); } catch(e) {}
   }
 
   syncSessionToSupabase('ts_trials', mapTSTrialRow(normalized));
@@ -10139,18 +10185,42 @@ function handlePPTap(side) {
 function loadPPSessions()  {
   try {
     const local = JSON.parse(localStorage.getItem('ablty_photopair') || '[]');
-    if (Array.isArray(local) && local.length) return local;
+    const queue = JSON.parse(localStorage.getItem('ablty_pp_pending') || '[]');
+    if (Array.isArray(local) && local.length) {
+      return mergeSessionArrays(
+        local,
+        Array.isArray(queue) ? queue : [],
+        (p) => String(p?.id || p?.timestamp || '')
+      );
+    }
     if (isLoggedIn()) {
       const cloud = JSON.parse(localStorage.getItem('ablty_pp_cloud_cache') || '[]');
-      if (Array.isArray(cloud) && cloud.length) return cloud;
+      if (Array.isArray(cloud) && cloud.length) {
+        return mergeSessionArrays(
+          cloud,
+          Array.isArray(queue) ? queue : [],
+          (p) => String(p?.id || p?.timestamp || '')
+        );
+      }
     }
+    if (Array.isArray(queue) && queue.length) return queue;
     return Array.isArray(local) ? local : [];
   } catch(e) { return []; }
 }
 function savePPSession(s)  {
+  const normalized = Object.assign({}, s, {
+    id: Number(s?.id) || Date.now(),
+    hit: !!s?.hit,
+    timestamp: s?.timestamp || new Date().toISOString(),
+  });
+  try {
+    const pending = JSON.parse(localStorage.getItem('ablty_pp_pending') || '[]');
+    pending.unshift(normalized);
+    localStorage.setItem('ablty_pp_pending', JSON.stringify(pending.slice(0, 2000)));
+  } catch(e) {}
   const d = loadPPSessions();
-  d.unshift(s);
-  try { localStorage.setItem('ablty_photopair', JSON.stringify(d)); } catch(e) {}
+  d.unshift(normalized);
+  try { localStorage.setItem('ablty_photopair', JSON.stringify(d.slice(0, MAX_PP_LOCAL_TRIALS))); } catch(e) {}
   syncSessionToSupabase('pp_sessions', mapPPSessionRow(s));
 }
 window.addEventListener('error', (e) => {
