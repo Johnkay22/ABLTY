@@ -53,6 +53,63 @@ html, body {
   overscroll-behavior: none;
 }
 
+/* Guard shown when app is opened in browser tab */
+#browser-guard {
+  position: fixed;
+  inset: 0;
+  z-index: 20000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #000;
+  text-align: center;
+}
+#browser-guard.visible { display: flex; }
+.browser-guard-card {
+  width: min(100%, 440px);
+  background: var(--card);
+  border: 1px solid var(--border2);
+  border-radius: 16px;
+  padding: 24px 18px;
+  box-shadow: 0 18px 40px rgba(0,0,0,0.45);
+}
+.browser-guard-title {
+  font-family: var(--font-display);
+  font-size: 38px;
+  letter-spacing: 2px;
+  color: var(--text);
+  line-height: 1;
+}
+.browser-guard-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-top: 8px;
+}
+.browser-guard-text {
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin-top: 16px;
+}
+.browser-guard-btn {
+  width: 100%;
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: none;
+  background: var(--accent);
+  color: #000;
+  font-family: var(--font-display);
+  font-size: 24px;
+  letter-spacing: 2px;
+  cursor: pointer;
+}
+
 /* ═══════════════════════════════════════════
    APP SHELL
 ═══════════════════════════════════════════ */
@@ -2739,6 +2796,17 @@ html, body {
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
+<div id="browser-guard" aria-live="polite">
+  <div class="browser-guard-card">
+    <div class="browser-guard-title">OPEN ABLTY APP</div>
+    <div class="browser-guard-sub">Browser mode disabled</div>
+    <div class="browser-guard-text">
+      Open ABLTY from your home-screen icon to use the full app experience.
+      Browser tabs are read-only for install onboarding.
+    </div>
+    <button class="browser-guard-btn" onclick="window.location.href='/'">GO TO INSTALL PAGE</button>
+  </div>
+</div>
 <div id="app">
 
   <!-- TOAST NOTIFICATION -->
@@ -5966,6 +6034,26 @@ function checkAuthCallback() {
   }
 }
 
+function isStandaloneAppRuntime() {
+  const byMedia = window.matchMedia('(display-mode: standalone)').matches
+    || window.matchMedia('(display-mode: fullscreen)').matches;
+  const byIOS = window.navigator.standalone === true;
+  const byReferrer = document.referrer.includes('android-app://');
+  return !!(byMedia || byIOS || byReferrer);
+}
+
+function enforcePwaOnlyMode() {
+  if (isStandaloneAppRuntime()) return false;
+  const guard = document.getElementById('browser-guard');
+  const app = document.getElementById('app');
+  if (guard) guard.classList.add('visible');
+  if (app) {
+    app.style.display = 'none';
+    app.setAttribute('aria-hidden', 'true');
+  }
+  return true;
+}
+
 
 // ── TOAST NOTIFICATION ────────────────────────────────
 let _toastTimer = null;
@@ -6597,6 +6685,7 @@ function showComingSoon(name) {
 
 // ─── INIT ─────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  if (enforcePwaOnlyMode()) return;
 
   try { loadState(); } catch(e) {
     STATE.seekerId = '#' + Math.floor(10000 + Math.random() * 90000);

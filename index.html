@@ -611,14 +611,22 @@ body::after {
   z-index: 10001;
   background: var(--bg);
   display: none;
+  align-items: center;
+  justify-content: center;
+  padding: max(24px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right))
+           max(24px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
+}
+#install-success-screen.visible { display: flex; }
+.install-success-card {
+  width: min(420px, 100%);
+  display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 18px;
-  padding: 28px;
   text-align: center;
+  margin: 0 auto;
 }
-#install-success-screen.visible { display: flex; }
 .install-success-title {
   font-family: var(--display);
   font-size: 52px;
@@ -1708,12 +1716,14 @@ footer a:active { color: var(--muted); }
 
 <!-- INSTALL SUCCESS SCREEN -->
 <div id="install-success-screen" aria-live="polite">
-  <div class="install-success-title">ABL<span class="t-accent">T</span>Y Installed</div>
-  <div class="install-success-icon-wrap">
-    <img src="/icon-192.png" alt="ABLTY app icon">
+  <div class="install-success-card">
+    <div class="install-success-title">ABL<span class="t-accent">T</span>Y Installed</div>
+    <div class="install-success-icon-wrap">
+      <img src="/icon-192.png" alt="ABLTY app icon">
+    </div>
+    <div class="install-success-sub" id="install-success-subtext">Open from your home screen anytime</div>
+    <button class="btn-install" onclick="openApp()" style="max-width:260px;">OPEN APP</button>
   </div>
-  <div class="install-success-sub">Open from your home screen anytime</div>
-  <button class="btn-install" onclick="openApp()" style="max-width:260px;">Open App</button>
 </div>
 
 <script>
@@ -1902,7 +1912,17 @@ function showAndroidInstructions() {
 }
 
 function openApp() {
-  window.location.href = '/app.html';
+  const standaloneNow = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if (standaloneNow) {
+    window.location.href = '/app.html';
+    return;
+  }
+  const sub = document.getElementById('install-success-subtext');
+  if (sub) {
+    sub.textContent = 'Open the ABLTY icon from your home screen to launch the installed app.';
+  }
+  // Fallback keeps users on the install flow instead of opening browser app mode.
+  window.location.href = '/';
 }
 
 window.addEventListener('appinstalled', () => {
