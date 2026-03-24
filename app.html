@@ -9101,21 +9101,26 @@ async function registerSW() {
     console.log('[ABLTY] Service worker registered');
     window._swRegistration = reg;
 
+    const checkForWaitingUpdate = () => {
+      // Show banner whenever a worker is waiting, even if controller is transiently null.
+      if (reg.waiting) showUpdateBanner();
+    };
+
     // Common case on reopen: new SW is already waiting.
-    if (reg.waiting && navigator.serviceWorker.controller) {
-      showUpdateBanner();
-    }
+    checkForWaitingUpdate();
 
     // Trigger an explicit update check at startup.
-    try { reg.update(); } catch(e) {}
+    try {
+      await reg.update();
+      checkForWaitingUpdate();
+    } catch(e) {}
 
     // Detect when a new version is waiting
     reg.addEventListener('updatefound', () => {
       const newWorker = reg.installing;
+      if (!newWorker) return;
       newWorker.addEventListener('statechange', () => {
-        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-          showUpdateBanner();
-        }
+        if (newWorker.state === 'installed') checkForWaitingUpdate();
       });
     });
 
@@ -9125,6 +9130,22 @@ async function registerSW() {
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         window.location.reload();
       });
+    }
+
+    // Re-check periodically and when app returns to foreground.
+    if (!window.__abltySwPollBound) {
+      window.__abltySwPollBound = true;
+      const poll = async () => {
+        try {
+          await reg.update();
+        } catch (e) {}
+        checkForWaitingUpdate();
+      };
+      setInterval(poll, 60000);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') poll();
+      });
+      window.addEventListener('focus', poll);
     }
 
     navigator.serviceWorker.addEventListener('message', event => {
