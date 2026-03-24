@@ -4982,7 +4982,9 @@ function navigate(name) {
   showScreen(name, false);
   if (name === 'analytics' || name === 'history') {
     if (isLoggedIn() && typeof refreshCloudDataCaches === 'function') {
-      refreshCloudDataCaches().finally(() => renderAnalytics());
+      renderAnalytics();
+      // Do not overwrite current-screen analytics with late async refreshes.
+      refreshCloudDataCaches(true).finally(() => renderAnalytics());
     } else {
       renderAnalytics();
     }
@@ -8268,17 +8270,43 @@ async function syncLocalDataToSupabase(userId) {
   await migrateGuestData(userId);
 }
 
-async function refreshCloudDataCaches() {
+async function refreshCloudDataCaches(mergeOnly = false) {
   if (!sb || !isLoggedIn() || typeof loadAnalyticsFromCloud !== 'function') return;
   try {
     const { data } = await sb.auth.getSession();
     const userId = data?.session?.user?.id;
     if (!userId) return;
-    await loadAnalyticsFromCloud(userId);
+    await loadAnalyticsFromCloud(userId, { mergeOnly });
   } catch (e) {}
 }
 
-async function loadAnalyticsFromCloud(userId) {
+function mergeSessionArrays(existingArr, cloudArr, keyFn) {
+  const map = new Map();
+  const put = (item) => {
+    const k = keyFn(item);
+    if (k === null || k === undefined || k === '') return;
+    const prev = map.get(k);
+    if (!prev) {
+      map.set(k, item);
+      return;
+    }
+    const prevTs = Date.parse(prev.timestamp || '');
+    const nextTs = Date.parse(item.timestamp || '');
+    if (!Number.isFinite(prevTs) || (Number.isFinite(nextTs) && nextTs >= prevTs)) {
+      map.set(k, item);
+    }
+  };
+  (Array.isArray(existingArr) ? existingArr : []).forEach(put);
+  (Array.isArray(cloudArr) ? cloudArr : []).forEach(put);
+  return Array.from(map.values()).sort((a, b) => {
+    const ta = Date.parse(a?.timestamp || '');
+    const tb = Date.parse(b?.timestamp || '');
+    return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+  });
+}
+
+async function loadAnalyticsFromCloud(userId, opts = {}) {
+  const mergeOnly = !!opts.mergeOnly;
   if (!sb || !userId) return;
   try {
     const [rvRes, zeRes, tsRes, ppRes] = await Promise.all([
@@ -8329,10 +8357,16 @@ async function loadAnalyticsFromCloud(userId) {
       tags: Array.isArray(r.tags) ? r.tags : [],
       sessionType: r.session_type || 'personal',
     }));
-    if (rvLocal.length) {
-      STATE.sessions = rvLocal;
+    const rvExisting = Array.isArray(STATE.sessions) ? STATE.sessions : [];
+    const rvMerged = mergeSessionArrays(
+      rvExisting,
+      rvLocal,
+      (r) => String(r?.id || `${r?.trn || ''}-${r?.timestamp || ''}`)
+    );
+    if (rvMerged.length) {
+      STATE.sessions = rvMerged;
       saveState();
-      localStorage.setItem('ablty_rv_cloud_cache', JSON.stringify(rvLocal));
+      localStorage.setItem('ablty_rv_cloud_cache', JSON.stringify(rvMerged));
     }
 
     const zeLocal = zeRows.map((r) => ({
@@ -8342,9 +8376,15 @@ async function loadAnalyticsFromCloud(userId) {
       symbolStats: r.symbol_stats || {},
       timestamp: r.timestamp || new Date().toISOString(),
     }));
-    if (zeLocal.length) {
-      localStorage.setItem('ablty_zener', JSON.stringify(zeLocal));
-      localStorage.setItem('ablty_zener_cloud_cache', JSON.stringify(zeLocal));
+    const zeExisting = loadZenerSessions();
+    const zeMerged = mergeSessionArrays(
+      zeExisting,
+      zeLocal,
+      (r) => String(r?.id || `${r?.timestamp || ''}-${r?.hitPct || 0}-${r?.hits || 0}`)
+    );
+    if (zeMerged.length) {
+      localStorage.setItem('ablty_zener', JSON.stringify(zeMerged));
+      localStorage.setItem('ablty_zener_cloud_cache', JSON.stringify(zeMerged));
     }
 
     const tsLocal = tsRows.map((r) => ({
@@ -8356,10 +8396,16 @@ async function loadAnalyticsFromCloud(userId) {
       hit: !!r.hit,
       timestamp: r.timestamp || new Date().toISOString(),
     }));
-    if (tsLocal.length) {
-      localStorage.setItem('ablty_timestamp_all', JSON.stringify(tsLocal));
-      localStorage.setItem('ablty_timestamp', JSON.stringify(tsLocal.filter((t) => !t.miss)));
-      localStorage.setItem('ablty_ts_cloud_cache', JSON.stringify(tsLocal));
+    const tsExisting = loadTimestampAll();
+    const tsMerged = mergeSessionArrays(
+      tsExisting,
+      tsLocal,
+      (t) => String(t?.id || `${t?.timestamp || ''}-${t?.eventTime ?? ''}-${t?.tapTime ?? ''}`)
+    );
+    if (tsMerged.length) {
+      localStorage.setItem('ablty_timestamp_all', JSON.stringify(tsMerged));
+      localStorage.setItem('ablty_timestamp', JSON.stringify(tsMerged.filter((t) => !t.miss)));
+      localStorage.setItem('ablty_ts_cloud_cache', JSON.stringify(tsMerged));
     }
 
     const ppLocal = ppRows.map((r) => ({
@@ -8367,9 +8413,15 @@ async function loadAnalyticsFromCloud(userId) {
       hit: !!r.hit,
       timestamp: r.timestamp || new Date().toISOString(),
     }));
-    if (ppLocal.length) {
-      localStorage.setItem('ablty_photopair', JSON.stringify(ppLocal));
-      localStorage.setItem('ablty_pp_cloud_cache', JSON.stringify(ppLocal));
+    const ppExisting = loadPPSessions();
+    const ppMerged = mergeSessionArrays(
+      ppExisting,
+      ppLocal,
+      (p) => String(p?.id || p?.timestamp || '')
+    );
+    if (ppMerged.length) {
+      localStorage.setItem('ablty_photopair', JSON.stringify(ppMerged));
+      localStorage.setItem('ablty_pp_cloud_cache', JSON.stringify(ppMerged));
     }
   } catch(e) {}
 }
@@ -8933,6 +8985,14 @@ async function registerSW() {
     console.log('[ABLTY] Service worker registered');
     window._swRegistration = reg;
 
+    // Common case on reopen: new SW is already waiting.
+    if (reg.waiting && navigator.serviceWorker.controller) {
+      showUpdateBanner();
+    }
+
+    // Trigger an explicit update check at startup.
+    try { reg.update(); } catch(e) {}
+
     // Detect when a new version is waiting
     reg.addEventListener('updatefound', () => {
       const newWorker = reg.installing;
@@ -8942,6 +9002,14 @@ async function registerSW() {
         }
       });
     });
+
+    // If the controller changes after SKIP_WAITING, reload once.
+    if (navigator.serviceWorker && !window.__abltySwReloadBound) {
+      window.__abltySwReloadBound = true;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+      });
+    }
 
     navigator.serviceWorker.addEventListener('message', event => {
       if (event.data && event.data.type === 'RC_OPEN')     openRCTask();
