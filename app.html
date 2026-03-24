@@ -1931,6 +1931,41 @@ html, body {
   border-color: var(--accent); color: var(--accent);
   background: rgba(74,240,200,0.06);
 }
+.log-sort-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: -4px 0 12px;
+}
+.log-sort-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+.log-sort-btns {
+  display: flex;
+  gap: 6px;
+}
+.log-sort-btn {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  color: var(--muted);
+  cursor: pointer;
+  text-transform: uppercase;
+}
+.log-sort-btn.active {
+  border-color: var(--accent2);
+  color: var(--accent2);
+  background: rgba(91,158,244,0.08);
+}
 .empty-motivate {
   text-align: center; padding: 28px 16px;
 }
@@ -3794,6 +3829,13 @@ html, body {
           <button class="log-filter-btn"        data-filter="high"   onclick="setLogFilter('high')">High Score</button>
           <button class="log-filter-btn"        data-filter="tagged" onclick="setLogFilter('tagged')">Tagged</button>
         </div>
+      <div class="log-sort-row">
+        <div class="log-sort-label">Sort</div>
+        <div class="log-sort-btns">
+          <button class="log-sort-btn active" id="log-sort-date" data-sort="date" onclick="setLogSort('date')">Date</button>
+          <button class="log-sort-btn" id="log-sort-score" data-sort="score" onclick="setLogSort('score')">Score</button>
+        </div>
+      </div>
 
         <div id="combined-log-list" style="display:flex;flex-direction:column;gap:8px;"></div>
 
@@ -4761,6 +4803,12 @@ const STATE = {
   activeTab: 'sketch',
 };
 
+const MAX_RV_LOCAL_SESSIONS = 120;
+const RV_SKETCH_KEEP_RECENT = 30;
+const MAX_ZENER_LOCAL_RUNS = 600;
+const MAX_TS_LOCAL_TRIALS = 1200;
+const MAX_PP_LOCAL_TRIALS = 1200;
+
 // ─── PERSISTENCE ──────────────────────────────
 // Safe localStorage wrapper  -  never throws
 const store = {
@@ -4769,8 +4817,49 @@ const store = {
   remove(key) { try { localStorage.removeItem(key); } catch(e) {} },
 };
 
+function safeParseArray(raw, fallback = []) {
+  try {
+    const parsed = JSON.parse(raw || '[]');
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch (e) {
+    return fallback;
+  }
+}
+
+function trimRecent(list, max) {
+  return (Array.isArray(list) ? list : []).slice(0, max);
+}
+
+function normalizePersistentCaches() {
+  try {
+    const rv = trimRecent(safeParseArray(store.get('ablty_sessions')), MAX_RV_LOCAL_SESSIONS);
+    if (rv.length) store.set('ablty_sessions', JSON.stringify(rv));
+
+    const ze = trimRecent(safeParseArray(store.get('ablty_zener')), MAX_ZENER_LOCAL_RUNS);
+    if (ze.length) store.set('ablty_zener', JSON.stringify(ze));
+
+    const tsAll = trimRecent(safeParseArray(store.get('ablty_timestamp_all')), MAX_TS_LOCAL_TRIALS);
+    if (tsAll.length) store.set('ablty_timestamp_all', JSON.stringify(tsAll));
+
+    const tsTap = trimRecent(safeParseArray(store.get('ablty_timestamp')), MAX_TS_LOCAL_TRIALS);
+    if (tsTap.length) store.set('ablty_timestamp', JSON.stringify(tsTap));
+
+    const pp = trimRecent(safeParseArray(store.get('ablty_photopair')), MAX_PP_LOCAL_TRIALS);
+    if (pp.length) store.set('ablty_photopair', JSON.stringify(pp));
+  } catch (e) {}
+}
+
 function saveState() {
-  store.set('ablty_sessions', JSON.stringify(STATE.sessions));
+  const sessions = Array.isArray(STATE.sessions) ? STATE.sessions : [];
+  const pruned = sessions.slice(0, MAX_RV_LOCAL_SESSIONS).map((s, idx) => {
+    // Keep full sketch payload only for recent sessions to avoid localStorage quota exhaustion.
+    if (idx >= RV_SKETCH_KEEP_RECENT && s && s.sketchData) {
+      const { sketchData, ...rest } = s;
+      return rest;
+    }
+    return s;
+  });
+  store.set('ablty_sessions', JSON.stringify(pruned));
   store.set('ablty_seeker', STATE.seekerId);
   store.set('ablty_settings', JSON.stringify(STATE.settings));
 }
@@ -4938,7 +5027,15 @@ function navigate(name) {
   if (name === 'forgot') { openAuthScreen('forgot'); return; }
 
   showScreen(name, false);
-  if (name === 'analytics' || name === 'history') renderAnalytics();
+  if (name === 'analytics' || name === 'history') {
+    if (isLoggedIn() && typeof refreshCloudDataCaches === 'function') {
+      renderAnalytics();
+      // Do not overwrite current-screen analytics with late async refreshes.
+      refreshCloudDataCaches(true).finally(() => renderAnalytics());
+    } else {
+      renderAnalytics();
+    }
+  }
   if (name === 'profile')  renderProfile();
   if (name === 'zener')    renderZenerBrief();
   if (name === 'reality-check') { renderRCScreen(); initRCCarousel(); }
@@ -5008,9 +5105,13 @@ function isDevMode() {
   try { return localStorage.getItem('ablty_dev') === '1'; } catch(e) { return false; }
 }
 
+function isPremiumTier() {
+  return getCurrentTier() === 'premium';
+}
+
 function startRVSession() {
-  // Check daily limit (skip if dev mode)
-  if (!isDevMode() && getDailyCount() >= RV_DAILY_LIMIT) {
+  // Check daily limit (skip for dev mode and premium users)
+  if (!isDevMode() && !isPremiumTier() && getDailyCount() >= RV_DAILY_LIMIT) {
     document.getElementById('limit-modal').style.display = 'flex';
     return;
   }
@@ -6249,11 +6350,15 @@ async function renderSettingsState() {
           .from('profiles')
           .select('username, tier, username_changed_at')
           .eq('id', session.user.id)
-          .single();
+          .maybeSingle();
         if (profile) {
           localStorage.setItem('ablty_username', profile.username || 'Seeker');
           localStorage.setItem('ablty_tier', profile.tier || 'free');
           localStorage.setItem('ablty_username_changed_at', profile.username_changed_at || '');
+        } else if (typeof onSignedIn === 'function') {
+          // Backfill missing profile rows for confirmed users.
+          await onSignedIn(session.user);
+          return;
         }
       }
     } catch(e) {}
@@ -7033,12 +7138,24 @@ function renderZenerResults(run) {
 
 // ─── ZENER PERSISTENCE ─────────────────────────
 function loadZenerSessions() {
-  try { return JSON.parse(localStorage.getItem('ablty_zener') || '[]'); } catch(e) { return []; }
+  try {
+    const local = JSON.parse(localStorage.getItem('ablty_zener') || '[]');
+    if (Array.isArray(local) && local.length) return local;
+    if (isLoggedIn()) {
+      const cloud = JSON.parse(localStorage.getItem('ablty_zener_cloud_cache') || '[]');
+      if (Array.isArray(cloud) && cloud.length) return cloud;
+    }
+    return Array.isArray(local) ? local : [];
+  } catch(e) { return []; }
 }
 function saveZenerSession(run) {
   const runs = loadZenerSessions();
   runs.unshift(run);
-  try { localStorage.setItem('ablty_zener', JSON.stringify(runs)); } catch(e) {}
+  const pruned = runs.slice(0, MAX_ZENER_LOCAL_RUNS);
+  try {
+    localStorage.setItem('ablty_zener', JSON.stringify(pruned));
+    localStorage.setItem('ablty_zener_cloud_cache', JSON.stringify(pruned));
+  } catch(e) {}
   syncSessionToSupabase('zener_runs', mapZenerRunRow(run));
 }
 
@@ -7252,19 +7369,17 @@ function buildCombinedLog(rvSessions, zenerRuns) {
     timestamp: s.timestamp || new Date().toISOString(),
   }));
 
-  const tsSessions = loadTimestampTrials().map(s => ({
+  const tsSessions = loadTimestampAll().map(s => ({
     ...s,
     type: 'ts',
-    score: s.hit ? 100 : 0,
+    score: (typeof s.hit === 'boolean' ? s.hit : !s.miss) ? 100 : 0,
     timestamp: s.timestamp || new Date().toISOString(),
   }));
 
   const rv = rvSessions.map(s => ({ ...s, type: 'rv' }));
   const ze = zenerRuns.map(r => ({ ...r, type: 'zener', score: r.hitPct }));
 
-  let all = [...rv, ...ze, ...ppSessions, ...tsSessions]
-    .filter(s => s.timestamp)
-    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  let all = [...rv, ...ze, ...ppSessions, ...tsSessions].filter(s => s.timestamp);
 
   // Apply filter
   const f = currentLogFilter;
@@ -7275,6 +7390,28 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   if (f === 'high')   all = all.filter(s => s.score >= 60);
   if (f === 'tagged') all = all.filter(s => s.type === 'rv' && s.tags && s.tags.length);
 
+  const toEpoch = (v) => {
+    const t = Date.parse(v || '');
+    return Number.isFinite(t) ? t : 0;
+  };
+  const toScore = (s) => {
+    if (Number.isFinite(Number(s?.score))) return Number(s.score);
+    if (s?.type === 'ts' || s?.type === 'pp') {
+      const hit = typeof s.hit === 'boolean' ? s.hit : !s.miss;
+      return hit ? 100 : 0;
+    }
+    return 0;
+  };
+  if (currentLogSort === 'score') {
+    all.sort((a, b) => {
+      const scoreDiff = toScore(b) - toScore(a);
+      if (scoreDiff !== 0) return scoreDiff;
+      return toEpoch(b.timestamp) - toEpoch(a.timestamp);
+    });
+  } else {
+    all.sort((a, b) => toEpoch(b.timestamp) - toEpoch(a.timestamp));
+  }
+
   if (!all.length) {
     el.innerHTML = `<div class="empty-state"><div class="empty-icon">&#9678;</div><div class="mono-label">No sessions yet</div><div class="body-sm" style="margin-top:6px;">Complete your first session to begin building your log.</div></div>`;
     return;
@@ -7284,7 +7421,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   const TYPE_LABEL = {
     rv:    s => s.targetLabel || '-',
     zener: s => `${s.hits}/25 hits`,
-    ts:    s => s.hit ? 'Hit' : 'Miss',
+    ts:    s => ((typeof s.hit === 'boolean' ? s.hit : !s.miss) ? 'Hit' : 'Miss'),
     pp:    s => s.hit ? 'Hit' : 'Miss',
   };
   const TYPE_TITLE = {
@@ -7296,7 +7433,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   const TYPE_SCORE_DISPLAY = {
     rv:    s => s.score + '%',
     zener: s => s.score + '%',
-    ts:    s => s.hit ? 'HIT' : 'MISS',
+    ts:    s => (typeof s.hit === 'boolean' ? s.hit : !s.miss) ? 'HIT' : 'MISS',
     pp:    s => s.hit ? 'HIT' : 'MISS',
   };
 
@@ -7311,8 +7448,9 @@ function buildCombinedLog(rvSessions, zenerRuns) {
     const sessionId   = s.id;
     const sessionType = s.type;
     const isHitMiss   = s.type === 'ts' || s.type === 'pp';
+    const isHitLike   = s.type === 'ts' ? (typeof s.hit === 'boolean' ? s.hit : !s.miss) : s.hit;
     const cls = isHitMiss
-      ? (s.hit ? 'high' : 'low')
+      ? (isHitLike ? 'high' : 'low')
       : (s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low');
 
     return `<div class="session-card" onclick="openSessionDetail('${sessionType}','${sessionId}')" style="cursor:pointer;">
@@ -7368,7 +7506,7 @@ function openSessionDetail(type, id) {
     if (!session) return;
     renderPPDetail(session);
   } else if (type === 'ts') {
-    const trials = loadTimestampTrials();
+    const trials = loadTimestampAll();
     const trial = trials.find(t => String(t.id) === String(id));
     if (!trial) return;
     renderTSDetail(trial);
@@ -7422,6 +7560,7 @@ function renderPPDetail(s) {
 function renderTSDetail(s) {
   const d = new Date(s.timestamp);
   const dateStr = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
+  const tsHit = (typeof s.hit === 'boolean') ? s.hit : !s.miss;
 
   setEl('detail-type-label', 'PRESENTIMENT');
   setEl('detail-date', dateStr);
@@ -7430,10 +7569,10 @@ function renderTSDetail(s) {
   const pctEl  = document.getElementById('detail-score-pct');
   setEl('detail-score-label', 'Result');
   if (ring) {
-    ring.style.stroke = s.hit ? 'var(--accent)' : 'var(--danger)';
-    setTimeout(() => { ring.style.strokeDashoffset = s.hit ? 0 : 364.4; }, 100);
+    ring.style.stroke = tsHit ? 'var(--accent)' : 'var(--danger)';
+    setTimeout(() => { ring.style.strokeDashoffset = tsHit ? 0 : 364.4; }, 100);
   }
-  if (pctEl) pctEl.textContent = s.hit ? 'HIT' : 'MISS';
+  if (pctEl) pctEl.textContent = tsHit ? 'HIT' : 'MISS';
 
   const imagesRow = document.getElementById('detail-images-row');
   if (imagesRow) imagesRow.style.display = 'none';
@@ -7445,7 +7584,7 @@ function renderTSDetail(s) {
     const eventMs = s.eventMs !== undefined ? s.eventMs : null;
     const tappedMs = s.tappedMs !== undefined ? s.tappedMs : null;
     const diff = (eventMs !== null && tappedMs !== null) ? Math.round(eventMs - tappedMs) : null;
-    setEl('detail-summary', s.hit
+    setEl('detail-summary', tsHit
       ? `Correct. You tapped ${diff !== null ? (diff > 0 ? diff + 'ms before the event.' : Math.abs(diff) + 'ms after the event.') : 'at the right time.'}`
       : `Miss. ${diff !== null ? 'Event fired ' + Math.abs(diff) + 'ms ' + (diff > 0 ? 'after' : 'before') + ' your tap.' : ''}`
     );
@@ -7455,7 +7594,7 @@ function renderTSDetail(s) {
   if (hitList) {
     hitList.innerHTML = `
       <div class="hit-item">
-        <div class="hit-badge ${s.hit ? 'hit' : 'noise'}">${s.hit ? 'Hit' : 'Miss'}</div>
+        <div class="hit-badge ${tsHit ? 'hit' : 'noise'}">${tsHit ? 'Hit' : 'Miss'}</div>
         <div class="hit-text">Chance baseline is 50%. Measures unconscious precognitive timing.</div>
       </div>`;
   }
@@ -7988,17 +8127,58 @@ async function onSignedIn(user) {
   let changedAt = '';
 
   try {
-    const { data: profile } = await sb
+    const normalizeUsername = (v) => {
+      const s = String(v || '').trim();
+      return /^[a-zA-Z0-9_]{3,20}$/.test(s) ? s : '';
+    };
+    const fallbackUsername = (() => {
+      const seed = String(user.id || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toLowerCase() || 'seeker';
+      return ('seeker_' + seed).slice(0, 20);
+    })();
+    const desiredUsername = normalizeUsername(user?.user_metadata?.username)
+      || normalizeUsername(localStorage.getItem('ablty_pending_username'))
+      || fallbackUsername;
+
+    let profile = null;
+    const { data: existingProfile } = await sb
       .from('profiles')
       .select('username, tier, username_changed_at')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
+    profile = existingProfile || null;
+
+    if (!profile) {
+      let chosen = desiredUsername;
+      let { error: createErr } = await sb
+        .from('profiles')
+        .upsert({ id: user.id, username: chosen, tier: 'free' }, { onConflict: 'id' });
+
+      if (createErr && createErr.code === '23505' && chosen !== fallbackUsername) {
+        chosen = fallbackUsername;
+        const retry = await sb
+          .from('profiles')
+          .upsert({ id: user.id, username: chosen, tier: 'free' }, { onConflict: 'id' });
+        createErr = retry.error || null;
+      }
+
+      if (!createErr) {
+        await sb.from('user_settings').upsert({ user_id: user.id }, { onConflict: 'user_id' });
+      }
+
+      const { data: ensuredProfile } = await sb
+        .from('profiles')
+        .select('username, tier, username_changed_at')
+        .eq('id', user.id)
+        .maybeSingle();
+      profile = ensuredProfile || (createErr ? null : { username: chosen, tier: 'free', username_changed_at: '' });
+    }
 
     if (profile) {
       username = profile.username || username;
       tier = profile.tier || tier;
       changedAt = profile.username_changed_at || '';
     }
+    localStorage.removeItem('ablty_pending_username');
   } catch(e) {}
 
   localStorage.setItem('ablty_logged_in', '1');
@@ -8013,6 +8193,9 @@ async function onSignedIn(user) {
   try {
     if (typeof syncLocalDataToSupabase === 'function') {
       await syncLocalDataToSupabase(user.id);
+    }
+    if (typeof loadAnalyticsFromCloud === 'function') {
+      await loadAnalyticsFromCloud(user.id);
     }
     updateSyncStatus('synced');
   } catch(e) {
@@ -8093,6 +8276,34 @@ async function syncSessionToSupabase(table, data) {
   }
 }
 
+function clearTsPendingByKeys(keys) {
+  try {
+    const keySet = new Set(Array.isArray(keys) ? keys.filter(Boolean) : []);
+    if (!keySet.size) return;
+    const pending = JSON.parse(localStorage.getItem('ablty_ts_pending') || '[]');
+    if (!Array.isArray(pending) || !pending.length) return;
+    const filtered = pending.filter((t) => {
+      const k = String(t?.id || `${t?.timestamp || ''}-${t?.eventTime ?? ''}-${t?.tapTime ?? ''}`);
+      return !keySet.has(k);
+    });
+    localStorage.setItem('ablty_ts_pending', JSON.stringify(filtered));
+  } catch(e) {}
+}
+
+function clearPpPendingByKeys(keys) {
+  try {
+    const keySet = new Set(Array.isArray(keys) ? keys.filter(Boolean) : []);
+    if (!keySet.size) return;
+    const pending = JSON.parse(localStorage.getItem('ablty_pp_pending') || '[]');
+    if (!Array.isArray(pending) || !pending.length) return;
+    const filtered = pending.filter((p) => {
+      const k = String(p?.id || p?.timestamp || '');
+      return !keySet.has(k);
+    });
+    localStorage.setItem('ablty_pp_pending', JSON.stringify(filtered));
+  } catch(e) {}
+}
+
 async function migrateGuestData(userId) {
   if (!sb || !userId) return;
   const errors = [];
@@ -8102,8 +8313,6 @@ async function migrateGuestData(userId) {
     if (rv.length) {
       const rows = rv.map((s) => ({ ...mapRVSessionRow(s, 'personal'), user_id: userId }));
       await sb.from('rv_sessions').upsert(rows, { onConflict: 'id' });
-      STATE.sessions = [];
-      saveState();
     }
   } catch(e) {
     errors.push('RV');
@@ -8114,7 +8323,6 @@ async function migrateGuestData(userId) {
     if (ze.length) {
       const rows = ze.map((r) => ({ ...mapZenerRunRow(r), user_id: userId }));
       await sb.from('zener_runs').upsert(rows, { onConflict: 'id' });
-      localStorage.removeItem('ablty_zener');
     }
   } catch(e) {
     errors.push('Zener');
@@ -8125,8 +8333,6 @@ async function migrateGuestData(userId) {
     if (ts.length) {
       const rows = ts.map((t) => ({ ...mapTSTrialRow(t), user_id: userId }));
       await sb.from('ts_trials').upsert(rows, { onConflict: 'id' });
-      localStorage.removeItem('ablty_timestamp');
-      localStorage.removeItem('ablty_timestamp_all');
     }
   } catch(e) {
     errors.push('Presentiment');
@@ -8141,7 +8347,6 @@ async function migrateGuestData(userId) {
         return { ...mapped, user_id: userId };
       });
       await sb.from('pp_sessions').upsert(rows, { onConflict: 'id' });
-      localStorage.removeItem('ablty_photopair');
     }
   } catch(e) {
     errors.push('Photo Pair');
@@ -8154,6 +8359,191 @@ async function migrateGuestData(userId) {
 
 async function syncLocalDataToSupabase(userId) {
   await migrateGuestData(userId);
+}
+
+async function refreshCloudDataCaches(mergeOnly = false) {
+  if (!sb || !isLoggedIn() || typeof loadAnalyticsFromCloud !== 'function') return;
+  try {
+    const { data } = await sb.auth.getSession();
+    const userId = data?.session?.user?.id;
+    if (!userId) return;
+    await loadAnalyticsFromCloud(userId, { mergeOnly });
+  } catch (e) {}
+}
+
+function mergeSessionArrays(existingArr, cloudArr, keyFn) {
+  const map = new Map();
+  const put = (item) => {
+    const k = keyFn(item);
+    if (k === null || k === undefined || k === '') return;
+    const prev = map.get(k);
+    if (!prev) {
+      map.set(k, item);
+      return;
+    }
+    const prevTs = Date.parse(prev.timestamp || '');
+    const nextTs = Date.parse(item.timestamp || '');
+    if (!Number.isFinite(prevTs) || (Number.isFinite(nextTs) && nextTs >= prevTs)) {
+      map.set(k, item);
+    }
+  };
+  (Array.isArray(existingArr) ? existingArr : []).forEach(put);
+  (Array.isArray(cloudArr) ? cloudArr : []).forEach(put);
+  return Array.from(map.values()).sort((a, b) => {
+    const ta = Date.parse(a?.timestamp || '');
+    const tb = Date.parse(b?.timestamp || '');
+    return (Number.isFinite(tb) ? tb : 0) - (Number.isFinite(ta) ? ta : 0);
+  });
+}
+
+async function loadAnalyticsFromCloud(userId, opts = {}) {
+  const mergeOnly = !!opts.mergeOnly;
+  if (!sb || !userId) return;
+  try {
+    const [rvRes, zeRes, tsRes, ppRes] = await Promise.all([
+      sb.from('rv_sessions')
+        .select('id, session_type, trn, target_id, target_src, target_label, category, score, dimension_scores, hits, noise, aol, summary, notes, duration, sketch_data, timestamp, tags')
+        .eq('user_id', userId)
+        .order('timestamp', { ascending: false })
+        .limit(200),
+      sb.from('zener_runs')
+        .select('id, hits, hit_pct, symbol_stats, timestamp')
+        .eq('user_id', userId)
+        .order('timestamp', { ascending: false })
+        .limit(200),
+      sb.from('ts_trials')
+        .select('id, event_time, tap_time, delta, miss, hit, timestamp')
+        .eq('user_id', userId)
+        .order('timestamp', { ascending: false })
+        .limit(500),
+      sb.from('pp_sessions')
+        .select('id, hit, timestamp')
+        .eq('user_id', userId)
+        .order('timestamp', { ascending: false })
+        .limit(500),
+    ]);
+
+    const rvRows = Array.isArray(rvRes?.data) ? rvRes.data : [];
+    const zeRows = Array.isArray(zeRes?.data) ? zeRes.data : [];
+    const tsRows = Array.isArray(tsRes?.data) ? tsRes.data : [];
+    const ppRows = Array.isArray(ppRes?.data) ? ppRes.data : [];
+
+    const rvLocal = rvRows.map((r) => ({
+      id: Number(r.id) || Date.now(),
+      trn: r.trn || '',
+      targetId: r.target_id || null,
+      targetSrc: r.target_src || '',
+      targetLabel: r.target_label || '',
+      category: r.category || '',
+      score: Number.isFinite(Number(r.score)) ? Number(r.score) : 0,
+      dimension_scores: r.dimension_scores || {},
+      hits: Array.isArray(r.hits) ? r.hits : [],
+      noise: Array.isArray(r.noise) ? r.noise : [],
+      aol: Array.isArray(r.aol) ? r.aol : [],
+      summary: r.summary || '',
+      notes: r.notes || '',
+      duration: Number.isFinite(Number(r.duration)) ? Number(r.duration) : null,
+      sketchData: r.sketch_data || '',
+      timestamp: r.timestamp || new Date().toISOString(),
+      tags: Array.isArray(r.tags) ? r.tags : [],
+      sessionType: r.session_type || 'personal',
+    }));
+    const rvExisting = Array.isArray(STATE.sessions) ? STATE.sessions : [];
+    const rvMerged = mergeSessionArrays(
+      rvExisting,
+      rvLocal,
+      (r) => String(r?.id || `${r?.trn || ''}-${r?.timestamp || ''}`)
+    );
+    if (rvMerged.length) {
+      STATE.sessions = rvMerged;
+      saveState();
+      localStorage.setItem('ablty_rv_cloud_cache', JSON.stringify(rvMerged));
+    }
+
+    const zeLocal = zeRows.map((r) => ({
+      id: Number(r.id) || Date.now(),
+      hits: Number.isFinite(Number(r.hits)) ? Number(r.hits) : 0,
+      hitPct: Number.isFinite(Number(r.hit_pct)) ? Number(r.hit_pct) : 0,
+      symbolStats: r.symbol_stats || {},
+      timestamp: r.timestamp || new Date().toISOString(),
+    }));
+    const zeExisting = loadZenerSessions();
+    const zeMerged = mergeSessionArrays(
+      zeExisting,
+      zeLocal,
+      (r) => String(r?.id || `${r?.timestamp || ''}-${r?.hitPct || 0}-${r?.hits || 0}`)
+    );
+    if (zeMerged.length) {
+      localStorage.setItem('ablty_zener', JSON.stringify(zeMerged));
+      localStorage.setItem('ablty_zener_cloud_cache', JSON.stringify(zeMerged));
+    }
+
+    const tsLocal = tsRows.map((r) => ({
+      id: Number(r.id) || Date.now(),
+      eventTime: r.event_time ?? null,
+      tapTime: r.tap_time ?? null,
+      delta: r.delta ?? null,
+      miss: !!r.miss,
+      hit: !!r.hit,
+      timestamp: r.timestamp || new Date().toISOString(),
+    }));
+    const tsExisting = loadTimestampAll();
+    const tsMerged = mergeSessionArrays(
+      tsExisting,
+      tsLocal,
+      (t) => String(t?.id || `${t?.timestamp || ''}-${t?.eventTime ?? ''}-${t?.tapTime ?? ''}`)
+    );
+    if (tsMerged.length) {
+      localStorage.setItem('ablty_timestamp_all', JSON.stringify(tsMerged));
+      localStorage.setItem('ablty_timestamp', JSON.stringify(tsMerged.filter((t) => !t.miss)));
+      localStorage.setItem('ablty_ts_cloud_cache', JSON.stringify(tsMerged));
+      // Confirm pending TS entries now present in durable cache.
+      try {
+        const pendingTs = JSON.parse(localStorage.getItem('ablty_ts_pending') || '[]');
+        if (Array.isArray(pendingTs) && pendingTs.length) {
+          const mergedTs = mergeSessionArrays(
+            tsMerged,
+            pendingTs,
+            (t) => String(t?.id || `${t?.timestamp || ''}-${t?.eventTime ?? ''}-${t?.tapTime ?? ''}`)
+          );
+          localStorage.setItem('ablty_timestamp_all', JSON.stringify(mergedTs));
+          localStorage.setItem('ablty_timestamp', JSON.stringify(mergedTs.filter((t) => !t.miss)));
+          localStorage.setItem('ablty_ts_cloud_cache', JSON.stringify(mergedTs));
+          localStorage.removeItem('ablty_ts_pending');
+        }
+      } catch(e) {}
+    }
+
+    const ppLocal = ppRows.map((r) => ({
+      id: Number(r.id) || Date.now(),
+      hit: !!r.hit,
+      timestamp: r.timestamp || new Date().toISOString(),
+    }));
+    const ppExisting = loadPPSessions();
+    const ppMerged = mergeSessionArrays(
+      ppExisting,
+      ppLocal,
+      (p) => String(p?.id || p?.timestamp || '')
+    );
+    if (ppMerged.length) {
+      localStorage.setItem('ablty_photopair', JSON.stringify(ppMerged));
+      localStorage.setItem('ablty_pp_cloud_cache', JSON.stringify(ppMerged));
+      // Confirm pending PP entries now present in durable cache.
+      try {
+        const pendingPp = JSON.parse(localStorage.getItem('ablty_pp_pending') || '[]');
+        if (Array.isArray(pendingPp) && pendingPp.length) {
+          const mergedPp = mergeSessionArrays(
+            ppMerged,
+            pendingPp,
+            (p) => String(p?.id || p?.timestamp || '')
+          );
+          localStorage.setItem('ablty_photopair', JSON.stringify(mergedPp));
+          localStorage.setItem('ablty_pp_cloud_cache', JSON.stringify(mergedPp));
+          localStorage.removeItem('ablty_pp_pending');
+        }
+      } catch(e) {}
+    }
+  } catch(e) {}
 }
 
 async function handleLogin() {
@@ -8245,44 +8635,13 @@ async function handleSignup() {
     return;
   }
 
-  const signedUpUser = data?.user;
-  if (signedUpUser) {
-    const { error: profileErr } = await sb.from('profiles').insert({
-      id: signedUpUser.id,
-      username,
-      tier: 'free',
-    });
-    if (profileErr) {
-      if (profileErr.code === '23505') {
-        // Common when a DB trigger auto-creates profiles; apply chosen username instead.
-        const { error: profileUpdateErr } = await sb
-          .from('profiles')
-          .update({ username, tier: 'free' })
-          .eq('id', signedUpUser.id);
-        if (profileUpdateErr) {
-          setAuthError('signup-username','signup-username-err', profileUpdateErr.code === '23505'
-            ? 'That username is already taken'
-            : 'Could not save your username');
-          if (btn) btn.disabled = false;
-          return;
-        }
-      } else {
-        setAuthError('signup-email','signup-email-err', 'Could not create your profile. Please try again.');
-        if (btn) btn.disabled = false;
-        return;
-      }
-    }
-    const { error: settingsErr } = await sb.from('user_settings').insert({ user_id: signedUpUser.id });
-    if (settingsErr && settingsErr.code !== '23505') {
-      setAuthError('signup-email','signup-email-err', 'Account created, but settings setup failed. Please sign in again.');
-      if (btn) btn.disabled = false;
-      return;
-    }
-    localStorage.setItem('ablty_username', username);
-    localStorage.setItem('ablty_tier', 'free');
-    if (typeof migrateGuestData === 'function') {
-      await migrateGuestData(signedUpUser.id);
-    }
+  if (data?.user?.id) {
+    // Persist desired username for first confirmed sign-in profile provisioning.
+    localStorage.setItem('ablty_pending_username', username);
+  }
+
+  if (data?.session?.user && typeof onSignedIn === 'function') {
+    await onSignedIn(data.session.user);
   }
 
   localStorage.removeItem('ablty_guest_mode');
@@ -8364,6 +8723,7 @@ function obStartRC() {
 // ═══════════════════════════════════════════════════════
 
 let currentLogFilter = 'all';
+let currentLogSort = 'date';
 let editingSessionId = null;
 let editingSessionType = null;
 
@@ -8371,6 +8731,18 @@ function setLogFilter(filter) {
   currentLogFilter = filter;
   document.querySelectorAll('.log-filter-btn').forEach(b => {
     b.classList.toggle('active', b.dataset.filter === filter);
+  });
+  const sortDateBtn = document.getElementById('log-sort-date');
+  const sortScoreBtn = document.getElementById('log-sort-score');
+  if (sortDateBtn) sortDateBtn.classList.toggle('active', currentLogSort === 'date');
+  if (sortScoreBtn) sortScoreBtn.classList.toggle('active', currentLogSort === 'score');
+  buildCombinedLog(STATE.sessions || [], loadZenerSessions());
+}
+
+function setLogSort(mode) {
+  currentLogSort = mode === 'score' ? 'score' : 'date';
+  document.querySelectorAll('.log-sort-btn').forEach((b) => {
+    b.classList.toggle('active', b.dataset.sort === currentLogSort);
   });
   buildCombinedLog(STATE.sessions || [], loadZenerSessions());
 }
@@ -8657,65 +9029,7 @@ function buildBarChartMotivated(wrapId, data, valFn, maxVal, suffix, baselinePct
   wrap.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;">${bars}${baseLine}</svg>`;
 }
 
-// ── Log filtering ────────────────────────────
-function buildCombinedLog(rvSessions, zenerRuns) {
-  const el = document.getElementById('combined-log-list');
-  if (!el) return;
-
-  if (!rvSessions.length && !zenerRuns.length) {
-    el.innerHTML = `<div class="empty-state"><div class="empty-icon">◎</div><div class="mono-label">No sessions yet</div><div class="body-sm" style="margin-top:6px;">Complete your first session to begin building your log.</div></div>`;
-    return;
-  }
-
-  let rv = rvSessions.map(s => ({ ...s, type: 'rv' }));
-  let ze = zenerRuns.map(r => ({ ...r, type: 'zener', score: r.hitPct }));
-  let all = [...rv, ...ze].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-
-  // Apply filter
-  if (currentLogFilter === 'rv') all = all.filter(s => s.type === 'rv');
-  else if (currentLogFilter === 'zener') all = all.filter(s => s.type === 'zener');
-  else if (currentLogFilter === 'high') all = all.filter(s => s.score >= 60);
-  else if (currentLogFilter === 'tagged') all = all.filter(s => s.tags && s.tags.length);
-
-  if (!all.length) {
-    el.innerHTML = `<div class="empty-motivate"><div class="empty-motivate-icon">◎</div><div class="empty-motivate-title">No Matches</div><div class="empty-motivate-sub">No sessions match this filter yet.</div></div>`;
-    return;
-  }
-
-  el.innerHTML = all.map(s => {
-    const d       = new Date(s.timestamp);
-    const dateStr = `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
-    const cls     = s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low';
-    const typeTag = s.type === 'rv' ? 'RV' : 'ZNR';
-    const label   = s.type === 'rv' ? (s.targetLabel || '-') : `${s.hits}/25 hits`;
-    const thumb   = s.type === 'rv' ? (s.sketchData || s.targetSrc || '') : '';
-
-    const tagsHtml = (s.tags && s.tags.length)
-      ? `<div class="session-tags">${s.tags.map(t => `<span class="session-tag">${t}</span>`).join('')}</div>`
-      : '';
-
-    return `<div class="session-card" style="cursor:pointer;">
-      <div class="session-thumb" onclick="openSessionDetail('${s.type}', ${s.id})">
-        ${thumb
-          ? `<img src="${thumb}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'">`
-          : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-size:8px;color:var(--dim);">${typeTag}</div>`}
-      </div>
-      <div class="session-info" onclick="openSessionDetail('${s.type}', ${s.id})">
-        <div style="display:flex;align-items:center;gap:6px;">
-          <div class="display-sm">${s.type === 'rv' ? 'TRN ' + (s.trn || '') : 'ZENER'}</div>
-          <span style="font-family:var(--font-mono);font-size:8px;letter-spacing:1px;background:var(--card2);border:1px solid var(--border);border-radius:4px;padding:2px 5px;color:var(--muted);">${typeTag}</span>
-        </div>
-        <div class="mono-sm" style="margin-top:4px;">${dateStr}</div>
-        <div class="mono-sm" style="margin-top:2px;color:var(--dim);">${label}</div>
-        ${tagsHtml}
-      </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
-        <div class="session-score ${cls}">${s.score}%</div>
-        <button onclick="openEditModal('${s.type}',${s.id})" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 7px;font-family:var(--font-mono);font-size:9px;color:var(--muted);cursor:pointer;letter-spacing:1px;">+ TAG</button>
-      </div>
-    </div>`;
-  }).join('');
-}
+// Duplicate legacy buildCombinedLog removed.
 
 // ── Edit modal ───────────────────────────────
 function openEditModal(type, id) {
@@ -8791,15 +9105,52 @@ async function registerSW() {
     console.log('[ABLTY] Service worker registered');
     window._swRegistration = reg;
 
+    const checkForWaitingUpdate = () => {
+      // Show banner whenever a worker is waiting, even if controller is transiently null.
+      if (reg.waiting) showUpdateBanner();
+    };
+
+    // Common case on reopen: new SW is already waiting.
+    checkForWaitingUpdate();
+
+    // Trigger an explicit update check at startup.
+    try {
+      await reg.update();
+      checkForWaitingUpdate();
+    } catch(e) {}
+
     // Detect when a new version is waiting
     reg.addEventListener('updatefound', () => {
       const newWorker = reg.installing;
+      if (!newWorker) return;
       newWorker.addEventListener('statechange', () => {
-        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-          showUpdateBanner();
-        }
+        if (newWorker.state === 'installed') checkForWaitingUpdate();
       });
     });
+
+    // If the controller changes after SKIP_WAITING, reload once.
+    if (navigator.serviceWorker && !window.__abltySwReloadBound) {
+      window.__abltySwReloadBound = true;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        window.location.reload();
+      });
+    }
+
+    // Re-check periodically and when app returns to foreground.
+    if (!window.__abltySwPollBound) {
+      window.__abltySwPollBound = true;
+      const poll = async () => {
+        try {
+          await reg.update();
+        } catch (e) {}
+        checkForWaitingUpdate();
+      };
+      setInterval(poll, 60000);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') poll();
+      });
+      window.addEventListener('focus', poll);
+    }
 
     navigator.serviceWorker.addEventListener('message', event => {
       if (event.data && event.data.type === 'RC_OPEN')     openRCTask();
@@ -8992,26 +9343,82 @@ const TS_STATE = {
 // ─── PERSISTENCE ──────────────────────────────
 // Two keys: ablty_timestamp for tap trials, ablty_timestamp_all for all trials (incl misses)
 function loadTimestampTrials() {
-  try { return JSON.parse(localStorage.getItem('ablty_timestamp') || '[]'); } catch(e) { return []; }
+  try {
+    const local = JSON.parse(localStorage.getItem('ablty_timestamp') || '[]');
+    const queue = JSON.parse(localStorage.getItem('ablty_ts_pending') || '[]');
+    if (Array.isArray(local) && local.length) {
+      return mergeSessionArrays(
+        local,
+        (Array.isArray(queue) ? queue : []).filter(t => !t.miss),
+        (t) => String(t?.id || `${t?.timestamp || ''}-${t?.eventTime ?? ''}-${t?.tapTime ?? ''}`)
+      ).filter(t => !t.miss);
+    }
+    if (isLoggedIn()) {
+      const cloud = JSON.parse(localStorage.getItem('ablty_ts_cloud_cache') || '[]');
+      if (Array.isArray(cloud) && cloud.length) {
+        return mergeSessionArrays(
+          cloud,
+          (Array.isArray(queue) ? queue : []).filter(t => !t.miss),
+          (t) => String(t?.id || `${t?.timestamp || ''}-${t?.eventTime ?? ''}-${t?.tapTime ?? ''}`)
+        ).filter(t => !t.miss);
+      }
+    }
+    if (Array.isArray(queue) && queue.length) {
+      return queue.filter(t => !t.miss);
+    }
+    return Array.isArray(local) ? local : [];
+  } catch(e) { return []; }
 }
 function loadTimestampAll() {
-  try { return JSON.parse(localStorage.getItem('ablty_timestamp_all') || '[]'); } catch(e) { return []; }
+  try {
+    const local = JSON.parse(localStorage.getItem('ablty_timestamp_all') || '[]');
+    const queue = JSON.parse(localStorage.getItem('ablty_ts_pending') || '[]');
+    if (Array.isArray(local) && local.length) {
+      return mergeSessionArrays(
+        local,
+        Array.isArray(queue) ? queue : [],
+        (t) => String(t?.id || `${t?.timestamp || ''}-${t?.eventTime ?? ''}-${t?.tapTime ?? ''}`)
+      );
+    }
+    if (isLoggedIn()) {
+      const cloud = JSON.parse(localStorage.getItem('ablty_ts_cloud_cache') || '[]');
+      if (Array.isArray(cloud) && cloud.length) {
+        return mergeSessionArrays(
+          cloud,
+          Array.isArray(queue) ? queue : [],
+          (t) => String(t?.id || `${t?.timestamp || ''}-${t?.eventTime ?? ''}-${t?.tapTime ?? ''}`)
+        );
+      }
+    }
+    if (Array.isArray(queue) && queue.length) return queue;
+    return Array.isArray(local) ? local : [];
+  } catch(e) { return []; }
 }
 
 function saveTimestampTrial(trial) {
+  const normalized = Object.assign({}, trial, {
+    hit: (typeof trial?.hit === 'boolean') ? trial.hit : !trial?.miss,
+  });
+  try {
+    const pending = JSON.parse(localStorage.getItem('ablty_ts_pending') || '[]');
+    pending.unshift(normalized);
+    localStorage.setItem('ablty_ts_pending', JSON.stringify(pending.slice(0, 2000)));
+  } catch(e) {}
   // Always save to _all
   const allTrials = loadTimestampAll();
-  allTrials.unshift(trial);
-  try { localStorage.setItem('ablty_timestamp_all', JSON.stringify(allTrials)); } catch(e) {}
+  allTrials.unshift(normalized);
+  const prunedAll = allTrials.slice(0, MAX_TS_LOCAL_TRIALS);
+  try { localStorage.setItem('ablty_timestamp_all', JSON.stringify(prunedAll)); } catch(e) {}
 
   // Only save to _timestamp (delta analysis pool) if NOT a miss
-  if (!trial.miss) {
+  if (!normalized.miss) {
     const taps = loadTimestampTrials();
-    taps.unshift(trial);
-    try { localStorage.setItem('ablty_timestamp', JSON.stringify(taps)); } catch(e) {}
+    taps.unshift(normalized);
+    const prunedTaps = taps.slice(0, MAX_TS_LOCAL_TRIALS);
+    try { localStorage.setItem('ablty_timestamp', JSON.stringify(prunedTaps)); } catch(e) {}
   }
 
-  syncSessionToSupabase('ts_trials', mapTSTrialRow(trial));
+  syncSessionToSupabase('ts_trials', mapTSTrialRow(normalized));
 }
 
 // ─── BRIEF SCREEN ─────────────────────────────
@@ -9800,11 +10207,45 @@ function handlePPTap(side) {
 }
 
 // ── Persistence ───────────────────────────────────
-function loadPPSessions()  { try { return JSON.parse(localStorage.getItem('ablty_photopair') || '[]'); } catch(e) { return []; } }
+function loadPPSessions()  {
+  try {
+    const local = JSON.parse(localStorage.getItem('ablty_photopair') || '[]');
+    const queue = JSON.parse(localStorage.getItem('ablty_pp_pending') || '[]');
+    if (Array.isArray(local) && local.length) {
+      return mergeSessionArrays(
+        local,
+        Array.isArray(queue) ? queue : [],
+        (p) => String(p?.id || p?.timestamp || '')
+      );
+    }
+    if (isLoggedIn()) {
+      const cloud = JSON.parse(localStorage.getItem('ablty_pp_cloud_cache') || '[]');
+      if (Array.isArray(cloud) && cloud.length) {
+        return mergeSessionArrays(
+          cloud,
+          Array.isArray(queue) ? queue : [],
+          (p) => String(p?.id || p?.timestamp || '')
+        );
+      }
+    }
+    if (Array.isArray(queue) && queue.length) return queue;
+    return Array.isArray(local) ? local : [];
+  } catch(e) { return []; }
+}
 function savePPSession(s)  {
+  const normalized = Object.assign({}, s, {
+    id: Number(s?.id) || Date.now(),
+    hit: !!s?.hit,
+    timestamp: s?.timestamp || new Date().toISOString(),
+  });
+  try {
+    const pending = JSON.parse(localStorage.getItem('ablty_pp_pending') || '[]');
+    pending.unshift(normalized);
+    localStorage.setItem('ablty_pp_pending', JSON.stringify(pending.slice(0, 2000)));
+  } catch(e) {}
   const d = loadPPSessions();
-  d.unshift(s);
-  try { localStorage.setItem('ablty_photopair', JSON.stringify(d)); } catch(e) {}
+  d.unshift(normalized);
+  try { localStorage.setItem('ablty_photopair', JSON.stringify(d.slice(0, MAX_PP_LOCAL_TRIALS))); } catch(e) {}
   syncSessionToSupabase('pp_sessions', mapPPSessionRow(s));
 }
 window.addEventListener('error', (e) => {
