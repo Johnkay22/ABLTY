@@ -751,115 +751,24 @@ async function runWBTBCron(env) {
 }
 
 async function sendWBTBReturnPush(subscription, env) {
-  const endpoint = subscription.endpoint;
-  const p256dh = subscription.keys?.p256dh;
-  const auth = subscription.keys?.auth;
-  if (!endpoint || !p256dh || !auth) return;
-
-  const vapidPublic = env.VAPID_PUBLIC_KEY;
-  const vapidPrivate = env.VAPID_PRIVATE_KEY;
-  const vapidSubject = 'mailto:kayvideoproductions@gmail.com';
-
-  const header = b64url(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
-  const now2 = Math.floor(Date.now() / 1000);
-  const origin = new URL(endpoint).origin;
-  const claims = b64url(JSON.stringify({ aud: origin, exp: now2 + 43200, sub: vapidSubject }));
-  const signingInput = `${header}.${claims}`;
-
-  const pubBytes = base64ToBytes(vapidPublic);
-  const x = b64url(pubBytes.slice(1, 33));
-  const y = b64url(pubBytes.slice(33, 65));
-  const d = vapidPrivate;
-
-  const cryptoKey = await crypto.subtle.importKey(
-    'jwk',
-    { kty: 'EC', crv: 'P-256', x, y, d, key_ops: ['sign'] },
-    { name: 'ECDSA', namedCurve: 'P-256' },
-    false,
-    ['sign']
-  );
-
-  const sig = await crypto.subtle.sign(
-    { name: 'ECDSA', hash: 'SHA-256' },
-    cryptoKey,
-    new TextEncoder().encode(signingInput)
-  );
-
-  const jwt = `${signingInput}.${b64url(sig)}`;
   const msgBody = 'WBTB return. Wake window complete. Return to sleep now.';
-
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      Authorization: `vapid t=${jwt}, k=${vapidPublic}`,
-      TTL: '3600',
-      'Content-Type': 'text/plain',
-      'Content-Length': String(new TextEncoder().encode(msgBody).length),
-    },
-    body: new TextEncoder().encode(msgBody),
+  await sendVapidPush(subscription, env, {
+    bodyText: msgBody,
+    ttl: '3600',
+    errorPrefix: 'WBTB return push failed',
   });
-
-  if (!res.ok && res.status !== 201) {
-    throw new Error(`WBTB return push failed: ${res.status}`);
-  }
 }
 
 async function sendWBTBPush(subscription, durationHours, env) {
-  const endpoint = subscription.endpoint;
-  const p256dh = subscription.keys?.p256dh;
-  const auth = subscription.keys?.auth;
-  if (!endpoint || !p256dh || !auth) return;
-
-  const vapidPublic = env.VAPID_PUBLIC_KEY;
-  const vapidPrivate = env.VAPID_PRIVATE_KEY;
-  const vapidSubject = 'mailto:kayvideoproductions@gmail.com';
-
-  const header = b64url(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
-  const now2 = Math.floor(Date.now() / 1000);
-  const origin = new URL(endpoint).origin;
-  const claims = b64url(JSON.stringify({ aud: origin, exp: now2 + 43200, sub: vapidSubject }));
-  const signingInput = `${header}.${claims}`;
-
-  const pubBytes = base64ToBytes(vapidPublic);
-  const x = b64url(pubBytes.slice(1, 33));
-  const y = b64url(pubBytes.slice(33, 65));
-  const d = vapidPrivate;
-
-  const cryptoKey = await crypto.subtle.importKey(
-    'jwk',
-    { kty: 'EC', crv: 'P-256', x, y, d, key_ops: ['sign'] },
-    { name: 'ECDSA', namedCurve: 'P-256' },
-    false,
-    ['sign']
-  );
-
-  const sig = await crypto.subtle.sign(
-    { name: 'ECDSA', hash: 'SHA-256' },
-    cryptoKey,
-    new TextEncoder().encode(signingInput)
-  );
-
-  const jwt = `${signingInput}.${b64url(sig)}`;
-
   const h = Math.floor(durationHours);
   const m = Math.round((durationHours - h) * 60);
   const durStr = h + (m > 0 ? 'h' + m : 'h');
   const msgBody = 'WBTB wake. ' + durStr + ' sleep complete. Stay awake 20-30 min then return to sleep.';
-
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {
-      Authorization: `vapid t=${jwt}, k=${vapidPublic}`,
-      TTL: '3600',
-      'Content-Type': 'text/plain',
-      'Content-Length': String(new TextEncoder().encode(msgBody).length),
-    },
-    body: new TextEncoder().encode(msgBody),
+  await sendVapidPush(subscription, env, {
+    bodyText: msgBody,
+    ttl: '3600',
+    errorPrefix: 'WBTB push failed',
   });
-
-  if (!res.ok && res.status !== 201) {
-    throw new Error(`WBTB push failed: ${res.status}`);
-  }
 }
 
 // --- SUBSCRIBE ----------------------------------------
@@ -879,6 +788,23 @@ async function handleSubscribe(request, env, origin = '') {
 
 // --- WEB PUSH (VAPID) ---------------------------------
 async function sendWebPush(subscription, payload, env, isPrimer = false) {
+  const primerText = 'Tonight you will notice when something feels off.';
+  if (isPrimer) {
+    await sendVapidPush(subscription, env, {
+      bodyText: primerText,
+      ttl: '86400',
+      errorPrefix: 'Push failed',
+    });
+    return;
+  }
+  await sendVapidPush(subscription, env, {
+    bodyText: null,
+    ttl: '86400',
+    errorPrefix: 'Push failed',
+  });
+}
+
+async function sendVapidPush(subscription, env, opts = {}) {
   const endpoint = subscription.endpoint;
   const p256dh = subscription.keys?.p256dh;
   const auth = subscription.keys?.auth;
@@ -914,15 +840,16 @@ async function sendWebPush(subscription, payload, env, isPrimer = false) {
   );
 
   const jwt = `${signingInput}.${b64url(sig)}`;
-
-  const primerText = 'Tonight you will notice when something feels off.';
-  const pushBody = isPrimer ? new TextEncoder().encode(primerText) : null;
+  const bodyText = typeof opts.bodyText === 'string' ? opts.bodyText : null;
+  const pushBody = bodyText ? new TextEncoder().encode(bodyText) : null;
+  const ttl = opts.ttl || '86400';
+  const errorPrefix = opts.errorPrefix || 'Push failed';
 
   const res = await fetch(endpoint, {
     method: 'POST',
     headers: {
       Authorization: `vapid t=${jwt}, k=${vapidPublic}`,
-      TTL: '86400',
+      TTL: ttl,
       ...(pushBody
         ? { 'Content-Type': 'text/plain', 'Content-Length': String(pushBody.length) }
         : { 'Content-Length': '0' }),
@@ -932,7 +859,7 @@ async function sendWebPush(subscription, payload, env, isPrimer = false) {
 
   if (!res.ok && res.status !== 201) {
     const body = await res.text().catch(() => '');
-    throw new Error(`Push failed: ${res.status} ${body}`);
+    throw new Error(`${errorPrefix}: ${res.status} ${body}`);
   }
 }
 
