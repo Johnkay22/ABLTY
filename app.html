@@ -1626,6 +1626,8 @@ html, body {
   position: fixed; inset: 0; z-index: 9990;
   background: var(--bg);
   display: none; flex-direction: column;
+  /* Keep onboarding controls visible above mobile gesture bars. */
+  padding-bottom: env(safe-area-inset-bottom);
 }
 #onboarding-screen.active { display: flex; }
 #onboarding-screen.hidden {
@@ -1635,6 +1637,7 @@ html, body {
 .ob-slide {
   display: none; flex: 1; flex-direction: column;
   animation: fadeIn 0.35s ease;
+  min-height: 0;
 }
 .ob-slide.active { display: flex; }
 
@@ -1661,6 +1664,8 @@ html, body {
   flex: 1; overflow-y: auto;
   padding: 28px 32px 0;
   display: flex; flex-direction: column; gap: 0;
+  /* Critical for Android/iOS flexbox so footer buttons don't get pushed off-screen. */
+  min-height: 0;
 }
 .ob-row {
   display: flex; align-items: flex-start; gap: 16px;
@@ -1694,8 +1699,12 @@ html, body {
 
 /* Footer */
 .ob-footer {
-  flex-shrink: 0; padding: 20px 32px 40px;
+  flex-shrink: 0; padding: 20px 32px calc(28px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--border);
+  position: sticky;
+  bottom: 0;
+  background: var(--bg);
+  z-index: 2;
 }
 .ob-progress {
   display: flex; gap: 6px; margin-bottom: 20px;
@@ -1707,6 +1716,10 @@ html, body {
 }
 .ob-prog-seg.active { background: var(--accent); }
 .ob-btn-row { display: flex; gap: 10px; }
+.ob-btn-row .ob-cta,
+.ob-btn-row .ob-skip {
+  min-height: 48px;
+}
 .ob-skip {
   background: none; border: 1px solid var(--border);
   border-radius: 12px; padding: 14px 20px;
@@ -1767,6 +1780,46 @@ html, body {
 .ob-icon { font-size: 20px; flex-shrink: 0; width: 30px; text-align: center; margin-top: 2px; }
 .ob-top { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 32px 28px 0; }
 .ob-bottom { flex-shrink: 0; padding: 20px 28px 40px; }
+
+@media (max-height: 760px) {
+  .ob-header {
+    padding: 30px 20px 18px;
+  }
+  .ob-logo { font-size: 40px; }
+  .ob-headline { font-size: 18px; }
+  .ob-content {
+    padding: 16px 20px 0;
+  }
+  .ob-row {
+    padding: 12px 0;
+  }
+  .ob-row-label {
+    font-size: 16px;
+  }
+  .ob-row-sub {
+    font-size: 9px;
+    line-height: 1.45;
+  }
+  .ob-disclaimer {
+    margin-top: 12px;
+    padding: 10px 12px;
+    font-size: 9px;
+  }
+  .ob-footer {
+    padding: 12px 20px calc(18px + env(safe-area-inset-bottom));
+  }
+  .ob-progress {
+    margin-bottom: 12px;
+  }
+  .ob-skip {
+    padding: 12px 14px;
+    font-size: 9px;
+  }
+  .ob-cta {
+    padding: 12px;
+    font-size: 16px;
+  }
+}
 
 /* ═══════════════════════════════════════════
    RV STEP SCREENS
@@ -3402,8 +3455,6 @@ html, body {
         </div>
       </div>
 
-      <button class="admin-btn" onclick="showAdminModal()">⚙ Admin Access</button>
-
       <!-- RC Debug  -  only visible in dev mode -->
       <div id="rc-debug-wrap" style="display:none;flex-direction:column;gap:8px;margin-top:4px;">
         <button class="admin-btn" onclick="runRCDebug()" id="rc-debug-btn">◈ RC Pager Diagnostics</button>
@@ -3826,7 +3877,6 @@ html, body {
           <button class="log-filter-btn"        data-filter="zener"  onclick="setLogFilter('zener')">Zener</button>
           <button class="log-filter-btn"        data-filter="ts"     onclick="setLogFilter('ts')">Presentiment</button>
           <button class="log-filter-btn"        data-filter="pp"     onclick="setLogFilter('pp')">Photo Pair</button>
-          <button class="log-filter-btn"        data-filter="high"   onclick="setLogFilter('high')">High Score</button>
           <button class="log-filter-btn"        data-filter="tagged" onclick="setLogFilter('tagged')">Tagged</button>
         </div>
       <div class="log-sort-row">
@@ -4445,7 +4495,7 @@ These Terms of Service govern your use of ABLTY (ablty.app). By creating an acco
 
 1. WHO WE ARE
 
-ABLTY is a psi research and consciousness training application available at ablty.app. When these terms say &quot;we,&quot; &quot;us,&quot; or &quot;ABLTY,&quot; we mean the operators of ablty.app. You can reach us at <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="80e1e2ecf4f9e1f0f0c0e7ede1e9ecaee3efed">[email&#160;protected]</a>.
+ABLTY is a psi research and consciousness training application available at ablty.app. When these terms say &quot;we,&quot; &quot;us,&quot; or &quot;ABLTY,&quot; we mean the operators of ablty.app. You can reach us at <a href="mailto:abltyapp@gmail.com">abltyapp@gmail.com</a>.
 
 ---
 
@@ -4539,7 +4589,7 @@ These terms are governed by the laws of the State of Illinois, United States.
 
 13. CONTACT
 
-Questions about these terms: <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="3150535d454850414171565c50585d1f525e5c">[email&#160;protected]</a>
+Questions about these terms: <a href="mailto:abltyapp@gmail.com">abltyapp@gmail.com</a>
 </div>
 
     </div>
@@ -4570,7 +4620,7 @@ This Privacy Policy explains what information ABLTY (ablty.app) collects, how we
 
 1. WHO WE ARE
 
-ABLTY is operated by the team at ablty.app. Contact us at <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="a1c0c3cdd5d8c0d1d1e1c6ccc0c8cd8fc2cecc">[email&#160;protected]</a> with any privacy questions or requests.
+ABLTY is operated by the team at ablty.app. Contact us at <a href="mailto:abltyapp@gmail.com">abltyapp@gmail.com</a> with any privacy questions or requests.
 
 ---
 
@@ -4607,7 +4657,7 @@ We use your information to:
 - Send Community RV reveal notifications at 11:11 PM your local time
 - Display your scores and username on leaderboards (Premium only, with your participation)
 - Sync your session data across devices
-- Respond to support requests sent to <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="f796959b838e968787b7909a969e9bd994989a">[email&#160;protected]</a>
+- Respond to support requests sent to <a href="mailto:abltyapp@gmail.com">abltyapp@gmail.com</a>
 - Improve the app based on aggregate, anonymized usage patterns
 
 We may use anonymized, aggregate data  -  meaning data that cannot be linked to any individual user  -  for psi research purposes or to share findings publicly. This data is never personally identifiable.
@@ -4659,19 +4709,19 @@ You have the right to:
 - Export your session data (Premium feature)
 - Withdraw consent for push notifications at any time via app settings
 
-To exercise any of these rights, contact us at <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="d6b7b4baa2afb7a6a696b1bbb7bfbaf8b5b9bb">[email&#160;protected]</a>. We will respond within 30 days.
+To exercise any of these rights, contact us at <a href="mailto:abltyapp@gmail.com">abltyapp@gmail.com</a>. We will respond within 30 days.
 
 ---
 
 8. DATA SECURITY
 
-We use industry-standard security practices including encrypted connections (HTTPS), hashed passwords, and access controls. No system is perfectly secure. If you believe your account has been compromised, contact us immediately at <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="5031323c242931202010373d31393c7e333f3d">[email&#160;protected]</a>.
+We use industry-standard security practices including encrypted connections (HTTPS), hashed passwords, and access controls. No system is perfectly secure. If you believe your account has been compromised, contact us immediately at <a href="mailto:abltyapp@gmail.com">abltyapp@gmail.com</a>.
 
 ---
 
 9. CHILDREN
 
-ABLTY is not directed at children under 13. We do not knowingly collect personal information from children under 13. If you believe a child under 13 has created an account, contact us at <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="ceafaca2bab7afbebe8ea9a3afa7a2e0ada1a3">[email&#160;protected]</a> and we will delete the account.
+ABLTY is not directed at children under 13. We do not knowingly collect personal information from children under 13. If you believe a child under 13 has created an account, contact us at <a href="mailto:abltyapp@gmail.com">abltyapp@gmail.com</a> and we will delete the account.
 
 ---
 
@@ -4689,7 +4739,7 @@ This Privacy Policy is governed by the laws of the State of Illinois, United Sta
 
 12. CONTACT
 
-Privacy questions and data requests: <a href="/cdn-cgi/l/email-protection" class="__cf_email__" data-cfemail="6607040a121f07161626010b070f0a4805090b">[email&#160;protected]</a>
+Privacy questions and data requests: <a href="mailto:abltyapp@gmail.com">abltyapp@gmail.com</a>
 </div>
 
     </div>
@@ -5078,7 +5128,6 @@ function setCategory(cat) {
 }
 
 const RV_DAILY_LIMIT = 2;
-const ADMIN_PASSWORD = 'ablty2025';
 
 function getTodayKey() {
   const d = new Date();
@@ -5543,7 +5592,7 @@ function renderProfile() {
   if (seekerEl) seekerEl.textContent = STATE.seekerId;
   if (avatarEl) avatarEl.textContent = (STATE.seekerId || '#0').replace('#','').charAt(0);
   const devBadge = document.getElementById('dev-badge');
-  if (devBadge) devBadge.style.display = isDevMode() ? 'inline-block' : 'none';
+  if (devBadge) devBadge.style.display = 'none';
   const rcDebugWrap = document.getElementById('rc-debug-wrap');
   if (rcDebugWrap) rcDebugWrap.style.display = isDevMode() ? 'flex' : 'none';
   refreshPushUI();
@@ -5551,6 +5600,10 @@ function renderProfile() {
 
 
 async function runRCDebug() {
+  if (!isDevMode()) {
+    showToast('Diagnostics are available in dev mode only.', 'info');
+    return;
+  }
   const btn = document.getElementById('rc-debug-btn');
   const out = document.getElementById('rc-debug-output');
   if (!out) return;
@@ -5593,7 +5646,7 @@ async function runRCDebug() {
     const resp = await fetch(WORKER_URL + '/debug', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ secret: 'ablty-push-22' })
+      body: JSON.stringify({})
     });
     const data = await resp.json();
 
@@ -7358,6 +7411,18 @@ function buildSymbolAccuracy(zenerRuns) {
   }).join('');
 }
 
+function getTSTrialHit(trial) {
+  // Canonical TS hit classification:
+  // - A no-tap trial (miss=true) is always MISS.
+  // - If delta exists, classify by closeness to event (<= 3s).
+  // - Otherwise, fall back to stored boolean hit for legacy rows.
+  if (trial?.miss === true) return false;
+  const delta = Number(trial?.delta);
+  if (Number.isFinite(delta)) return Math.abs(delta) <= 3;
+  if (typeof trial?.hit === 'boolean') return trial.hit;
+  return false;
+}
+
 function buildCombinedLog(rvSessions, zenerRuns) {
   const el = document.getElementById('combined-log-list');
   if (!el) return;
@@ -7372,7 +7437,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   const tsSessions = loadTimestampAll().map(s => ({
     ...s,
     type: 'ts',
-    score: (typeof s.hit === 'boolean' ? s.hit : !s.miss) ? 100 : 0,
+    score: getTSTrialHit(s) ? 100 : 0,
     timestamp: s.timestamp || new Date().toISOString(),
   }));
 
@@ -7397,7 +7462,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   const toScore = (s) => {
     if (Number.isFinite(Number(s?.score))) return Number(s.score);
     if (s?.type === 'ts' || s?.type === 'pp') {
-      const hit = typeof s.hit === 'boolean' ? s.hit : !s.miss;
+      const hit = s?.type === 'ts' ? getTSTrialHit(s) : !!s?.hit;
       return hit ? 100 : 0;
     }
     return 0;
@@ -7421,7 +7486,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   const TYPE_LABEL = {
     rv:    s => s.targetLabel || '-',
     zener: s => `${s.hits}/25 hits`,
-    ts:    s => ((typeof s.hit === 'boolean' ? s.hit : !s.miss) ? 'Hit' : 'Miss'),
+    ts:    s => (getTSTrialHit(s) ? 'Hit' : 'Miss'),
     pp:    s => s.hit ? 'Hit' : 'Miss',
   };
   const TYPE_TITLE = {
@@ -7433,7 +7498,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   const TYPE_SCORE_DISPLAY = {
     rv:    s => s.score + '%',
     zener: s => s.score + '%',
-    ts:    s => (typeof s.hit === 'boolean' ? s.hit : !s.miss) ? 'HIT' : 'MISS',
+    ts:    s => getTSTrialHit(s) ? 'HIT' : 'MISS',
     pp:    s => s.hit ? 'HIT' : 'MISS',
   };
 
@@ -7448,7 +7513,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
     const sessionId   = s.id;
     const sessionType = s.type;
     const isHitMiss   = s.type === 'ts' || s.type === 'pp';
-    const isHitLike   = s.type === 'ts' ? (typeof s.hit === 'boolean' ? s.hit : !s.miss) : s.hit;
+    const isHitLike   = s.type === 'ts' ? getTSTrialHit(s) : s.hit;
     const cls = isHitMiss
       ? (isHitLike ? 'high' : 'low')
       : (s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low');
@@ -7560,7 +7625,7 @@ function renderPPDetail(s) {
 function renderTSDetail(s) {
   const d = new Date(s.timestamp);
   const dateStr = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
-  const tsHit = (typeof s.hit === 'boolean') ? s.hit : !s.miss;
+  const tsHit = getTSTrialHit(s);
 
   setEl('detail-type-label', 'PRESENTIMENT');
   setEl('detail-date', dateStr);
@@ -7935,37 +8000,13 @@ function exitDevMode() {
   showToast('Dev mode disabled.', 'info');
 }
 
-function showAdminModal() {
-  const input = document.getElementById('admin-password-input');
-  const err   = document.getElementById('admin-error');
-  if (input) input.value = '';
-  if (err)   err.style.display = 'none';
-  document.getElementById('admin-modal').style.display = 'flex';
-  setTimeout(() => { if (input) input.focus(); }, 100);
-}
+function showAdminModal() { return; }
 
 function closeAdminModal(e) {
-  if (e && e.target !== document.getElementById('admin-modal')) return;
-  document.getElementById('admin-modal').style.display = 'none';
+  return;
 }
 
-function submitAdminPassword() {
-  const input = document.getElementById('admin-password-input');
-  const err   = document.getElementById('admin-error');
-  if (!input) return;
-  if (input.value === ADMIN_PASSWORD) {
-    localStorage.setItem('ablty_dev', '1');
-    document.getElementById('admin-modal').style.display = 'none';
-    const badge = document.getElementById('dev-badge');
-    if (badge) badge.style.display = 'inline-block';
-    // Show confirmation
-    const box = document.querySelector('#admin-modal .modal-box');
-    alert('Dev mode enabled. Session limits removed.');
-  } else {
-    if (err) { err.style.display = 'block'; err.textContent = 'Incorrect password'; }
-    input.value = '';
-  }
-}
+function submitAdminPassword() { return; }
 
 function closeLimitModal(e) {
   if (e && e.target !== document.getElementById('limit-modal') && !e.target.classList.contains('modal-close-btn')) return;
@@ -8062,8 +8103,10 @@ function skipSplash() {
 }
 
 function obNext(slide) {
+  const n = Number(slide);
+  if (!Number.isFinite(n) || n < 1 || n > 3) return;
   document.querySelectorAll('.ob-slide').forEach(s => s.classList.remove('active'));
-  const target = document.getElementById('ob-slide-' + slide);
+  const target = document.getElementById('ob-slide-' + n);
   if (target) target.classList.add('active');
 }
 
@@ -8244,7 +8287,7 @@ function mapTSTrialRow(trial) {
     tap_time: trial?.tapTime ?? null,
     delta: trial?.delta ?? null,
     miss: !!trial?.miss,
-    hit: !!trial?.hit,
+    hit: getTSTrialHit(trial),
     timestamp: trial?.timestamp || new Date().toISOString(),
   };
 }
@@ -8484,7 +8527,7 @@ async function loadAnalyticsFromCloud(userId, opts = {}) {
       tapTime: r.tap_time ?? null,
       delta: r.delta ?? null,
       miss: !!r.miss,
-      hit: !!r.hit,
+      hit: typeof r.hit === 'boolean' ? r.hit : null,
       timestamp: r.timestamp || new Date().toISOString(),
     }));
     const tsExisting = loadTimestampAll();
@@ -9397,7 +9440,8 @@ function loadTimestampAll() {
 
 function saveTimestampTrial(trial) {
   const normalized = Object.assign({}, trial, {
-    hit: (typeof trial?.hit === 'boolean') ? trial.hit : !trial?.miss,
+    miss: !!trial?.miss,
+    hit: getTSTrialHit(trial),
   });
   try {
     const pending = JSON.parse(localStorage.getItem('ablty_ts_pending') || '[]');
@@ -9634,6 +9678,7 @@ function showTrialResult(isMiss) {
       tapTime: null,
       delta: null,
       miss: true,
+      hit: false,
       timestamp: new Date().toISOString(),
     };
     TS_STATE.batchTrials.push(trial);
@@ -9651,6 +9696,7 @@ function showTrialResult(isMiss) {
       tapTime: Math.round(TS_STATE.tapTime * 100) / 100,
       delta: Math.round(delta * 100) / 100,
       miss: false,
+      hit: absDelta <= 3,
       timestamp: new Date().toISOString(),
     };
     TS_STATE.batchTrials.push(trial);
@@ -10312,19 +10358,6 @@ window.addEventListener('error', (e) => {
     </div>
   </div>
 
-
-  <!-- ADMIN MODAL -->
-  <div class="modal-overlay" id="admin-modal" style="display:none;" onclick="closeAdminModal(event)">
-    <div class="modal-box">
-      <div class="modal-tag">Admin</div>
-      <div class="modal-title">Dev Access</div>
-      <div class="modal-body">Enter the admin password to unlock unlimited sessions on this device.</div>
-      <input class="admin-input" id="admin-password-input" type="password" placeholder="••••••••" maxlength="32" onkeydown="if(event.key==='Enter')submitAdminPassword()" />
-      <div class="admin-error" id="admin-error">Incorrect password</div>
-      <button class="modal-close-btn" style="margin-top:12px;" onclick="submitAdminPassword()">Unlock</button>
-      <button class="modal-close-btn" style="margin-top:8px;background:transparent;border-color:transparent;color:var(--muted);" onclick="closeAdminModal()">Cancel</button>
-    </div>
-  </div>
 
   <!-- DAILY LIMIT MODAL -->
   <div class="modal-overlay" id="limit-modal" style="display:none;" onclick="closeLimitModal(event)">
