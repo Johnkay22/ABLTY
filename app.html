@@ -1626,6 +1626,9 @@ html, body {
   position: fixed; inset: 0; z-index: 9990;
   background: var(--bg);
   display: none; flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   /* Keep onboarding controls visible above mobile gesture bars. */
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -1638,6 +1641,7 @@ html, body {
   display: none; flex: 1; flex-direction: column;
   animation: fadeIn 0.35s ease;
   min-height: 0;
+  overflow: hidden;
 }
 .ob-slide.active { display: flex; }
 
@@ -1666,6 +1670,15 @@ html, body {
   display: flex; flex-direction: column; gap: 0;
   /* Critical for Android/iOS flexbox so footer buttons don't get pushed off-screen. */
   min-height: 0;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.ob-slide-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 .ob-row {
   display: flex; align-items: flex-start; gap: 16px;
@@ -1701,8 +1714,6 @@ html, body {
 .ob-footer {
   flex-shrink: 0; padding: 20px 32px calc(28px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--border);
-  position: sticky;
-  bottom: 0;
   background: var(--bg);
   z-index: 2;
 }
@@ -1733,7 +1744,7 @@ html, body {
 /* CTA grid for slide 2 */
 .ob-module-grid {
   display: flex; flex-direction: column; gap: 10px;
-  padding: 28px 32px 0;
+  padding: 16px 32px 10px;
 }
 .ob-module-btn {
   width: 100%; padding: 16px 20px;
@@ -1790,6 +1801,9 @@ html, body {
   .ob-content {
     padding: 16px 20px 0;
   }
+  .ob-slide-scroll {
+    padding-top: 0;
+  }
   .ob-row {
     padding: 12px 0;
   }
@@ -1818,6 +1832,12 @@ html, body {
   .ob-cta {
     padding: 12px;
     font-size: 16px;
+  }
+  .ob-slide-2-sub {
+    padding: 12px 20px 0;
+  }
+  .ob-module-grid {
+    padding: 12px 20px 8px;
   }
 }
 
@@ -10478,28 +10498,30 @@ window.addEventListener('error', (e) => {
         <div class="ob-headline">Where do you want to start?</div>
       </div>
 
-      <div class="ob-slide-2-sub">All modules are available from the home screen at any time.</div>
+      <div class="ob-slide-scroll">
+        <div class="ob-slide-2-sub">All modules are available from the home screen at any time.</div>
 
-      <div class="ob-module-grid">
-        <button class="ob-module-btn primary" onclick="obStartRV()">
-          <span>Remote Viewing</span>
-          <span class="ob-module-arrow">→</span>
-        </button>
-        <button class="ob-module-btn" onclick="obStartZener()">
-          <span>Zener ESP Test</span>
-          <span class="ob-module-arrow">→</span>
-        </button>
-        <button class="ob-module-btn" onclick="obStartPresentiment()">
-          <span>Presentiment</span>
-          <span class="ob-module-arrow">→</span>
-        </button>
-        <button class="ob-module-btn" onclick="obStartRC()">
-          <span>Reality Check Pager</span>
-          <span class="ob-module-arrow">→</span>
-        </button>
+        <div class="ob-module-grid">
+          <button class="ob-module-btn primary" onclick="obStartRV()">
+            <span>Remote Viewing</span>
+            <span class="ob-module-arrow">→</span>
+          </button>
+          <button class="ob-module-btn" onclick="obStartZener()">
+            <span>Zener ESP Test</span>
+            <span class="ob-module-arrow">→</span>
+          </button>
+          <button class="ob-module-btn" onclick="obStartPresentiment()">
+            <span>Presentiment</span>
+            <span class="ob-module-arrow">→</span>
+          </button>
+          <button class="ob-module-btn" onclick="obStartRC()">
+            <span>Reality Check Pager</span>
+            <span class="ob-module-arrow">→</span>
+          </button>
+        </div>
       </div>
 
-      <div class="ob-footer" style="margin-top:auto;">
+      <div class="ob-footer">
         <div class="ob-progress">
           <div class="ob-prog-seg active"></div>
           <div class="ob-prog-seg active"></div>
