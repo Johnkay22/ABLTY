@@ -7411,6 +7411,18 @@ function buildSymbolAccuracy(zenerRuns) {
   }).join('');
 }
 
+function getTSTrialHit(trial) {
+  // Canonical TS hit classification:
+  // - A no-tap trial (miss=true) is always MISS.
+  // - If delta exists, classify by closeness to event (<= 3s).
+  // - Otherwise, fall back to stored boolean hit for legacy rows.
+  if (trial?.miss === true) return false;
+  const delta = Number(trial?.delta);
+  if (Number.isFinite(delta)) return Math.abs(delta) <= 3;
+  if (typeof trial?.hit === 'boolean') return trial.hit;
+  return false;
+}
+
 function buildCombinedLog(rvSessions, zenerRuns) {
   const el = document.getElementById('combined-log-list');
   if (!el) return;
@@ -7425,7 +7437,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   const tsSessions = loadTimestampAll().map(s => ({
     ...s,
     type: 'ts',
-    score: (typeof s.hit === 'boolean' ? s.hit : !s.miss) ? 100 : 0,
+    score: getTSTrialHit(s) ? 100 : 0,
     timestamp: s.timestamp || new Date().toISOString(),
   }));
 
@@ -7450,7 +7462,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   const toScore = (s) => {
     if (Number.isFinite(Number(s?.score))) return Number(s.score);
     if (s?.type === 'ts' || s?.type === 'pp') {
-      const hit = typeof s.hit === 'boolean' ? s.hit : !s.miss;
+      const hit = s?.type === 'ts' ? getTSTrialHit(s) : !!s?.hit;
       return hit ? 100 : 0;
     }
     return 0;
@@ -7474,7 +7486,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   const TYPE_LABEL = {
     rv:    s => s.targetLabel || '-',
     zener: s => `${s.hits}/25 hits`,
-    ts:    s => ((typeof s.hit === 'boolean' ? s.hit : !s.miss) ? 'Hit' : 'Miss'),
+    ts:    s => (getTSTrialHit(s) ? 'Hit' : 'Miss'),
     pp:    s => s.hit ? 'Hit' : 'Miss',
   };
   const TYPE_TITLE = {
@@ -7486,7 +7498,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   const TYPE_SCORE_DISPLAY = {
     rv:    s => s.score + '%',
     zener: s => s.score + '%',
-    ts:    s => (typeof s.hit === 'boolean' ? s.hit : !s.miss) ? 'HIT' : 'MISS',
+    ts:    s => getTSTrialHit(s) ? 'HIT' : 'MISS',
     pp:    s => s.hit ? 'HIT' : 'MISS',
   };
 
@@ -7501,7 +7513,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
     const sessionId   = s.id;
     const sessionType = s.type;
     const isHitMiss   = s.type === 'ts' || s.type === 'pp';
-    const isHitLike   = s.type === 'ts' ? (typeof s.hit === 'boolean' ? s.hit : !s.miss) : s.hit;
+    const isHitLike   = s.type === 'ts' ? getTSTrialHit(s) : s.hit;
     const cls = isHitMiss
       ? (isHitLike ? 'high' : 'low')
       : (s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low');
@@ -7613,7 +7625,7 @@ function renderPPDetail(s) {
 function renderTSDetail(s) {
   const d = new Date(s.timestamp);
   const dateStr = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
-  const tsHit = (typeof s.hit === 'boolean') ? s.hit : !s.miss;
+  const tsHit = getTSTrialHit(s);
 
   setEl('detail-type-label', 'PRESENTIMENT');
   setEl('detail-date', dateStr);
@@ -8275,7 +8287,7 @@ function mapTSTrialRow(trial) {
     tap_time: trial?.tapTime ?? null,
     delta: trial?.delta ?? null,
     miss: !!trial?.miss,
-    hit: !!trial?.hit,
+    hit: getTSTrialHit(trial),
     timestamp: trial?.timestamp || new Date().toISOString(),
   };
 }
@@ -8515,7 +8527,7 @@ async function loadAnalyticsFromCloud(userId, opts = {}) {
       tapTime: r.tap_time ?? null,
       delta: r.delta ?? null,
       miss: !!r.miss,
-      hit: !!r.hit,
+      hit: typeof r.hit === 'boolean' ? r.hit : null,
       timestamp: r.timestamp || new Date().toISOString(),
     }));
     const tsExisting = loadTimestampAll();
@@ -9428,7 +9440,8 @@ function loadTimestampAll() {
 
 function saveTimestampTrial(trial) {
   const normalized = Object.assign({}, trial, {
-    hit: (typeof trial?.hit === 'boolean') ? trial.hit : !trial?.miss,
+    miss: !!trial?.miss,
+    hit: getTSTrialHit(trial),
   });
   try {
     const pending = JSON.parse(localStorage.getItem('ablty_ts_pending') || '[]');
@@ -9665,6 +9678,7 @@ function showTrialResult(isMiss) {
       tapTime: null,
       delta: null,
       miss: true,
+      hit: false,
       timestamp: new Date().toISOString(),
     };
     TS_STATE.batchTrials.push(trial);
@@ -9682,6 +9696,7 @@ function showTrialResult(isMiss) {
       tapTime: Math.round(TS_STATE.tapTime * 100) / 100,
       delta: Math.round(delta * 100) / 100,
       miss: false,
+      hit: absDelta <= 3,
       timestamp: new Date().toISOString(),
     };
     TS_STATE.batchTrials.push(trial);
