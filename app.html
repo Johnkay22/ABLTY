@@ -734,6 +734,32 @@ html, body {
   border-radius: 12px; padding: 14px;
 }
 .summary-text { font-family: var(--font-mono); font-size: 12px; color: rgba(255,255,255,0.6); line-height: 1.6; }
+.rv-grade-error {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--danger);
+  border-radius: 12px;
+  padding: 14px;
+}
+.result-error-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 1px;
+  color: var(--text);
+  line-height: 1;
+}
+.result-error-body {
+  margin-top: 8px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.session-score.na {
+  color: var(--muted);
+  font-size: 16px;
+  letter-spacing: 0.5px;
+}
 
 /* Loading state */
 .grading-overlay {
@@ -3350,6 +3376,8 @@ html, body {
         <div class="summary-text" id="result-summary">Loading analysis...</div>
       </div>
 
+      <div class="rv-grade-error card fade-in-delay-2" id="rv-grade-error" style="display:none;"></div>
+
       <!-- Hits & Noise -->
       <div class="section-label fade-in-delay-3">Data Points</div>
       <div class="hit-list fade-in-delay-3" id="hit-list"></div>
@@ -5442,6 +5470,8 @@ async function submitSession() {
   if (targetReveal) targetReveal.src = target.src;
 
   let result;
+  let gradingFailed = false;
+  let gradingErrorMessage = '';
   try {
     updateGradingStatus('Encoding sketch data...');
     await delay(600);
@@ -5451,8 +5481,19 @@ async function submitSession() {
     await delay(400);
   } catch(err) {
     console.warn('[ABLTY] Grading failed:', err.message || err);
-    result = mockGrade();
-    result.summary = '[AI grading failed: ' + (err.message || 'unknown error') + '] ' + result.summary;
+    gradingFailed = true;
+    gradingErrorMessage = String(err?.message || 'Network or service error');
+    result = {
+      gestalt_score: null,
+      overall_score: null,
+      dimension_scores: null,
+      hits: [],
+      noise: [],
+      aol: [],
+      summary: 'AI grading is temporarily unavailable. Your session was saved successfully.',
+      grading_failed: true,
+      grading_error: gradingErrorMessage,
+    };
   }
 
   const gradingOverlay = document.getElementById('grading-overlay');
@@ -5467,12 +5508,14 @@ async function submitSession() {
     targetSrc: target.src,
     targetLabel: target.label,
     category: target.category,
-    score: result.gestalt_score || result.overall_score || 0,
+    score: gradingFailed ? null : (result.gestalt_score ?? result.overall_score ?? null),
     dimension_scores: result.dimension_scores || null,
     hits: result.hits || [],
     noise: result.noise || [],
     aol: result.aol || [],
     summary: result.summary,
+    grading_failed: gradingFailed,
+    grading_error: gradingErrorMessage || null,
     notes: notes,
     duration: STATE.timerSeconds,
     timestamp: new Date().toISOString(),
@@ -5489,14 +5532,34 @@ function updateGradingStatus(msg) {
   if (el) el.textContent = msg;
 }
 
+function getRVSessionScore(session) {
+  const score = Number(session?.score);
+  if (Number.isFinite(score)) return Math.max(0, Math.min(100, score));
+  return null;
+}
+
+function isRVGradingFailed(session) {
+  if (session?.grading_failed === true) return true;
+  return getRVSessionScore(session) === null;
+}
+
 function renderResults(result, target, notes) {
-  const score   = result.gestalt_score || result.overall_score || 0;
+  const score   = Number(result.gestalt_score ?? result.overall_score ?? 0);
   const ring    = document.getElementById('score-ring');
+  const scoreWrap = document.querySelector('#screen-results .result-score-ring');
+  const dataPointsLabel = document.querySelector('#screen-results .section-label.fade-in-delay-3');
   const pctEl   = document.getElementById('score-pct');
   const summary = document.getElementById('result-summary');
   const hitList = document.getElementById('hit-list');
+  const hasGradingFailure = !!result?.grading_failed;
+  const gradingErrorMsg = (result?.grading_error || '').trim();
 
-  if (ring) {
+  // Toggle result views: normal scored UI vs honest grading-failed UI.
+  if (scoreWrap) scoreWrap.style.display = hasGradingFailure ? 'none' : 'flex';
+  if (dataPointsLabel) dataPointsLabel.style.display = hasGradingFailure ? 'none' : 'block';
+  if (hitList) hitList.style.display = hasGradingFailure ? 'none' : 'flex';
+
+  if (!hasGradingFailure && ring) {
     const circumference = 364.4;
     ring.style.stroke = score >= 60 ? 'var(--accent)' : score >= 35 ? 'var(--warn)' : 'var(--danger)';
     setTimeout(() => {
@@ -5504,7 +5567,7 @@ function renderResults(result, target, notes) {
     }, 200);
   }
 
-  if (pctEl) {
+  if (!hasGradingFailure && pctEl) {
     let count = 0;
     const interval = setInterval(() => {
       count += 2;
@@ -5530,9 +5593,27 @@ function renderResults(result, target, notes) {
     notesCard.style.display = 'none';
   }
 
-  if (summary) summary.textContent = result.summary || '';
+  if (summary) {
+    summary.textContent = result.summary || '';
+  }
 
-  if (hitList) {
+  const errorCard = document.getElementById('rv-grade-error');
+  if (errorCard) {
+    if (hasGradingFailure) {
+      errorCard.style.display = 'block';
+      errorCard.innerHTML = `
+        <div class="result-error-title">Session Saved - Grading Failed</div>
+        <div class="result-error-body">Your sketch and impressions were saved successfully.</div>
+        <div class="result-error-body">${gradingErrorMsg ? `Reason: ${gradingErrorMsg}` : 'The AI grading service was unreachable right now.'}</div>
+        <div class="result-error-body">You can run another session now and try grading again later.</div>
+      `;
+    } else {
+      errorCard.style.display = 'none';
+      errorCard.innerHTML = '';
+    }
+  }
+
+  if (!hasGradingFailure && hitList) {
     hitList.innerHTML = '';
     (result.hits  || []).forEach(h => {
       hitList.innerHTML += `<div class="hit-item"><div class="hit-badge hit">Hit</div><div class="hit-text">${h}</div></div>`;
@@ -5573,34 +5654,6 @@ async function gradeSession(sketchB64, notes, target) {
   const data = await resp.json();
   if (data.error) throw new Error(data.error);
   return data;
-}
-
-function mockGrade() {
-  // Realistic mock result for dev/demo before Worker is wired
-  const score = Math.floor(15 + Math.random() * 65);
-  const allHits = [
-    'Detected horizontal banding / layered structure',
-    'Impression of open space or vastness',
-    'Noted water or fluid-like element',
-    'Angular or geometric shapes present in sketch',
-    'Temperature impression: cool / cold',
-    'Motion or flow quality in strokes',
-  ];
-  const allNoise = [
-    'Architectural detail not present in target',
-    'Human figure overlay  -  not in target',
-    'Color impression: red/warm  -  target is predominantly cool',
-    'Grid or lattice pattern: imaginative overlay',
-    'Text or symbol impression: AOL (Analytical Overlay)',
-  ];
-  const hits = allHits.sort(() => .5 - Math.random()).slice(0, 2 + Math.floor(Math.random() * 2));
-  const noise = allNoise.sort(() => .5 - Math.random()).slice(0, 1 + Math.floor(Math.random() * 2));
-  return {
-    gestalt_score: score,
-    hits,
-    noise,
-    summary: `Session produced ${hits.length} verifiable data point${hits.length !== 1 ? 's' : ''} against target. Signal-to-noise ratio is ${score > 50 ? 'above' : 'below'} baseline. Recommend reviewing AOL contamination in notepad entries.`,
-  };
 }
 
 // ─── PROFILE RENDER ───────────────────────────
@@ -7249,15 +7302,16 @@ function switchAnalyticsTab(tab) {
 }
 
 function renderAnalytics() {
-  const rvSessions  = STATE.sessions || [];
+  const rvSessions  = (STATE.sessions || []).filter(s => !isRVGradingFailed(s));
   const zenerRuns   = loadZenerSessions();
 
   // ── Overview ──────────────────────────────────
-  const rvAvg = rvSessions.length
-    ? Math.round(rvSessions.reduce((a, s) => a + s.score, 0) / rvSessions.length)
+  const scoredRvSessions = rvSessions.filter((s) => Number.isFinite(Number(s?.score)));
+  const rvAvg = scoredRvSessions.length
+    ? Math.round(scoredRvSessions.reduce((a, s) => a + Number(s.score), 0) / scoredRvSessions.length)
     : null;
-  const rvBest = rvSessions.length
-    ? Math.max(...rvSessions.map(s => s.score))
+  const rvBest = scoredRvSessions.length
+    ? Math.max(...scoredRvSessions.map((s) => Number(s.score)))
     : null;
   const zAvg = zenerRuns.length
     ? Math.round(zenerRuns.reduce((a, r) => a + r.hitPct, 0) / zenerRuns.length)
@@ -7368,13 +7422,14 @@ function buildBarChart(wrapId, data, valFn, maxVal, suffix, baselinePct) {
 function buildCatBreakdown(rvSessions) {
   const el = document.getElementById('cat-breakdown');
   if (!el) return;
-  if (!rvSessions.length) {
+  const gradedRv = (Array.isArray(rvSessions) ? rvSessions : []).filter((s) => Number.isFinite(Number(s?.score)));
+  if (!gradedRv.length) {
     el.innerHTML = `<div class="no-data-note">No RV sessions yet</div>`;
     return;
   }
 
   const cats = {};
-  rvSessions.forEach(s => {
+  gradedRv.forEach(s => {
     if (!s.category) return;
     if (!cats[s.category]) cats[s.category] = { total: 0, sum: 0 };
     cats[s.category].total++;
@@ -7516,7 +7571,10 @@ function buildCombinedLog(rvSessions, zenerRuns) {
     pp:    s => 'PHOTO PAIR',
   };
   const TYPE_SCORE_DISPLAY = {
-    rv:    s => s.score + '%',
+    rv:    s => {
+      const score = getRVSessionScore(s);
+      return score === null ? 'Not graded' : `${score}%`;
+    },
     zener: s => s.score + '%',
     ts:    s => getTSTrialHit(s) ? 'HIT' : 'MISS',
     pp:    s => s.hit ? 'HIT' : 'MISS',
@@ -7534,9 +7592,10 @@ function buildCombinedLog(rvSessions, zenerRuns) {
     const sessionType = s.type;
     const isHitMiss   = s.type === 'ts' || s.type === 'pp';
     const isHitLike   = s.type === 'ts' ? getTSTrialHit(s) : s.hit;
+    const rvScore = s.type === 'rv' ? getRVSessionScore(s) : null;
     const cls = isHitMiss
       ? (isHitLike ? 'high' : 'low')
-      : (s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low');
+      : (s.type === 'rv' && rvScore === null ? 'na' : (s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low'));
 
     return `<div class="session-card" onclick="openSessionDetail('${sessionType}','${sessionId}')" style="cursor:pointer;">
       <div class="session-thumb">
@@ -7553,7 +7612,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
         <div class="mono-sm" style="margin-top:2px;color:var(--dim);">${label}</div>
         ${s.type === 'rv' && s.notes && s.notes.trim() ? `<div class="mono-sm" style="margin-top:3px;color:var(--muted);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;">${s.notes.slice(0,60)}${s.notes.length>60?'..':''}</div>` : ''}
       </div>
-      <div class="session-score ${cls}">${scoreDisplay}</div>
+      <div class="session-score ${cls}${(s.type === 'rv' && isRVGradingFailed(s)) ? ' na' : ''}">${scoreDisplay}</div>
     </div>`;
   }).join('');
 }
@@ -7698,13 +7757,15 @@ function renderRVDetail(s) {
   // Score ring
   const ring = document.getElementById('detail-score-ring');
   const pctEl = document.getElementById('detail-score-pct');
+  const score = getRVSessionScore(s);
+  const failed = isRVGradingFailed(s);
   setEl('detail-score-label', 'Gestalt Match');
   if (ring) {
-    const score = s.score || 0;
-    ring.style.stroke = score >= 60 ? 'var(--accent)' : score >= 35 ? 'var(--warn)' : 'var(--danger)';
-    setTimeout(() => { ring.style.strokeDashoffset = 364.4 - (score / 100) * 364.4; }, 100);
+    const ringScore = score ?? 0;
+    ring.style.stroke = failed ? 'var(--muted)' : (ringScore >= 60 ? 'var(--accent)' : ringScore >= 35 ? 'var(--warn)' : 'var(--danger)');
+    setTimeout(() => { ring.style.strokeDashoffset = failed ? 364.4 : (364.4 - (ringScore / 100) * 364.4); }, 100);
   }
-  if (pctEl) pctEl.textContent = (s.score || 0) + '%';
+  if (pctEl) pctEl.textContent = failed ? 'N/A' : `${score}%`;
 
   // Images
   const imagesRow = document.getElementById('detail-images-row');
@@ -7715,7 +7776,11 @@ function renderRVDetail(s) {
   if (targetImg) targetImg.src = s.targetSrc || '';
 
   // Summary
-  setEl('detail-summary', s.summary || 'No summary available.');
+  if (failed) {
+    setEl('detail-summary', 'AI grading failed for this session. Your sketch, target reveal, and notes were saved.');
+  } else {
+    setEl('detail-summary', s.summary || 'No summary available.');
+  }
 
   // Notes
   let detailNotesCard = document.getElementById('detail-notes-card');
@@ -8268,6 +8333,10 @@ async function onSignedIn(user) {
 
 function mapRVSessionRow(session, sessionType = 'personal') {
   const targetIdNum = parseInt(String(session?.targetId || '').replace(/\D/g, ''), 10);
+  const rawScore = session?.score;
+  const normalizedScore = (rawScore === null || rawScore === undefined || rawScore === '')
+    ? null
+    : (Number.isFinite(Number(rawScore)) ? Number(rawScore) : null);
   return {
     id: Number(session?.id) || Date.now(),
     session_type: sessionType,
@@ -8276,7 +8345,7 @@ function mapRVSessionRow(session, sessionType = 'personal') {
     target_src: session?.targetSrc || null,
     target_label: session?.targetLabel || null,
     category: session?.category || null,
-    score: Number.isFinite(Number(session?.score)) ? Number(session.score) : null,
+    score: normalizedScore,
     dimension_scores: session?.dimension_scores || null,
     hits: Array.isArray(session?.hits) ? session.hits : [],
     noise: Array.isArray(session?.noise) ? session.noise : [],
@@ -8491,14 +8560,17 @@ async function loadAnalyticsFromCloud(userId, opts = {}) {
     const tsRows = Array.isArray(tsRes?.data) ? tsRes.data : [];
     const ppRows = Array.isArray(ppRes?.data) ? ppRes.data : [];
 
-    const rvLocal = rvRows.map((r) => ({
+  const rvLocal = rvRows.map((r) => ({
       id: Number(r.id) || Date.now(),
       trn: r.trn || '',
       targetId: r.target_id || null,
       targetSrc: r.target_src || '',
       targetLabel: r.target_label || '',
       category: r.category || '',
-      score: Number.isFinite(Number(r.score)) ? Number(r.score) : 0,
+      score: (r.score === null || r.score === undefined || r.score === '')
+        ? null
+        : (Number.isFinite(Number(r.score)) ? Number(r.score) : null),
+      grading_failed: !!r.grading_failed || r.score === null || r.score === undefined,
       dimension_scores: r.dimension_scores || {},
       hits: Array.isArray(r.hits) ? r.hits : [],
       noise: Array.isArray(r.noise) ? r.noise : [],
