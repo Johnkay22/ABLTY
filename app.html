@@ -2973,7 +2973,7 @@ html, body {
               <path d="M2 11.5c0-2.5 2-4.5 4.5-4.5s4.5 2 4.5 4.5" stroke="rgba(255,255,255,0.4)" stroke-width="1.1"/>
             </svg>
           </div>
-          <span class="mono-sm">Welcome, Seeker ID: <span id="seeker-id" style="color:var(--text)">#-----</span></span>
+          <span class="mono-sm"><span id="home-greeting" style="color:var(--text)">Welcome, Guest</span></span>
           <div class="pulse-dot"></div>
         </div>
       </div>
@@ -4888,7 +4888,6 @@ const TARGET_POOL = [
 
 // ─── APP STATE ────────────────────────────────
 const STATE = {
-  seekerId: null,
   currentTRN: null,
   currentTargetIndex: null,
   currentCategory: 'all',
@@ -4958,7 +4957,6 @@ function saveState() {
     return s;
   });
   store.set('ablty_sessions', JSON.stringify(pruned));
-  store.set('ablty_seeker', STATE.seekerId);
   store.set('ablty_settings', JSON.stringify(STATE.settings));
 }
 
@@ -4967,14 +4965,6 @@ function loadState() {
     const sessions = store.get('ablty_sessions');
     if (sessions) STATE.sessions = JSON.parse(sessions);
   } catch(e) { STATE.sessions = []; }
-
-  const seeker = store.get('ablty_seeker');
-  if (seeker) {
-    STATE.seekerId = seeker;
-  } else {
-    STATE.seekerId = '#' + Math.floor(10000 + Math.random() * 90000);
-    store.set('ablty_seeker', STATE.seekerId);
-  }
 
   try {
     const settings = store.get('ablty_settings');
@@ -5661,9 +5651,9 @@ function renderProfile() {
   renderSettingsState();
   const seekerEl = document.getElementById('profile-seeker-id');
   const avatarEl = document.getElementById('profile-avatar');
-
-  if (seekerEl) seekerEl.textContent = STATE.seekerId;
-  if (avatarEl) avatarEl.textContent = (STATE.seekerId || '#0').replace('#','').charAt(0);
+  const username = (localStorage.getItem('ablty_username') || 'Guest').trim() || 'Guest';
+  if (seekerEl) seekerEl.textContent = username;
+  if (avatarEl) avatarEl.textContent = username.charAt(0).toUpperCase();
   const devBadge = document.getElementById('dev-badge');
   if (devBadge) devBadge.style.display = 'none';
   const rcDebugWrap = document.getElementById('rc-debug-wrap');
@@ -6328,6 +6318,13 @@ function isLoggedIn() {
   return localStorage.getItem('ablty_logged_in') === '1';
 }
 
+function renderHomeGreeting() {
+  const el = document.getElementById('home-greeting');
+  if (!el) return;
+  const username = (localStorage.getItem('ablty_username') || '').trim();
+  el.textContent = isLoggedIn() && username ? `Welcome, ${username}` : 'Welcome, Guest';
+}
+
 function clearLocalAuthCache() {
   ['ablty_logged_in', 'ablty_username', 'ablty_tier', 'ablty_username_changed_at']
     .forEach((k) => localStorage.removeItem(k));
@@ -6918,9 +6915,8 @@ function showComingSoon(name) {
 document.addEventListener('DOMContentLoaded', () => {
   if (enforcePwaOnlyMode()) return;
 
-  try { loadState(); } catch(e) {
-    STATE.seekerId = '#' + Math.floor(10000 + Math.random() * 90000);
-  }
+  try { loadState(); } catch(e) {}
+  try { localStorage.removeItem('ablty_seeker'); } catch(e) {}
   checkAuthCallback();
   if (window.location.search.includes('payment=success')) {
     showToast('Welcome to ABLTY Premium.', 'success', 5000);
@@ -6939,11 +6935,13 @@ document.addEventListener('DOMContentLoaded', () => {
         clearLocalAuthCache();
         renderSettingsState();
         renderProfile();
+        renderHomeGreeting();
       }
     });
     reconcileAuthState().then(() => {
       renderSettingsState();
       renderProfile();
+      renderHomeGreeting();
     }).catch(() => {});
   }
 
@@ -6968,7 +6966,7 @@ document.addEventListener('DOMContentLoaded', () => {
   try { updateClock(); } catch(e) {}
   setInterval(() => { try { updateClock(); } catch(e) {} }, 10000);
 
-  try { document.getElementById('seeker-id').textContent = STATE.seekerId; } catch(e) {}
+  renderHomeGreeting();
 
   try {
     const pager = document.getElementById('toggle-pager');
@@ -8316,6 +8314,7 @@ async function onSignedIn(user) {
 
   renderSettingsState();
   renderProfile();
+  renderHomeGreeting();
   updateSyncStatus('syncing');
 
   try {
