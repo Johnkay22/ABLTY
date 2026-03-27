@@ -4838,58 +4838,13 @@ const sb = _supabaseSdk && typeof _supabaseSdk.createClient === 'function'
   ? _supabaseSdk.createClient(SUPABASE_URL, SUPABASE_ANON)
   : null;
 
-// ─── TARGET POOL ──────────────────────────────
-// In production: target selection + reveal happens
-// server-side via Cloudflare Worker.
-// For local dev, using public domain images.
-const TARGET_POOL = [
-  // ANIMALS
-  { id:'T001', src:'targets/6047-5129.jpg',  label:'Aquatic Predator', category:'animals',    descriptors:['streamlined','underwater','blue','predator','fins','movement'] },
-  { id:'T002', src:'targets/2847-5031.jpg',  label:'Arid Wanderer',    category:'animals',    descriptors:['large','single form','dunes','warm tones','isolation','arid'] },
-  { id:'T003', src:'targets/6193-8420.jpg',  label:'Swamp Predator',   category:'animals',    descriptors:['reptile','flat','dark water','textured','still','low profile'] },
-  { id:'T004', src:'targets/3756-1294.jpg',  label:'Wading Form',      category:'animals',    descriptors:['pink','curved neck','water','thin legs','standing','soft'] },
-  { id:'T005', src:'targets/9042-6371.jpg',  label:'Elevated Hunter',  category:'animals',    descriptors:['bird','perched','brown','feathers','claws','alert'] },
-  { id:'T006', src:'targets/5518-2983.jpg',  label:'Drifting Bell',    category:'animals',    descriptors:['translucent','glowing','underwater','tendrils','dark blue','floating'] },
-  { id:'T007', src:'targets/7284-4056.jpg',  label:'Display Plumage',  category:'animals',    descriptors:['radial','blue-green','fan','eye pattern','symmetrical','ornate'] },
-  { id:'T008', src:'targets/1639-7812.jpg',  label:'Arctic Mass',      category:'animals',    descriptors:['white','large','ice','standing','fur','cold'] },
-  { id:'T009', src:'targets/4907-3265.jpg',  label:'Crossing Giant',   category:'animals',    descriptors:['large','water','splashing','tusks','grey','powerful'] },
-  { id:'T010', src:'targets/8321-5749.jpg',  label:'Surface Breach',   category:'animals',    descriptors:['massive','ocean','airborne','spray','dark','curved'] },
-  // OBJECTS
-  { id:'T011', src:'targets/2163-9047.jpg',  label:'Stemmed Vessel',   category:'objects',    descriptors:['glass','transparent','stem','dark liquid','bar','bokeh'] },
-  { id:'T012', src:'targets/7836-4512.jpg',  label:'Vertical Stack',   category:'objects',    descriptors:['tall','cylindrical','vertical','metallic','dark sky','launch pad'] },
-  { id:'T013', src:'targets/3271-8064.jpg',  label:'Suspended Light',  category:'objects',    descriptors:['warm glow','dark','hanging','ornate','wood','night'] },
-  { id:'T014', src:'targets/9458-2317.jpg',  label:'Hollow Instrument',category:'objects',    descriptors:['curved','wooden','strings','f-holes','case','brown'] },
-  { id:'T015', src:'targets/1847-6093.jpg',  label:'Heat Vessel',      category:'objects',    descriptors:['round','metallic','handle','stove','kitchen','warm light'] },
-  { id:'T016', src:'targets/6024-3851.jpg',  label:'Corroded Anchor',  category:'objects',    descriptors:['rust','curved','heavy','beach','wet sand','metal'] },
-  { id:'T017', src:'targets/4382-7619.jpg',  label:'Navigation Tool',  category:'objects',    descriptors:['circular','brass','old map','directional','ornate','parchment'] },
-  { id:'T018', src:'targets/5093-7241.jpg',  label:'Key Cluster',      category:'objects',    descriptors:['metal','multiple','ring','serrated','wood surface','small'] },
-  { id:'T018b',src:'targets/5490-1738.jpg',  label:'Carousel Form',    category:'objects',    descriptors:['ornate','painted horse','pole','lights','warm tones','decorative'] },
-  // STRUCTURES
-  { id:'T019', src:'targets/8073-5246.jpg',  label:'Dome Observatory', category:'structures', descriptors:['dome','night sky','stars','glowing','isolated','round'] },
-  { id:'T020', src:'targets/2956-8130.jpg',  label:'Night Wheel',      category:'structures', descriptors:['circular','lit','radial spokes','carnival','dark sky','colorful'] },
-  { id:'T021', src:'targets/5714-3089.jpg',  label:'Signal Array',     category:'structures', descriptors:['dish','white','concave','angled','mechanical','open sky'] },
-  { id:'T022', src:'targets/3628-9471.jpg',  label:'Hilltop Fortress', category:'structures', descriptors:['stone','towers','battlements','green hill','medieval','blue sky'] },
-  { id:'T023', src:'targets/7195-4302.jpg',  label:'Sacred Interior',  category:'structures', descriptors:['arched ceiling','stained glass','light rays','stone','pews','tall'] },
-  { id:'T024', src:'targets/9067-1548.jpg',  label:'Spanning Structure',category:'structures', descriptors:['cables','towers','water below','orange','horizontal','linear'] },
-  { id:'T025', src:'targets/7163-2548.jpg',  label:'Vertical Beacon',  category:'structures', descriptors:['tower','cylindrical','isolated','storm','light beam','stone'] },
-  // LANDSCAPES
-  { id:'T026', src:'targets/4821-9037.jpg',  label:'Cascading Water',  category:'landscapes', descriptors:['flowing','vertical drop','mist','green','movement','rainforest'] },
-  { id:'T027', src:'targets/4531-7826.jpg',  label:'Urban Horizon',    category:'landscapes', descriptors:['skyscrapers','sunset','orange sky','city','street','silhouette'] },
-  { id:'T028', src:'targets/1293-6047.jpg',  label:'Coastal Shore',    category:'landscapes', descriptors:['palm trees','turquoise water','white sand','tropical','sunny','island'] },
-  { id:'T029', src:'targets/6840-2193.jpg',  label:'Dark Wetland',     category:'landscapes', descriptors:['cypress trees','hanging moss','still water','dark','misty','roots'] },
-  { id:'T030', src:'targets/3847-6120.jpg',  label:'Frozen Lake',      category:'landscapes', descriptors:['ice','reflective','pine trees','snow','blue sky','flat'] },
-  { id:'T031', src:'targets/5962-8347.jpg',  label:'Lava Crater',      category:'landscapes', descriptors:['orange glow','circular','dark rock','smoke','heat','molten'] },
-  { id:'T032', src:'targets/2419-7083.jpg',  label:'Arctic Expanse',   category:'landscapes', descriptors:['ice shards','white','vast','jagged peaks','cold','overcast'] },
-  { id:'T033', src:'targets/7530-1648.jpg',  label:'Layered Canyon',   category:'landscapes', descriptors:['red rock','layered','vast','warm tones','carved','cliffs'] },
-  { id:'T034', src:'targets/9184-3725.jpg',  label:'Storm Coast',      category:'landscapes', descriptors:['black rock','waves crashing','spray','grey sky','rough','violent'] },
-  { id:'T035', src:'targets/6371-4908.jpg',  label:'Sand Dunes',       category:'landscapes', descriptors:['rippled sand','beige','open sky','soft curves','minimal','arid'] },
-  { id:'T036', src:'targets/1758-9034.jpg',  label:'Summit Cloud',     category:'landscapes', descriptors:['snow peak','triangular','clouds','grey-blue','cold','high altitude'] },
-];
+// RV targets are now server-assigned by the Cloudflare Worker so blind-session
+// metadata is not exposed in client source.
 
 // ─── APP STATE ────────────────────────────────
 const STATE = {
   currentTRN: null,
-  currentTargetIndex: null,
+  currentAssignmentId: null,
   currentCategory: 'all',
   sessions: [],
   settings: { pager: false },
@@ -5217,6 +5172,10 @@ function startRVSession() {
 // revealTRN removed  -  TRN displayed immediately on step 2
 
 function openCanvas() {
+  if (!STATE.currentAssignmentId || !STATE.currentTRN) {
+    showToast('Target assignment missing. Please request a new session target.', 'warn', 4500);
+    return;
+  }
   showScreen('canvas', true);
   STATE.isErasing = false;
   const eraseBtn = document.getElementById('eraser-btn');
@@ -5434,7 +5393,14 @@ async function submitSession() {
   const sketchDataURL = canvas ? canvas.toDataURL('image/jpeg', 0.85) : '';
   const sketchB64     = sketchDataURL.split(',')[1] || '';
   const notes = collectImpressions();
-  const target = TARGET_POOL[STATE.currentTargetIndex];
+  const assignmentId = STATE.currentAssignmentId;
+  const currentTrn = STATE.currentTRN;
+  if (!assignmentId || !currentTrn) {
+    showToast('Target assignment expired. Please start a new RV session.', 'warn', 5000);
+    showScreen('rv', false);
+    await rvGoStep(2);
+    return;
+  }
 
   showScreen('results', false);
   // Scroll results screen to top so grading overlay is visible
@@ -5443,7 +5409,7 @@ async function submitSession() {
   const gradingEl = document.getElementById('grading-overlay');
   if (gradingEl) gradingEl.style.display = 'flex';
   const trnLabel = document.getElementById('result-trn-label');
-  if (trnLabel) trnLabel.textContent = 'TRN: ' + STATE.currentTRN;
+  if (trnLabel) trnLabel.textContent = 'TRN: ' + currentTrn;
 
   // Use data URL directly as img src
   const sketchPreview = document.getElementById('sketch-preview');
@@ -5455,24 +5421,27 @@ async function submitSession() {
     sketchPreview.style.display = 'block';
   }
 
-  // Reveal target image
+  // Target reveal is returned by the worker after grading attempt.
   const targetReveal = document.getElementById('target-reveal');
-  if (targetReveal) targetReveal.src = target.src;
+  if (targetReveal) targetReveal.src = '';
 
   let result;
+  let revealedTarget = null;
   let gradingFailed = false;
   let gradingErrorMessage = '';
   try {
     updateGradingStatus('Encoding sketch data...');
     await delay(600);
     updateGradingStatus('Contacting AI analyst...');
-    result = await gradeSession(sketchB64, notes, target);
+    result = await gradeSession(sketchB64, notes, assignmentId, currentTrn);
+    revealedTarget = normalizeRVTarget(result?.target, currentTrn);
     updateGradingStatus('Compiling report...');
     await delay(400);
   } catch(err) {
     console.warn('[ABLTY] Grading failed:', err.message || err);
     gradingFailed = true;
     gradingErrorMessage = String(err?.message || 'Network or service error');
+    revealedTarget = normalizeRVTarget(err?.target, currentTrn);
     result = {
       gestalt_score: null,
       overall_score: null,
@@ -5483,21 +5452,33 @@ async function submitSession() {
       summary: 'AI grading is temporarily unavailable. Your session was saved successfully.',
       grading_failed: true,
       grading_error: gradingErrorMessage,
+      target: revealedTarget || null,
     };
   }
+  if (result?.grading_failed === true) {
+    gradingFailed = true;
+    if (!gradingErrorMessage) {
+      gradingErrorMessage = String(result?.grading_error || 'Network or service error');
+    }
+  }
+  if (!revealedTarget) {
+    revealedTarget = normalizeRVTarget(result?.target, currentTrn);
+  }
+  if (targetReveal) targetReveal.src = revealedTarget?.src || '';
 
   const gradingOverlay = document.getElementById('grading-overlay');
   if (gradingOverlay) gradingOverlay.style.display = 'none';
-  renderResults(result, target, notes);
+  renderResults(result, revealedTarget, notes);
 
   // Always save session
   const session = {
     id: Date.now(),
-    trn: STATE.currentTRN,
-    targetId: target.id,
-    targetSrc: target.src,
-    targetLabel: target.label,
-    category: target.category,
+    trn: currentTrn,
+    assignmentId: assignmentId,
+    targetId: revealedTarget?.id || null,
+    targetSrc: revealedTarget?.src || '',
+    targetLabel: revealedTarget?.label || '',
+    category: revealedTarget?.category || STATE.currentCategory || null,
     score: gradingFailed ? null : (result.gestalt_score ?? result.overall_score ?? null),
     dimension_scores: result.dimension_scores || null,
     hits: result.hits || [],
@@ -5511,6 +5492,7 @@ async function submitSession() {
     timestamp: new Date().toISOString(),
     sketchData: sketchDataURL,
   };
+  STATE.currentAssignmentId = null;
   STATE.sessions.unshift(session);
   saveState();
   incrementDailyCount();
@@ -5520,6 +5502,20 @@ async function submitSession() {
 function updateGradingStatus(msg) {
   const el = document.getElementById('grading-status');
   if (el) el.textContent = msg;
+}
+
+function normalizeRVTarget(rawTarget, fallbackTrn = '') {
+  if (!rawTarget || typeof rawTarget !== 'object') return null;
+  const src = typeof rawTarget.src === 'string' ? rawTarget.src.trim() : '';
+  const id = (rawTarget.id === null || rawTarget.id === undefined) ? null : String(rawTarget.id);
+  const label = typeof rawTarget.label === 'string' ? rawTarget.label : '';
+  const category = typeof rawTarget.category === 'string' ? rawTarget.category : '';
+  let trn = typeof rawTarget.trn === 'string' ? rawTarget.trn.trim() : '';
+  if (!trn && src) {
+    trn = src.replace(/^targets\//, '').replace(/\.(jpg|jpeg|png|webp)$/i, '');
+  }
+  if (!trn) trn = fallbackTrn || '';
+  return { id, src, label, category, trn };
 }
 
 function getRVSessionScore(session) {
@@ -5623,26 +5619,24 @@ function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 // ─── AI GRADING ───────────────────────────────
 const WORKER_URL = 'https://abltygrader.kayvideoproductions.workers.dev';
 
-async function gradeSession(sketchB64, notes, target) {
-  // Resolve relative target path to full URL so the Worker can fetch it
-  const targetUrl = target.src.startsWith('http')
-    ? target.src
-    : new URL(target.src, window.location.href).href;
-
+async function gradeSession(sketchB64, notes, assignmentId, trn) {
   const resp = await fetch(WORKER_URL + '/grade', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      sketch:       sketchB64,
-      notes:        notes,
-      targetLabel:  target.label,
-      descriptors:  target.descriptors || [],
-      trn:          STATE.currentTRN,
+      sketch: sketchB64,
+      notes: notes,
+      assignment_id: assignmentId,
+      trn: trn,
     }),
   });
-  if (!resp.ok) throw new Error('Worker error ' + resp.status);
-  const data = await resp.json();
-  if (data.error) throw new Error(data.error);
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok || data?.error) {
+    const msg = data?.message || data?.error || ('Worker error ' + resp.status);
+    const err = new Error(msg);
+    if (data?.target) err.target = data.target;
+    throw err;
+  }
   return data;
 }
 
@@ -8014,7 +8008,7 @@ function renderCalibration(rvSessions) {
 //  RV STEP NAVIGATION
 // ═══════════════════════════════════════════════════════
 
-function rvGoStep(n) {
+async function rvGoStep(n) {
   document.querySelectorAll('.rv-step').forEach(s => s.classList.remove('active'));
 
   // First time doing RV: inject protocol step between 1 and 2
@@ -8025,34 +8019,64 @@ function rvGoStep(n) {
       const proto = document.getElementById('rv-step-protocol');
       if (proto) { proto.classList.add('active'); return; }
     }
-    // Assign target + display TRN
-    rvAssignTarget();
+    // Show step 2 while fetching secure worker-side assignment.
+    const step2 = document.getElementById('rv-step-2');
+    if (step2) step2.classList.add('active');
+    try {
+      await rvAssignTarget();
+    } catch (e) {
+      console.warn('[ABLTY] Failed to assign RV target:', e?.message || e);
+      showToast('Could not assign a target. Please check your connection and try again.', 'warn', 5000);
+      document.querySelectorAll('.rv-step').forEach(s => s.classList.remove('active'));
+      const step1 = document.getElementById('rv-step-1');
+      if (step1) step1.classList.add('active');
+    }
+    return;
   }
 
   const step = document.getElementById('rv-step-' + n);
   if (step) step.classList.add('active');
 }
 
-function rvAssignTarget() {
-  const pool = STATE.currentCategory === 'all'
-    ? TARGET_POOL
-    : TARGET_POOL.filter(t => t.category === STATE.currentCategory);
-  const activePool = pool.length ? pool : TARGET_POOL;
-  const picked = activePool[Math.floor(Math.random() * activePool.length)];
-  STATE.currentTargetIndex = TARGET_POOL.indexOf(picked);
+function sanitizeRVCategory(cat) {
+  const allowed = new Set(['all', 'animals', 'objects', 'structures', 'landscapes']);
+  return allowed.has(cat) ? cat : 'all';
+}
 
-  // TRN is derived from the filename: "targets/6047-5129.jpg" -> "6047-5129"
-  const filename = picked.src.replace('targets/', '').replace('.jpg', '');
-  STATE.currentTRN = filename;
+async function requestRVAssignment(category) {
+  const resp = await fetch(WORKER_URL + '/rv-assign', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ category: sanitizeRVCategory(category) }),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok || data?.error) {
+    throw new Error(data?.message || data?.error || ('Worker error ' + resp.status));
+  }
+  if (!data?.assignment_id || !data?.trn) {
+    throw new Error('Invalid assignment response');
+  }
+  return data;
+}
+
+async function rvAssignTarget() {
+  STATE.currentAssignmentId = null;
+  STATE.currentTRN = null;
+  const trnEl = document.getElementById('trn-display');
+  if (trnEl) trnEl.textContent = 'ASSIGNING...';
+  const canvasTrn = document.getElementById('canvas-trn');
+  if (canvasTrn) canvasTrn.textContent = '--------';
+
+  const assignment = await requestRVAssignment(STATE.currentCategory);
+  const trn = String(assignment.trn);
+
+  STATE.currentAssignmentId = String(assignment.assignment_id);
+  STATE.currentTRN = trn;
 
   // Display with space: "6047 5129"
-  const formatted = filename.replace('-', '  ');
-  const trnEl = document.getElementById('trn-display');
+  const formatted = trn.replace('-', '  ');
   if (trnEl) trnEl.textContent = formatted;
-
-  // Sync canvas TRN badge
-  const canvasTrn = document.getElementById('canvas-trn');
-  if (canvasTrn) canvasTrn.textContent = filename;
+  if (canvasTrn) canvasTrn.textContent = trn;
 }
 
 function showProtocolModal() {
