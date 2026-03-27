@@ -1,5 +1,6 @@
 // ABLTY Cloudflare Worker
 // Routes:
+//   POST /rv-assign       - Assign blind RV target/TRN
 //   POST /grade           - AI grading via Gemini
 //   POST /subscribe       - Save push subscription
 //   POST /wbtb-schedule   - Schedule WBTB push alarms
@@ -18,6 +19,54 @@ const STRIPE_TIER_EVENTS = new Set([
   'customer.subscription.deleted',
   'checkout.session.completed',
 ]);
+
+const RV_ASSIGN_TTL_SECONDS = 60 * 60 * 2; // 2 hours
+const RV_CATEGORIES = new Set(['all', 'animals', 'objects', 'structures', 'landscapes']);
+
+// Server-side RV target pool (kept off client for protocol integrity).
+const RV_TARGET_POOL = [
+  // ANIMALS
+  { id:'T001', src:'targets/6047-5129.jpg',  label:'Aquatic Predator', category:'animals',    descriptors:['streamlined','underwater','blue','predator','fins','movement'] },
+  { id:'T002', src:'targets/2847-5031.jpg',  label:'Arid Wanderer',    category:'animals',    descriptors:['large','single form','dunes','warm tones','isolation','arid'] },
+  { id:'T003', src:'targets/6193-8420.jpg',  label:'Swamp Predator',   category:'animals',    descriptors:['reptile','flat','dark water','textured','still','low profile'] },
+  { id:'T004', src:'targets/3756-1294.jpg',  label:'Wading Form',      category:'animals',    descriptors:['pink','curved neck','water','thin legs','standing','soft'] },
+  { id:'T005', src:'targets/9042-6371.jpg',  label:'Elevated Hunter',  category:'animals',    descriptors:['bird','perched','brown','feathers','claws','alert'] },
+  { id:'T006', src:'targets/5518-2983.jpg',  label:'Drifting Bell',    category:'animals',    descriptors:['translucent','glowing','underwater','tendrils','dark blue','floating'] },
+  { id:'T007', src:'targets/7284-4056.jpg',  label:'Display Plumage',  category:'animals',    descriptors:['radial','blue-green','fan','eye pattern','symmetrical','ornate'] },
+  { id:'T008', src:'targets/1639-7812.jpg',  label:'Arctic Mass',      category:'animals',    descriptors:['white','large','ice','standing','fur','cold'] },
+  { id:'T009', src:'targets/4907-3265.jpg',  label:'Crossing Giant',   category:'animals',    descriptors:['large','water','splashing','tusks','grey','powerful'] },
+  { id:'T010', src:'targets/8321-5749.jpg',  label:'Surface Breach',   category:'animals',    descriptors:['massive','ocean','airborne','spray','dark','curved'] },
+  // OBJECTS
+  { id:'T011', src:'targets/2163-9047.jpg',  label:'Stemmed Vessel',   category:'objects',    descriptors:['glass','transparent','stem','dark liquid','bar','bokeh'] },
+  { id:'T012', src:'targets/7836-4512.jpg',  label:'Vertical Stack',   category:'objects',    descriptors:['tall','cylindrical','vertical','metallic','dark sky','launch pad'] },
+  { id:'T013', src:'targets/3271-8064.jpg',  label:'Suspended Light',  category:'objects',    descriptors:['warm glow','dark','hanging','ornate','wood','night'] },
+  { id:'T014', src:'targets/9458-2317.jpg',  label:'Hollow Instrument',category:'objects',    descriptors:['curved','wooden','strings','f-holes','case','brown'] },
+  { id:'T015', src:'targets/1847-6093.jpg',  label:'Heat Vessel',      category:'objects',    descriptors:['round','metallic','handle','stove','kitchen','warm light'] },
+  { id:'T016', src:'targets/6024-3851.jpg',  label:'Corroded Anchor',  category:'objects',    descriptors:['rust','curved','heavy','beach','wet sand','metal'] },
+  { id:'T017', src:'targets/4382-7619.jpg',  label:'Navigation Tool',  category:'objects',    descriptors:['circular','brass','old map','directional','ornate','parchment'] },
+  { id:'T018', src:'targets/5093-7241.jpg',  label:'Key Cluster',      category:'objects',    descriptors:['metal','multiple','ring','serrated','wood surface','small'] },
+  { id:'T018b',src:'targets/5490-1738.jpg',  label:'Carousel Form',    category:'objects',    descriptors:['ornate','painted horse','pole','lights','warm tones','decorative'] },
+  // STRUCTURES
+  { id:'T019', src:'targets/8073-5246.jpg',  label:'Dome Observatory', category:'structures', descriptors:['dome','night sky','stars','glowing','isolated','round'] },
+  { id:'T020', src:'targets/2956-8130.jpg',  label:'Night Wheel',      category:'structures', descriptors:['circular','lit','radial spokes','carnival','dark sky','colorful'] },
+  { id:'T021', src:'targets/5714-3089.jpg',  label:'Signal Array',     category:'structures', descriptors:['dish','white','concave','angled','mechanical','open sky'] },
+  { id:'T022', src:'targets/3628-9471.jpg',  label:'Hilltop Fortress', category:'structures', descriptors:['stone','towers','battlements','green hill','medieval','blue sky'] },
+  { id:'T023', src:'targets/7195-4302.jpg',  label:'Sacred Interior',  category:'structures', descriptors:['arched ceiling','stained glass','light rays','stone','pews','tall'] },
+  { id:'T024', src:'targets/9067-1548.jpg',  label:'Spanning Structure',category:'structures', descriptors:['cables','towers','water below','orange','horizontal','linear'] },
+  { id:'T025', src:'targets/7163-2548.jpg',  label:'Vertical Beacon',  category:'structures', descriptors:['tower','cylindrical','isolated','storm','light beam','stone'] },
+  // LANDSCAPES
+  { id:'T026', src:'targets/4821-9037.jpg',  label:'Cascading Water',  category:'landscapes', descriptors:['flowing','vertical drop','mist','green','movement','rainforest'] },
+  { id:'T027', src:'targets/4531-7826.jpg',  label:'Urban Horizon',    category:'landscapes', descriptors:['skyscrapers','sunset','orange sky','city','street','silhouette'] },
+  { id:'T028', src:'targets/1293-6047.jpg',  label:'Coastal Shore',    category:'landscapes', descriptors:['palm trees','turquoise water','white sand','tropical','sunny','island'] },
+  { id:'T029', src:'targets/6840-2193.jpg',  label:'Dark Wetland',     category:'landscapes', descriptors:['cypress trees','hanging moss','still water','dark','misty','roots'] },
+  { id:'T030', src:'targets/3847-6120.jpg',  label:'Frozen Lake',      category:'landscapes', descriptors:['ice','reflective','pine trees','snow','blue sky','flat'] },
+  { id:'T031', src:'targets/5962-8347.jpg',  label:'Lava Crater',      category:'landscapes', descriptors:['orange glow','circular','dark rock','smoke','heat','molten'] },
+  { id:'T032', src:'targets/2419-7083.jpg',  label:'Arctic Expanse',   category:'landscapes', descriptors:['ice shards','white','vast','jagged peaks','cold','overcast'] },
+  { id:'T033', src:'targets/7530-1648.jpg',  label:'Layered Canyon',   category:'landscapes', descriptors:['red rock','layered','vast','warm tones','carved','cliffs'] },
+  { id:'T034', src:'targets/9184-3725.jpg',  label:'Storm Coast',      category:'landscapes', descriptors:['black rock','waves crashing','spray','grey sky','rough','violent'] },
+  { id:'T035', src:'targets/6371-4908.jpg',  label:'Sand Dunes',       category:'landscapes', descriptors:['rippled sand','beige','open sky','soft curves','minimal','arid'] },
+  { id:'T036', src:'targets/1758-9034.jpg',  label:'Summit Cloud',     category:'landscapes', descriptors:['snow peak','triangular','clouds','grey-blue','cold','high altitude'] },
+];
 
 // Returns CORS headers for a given request origin
 function getCORS(origin) {
@@ -41,6 +90,47 @@ function isAllowedOrigin(origin) {
   // Allow during local development (empty origin or localhost)
   if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) return true;
   return ALLOWED_ORIGINS.includes(origin);
+}
+
+function sanitizeRVCategory(category) {
+  return RV_CATEGORIES.has(category) ? category : 'all';
+}
+
+function pickRVTarget(category) {
+  const safeCategory = sanitizeRVCategory(category);
+  const filtered = safeCategory === 'all'
+    ? RV_TARGET_POOL
+    : RV_TARGET_POOL.filter((t) => t.category === safeCategory);
+  const pool = filtered.length ? filtered : RV_TARGET_POOL;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function getTargetTRN(target) {
+  const src = String(target?.src || '');
+  return src.replace(/^targets\//, '').replace(/\.(jpg|jpeg|png|webp)$/i, '');
+}
+
+function publicTarget(target) {
+  return {
+    id: target.id,
+    src: target.src,
+    label: target.label,
+    category: target.category,
+    trn: getTargetTRN(target),
+  };
+}
+
+function assignmentKey(id) {
+  return 'rv_assign:' + id;
+}
+
+function createAssignmentId() {
+  try {
+    return crypto.randomUUID().replace(/-/g, '');
+  } catch (e) {
+    const rand = Math.random().toString(36).slice(2);
+    return Date.now().toString(36) + rand;
+  }
 }
 
 export default {
@@ -87,6 +177,17 @@ export default {
       }
       await env.ABLTY_KV.put(rateLimitKey, String(current + 1), { expirationTtl: 86400 });
       return handleGrade(request, env, origin);
+    }
+
+    if (url.pathname === '/rv-assign' && request.method === 'POST') {
+      const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const rateLimitKey = 'ratelimit:rvassign:' + ip + ':' + new Date().toISOString().slice(0, 10);
+      const current = parseInt(await env.ABLTY_KV.get(rateLimitKey) || '0', 10);
+      if (current >= 200) {
+        return json({ error: 'rate_limit', message: 'Too many target requests. Try again later.' }, 429, origin);
+      }
+      await env.ABLTY_KV.put(rateLimitKey, String(current + 1), { expirationTtl: 86400 });
+      return handleRVAssign(request, env, origin);
     }
 
     if (url.pathname === '/subscribe' && request.method === 'POST') {
@@ -549,15 +650,97 @@ function getTodayStr(utcOffsetMinutes) {
 }
 
 // --- GRADING ------------------------------------------
+async function handleRVAssign(request, env, origin = '') {
+  try {
+    if (!env.ABLTY_KV) return json({ error: 'KV not bound' }, 500, origin);
+    const body = await request.json().catch(() => ({}));
+    const selectedCategory = sanitizeRVCategory(String(body?.category || 'all'));
+    const target = pickRVTarget(selectedCategory);
+    if (!target) return json({ error: 'No targets available' }, 500, origin);
+
+    const assignmentId = createAssignmentId();
+    const trn = getTargetTRN(target);
+    const payload = {
+      targetId: target.id,
+      trn,
+      category: target.category,
+      issuedAt: Date.now(),
+    };
+    await env.ABLTY_KV.put(
+      assignmentKey(assignmentId),
+      JSON.stringify(payload),
+      { expirationTtl: RV_ASSIGN_TTL_SECONDS }
+    );
+    return json({
+      assignment_id: assignmentId,
+      trn,
+      category: target.category,
+      expires_in: RV_ASSIGN_TTL_SECONDS,
+    }, 200, origin);
+  } catch (e) {
+    return json({ error: e.message || 'Failed to assign target' }, 500, origin);
+  }
+}
+
+function buildGradingFailure(target, message) {
+  return {
+    grading_failed: true,
+    grading_error: String(message || 'AI grading unavailable'),
+    dimension_scores: null,
+    overall_score: null,
+    summary: 'AI grading is temporarily unavailable. Your session was saved successfully.',
+    hits: [],
+    noise: [],
+    aol: [],
+    target: publicTarget(target),
+  };
+}
+
 async function handleGrade(request, env, origin = '') {
   try {
-    const body = await request.json();
-    const { sketch, notes, targetLabel, target_label, descriptors } = body;
-    const label = targetLabel || target_label || '';
-
+    if (!env.ABLTY_KV) return json({ error: 'KV not bound' }, 500, origin);
     if (!env.GEMINI_API_KEY) return json({ error: 'Missing GEMINI_API_KEY' }, 500, origin);
+    const body = await request.json();
+    const assignmentIdRaw = String(body?.assignment_id || '').trim();
+    const assignmentId = assignmentIdRaw.replace(/[^a-zA-Z0-9]/g, '');
+    if (!assignmentId) return json({ error: 'Missing assignment_id' }, 400, origin);
 
-    const prompt = buildGradingPrompt(notes, label, descriptors);
+    const assignmentRaw = await env.ABLTY_KV.get(assignmentKey(assignmentId));
+    if (!assignmentRaw) {
+      return json({ error: 'Assignment expired. Start a new RV session.' }, 410, origin);
+    }
+
+    let assignment;
+    try {
+      assignment = JSON.parse(assignmentRaw);
+    } catch (e) {
+      await env.ABLTY_KV.delete(assignmentKey(assignmentId));
+      return json({ error: 'Invalid assignment record' }, 500, origin);
+    }
+
+    const target = RV_TARGET_POOL.find((t) => t.id === assignment?.targetId);
+    if (!target) {
+      await env.ABLTY_KV.delete(assignmentKey(assignmentId));
+      return json({ error: 'Assigned target not found' }, 500, origin);
+    }
+
+    const requestedTrn = String(body?.trn || '').trim();
+    const targetTrn = getTargetTRN(target);
+    if (requestedTrn && requestedTrn !== targetTrn) {
+      await env.ABLTY_KV.delete(assignmentKey(assignmentId));
+      return json({ error: 'TRN mismatch. Start a new RV session.' }, 400, origin);
+    }
+
+    const sketch = String(body?.sketch || '');
+    if (!sketch || sketch.length < 100) {
+      return json({ error: 'Missing or invalid sketch payload' }, 400, origin);
+    }
+    const notes = body?.notes;
+
+    // One-time assignment consumption prevents replay/regrade on same token.
+    await env.ABLTY_KV.delete(assignmentKey(assignmentId));
+
+    const prompt = buildGradingPrompt(notes, target.label, target.descriptors);
     const parts = [];
     if (sketch) parts.push({ inline_data: { mime_type: 'image/jpeg', data: sketch } });
     parts.push({ text: prompt });
@@ -574,10 +757,7 @@ async function handleGrade(request, env, origin = '') {
       }
     );
 
-    if (!geminiRes.ok) {
-      const err = await geminiRes.text();
-      return json({ error: 'Gemini API error', detail: err }, 502, origin);
-    }
+    if (!geminiRes.ok) return json(buildGradingFailure(target, 'Gemini API error'), 200, origin);
 
     const geminiData = await geminiRes.json();
     const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
@@ -586,8 +766,12 @@ async function handleGrade(request, env, origin = '') {
     try {
       parsed = JSON.parse(cleaned);
     } catch (e) {
-      return json({ error: 'Failed to parse Gemini response', raw: text }, 500, origin);
+      return json(buildGradingFailure(target, 'Failed to parse Gemini response'), 200, origin);
     }
+    if (!parsed || typeof parsed !== 'object') {
+      return json(buildGradingFailure(target, 'Invalid grading payload'), 200, origin);
+    }
+    parsed.target = publicTarget(target);
     return json(parsed, 200, origin);
   } catch (e) {
     return json({ error: e.message }, 500, origin);

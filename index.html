@@ -3,1849 +3,651 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<meta name="description" content="ABLTY  -  Psi research and consciousness training. Based on declassified government programs and peer-reviewed science.">
+<meta name="description" content="ABLTY - Train your psi abilities with protocols built on declassified research.">
 <meta name="theme-color" content="#0a0b0d">
-<title>ABLTY  -  Train Your Signal</title>
+<title>ABLTY - Train Your Signal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <link rel="manifest" href="/manifest.json">
 <link rel="apple-touch-icon" href="/icon-192.png">
 <style>
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0b0d;--surface:#0f1012;--card:#141618;--card2:#1a1c1f;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.14);
+  --text:#f0f0f0;--muted:#6b7280;--dim:#3a3f48;
+  --accent:#4af0c8;--accent2:#5b9ef4;--warn:#f0a94a;
+  --display:'Bebas Neue',sans-serif;--mono:'DM Mono',monospace;--body:'DM Sans',sans-serif;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--body);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+body::before{content:'';position:fixed;inset:0;z-index:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");opacity:0.35;pointer-events:none}
 
-:root {
-  --bg: #0a0b0d;
-  --surface: #0f1012;
-  --card: #141618;
-  --border: rgba(255,255,255,0.07);
-  --border2: rgba(255,255,255,0.14);
-  --text: #f0f0f0;
-  --muted: #6b7280;
-  --dim: #3a3f48;
-  --accent: #4af0c8;
-  --accent2: #5b9ef4;
-  --warn: #f0a94a;
-  --danger: #f05a4a;
-  --display: 'Bebas Neue', sans-serif;
-  --mono: 'DM Mono', monospace;
-  --body: 'DM Sans', sans-serif;
-}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes scrollPulse{0%,100%{opacity:0.3;transform:scaleY(1)}50%{opacity:0.8;transform:scaleY(1.15)}}
+@keyframes floatUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pingDot{0%{box-shadow:0 0 0 0 rgba(74,240,200,0.5)}70%{box-shadow:0 0 0 8px rgba(74,240,200,0)}100%{box-shadow:0 0 0 0 rgba(74,240,200,0)}}
+@keyframes signalPulse{0%,100%{opacity:0.15}50%{opacity:0.85}}
+@keyframes scanLine{0%{top:-4px}100%{top:calc(100% + 4px)}}
+@keyframes orbPulse{0%,100%{r:3;opacity:0.6}50%{r:5;opacity:1}}
+@keyframes ringExpand{0%{r:20;opacity:0.4}100%{r:50;opacity:0}}
+@keyframes particleFloat{0%{transform:translateY(0) translateX(0);opacity:0}10%{opacity:0.6}90%{opacity:0.3}100%{transform:translateY(-60px) translateX(15px);opacity:0}}
 
-html { scroll-behavior: smooth; }
+/* Reveals */
+.reveal{opacity:0;transform:translateY(28px);transition:opacity 0.7s ease, transform 0.7s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal-scale{opacity:0;transform:scale(0.94);transition:opacity 0.7s ease, transform 0.7s ease}
+.reveal-scale.visible{opacity:1;transform:scale(1)}
 
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--body);
-  overflow-x: hidden;
-  -webkit-font-smoothing: antialiased;
-}
+/* ═══ DESKTOP ═══ */
+#desktop-block{display:none;position:fixed;inset:0;z-index:9999;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;gap:32px;padding:48px;text-align:center}
+#desktop-block .logo{font-family:var(--display);font-size:72px;letter-spacing:8px;color:var(--text)}
+#desktop-block .logo span{color:var(--accent)}
+#desktop-block .msg{font-family:var(--body);font-size:15px;color:var(--muted);line-height:1.8;max-width:380px}
+#desktop-block .msg strong{color:var(--text);font-weight:500}
+#desktop-block .qr-box{width:160px;height:160px;border:1px solid var(--border2);border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;padding:12px}
+#desktop-block .qr-box img{width:100%;height:100%;border-radius:4px}
+#desktop-block .qr-label{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--dim);text-transform:uppercase;margin-top:8px}
+@media(min-width:768px){#desktop-block{display:flex}#mobile-content{display:none}}
 
-/* ── GRAIN OVERLAY ── */
-body::before {
-  content: '';
-  position: fixed; inset: 0; z-index: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-  opacity: 0.35;
-  pointer-events: none;
-}
+#mobile-content{position:relative;z-index:1;min-height:100dvh;display:flex;flex-direction:column}
+.tag{font-family:var(--mono);font-size:12px;letter-spacing:3px;color:var(--accent);text-transform:uppercase}
+.big-title{font-family:var(--display);letter-spacing:2px;color:var(--text);line-height:1}
 
-/* ── SCANLINES ── */
-body::after {
-  content: '';
-  position: fixed; inset: 0; z-index: 0;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0,0,0,0.03) 2px,
-    rgba(0,0,0,0.03) 4px
-  );
-  pointer-events: none;
-}
+.btn-install{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;max-width:340px;padding:18px 24px;background:var(--accent);color:#000;border:none;border-radius:14px;font-family:var(--display);font-size:22px;letter-spacing:2px;cursor:pointer;transition:opacity 0.15s,transform 0.15s;-webkit-tap-highlight-color:transparent;text-decoration:none}
+.btn-install:active{opacity:0.85;transform:scale(0.97)}
+.btn-install svg{flex-shrink:0}
+.btn-ghost{display:block;width:100%;max-width:340px;padding:16px 24px;background:transparent;color:var(--muted);border:1px solid var(--border2);border-radius:14px;font-family:var(--mono);font-size:11px;letter-spacing:2px;cursor:pointer;text-align:center;text-transform:uppercase;-webkit-tap-highlight-color:transparent;text-decoration:none}
+.btn-ghost:active{color:var(--text);border-color:var(--text)}
 
-/* ── DESKTOP BLOCK ── */
-#desktop-block {
-  display: none;
-  position: fixed; inset: 0; z-index: 9999;
-  background: var(--bg);
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 32px;
-  padding: 48px;
-  text-align: center;
-}
-#desktop-block .logo {
-  font-family: var(--display);
-  font-size: 72px;
-  letter-spacing: 8px;
-  color: var(--text);
-}
-#desktop-block .logo span { color: var(--accent); }
-#desktop-block .msg {
-  font-family: var(--mono);
-  font-size: 12px;
-  letter-spacing: 2px;
-  color: var(--muted);
-  text-transform: uppercase;
-  line-height: 2;
-  max-width: 400px;
-}
-#desktop-block .qr-label {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 3px;
-  color: var(--dim);
-  text-transform: uppercase;
-  margin-top: 8px;
-}
-#desktop-block .qr-box {
-  width: 160px; height: 160px;
-  border: 1px solid var(--border2);
-  border-radius: 12px;
-  background: var(--card);
-  display: flex; align-items: center; justify-content: center;
-  padding: 16px;
-}
-#desktop-block .qr-box img { width: 100%; height: 100%; }
+/* ═══ HERO ═══ */
+.hero{position:relative;min-height:100dvh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:0 28px;overflow:hidden}
+.hero-glow{position:absolute;top:-20%;left:50%;transform:translateX(-50%);width:140%;height:70%;background:radial-gradient(ellipse at 50% 30%,rgba(74,240,200,0.07) 0%,rgba(91,158,244,0.04) 40%,transparent 70%);pointer-events:none}
+.hero-reticle{position:absolute;top:50%;right:-30%;transform:translateY(-50%);width:340px;height:340px;opacity:0.04}
+.hero-reticle circle,.hero-reticle line{stroke:var(--accent);fill:none}
+.stamp{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(74,240,200,0.25);border-radius:4px;padding:6px 12px;font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:20px;opacity:0;animation:fadeUp 0.6s ease 0.3s forwards}
+.stamp-dot{width:5px;height:5px;border-radius:50%;background:var(--accent);animation:pulse 2s ease-in-out infinite}
+.hero-logo-wrap{width:300px;height:120px;position:relative;display:flex;align-items:center;justify-content:center;margin:0 auto 18px}
+.hero-letter{font-family:var(--display);font-size:64px;letter-spacing:2px;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.4);color:#fff}
+.hero-letter.t{color:var(--accent);text-shadow:0 0 20px rgba(74,240,200,0.6)}
+.hero-tagline{font-family:var(--display);font-size:24px;letter-spacing:3px;color:var(--muted);opacity:0;animation:fadeUp 0.7s ease 1.4s forwards}
+.hero-sub{font-family:var(--body);font-size:15px;color:var(--muted);line-height:1.8;margin-top:20px;max-width:300px;opacity:0;animation:fadeUp 0.7s ease 1.6s forwards;text-align:center}
+.hero-sub strong{color:var(--text);font-weight:500}
+.hero-cta{margin-top:36px;opacity:0;animation:fadeUp 0.7s ease 1.8s forwards;display:flex;flex-direction:column;align-items:center;width:100%;gap:12px}
+.hero-to-mission{display:flex;flex-direction:column;align-items:center;padding:0 0 20px}
+.htm-line{width:1px;height:80px;background:linear-gradient(to bottom,var(--accent),rgba(74,240,200,0.05));opacity:0;animation:fadeUp 0.6s ease 2.2s forwards}
+.htm-label{font-family:var(--mono);font-size:8px;letter-spacing:3px;color:var(--dim);text-transform:uppercase;margin-top:8px;opacity:0;animation:fadeUp 0.6s ease 2.4s forwards}
 
-@media (min-width: 768px) {
-  #desktop-block { display: flex; }
-  #mobile-content { display: none; }
-}
+/* ═══ MISSION ═══ */
+.mission{padding:40px 24px 0;position:relative;overflow:hidden;text-align:center}
+.mission-bg{position:absolute;inset:0;pointer-events:none}
+/* Animated concentric rings */
+.mission-rings{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:400px;height:400px;opacity:0.04}
+.mission-rings circle{fill:none;stroke:var(--accent)}
 
-/* ── MOBILE CONTENT ── */
-#mobile-content {
-  position: relative; z-index: 1;
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-}
+.mission-word{font-family:var(--display);letter-spacing:4px;line-height:0.92;color:var(--text);display:block;opacity:0;transform:translateY(12px)}
+.mission-word.loaded{animation:floatUp 0.5s ease forwards}
 
-/* ── HERO ── */
-.hero {
-  position: relative;
-  min-height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  padding: 0 28px;
-  overflow: hidden;
-}
+/* Animated eye illustration */
+.mission-eye{width:120px;height:60px;margin:0 auto 32px;position:relative;opacity:0;transition:opacity 0.8s ease 0.6s}
+.mission-eye.visible{opacity:1}
 
-/* Radial glow behind hero */
-.hero-glow {
-  position: absolute;
-  top: -20%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 140%;
-  height: 70%;
-  background: radial-gradient(ellipse at 50% 30%, rgba(74,240,200,0.07) 0%, rgba(91,158,244,0.04) 40%, transparent 70%);
-  pointer-events: none;
-}
+.mission-rule{width:40px;height:2px;background:var(--accent);opacity:0.4;margin:32px auto 24px}
+.mission-body{font-family:var(--body);font-size:15px;color:var(--muted);line-height:1.8;max-width:310px;margin:0 auto 16px}
+.mission-body strong{color:var(--text);font-weight:500}
+.mission-quote{font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--dim);font-style:italic;max-width:280px;margin:28px auto 0;line-height:1.9}
 
-/* Animated reticle in hero background */
-.hero-reticle {
-  position: absolute;
-  top: 50%;
-  right: -30%;
-  transform: translateY(-50%);
-  width: 340px; height: 340px;
-  opacity: 0.04;
-}
-.hero-reticle circle, .hero-reticle line {
-  stroke: var(--accent);
-  fill: none;
-}
+/* ═══ SECTION TRANSITION: particles + gradient shift ═══ */
+.section-bridge{position:relative;height:120px;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden}
+.bridge-particles{position:absolute;inset:0;overflow:hidden}
+.bridge-particle{position:absolute;width:2px;height:2px;border-radius:50%;background:var(--accent);animation:particleFloat linear infinite}
+.bridge-line{width:1px;height:40px;background:linear-gradient(to bottom,transparent,var(--accent),transparent);opacity:0.3;z-index:2}
 
-/* Declassified stamp */
-.stamp {
-  display: inline-flex;
-  align-self: center;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid rgba(74,240,200,0.25);
-  border-radius: 4px;
-  padding: 6px 12px;
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 3px;
-  color: var(--accent);
-  text-transform: uppercase;
-  margin-bottom: 28px;
-  opacity: 0;
-  animation: fadeUp 0.6s ease 0.3s forwards;
-}
-.stamp-dot {
-  width: 5px; height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
-  animation: pulse 2s ease-in-out infinite;
-}
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
+/* ═══ EVIDENCE ═══ */
+.evidence{padding:20px 0 40px;position:relative}
+/* Subtle environment shift */
+.evidence::before{content:'';position:absolute;top:0;left:0;right:0;height:200px;background:linear-gradient(to bottom,transparent,rgba(74,240,200,0.015));pointer-events:none}
 
-.hero-logo {
-  font-family: var(--display);
-  font-size: 88px;
-  letter-spacing: 8px;
-  line-height: 0.9;
-  color: var(--text);
-  opacity: 0;
-  animation: fadeUp 0.7s ease 0.4s forwards;
-}
-.hero-logo span { color: var(--accent); }
+.evidence-header{padding:0 24px;text-align:center;margin-bottom:8px}
 
-.hero-tagline {
-  font-family: var(--display);
-  font-size: 24px;
-  letter-spacing: 3px;
-  color: var(--muted);
-  margin-top: 10px;
-  opacity: 0;
-  animation: fadeUp 0.7s ease 0.55s forwards;
-}
+.timeline{position:relative;padding:32px 24px 0}
+.timeline-line{position:absolute;left:36px;top:32px;bottom:0;width:1px;background:var(--border2)}
+.timeline-line-fill{position:absolute;left:36px;top:32px;width:1px;height:0;background:var(--accent);opacity:0.5;transition:height 2s cubic-bezier(0.4,0,0.2,1)}
+.timeline-line-fill.drawn{height:calc(100% - 32px)}
+.tl-node{display:flex;gap:20px;margin-bottom:36px;position:relative;align-items:flex-start}
+.tl-dot-wrap{width:24px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;position:relative;z-index:2}
+.tl-dot{width:12px;height:12px;border-radius:50%;border:2px solid var(--accent);background:var(--bg);transition:background 0.4s ease, box-shadow 0.4s ease}
+.tl-dot.lit{background:var(--accent);box-shadow:0 0 12px rgba(74,240,200,0.5)}
+.tl-content{flex:1}
+.tl-year{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:4px}
+.tl-title{font-family:var(--display);font-size:26px;letter-spacing:1px;color:var(--text);line-height:1;margin-bottom:6px}
+.tl-stat-row{display:flex;gap:8px;margin-top:8px}
+.tl-stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;flex:1;text-align:center}
+.tl-stat-val{font-family:var(--display);font-size:24px;color:var(--accent);line-height:1}
+.tl-stat-label{font-family:var(--mono);font-size:7px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-top:4px;line-height:1.3}
+.sig-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(74,240,200,0.08);border:1px solid rgba(74,240,200,0.25);border-radius:8px;padding:8px 14px;margin-top:10px}
+.sig-badge-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pingDot 1.5s ease-in-out infinite}
+.sig-badge-text{font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--accent)}
 
-.hero-desc {
-  font-family: var(--body);
-  font-size: 15px;
-  color: var(--muted);
-  line-height: 1.7;
-  margin-top: 24px;
-  max-width: 380px;
-  opacity: 0;
-  animation: fadeUp 0.7s ease 0.7s forwards;
-  text-align: center;
-}
-.hero-desc strong { color: var(--text); font-weight: 500; }
+/* Bar chart */
+.bar-compare{display:flex;gap:16px;align-items:flex-end;margin-top:10px;padding:0 4px}
+.bar-col{flex:1;text-align:center}
+.bar-track{height:56px;border-radius:4px 4px 0 0;background:var(--border);position:relative;overflow:hidden}
+.bar-fill{position:absolute;bottom:0;width:100%;border-radius:4px 4px 0 0;height:0;transition:height 1.2s cubic-bezier(0.4,0,0.2,1)}
+.bar-val{font-family:var(--display);font-size:20px;margin-top:6px;line-height:1}
+.bar-label{font-family:var(--mono);font-size:7px;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin-top:2px}
 
-.hero-cta {
-  margin-top: 36px;
-  opacity: 0;
-  animation: fadeUp 0.7s ease 0.9s forwards;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 100%;
-}
+/* ═══ HOW IT WORKS ═══ */
+.flow{padding:0 24px;text-align:center;position:relative}
+.flow::before{content:'';position:absolute;top:0;left:0;right:0;height:200px;background:linear-gradient(to bottom,transparent,rgba(91,158,244,0.01));pointer-events:none}
 
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+.flow-steps{margin-top:32px;position:relative}
+.flow-spine{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--border);transform:translateX(-50%);z-index:0}
+.flow-spine-fill{position:absolute;left:50%;top:0;width:1px;height:0;background:var(--accent);opacity:0.35;transform:translateX(-50%);z-index:0;transition:height 2s cubic-bezier(0.4,0,0.2,1)}
+.flow-spine-fill.drawn{height:100%}
+.flow-node{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;padding:16px 0}
+.flow-ring{width:72px;height:72px;border-radius:50%;background:var(--bg);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;transition:border-color 0.5s ease,box-shadow 0.5s ease;position:relative;z-index:3}
+.flow-ring.lit{border-color:rgba(74,240,200,0.5);box-shadow:0 0 24px rgba(74,240,200,0.12)}
+.flow-text{background:var(--bg);padding:4px 16px 12px;position:relative;z-index:2;text-align:center}
+.flow-num{font-family:var(--display);font-size:11px;letter-spacing:2px;color:var(--dim);margin-top:4px}
+.flow-name{font-family:var(--display);font-size:22px;letter-spacing:1.5px;color:var(--text);margin-top:2px}
+.flow-sub{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;margin-top:3px}
 
-/* ── CTA BUTTON ── */
-.btn-install {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  width: 100%;
-  max-width: 340px;
-  padding: 18px 24px;
-  background: var(--accent);
-  color: #000;
-  border: none;
-  border-radius: 14px;
-  font-family: var(--display);
-  font-size: 22px;
-  letter-spacing: 2px;
-  cursor: pointer;
-  transition: opacity 0.15s, transform 0.15s;
-  -webkit-tap-highlight-color: transparent;
-}
-.btn-install:active { opacity: 0.85; transform: scale(0.97); }
-.btn-install svg { flex-shrink: 0; }
+/* Grader with sketch vs target */
+.flow-grader{width:100%;background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-top:16px;text-align:left;position:relative}
+.flow-grader::after{content:'';position:absolute;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0;top:-4px;z-index:3}
+.flow-grader.scanning::after{opacity:0.6;animation:scanLine 1.5s ease-out forwards}
 
-.btn-learn {
-  display: block;
-  width: 100%;
-  max-width: 340px;
-  padding: 16px 24px;
-  background: transparent;
-  color: var(--muted);
-  border: 1px solid var(--border2);
-  border-radius: 14px;
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 2px;
-  cursor: pointer;
-  text-align: center;
-  text-transform: uppercase;
-  margin-top: 12px;
-  transition: color 0.15s, border-color 0.15s;
-  -webkit-tap-highlight-color: transparent;
-  text-decoration: none;
-}
-.btn-learn:active { color: var(--text); border-color: var(--text); }
+/* Sketch vs Target visual */
+.fg-compare{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border);border-bottom:1px solid var(--border)}
+.fg-compare-cell{background:var(--card);padding:8px;text-align:center}
+.fg-compare-label{font-family:var(--mono);font-size:7px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-bottom:6px}
+.fg-compare-img{width:100%;aspect-ratio:1;border-radius:8px;overflow:hidden;position:relative}
 
-/* Scroll hint */
-.scroll-hint {
-  position: absolute;
-  bottom: 32px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  opacity: 0;
-  animation: fadeUp 0.6s ease 1.4s forwards;
-}
-.scroll-hint-line {
-  width: 1px; height: 40px;
-  background: linear-gradient(to bottom, var(--accent), transparent);
-  animation: scrollPulse 2s ease-in-out infinite;
-}
-@keyframes scrollPulse {
-  0%, 100% { opacity: 0.3; transform: scaleY(1); }
-  50% { opacity: 0.8; transform: scaleY(1.1); }
-}
-.scroll-hint span {
-  font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 3px;
-  color: var(--dim);
-  text-transform: uppercase;
-}
+.fg-top{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)}
+.fg-trn{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--muted)}
+.fg-score{font-family:var(--display);font-size:36px;color:var(--accent);line-height:1}
+.fg-dims{padding:12px 16px;display:flex;flex-direction:column;gap:7px}
+.fg-dim{display:flex;align-items:center;gap:8px}
+.fg-dim-label{font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;width:56px;flex-shrink:0}
+.fg-dim-bar{flex:1;height:3px;background:var(--border2);border-radius:2px;overflow:hidden}
+.fg-dim-fill{height:100%;border-radius:2px;background:var(--accent);width:0%;transition:width 1s cubic-bezier(0.4,0,0.2,1) 0.3s}
+.fg-dim-val{font-family:var(--mono);font-size:9px;color:var(--text);width:20px;text-align:right;flex-shrink:0}
+.fg-hits{padding:10px 16px 14px;display:flex;flex-wrap:wrap;gap:6px;border-top:1px solid var(--border)}
+.fg-hit{font-family:var(--mono);font-size:8px;letter-spacing:0.5px;padding:4px 10px;border-radius:6px}
+.fg-hit.hit{background:rgba(74,240,200,0.08);color:var(--accent);border:1px solid rgba(74,240,200,0.2)}
+.fg-hit.noise{background:rgba(240,90,74,0.08);color:#f07a6a;border:1px solid rgba(240,90,74,0.15)}
 
-/* ── SECTION BASE ── */
-.section {
-  padding: 72px 28px;
-  position: relative; z-index: 1;
-  text-align: center;
-}
-.section-tag {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 3px;
-  color: var(--accent);
-  text-transform: uppercase;
-  margin-bottom: 16px;
-}
-.section-title {
-  font-family: var(--display);
-  font-size: 42px;
-  letter-spacing: 2px;
-  line-height: 1;
-  color: var(--text);
-  margin-bottom: 16px;
-}
-.section-body {
-  font-family: var(--body);
-  font-size: 15px;
-  color: var(--muted);
-  line-height: 1.75;
-}
-.section-body strong { color: var(--text); font-weight: 500; }
+/* ═══ MODULES ═══ */
+.modules{padding:80px 0 0;position:relative}
+.modules::before{content:'';position:absolute;top:0;left:0;right:0;height:200px;background:linear-gradient(to bottom,transparent,rgba(160,80,220,0.008));pointer-events:none}
+.mod-card{flex:0 0 240px;background:var(--card);border:1px solid var(--border);border-radius:16px;overflow:hidden;position:relative}
+.mod-card::before{content:'';position:absolute;top:0;left:0;width:100%;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:0;transition:opacity 0.3s}
+.mod-card:active::before{opacity:1}
+.mod-vis{height:110px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.mod-vis.rv{background:radial-gradient(circle at 50% 50%,rgba(74,240,200,0.04) 0%,transparent 70%),#0c0d0f}
+.mod-vis.psi{background:#090a0c}
+.mod-vis .circuit{position:absolute;inset:0;background-image:linear-gradient(rgba(74,240,200,0.1) 1px,transparent 1px),linear-gradient(90deg,rgba(74,240,200,0.1) 1px,transparent 1px);background-size:16px 16px;mask-image:radial-gradient(ellipse at center,black 20%,transparent 70%)}
+.mod-vis.dream{background:radial-gradient(ellipse at 30% 40%,rgba(91,63,180,0.4) 0%,transparent 55%),radial-gradient(ellipse at 75% 65%,rgba(74,240,200,0.12) 0%,transparent 50%),#06040e}
+.mod-vis.astral{background:radial-gradient(ellipse at 20% 60%,rgba(74,240,200,0.12) 0%,transparent 50%),radial-gradient(ellipse at 80% 30%,rgba(91,158,244,0.15) 0%,transparent 45%),#030507}
+.mod-body{padding:14px 16px}
+.mod-name{font-family:var(--display);font-size:18px;letter-spacing:1.5px;color:var(--text);margin-bottom:3px}
+.mod-tag{font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--accent);text-transform:uppercase}
+.mod-soon{position:absolute;top:10px;right:10px;font-family:var(--mono);font-size:7px;letter-spacing:2px;color:rgba(255,255,255,0.3);background:rgba(0,0,0,0.5);border-radius:6px;padding:3px 8px;text-transform:uppercase}
+.hscroll-wrap{position:relative}
+.hscroll-wrap::after{content:'';position:absolute;top:0;right:0;width:40px;height:100%;background:linear-gradient(to right,transparent,var(--bg));pointer-events:none;z-index:2}
+.hscroll-track{display:flex;gap:14px;overflow-x:auto;padding:8px 24px 28px;-webkit-overflow-scrolling:touch;scrollbar-width:none;cursor:grab}
+.hscroll-track::-webkit-scrollbar{display:none}
+.hscroll-track::after{content:'';min-width:24px;flex-shrink:0}
+.hscroll-track.grabbing{cursor:grabbing}
 
-/* ── DIVIDER ── */
-.divider {
-  width: 100%;
-  height: 1px;
-  background: linear-gradient(to right, transparent, var(--border2), transparent);
-  position: relative; z-index: 1;
-}
+/* ═══ SCREENSHOTS ═══ */
+.screenshots{padding:72px 0 0}
+.phone-track{display:flex;gap:14px;overflow-x:auto;padding:20px 24px 8px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+.phone-track::-webkit-scrollbar{display:none}
+.phone-track::after{content:'';min-width:24px;flex-shrink:0}
+.phone-frame{flex:0 0 170px;height:300px;background:var(--card);border:2px solid var(--border2);border-radius:24px;position:relative;overflow:hidden}
+.phone-frame img{width:100%;height:100%;object-fit:cover;object-position:top;border-radius:22px}
+.phone-frame::before{content:'';position:absolute;top:8px;left:50%;transform:translateX(-50%);width:30px;height:4px;background:var(--border2);border-radius:2px;z-index:3}
+.phone-label{position:absolute;bottom:0;left:0;right:0;padding:20px 8px 8px;background:linear-gradient(transparent,rgba(0,0,0,0.85));font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:rgba(255,255,255,0.55);text-transform:uppercase;text-align:center;z-index:2}
 
-/* ── RESEARCH BLOCK ── */
-.research-section {
-  padding: 72px 28px;
-  text-align: center;
-  position: relative; z-index: 1;
-  background: linear-gradient(180deg, transparent, rgba(74,240,200,0.02) 50%, transparent);
-}
+/* ═══ COMING SOON ═══ */
+.coming{padding:80px 24px 0}
+.coming-row{display:flex;gap:10px;margin-top:24px}
+.coming-pill{flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 10px;text-align:center}
+.coming-pill-name{font-family:var(--display);font-size:14px;letter-spacing:1px;color:var(--text);line-height:1.1;margin-top:6px}
+.coming-pill-sub{font-family:var(--mono);font-size:7px;color:var(--dim);letter-spacing:1px;margin-top:4px;text-transform:uppercase}
 
-.cite-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 20px;
-  margin-bottom: 12px;
-  position: relative;
-  overflow: hidden;
-}
-.cite-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0;
-  width: 3px; height: 100%;
-  background: var(--accent);
-  opacity: 0.6;
-}
-.cite-label {
-  font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 3px;
-  color: var(--accent);
-  text-transform: uppercase;
-  margin-bottom: 8px;
-}
-.cite-title {
-  font-family: var(--body);
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text);
-  line-height: 1.4;
-  margin-bottom: 6px;
-}
-.cite-source {
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--muted);
-  line-height: 1.5;
-}
+/* ═══ FINAL ═══ */
+.final{padding:96px 24px 80px;text-align:center;position:relative}
+.final-glow{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:100%;height:60%;background:radial-gradient(ellipse at 50% 100%,rgba(74,240,200,0.06) 0%,transparent 70%);pointer-events:none}
 
-/* ── MODULES SECTION ── */
-.module-item {
-  padding: 24px 0;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  gap: 20px;
-  align-items: flex-start;
-}
-.module-item:last-child { border-bottom: none; }
-.module-num {
-  font-family: var(--display);
-  font-size: 48px;
-  line-height: 1;
-  color: var(--dim);
-  flex-shrink: 0;
-  width: 52px;
-}
-.module-content { flex: 1; }
-.module-name {
-  font-family: var(--display);
-  font-size: 26px;
-  letter-spacing: 2px;
-  color: var(--text);
-  margin-bottom: 4px;
-}
-.module-tag {
-  display: inline-block;
-  font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 2px;
-  color: var(--accent);
-  text-transform: uppercase;
-  background: rgba(74,240,200,0.08);
-  border: 1px solid rgba(74,240,200,0.2);
-  border-radius: 4px;
-  padding: 2px 7px;
-  margin-bottom: 10px;
-}
-.module-desc {
-  font-family: var(--body);
-  font-size: 13px;
-  color: var(--muted);
-  line-height: 1.65;
-}
+footer{position:relative;z-index:1;padding:24px 28px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+footer a{font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--dim);text-decoration:none;text-transform:uppercase}
 
-/* ── SIGNAL METER ── */
-.signal-visual {
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  height: 32px;
-  margin: 24px 0;
-}
-.signal-bar {
-  width: 4px;
-  border-radius: 2px;
-  background: var(--accent);
-  opacity: 0.4;
-  animation: signalPulse 1.6s ease-in-out infinite;
-}
-@keyframes signalPulse {
-  0%, 100% { opacity: 0.2; }
-  50% { opacity: 0.9; }
-}
-
-/* ── STATS ROW ── */
-.stats-row {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1px;
-  background: var(--border);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  overflow: hidden;
-  margin: 32px 0;
-}
-.stat-cell {
-  background: var(--card);
-  padding: 20px 14px;
-  text-align: center;
-}
-.stat-val {
-  font-family: var(--display);
-  font-size: 36px;
-  color: var(--accent);
-  line-height: 1;
-}
-.stat-label {
-  font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 1.5px;
-  color: var(--muted);
-  text-transform: uppercase;
-  margin-top: 6px;
-  line-height: 1.4;
-}
-
-/* ── FINAL CTA ── */
-.final-cta {
-  padding: 72px 28px 96px;
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  position: relative; z-index: 1;
-}
-.final-cta-glow {
-  position: absolute;
-  bottom: 0; left: 50%;
-  transform: translateX(-50%);
-  width: 100%; height: 50%;
-  background: radial-gradient(ellipse at 50% 100%, rgba(74,240,200,0.06) 0%, transparent 70%);
-  pointer-events: none;
-}
-.final-logo {
-  font-family: var(--display);
-  font-size: 64px;
-  letter-spacing: 6px;
-  color: var(--text);
-  margin-bottom: 8px;
-}
-.final-logo span { color: var(--accent); }
-.final-tag {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 3px;
-  color: var(--muted);
-  text-transform: uppercase;
-  margin-bottom: 36px;
-}
-.final-cta .btn-install {
-  margin: 0 auto;
-}
-
-/* ── iOS INSTRUCTION MODAL ── */
-.modal-overlay {
-  position: fixed; inset: 0; z-index: 9998;
-  background: rgba(0,0,0,0.85);
-  display: none;
-  align-items: flex-end;
-  padding: 16px;
-  animation: fadeIn 0.2s ease;
-}
-.modal-overlay.visible { display: flex; }
-.modal-box {
-  background: var(--card);
-  border: 1px solid var(--border2);
-  border-radius: 20px;
-  padding: 28px 24px 32px;
-  width: 100%;
-}
-.modal-title {
-  font-family: var(--display);
-  font-size: 28px;
-  letter-spacing: 1px;
-  color: var(--text);
-  margin-bottom: 8px;
-}
-.modal-sub {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 1px;
-  color: var(--muted);
-  margin-bottom: 24px;
-}
-.ios-step {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--border);
-}
-.ios-step:last-of-type { border-bottom: none; margin-bottom: 20px; }
-.ios-step-num {
-  font-family: var(--display);
-  font-size: 28px;
-  color: var(--accent);
-  flex-shrink: 0;
-  width: 28px;
-}
-.ios-step-text {
-  font-family: var(--body);
-  font-size: 14px;
-  color: var(--muted);
-  line-height: 1.5;
-}
-.ios-step-text strong { color: var(--text); }
-.modal-close {
-  width: 100%;
-  padding: 14px;
-  background: transparent;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  color: var(--muted);
-  font-family: var(--mono);
-  font-size: 11px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-
-/* ── INSTALL SUCCESS SCREEN ── */
-#install-success-screen {
-  position: fixed;
-  inset: 0;
-  z-index: 10001;
-  background: var(--bg);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: max(24px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right))
-           max(24px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
-}
-#install-success-screen.visible { display: flex; }
-.install-success-card {
-  width: min(420px, 100%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  text-align: center;
-  margin: 0 auto;
-}
-.install-success-title {
-  font-family: var(--display);
-  font-size: 52px;
-  letter-spacing: 2px;
-  color: var(--text);
-  line-height: 1;
-}
-.install-success-title .t-accent { color: var(--accent); }
-.install-success-icon-wrap {
-  width: 128px;
-  height: 128px;
-  border-radius: 24px;
-  background: var(--card);
-  border: 1px solid var(--border2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 0 28px rgba(74,240,200,0.15);
-}
-.install-success-icon-wrap img {
-  width: 96px;
-  height: 96px;
-  border-radius: 18px;
-  display: block;
-}
-.install-success-sub {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 2px;
-  color: var(--muted);
-  text-transform: uppercase;
-}
-.install-success-homehint {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  margin-top: 6px;
-}
-.install-success-homehint img {
-  width: 64px;
-  height: 64px;
-  border-radius: 14px;
-  border: 1px solid var(--border2);
-  box-shadow: 0 0 14px rgba(74,240,200,0.12);
-}
-.install-success-homehint-text {
-  font-family: var(--body);
-  font-size: 14px;
-  color: var(--text);
-  line-height: 1.5;
-  max-width: 320px;
-}
-
-/* ── FOOTER ── */
-footer {
-  position: relative; z-index: 1;
-  padding: 24px 28px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-footer a {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 1px;
-  color: var(--dim);
-  text-decoration: none;
-  text-transform: uppercase;
-}
-footer a:active { color: var(--muted); }
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-/* Scroll reveal */
-.reveal {
-  opacity: 0;
-  transform: translateY(24px);
-  transition: opacity 0.6s ease, transform 0.6s ease;
-}
-.reveal.visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-/* ── PARALLAX ── */
-.parallax-slow { will-change: transform; }
-.parallax-med  { will-change: transform; }
-
-/* ── HORIZONTAL SCROLL TRACKS ── */
-.hscroll-track {
-  display: flex;
-  gap: 16px;
-  overflow-x: auto;
-  overflow-y: visible;
-  padding: 20px 28px 24px;
-  margin: 0 -28px;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  cursor: grab;
-}
-.hscroll-track::-webkit-scrollbar { display: none; }
-.hscroll-track::after {
-  content: '';
-  min-width: 28px;
-  flex-shrink: 0;
-  display: block;
-}
-.hscroll-track.grabbing { cursor: grabbing; }
-
-/* Cite cards in horizontal track */
-.hscroll-track .cite-card {
-  flex: 0 0 280px;
-  margin-bottom: 0;
-}
-
-/* Module cards in horizontal track */
-.module-card-h {
-  flex: 0 0 260px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 24px 20px;
-  position: relative;
-  overflow: hidden;
-  transition: border-color 0.2s;
-}
-.module-card-h::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 2px;
-  background: linear-gradient(90deg, transparent, var(--accent), transparent);
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-.module-card-h:active::before { opacity: 1; }
-.module-card-h:active { border-color: var(--border2); }
-.module-card-num {
-  font-family: var(--display);
-  font-size: 56px;
-  line-height: 1;
-  color: var(--dim);
-  margin-bottom: 8px;
-}
-.module-card-name {
-  font-family: var(--display);
-  font-size: 22px;
-  letter-spacing: 1.5px;
-  color: var(--text);
-  margin-bottom: 6px;
-}
-.module-card-tag {
-  display: inline-block;
-  font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 2px;
-  color: var(--accent);
-  text-transform: uppercase;
-  background: rgba(74,240,200,0.08);
-  border: 1px solid rgba(74,240,200,0.2);
-  border-radius: 4px;
-  padding: 2px 7px;
-  margin-bottom: 12px;
-}
-.module-card-desc {
-  font-family: var(--body);
-  font-size: 13px;
-  color: var(--muted);
-  line-height: 1.65;
-}
-
-/* Scroll fade edges */
-.hscroll-wrap {
-  position: relative;
-}
-.hscroll-wrap::after {
-  content: '';
-  position: absolute;
-  top: 0; right: 0;
-  width: 40px; height: 100%;
-  background: linear-gradient(to right, transparent, var(--bg));
-  pointer-events: none;
-  z-index: 2;
-}
-
-/* ── MISSION SECTION ── */
-.mission-section {
-  padding: 80px 28px;
-  position: relative; z-index: 1;
-  text-align: center;
-  background: linear-gradient(180deg, transparent, rgba(74,240,200,0.025) 50%, transparent);
-}
-.mission-ability {
-  font-family: var(--display);
-  font-size: 72px;
-  letter-spacing: 4px;
-  line-height: 1;
-  color: var(--text);
-  margin-bottom: 28px;
-  display: block;
-}
-.mission-ability .t-accent { color: var(--accent); }
-.mission-body {
-  font-family: var(--body);
-  font-size: 17px;
-  color: var(--muted);
-  line-height: 1.8;
-  max-width: 360px;
-  margin: 0 auto 28px;
-}
-.mission-body strong { color: var(--text); font-weight: 500; }
-.mission-line {
-  width: 40px; height: 2px;
-  background: var(--accent);
-  margin: 0 auto;
-  opacity: 0.5;
-}
-
-/* ── GRADER SECTION ── */
-.grader-section {
-  padding: 72px 28px;
-  position: relative; z-index: 1;
-}
-.grader-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  overflow: hidden;
-  margin-top: 28px;
-}
-.grader-top {
-  padding: 20px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.grader-trn {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 2px;
-  color: var(--muted);
-}
-.grader-score-big {
-  font-family: var(--display);
-  font-size: 52px;
-  color: var(--accent);
-  line-height: 1;
-}
-.grader-score-label {
-  font-family: var(--mono);
-  font-size: 8px;
-  letter-spacing: 2px;
-  color: var(--muted);
-  text-transform: uppercase;
-  text-align: right;
-  margin-top: 2px;
-}
-.grader-dims {
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  border-bottom: 1px solid var(--border);
-}
-.grader-dim-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.grader-dim-label {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 1px;
-  color: var(--muted);
-  text-transform: uppercase;
-  width: 120px;
-  flex-shrink: 0;
-}
-.grader-dim-bar {
-  flex: 1;
-  height: 3px;
-  background: var(--border2);
-  border-radius: 2px;
-  overflow: hidden;
-}
-.grader-dim-fill {
-  height: 100%;
-  border-radius: 2px;
-  background: var(--accent);
-  transition: width 1s ease;
-}
-.grader-dim-val {
-  font-family: var(--mono);
-  font-size: 10px;
-  color: var(--text);
-  width: 24px;
-  text-align: right;
-  flex-shrink: 0;
-}
-.grader-summary {
-  padding: 16px 20px;
-  font-family: var(--body);
-  font-size: 13px;
-  color: var(--muted);
-  line-height: 1.6;
-  font-style: italic;
-}
-.grader-summary strong { color: var(--accent); font-style: normal; }
-
-/* ── SCREENSHOTS PLACEHOLDER ── */
-.screenshots-section {
-  padding: 72px 0 72px;
-  position: relative; z-index: 1;
-}
-.screenshots-section .section-pad {
-  padding: 0 28px;
-  text-align: center;
-}
-.phone-track {
-  display: flex;
-  gap: 16px;
-  overflow-x: auto;
-  padding: 24px 28px 8px;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-}
-.phone-track::-webkit-scrollbar { display: none; }
-.phone-track::after {
-  content: '';
-  min-width: 28px;
-  flex-shrink: 0;
-  display: block;
-}
-.phone-frame {
-  flex: 0 0 200px;
-  height: 360px;
-  background: var(--card);
-  border: 2px solid var(--border2);
-  border-radius: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 8px;
-  position: relative;
-  overflow: hidden;
-}
-.phone-frame img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: top;
-  border-radius: 30px;
-}
-.phone-placeholder {
-  font-family: var(--mono);
-  font-size: 9px;
-  letter-spacing: 2px;
-  color: var(--dim);
-  text-transform: uppercase;
-  text-align: center;
-  padding: 16px;
-}
-.phone-frame::before {
-  content: '';
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 40px; height: 4px;
-  background: var(--border2);
-  border-radius: 2px;
-  z-index: 3;
-}
-
-/* ── COMING SOON SECTION ── */
-.coming-section {
-  padding: 72px 28px;
-  position: relative; z-index: 1;
-  text-align: center;
-}
-.coming-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 28px;
-}
-.coming-card {
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 20px;
-  text-align: left;
-  position: relative;
-  overflow: hidden;
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-}
-.coming-card::after {
-  content: 'COMING SOON';
-  position: absolute;
-  top: 16px; right: 16px;
-  font-family: var(--mono);
-  font-size: 7px;
-  letter-spacing: 2px;
-  color: var(--warn);
-  background: rgba(240,169,74,0.1);
-  border: 1px solid rgba(240,169,74,0.25);
-  border-radius: 4px;
-  padding: 2px 6px;
-}
-.coming-icon {
-  font-size: 28px;
-  flex-shrink: 0;
-  margin-top: 2px;
-}
-.coming-name {
-  font-family: var(--display);
-  font-size: 22px;
-  letter-spacing: 1px;
-  color: var(--text);
-  margin-bottom: 4px;
-}
-.coming-desc {
-  font-family: var(--body);
-  font-size: 13px;
-  color: var(--muted);
-  line-height: 1.6;
-  padding-right: 80px;
-}
-
-/* ── LEGAL MODAL ── */
-.legal-modal-overlay {
-  position: fixed; inset: 0; z-index: 9997;
-  background: rgba(0,0,0,0.9);
-  display: none;
-  flex-direction: column;
-}
-.legal-modal-overlay.visible { display: flex; }
-.legal-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-  background: var(--card);
-}
-.legal-modal-title {
-  font-family: var(--display);
-  font-size: 24px;
-  letter-spacing: 1px;
-  color: var(--text);
-}
-.legal-modal-close {
-  width: 36px; height: 36px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer;
-  font-family: var(--mono);
-  font-size: 14px;
-  color: var(--muted);
-  flex-shrink: 0;
-}
-.legal-modal-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 24px;
-  font-family: var(--body);
-  font-size: 13px;
-  color: var(--muted);
-  line-height: 1.75;
-  white-space: pre-wrap;
-  -webkit-overflow-scrolling: touch;
-}
+/* Modals */
+.legal-modal-overlay{position:fixed;inset:0;z-index:9997;background:rgba(0,0,0,0.9);display:none;flex-direction:column}
+.legal-modal-overlay.visible{display:flex}
+.legal-modal-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border);flex-shrink:0;background:var(--card)}
+.legal-modal-title{font-family:var(--display);font-size:24px;letter-spacing:1px;color:var(--text)}
+.legal-modal-close{width:36px;height:36px;background:var(--surface);border:1px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:var(--mono);font-size:14px;color:var(--muted)}
+.legal-modal-body{flex:1;overflow-y:auto;padding:24px;font-family:var(--body);font-size:13px;color:var(--muted);line-height:1.75;white-space:pre-wrap;-webkit-overflow-scrolling:touch}
+.modal-overlay{position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,0.85);display:none;align-items:flex-end;padding:16px}
+.modal-overlay.visible{display:flex}
+.modal-box{background:var(--card);border:1px solid var(--border2);border-radius:20px;padding:28px 24px 32px;width:100%}
+.modal-title{font-family:var(--display);font-size:28px;letter-spacing:1px;color:var(--text);margin-bottom:8px}
+.modal-sub{font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--muted);margin-bottom:24px}
+.ios-step{display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--border)}
+.ios-step:last-of-type{border-bottom:none;margin-bottom:20px}
+.ios-step-num{font-family:var(--display);font-size:28px;color:var(--accent);flex-shrink:0;width:28px}
+.ios-step-text{font-family:var(--body);font-size:14px;color:var(--muted);line-height:1.5}
+.ios-step-text strong{color:var(--text)}
+.modal-close{width:100%;padding:14px;background:transparent;border:1px solid var(--border);border-radius:12px;color:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer}
+#install-success-screen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:none;align-items:center;justify-content:center;flex-direction:column;gap:18px;padding:40px;text-align:center}
+#install-success-screen.visible{display:flex}
 </style>
 </head>
 <body>
 
-<!-- DESKTOP BLOCK -->
 <div id="desktop-block">
-  <!-- Animated logo -->
-  <div class="splash-logo-wrap" style="width:300px;height:120px;position:relative;display:flex;align-items:center;justify-content:center;">
-    <svg class="splash-wave" viewBox="0 0 300 120" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;">
-      <defs>
-        <linearGradient id="dWaveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" style="stop-color:#0a0b0d;stop-opacity:1"/>
-          <stop offset="20%" style="stop-color:#4af0c8;stop-opacity:0.8"/>
-          <stop offset="50%" style="stop-color:#5b9ef4;stop-opacity:1"/>
-          <stop offset="80%" style="stop-color:#4af0c8;stop-opacity:0.8"/>
-          <stop offset="100%" style="stop-color:#0a0b0d;stop-opacity:1"/>
-        </linearGradient>
-        <filter id="dGlow">
-          <feGaussianBlur stdDeviation="3" result="blur"/>
-          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-        </filter>
-      </defs>
-      <path id="dwave1" fill="none" stroke="url(#dWaveGrad)" stroke-width="2.5" filter="url(#dGlow)" opacity="0.9"/>
-      <path id="dwave2" fill="none" stroke="url(#dWaveGrad)" stroke-width="1.5" filter="url(#dGlow)" opacity="0.5"/>
-      <path id="dwave3" fill="none" stroke="rgba(74,240,200,0.2)" stroke-width="1" opacity="0.4"/>
-    </svg>
-    <div style="position:relative;z-index:2;display:flex;gap:14px;align-items:center;">
-      <span class="d-letter" id="dl-a" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#fff;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.4);letter-spacing:2px;">A</span>
-      <span class="d-letter" id="dl-b" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#fff;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.4);letter-spacing:2px;">B</span>
-      <span class="d-letter" id="dl-l" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#fff;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.4);letter-spacing:2px;">L</span>
-      <span class="d-letter" id="dl-t" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#4af0c8;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.6);letter-spacing:2px;">T</span>
-      <span class="d-letter" id="dl-y" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#fff;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.4);letter-spacing:2px;">Y</span>
-    </div>
-  </div>
-  <div class="msg">
-    Train your psi abilities with structured protocols built on declassified government research. Remote viewing, consciousness training, and detailed analytics in one app.
-  </div>
-  <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
-    <div class="qr-box" style="background:#fff;padding:12px;border-radius:16px;">
-      <img src="/qr.png" alt="Scan to open ABLTY on mobile" style="width:100%;height:100%;border-radius:4px;">
-    </div>
-    <div class="qr-label">Scan with your phone camera to install</div>
-  </div>
+  <div class="logo">ABL<span>T</span>Y</div>
+  <div class="msg">The U.S. government spent <strong>23 years</strong> studying remote viewing. The results were statistically undeniable. This app puts the same protocols in your hands.</div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:12px;"><div class="qr-box"><img src="/qr.png" alt="Scan"></div><div class="qr-label">Scan with your phone camera</div></div>
 </div>
 
-<!-- MOBILE CONTENT -->
 <div id="mobile-content">
 
-  <!-- ── HERO ── -->
+  <!-- ═══ HERO ═══ -->
   <section class="hero" id="hero">
     <div class="hero-glow"></div>
-
-    <!-- Background reticle -->
-    <svg class="hero-reticle" viewBox="0 0 300 300">
-      <circle cx="150" cy="150" r="120" stroke-width="0.5"/>
-      <circle cx="150" cy="150" r="80" stroke-width="0.5"/>
-      <circle cx="150" cy="150" r="40" stroke-width="0.5"/>
-      <circle cx="150" cy="150" r="8" stroke-width="1"/>
-      <line x1="150" y1="0" x2="150" y2="300" stroke-width="0.5"/>
-      <line x1="0" y1="150" x2="300" y2="150" stroke-width="0.5"/>
-      <line x1="150" y1="30" x2="150" y2="110" stroke-width="1.5"/>
-      <line x1="190" y1="150" x2="270" y2="150" stroke-width="1.5"/>
-    </svg>
-
+    <svg class="hero-reticle" viewBox="0 0 300 300"><circle cx="150" cy="150" r="120" stroke-width="0.5"/><circle cx="150" cy="150" r="80" stroke-width="0.5"/><circle cx="150" cy="150" r="40" stroke-width="0.5"/><circle cx="150" cy="150" r="8" stroke-width="1"/><line x1="150" y1="0" x2="150" y2="300" stroke-width="0.5"/><line x1="0" y1="150" x2="300" y2="150" stroke-width="0.5"/></svg>
     <div>
-      <div class="stamp" style="margin-bottom:20px;">
-        <div class="stamp-dot"></div>
-        Research-Based · Data-Driven
-      </div>
-
-      <!-- Splash animation  -  wave + letters -->
-      <div class="splash-logo-wrap" style="width:300px;height:120px;position:relative;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;">
-        <svg class="splash-wave" viewBox="0 0 300 120" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;">
-          <defs>
-            <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" style="stop-color:#0a0b0d;stop-opacity:1"/>
-              <stop offset="20%" style="stop-color:#4af0c8;stop-opacity:0.8"/>
-              <stop offset="50%" style="stop-color:#5b9ef4;stop-opacity:1"/>
-              <stop offset="80%" style="stop-color:#4af0c8;stop-opacity:0.8"/>
-              <stop offset="100%" style="stop-color:#0a0b0d;stop-opacity:1"/>
-            </linearGradient>
-            <filter id="glow">
-              <feGaussianBlur stdDeviation="3" result="blur"/>
-              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-            </filter>
-          </defs>
-          <path id="lwave1" fill="none" stroke="url(#waveGrad)" stroke-width="2.5" filter="url(#glow)" opacity="0.9"/>
-          <path id="lwave2" fill="none" stroke="url(#waveGrad)" stroke-width="1.5" filter="url(#glow)" opacity="0.5"/>
-          <path id="lwave3" fill="none" stroke="rgba(74,240,200,0.2)" stroke-width="1" opacity="0.4"/>
-        </svg>
+      <div class="stamp"><div class="stamp-dot"></div>Research-Based  ·  Data-Driven</div>
+      <div class="hero-logo-wrap">
+        <svg class="splash-wave" viewBox="0 0 300 120" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;"><defs><linearGradient id="wG" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:#0a0b0d;stop-opacity:1"/><stop offset="20%" style="stop-color:#4af0c8;stop-opacity:0.8"/><stop offset="50%" style="stop-color:#5b9ef4;stop-opacity:1"/><stop offset="80%" style="stop-color:#4af0c8;stop-opacity:0.8"/><stop offset="100%" style="stop-color:#0a0b0d;stop-opacity:1"/></linearGradient><filter id="gl"><feGaussianBlur stdDeviation="3" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><path id="w1" fill="none" stroke="url(#wG)" stroke-width="2.5" filter="url(#gl)" opacity="0.9"/><path id="w2" fill="none" stroke="url(#wG)" stroke-width="1.5" filter="url(#gl)" opacity="0.5"/><path id="w3" fill="none" stroke="rgba(74,240,200,0.2)" stroke-width="1" opacity="0.4"/></svg>
         <div style="position:relative;z-index:2;display:flex;gap:14px;align-items:center;">
-          <span class="l-letter" id="ll-a" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#fff;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.4);letter-spacing:2px;">A</span>
-          <span class="l-letter" id="ll-b" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#fff;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.4);letter-spacing:2px;">B</span>
-          <span class="l-letter" id="ll-l" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#fff;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.4);letter-spacing:2px;">L</span>
-          <span class="l-letter" id="ll-t" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#4af0c8;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.6);letter-spacing:2px;">T</span>
-          <span class="l-letter" id="ll-y" style="font-family:'Bebas Neue',sans-serif;font-size:64px;color:#fff;opacity:0;transform:translateY(8px);transition:opacity 0.35s ease,transform 0.35s ease;text-shadow:0 0 20px rgba(74,240,200,0.4);letter-spacing:2px;">Y</span>
+          <span class="hero-letter" id="hl-a">A</span><span class="hero-letter" id="hl-b">B</span><span class="hero-letter" id="hl-l">L</span><span class="hero-letter t" id="hl-t">T</span><span class="hero-letter" id="hl-y">Y</span>
         </div>
       </div>
-
-      <div class="hero-tagline" style="opacity:0;animation:fadeUp 0.7s ease 1.4s forwards;">TRAIN YOUR SIGNAL</div>
-
-      <div class="hero-desc" style="opacity:0;animation:fadeUp 0.7s ease 1.6s forwards;">
-        A personal training environment for <strong>remote viewing, psi research, and consciousness exploration</strong>, built on decades of declassified government science and peer-reviewed research.
-      </div>
-
-      <div class="hero-cta" style="opacity:0;animation:fadeUp 0.7s ease 1.8s forwards;">
-        <a href="#learn" class="btn-install" style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:10px;">
-          SEE HOW IT WORKS
-        </a>
-        <button class="btn-learn" onclick="handleInstall()" style="cursor:pointer;border:none;background:transparent;width:100%;max-width:340px;margin-top:8px;padding:16px 24px;color:var(--muted);font-family:var(--mono);font-size:11px;letter-spacing:2px;text-transform:uppercase;border:1px solid var(--border2);border-radius:14px;">INSTALL ABLTY</button>
+      <div class="hero-tagline">TRAIN YOUR SIGNAL</div>
+      <div class="hero-sub">Remote viewing. Psi training. Lucid dreaming. <strong>AI-graded. Research-backed.</strong></div>
+      <div class="hero-cta">
+        <a href="#mission" class="btn-install" style="text-decoration:none;">LEARN MORE</a>
+        <button class="btn-ghost" onclick="handleInstall()">INSTALL ABLTY</button>
       </div>
     </div>
-
   </section>
+  <div class="hero-to-mission"><div class="htm-line"></div><div class="htm-label">Scroll</div></div>
 
-  <!-- ═══════════════════════════════════════════════
-       SCROLL HINT - centered under hero CTA
-  ═══════════════════════════════════════════════ -->
-  <div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 0 32px;opacity:0;animation:fadeUp 0.6s ease 2.2s forwards;">
-    <div style="width:1px;height:36px;background:linear-gradient(to bottom,var(--accent),transparent);animation:scrollPulse 2s ease-in-out infinite;"></div>
-    <span style="font-family:var(--mono);font-size:8px;letter-spacing:3px;color:var(--dim);text-transform:uppercase;">Scroll</span>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════
-       01  -  FOUR TRAINING SYSTEMS
-  ═══════════════════════════════════════════════ -->
-  <section id="modules" style="padding:72px 0 0;">
-
-    <div style="padding:0 24px 32px;text-align:center;" class="reveal">
-      <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:12px;">The Protocols</div>
-      <div style="font-family:var(--display);font-size:48px;letter-spacing:2px;color:var(--text);line-height:1;">FOUR TRAINING<br>SYSTEMS</div>
-    </div>
-
-    <div class="hscroll-wrap reveal" style="transition-delay:0.1s;">
-      <div class="hscroll-track" id="module-track" style="padding:8px 24px 28px;">
-
-        <!-- 01 RV -->
-        <div class="module-card-h">
-          <div class="module-card-visual">
-            <svg width="100" height="90" viewBox="0 0 100 90" fill="none">
-              <circle cx="50" cy="45" r="32" stroke="#4af0c8" stroke-width="0.5" opacity="0.2"/>
-              <circle cx="50" cy="45" r="20" stroke="#4af0c8" stroke-width="0.75" opacity="0.35"/>
-              <circle cx="50" cy="45" r="8"  stroke="#4af0c8" stroke-width="1"    opacity="0.6"/>
-              <circle cx="50" cy="45" r="2"  fill="#4af0c8" opacity="0.8"/>
-              <line x1="50" y1="10" x2="50" y2="80" stroke="#4af0c8" stroke-width="0.5" opacity="0.2"/>
-              <line x1="15" y1="45" x2="85" y2="45" stroke="#4af0c8" stroke-width="0.5" opacity="0.2"/>
-              <line x1="50" y1="13" x2="50" y2="30" stroke="#4af0c8" stroke-width="2" opacity="0.7"/>
-              <line x1="62" y1="45" x2="80" y2="45" stroke="#4af0c8" stroke-width="2" opacity="0.7"/>
-              <text x="50" y="84" text-anchor="middle" font-family="DM Mono,monospace" font-size="6.5" fill="#4af0c8" opacity="0.4" letter-spacing="1.5">TRN 6047-5129</text>
-            </svg>
-          </div>
-          <div class="module-card-num">01</div>
-          <div class="module-card-name">REMOTE VIEWING</div>
-          <div class="module-card-tag">Project Stargate Protocol</div>
-          <div class="module-card-desc">Sketch and record your impressions in-app. Our AI grader scores your session across 6 dimensions using the same evaluation framework developed for the U.S. government program.</div>
-        </div>
-
-        <!-- 02 PSI -->
-        <div class="module-card-h">
-          <div class="module-card-visual">
-            <svg width="110" height="90" viewBox="0 0 110 90" fill="none">
-              <circle cx="18" cy="42" r="11" stroke="#5b9ef4" stroke-width="1.5" opacity="0.6"/>
-              <line x1="36" y1="31" x2="36" y2="53" stroke="#5b9ef4" stroke-width="1.5" opacity="0.6"/>
-              <line x1="27" y1="42" x2="45" y2="42" stroke="#5b9ef4" stroke-width="1.5" opacity="0.6"/>
-              <rect x="53" y="31" width="20" height="20" stroke="#4af0c8" stroke-width="1.5" opacity="0.65" rx="1"/>
-              <polygon points="84,31 91,51 77,51" stroke="#4af0c8" stroke-width="1.5" opacity="0.55" fill="none"/>
-              <text x="55" y="72" text-anchor="middle" font-family="DM Mono,monospace" font-size="7" fill="#6b7280" letter-spacing="0.5">CHANCE BASELINE 20%</text>
-              <text x="55" y="83" text-anchor="middle" font-family="DM Mono,monospace" font-size="6" fill="#3a3f48" letter-spacing="0.5">3 PROTOCOLS</text>
-            </svg>
-          </div>
-          <div class="module-card-num">02</div>
-          <div class="module-card-name">PSI TRAINING</div>
-          <div class="module-card-tag">Zener · Presentiment · Photo Pair</div>
-          <div class="module-card-desc">Test and train your psi abilities across three research-backed protocols. Each designed to isolate a different dimension of anomalous perception. Beat chance. Build a record.</div>
-        </div>
-
-        <!-- 03 Dream Lab -->
-        <div class="module-card-h">
-          <div class="module-card-visual">
-            <svg width="100" height="90" viewBox="0 0 100 90" fill="none">
-              <path d="M58 16 Q42 27 42 44 Q42 62 58 69 Q36 66 30 47 Q26 27 44 16 Q50 13 58 16Z" fill="#5b2d8e" opacity="0.35"/>
-              <path d="M58 16 Q42 27 42 44 Q42 62 58 69 Q36 66 30 47 Q26 27 44 16 Q50 13 58 16Z" stroke="#9b6fd4" stroke-width="1" opacity="0.55"/>
-              <circle cx="50" cy="19" r="2"   fill="#9b6fd4" opacity="0.8"/>
-              <circle cx="38" cy="31" r="1.5" fill="#9b6fd4" opacity="0.5"/>
-              <circle cx="63" cy="26" r="1"   fill="#9b6fd4" opacity="0.4"/>
-              <circle cx="70" cy="46" r="1.5" fill="#5b9ef4" opacity="0.35"/>
-              <circle cx="75" cy="30" r="1"   fill="#4af0c8" opacity="0.3"/>
-              <path d="M62 63 Q70 58 78 63 Q86 68 94 63" stroke="#4af0c8" stroke-width="1" opacity="0.35" fill="none"/>
-            </svg>
-          </div>
-          <div class="module-card-num">03</div>
-          <div class="module-card-name">DREAM LAB</div>
-          <div class="module-card-tag">Lucid Dream Training</div>
-          <div class="module-card-desc">Randomized reality checks throughout your day train the perceptual habit that triggers lucid dreaming at night.</div>
-        </div>
-
-        <!-- 04 Astral -->
-        <div class="module-card-h" style="opacity:0.5;">
-          <div class="module-card-visual" style="border:1px dashed rgba(255,255,255,0.08);">
-            <svg width="100" height="90" viewBox="0 0 100 90" fill="none">
-              <ellipse cx="54" cy="56" rx="13" ry="17" stroke="#6b7280" stroke-width="1" opacity="0.35"/>
-              <ellipse cx="54" cy="56" rx="13" ry="17" fill="#141618"/>
-              <ellipse cx="44" cy="30" rx="11" ry="15" stroke="#4af0c8" stroke-width="1" stroke-dasharray="3 2.5" opacity="0.4"/>
-              <path d="M44 45 Q49 52 54 45" stroke="#4af0c8" stroke-width="0.75" opacity="0.3" fill="none"/>
-              <circle cx="44" cy="17" r="3" stroke="#4af0c8" stroke-width="0.75" opacity="0.3"/>
-              <text x="50" y="82" text-anchor="middle" font-family="DM Mono,monospace" font-size="6" fill="#3a3f48" letter-spacing="1.5">COMING SOON</text>
-            </svg>
-          </div>
-          <div class="module-card-num" style="color:#3a3f48;">04</div>
-          <div class="module-card-name" style="color:#6b7280;">ASTRAL PROJECTION</div>
-          <div class="module-card-tag" style="color:#3a3f48;border-color:rgba(255,255,255,0.07);background:transparent;">OBE Induction</div>
-          <div class="module-card-desc" style="color:#3a3f48;">Guided out-of-body induction. In development.</div>
-        </div>
-
-      </div>
-    </div>
-
-  </section>
-
-  <!-- ═══════════════════════════════════════════════
-       02  -  AI GRADER
-  ═══════════════════════════════════════════════ -->
-  <section id="grader" style="padding:80px 24px 0;">
-
-    <div class="reveal" style="margin-bottom:28px;">
-      <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:12px;">The AI Grader</div>
-      <div style="font-family:var(--display);font-size:48px;letter-spacing:2px;color:var(--text);line-height:1;">YOUR SESSION.<br>SCORED.</div>
-      <div style="font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-top:10px;">6 Dimensions · Objective · Every Session</div>
-    </div>
-
-    <div class="grader-card reveal" style="transition-delay:0.15s;">
-      <div class="grader-top">
-        <div>
-          <div class="grader-trn">TRN 6047-5129</div>
-          <div style="font-family:var(--mono);font-size:9px;color:var(--dim);margin-top:3px;letter-spacing:1px;">REMOTE VIEWING SESSION</div>
-        </div>
-        <div style="text-align:right;">
-          <div class="grader-score-big">84%</div>
-          <div class="grader-score-label">Session Score</div>
-        </div>
-      </div>
-      <div class="grader-dims">
-        <div class="grader-dim-row">
-          <div class="grader-dim-label">Form / Shape</div>
-          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:100%;"></div></div>
-          <div class="grader-dim-val">5/5</div>
-        </div>
-        <div class="grader-dim-row">
-          <div class="grader-dim-label">Spatial</div>
-          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:80%;"></div></div>
-          <div class="grader-dim-val">4/5</div>
-        </div>
-        <div class="grader-dim-row">
-          <div class="grader-dim-label">Texture</div>
-          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:60%;"></div></div>
-          <div class="grader-dim-val">3/5</div>
-        </div>
-        <div class="grader-dim-row">
-          <div class="grader-dim-label">Motion</div>
-          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:80%;"></div></div>
-          <div class="grader-dim-val">4/5</div>
-        </div>
-        <div class="grader-dim-row">
-          <div class="grader-dim-label">Emotion</div>
-          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:60%;"></div></div>
-          <div class="grader-dim-val">3/5</div>
-        </div>
-        <div class="grader-dim-row">
-          <div class="grader-dim-label">Color / Light</div>
-          <div class="grader-dim-bar"><div class="grader-dim-fill" style="width:60%;"></div></div>
-          <div class="grader-dim-val">3/5</div>
-        </div>
-      </div>
-      <div class="grader-summary">
-        <strong>Exceptional geometric match.</strong> The viewer clearly depicted the circular structure with radial spokes. Impressions of "round," "night," and "lights" are direct hits.
-      </div>
-    </div>
-
-  </section>
-
-  <!-- ═══════════════════════════════════════════════
-       03  -  STATS & ANALYTICS
-  ═══════════════════════════════════════════════ -->
-  <section id="analytics-section" style="padding:80px 24px 0;">
-
-    <div class="reveal" style="margin-bottom:36px;">
-      <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:12px;">Your Progress</div>
-      <div style="font-family:var(--display);font-size:48px;letter-spacing:2px;color:var(--text);line-height:1;">TRACK EVERY<br>SESSION.</div>
-    </div>
-
-    <!-- Big stat row -->
-    <div class="reveal" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;transition-delay:0.1s;">
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 16px;">
-        <div style="font-family:var(--display);font-size:48px;color:var(--accent);line-height:1;">6</div>
-        <div style="font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-top:6px;line-height:1.5;">Graded<br>Dimensions</div>
-      </div>
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px 16px;">
-        <div style="font-family:var(--display);font-size:48px;color:var(--accent);line-height:1;">100%</div>
-        <div style="font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-top:6px;line-height:1.5;">Objective<br>AI Scoring</div>
-      </div>
-    </div>
-
-    <!-- Trend chart mockup -->
-    <div class="reveal" style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;transition-delay:0.15s;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
-        <div>
-          <div style="font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;">RV Score Trend</div>
-          <div style="font-family:var(--display);font-size:28px;color:var(--text);margin-top:2px;">+18% <span style="font-size:16px;color:var(--accent);">this month</span></div>
-        </div>
-        <div style="font-family:var(--mono);font-size:9px;color:var(--dim);">30 days</div>
-      </div>
-      <!-- SVG line chart -->
-      <svg viewBox="0 0 280 80" style="width:100%;height:80px;" preserveAspectRatio="none">
-        <defs>
-          <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#4af0c8" stop-opacity="0.2"/>
-            <stop offset="100%" stop-color="#4af0c8" stop-opacity="0"/>
-          </linearGradient>
-        </defs>
-        <!-- Area fill -->
-        <path d="M0 65 L20 58 L50 60 L80 48 L110 50 L140 38 L170 35 L200 28 L230 22 L260 15 L280 12 L280 80 L0 80Z" fill="url(#chartGrad)"/>
-        <!-- Line -->
-        <path d="M0 65 L20 58 L50 60 L80 48 L110 50 L140 38 L170 35 L200 28 L230 22 L260 15 L280 12" stroke="#4af0c8" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-        <!-- Dots at key points -->
-        <circle cx="140" cy="38" r="2.5" fill="#4af0c8" opacity="0.6"/>
-        <circle cx="280" cy="12" r="3" fill="#4af0c8"/>
-      </svg>
-    </div>
-
-    <!-- Stat cards row -->
-    <div class="reveal" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px;transition-delay:0.2s;">
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 10px;text-align:center;">
-        <div style="font-family:var(--display);font-size:28px;color:var(--text);line-height:1;">24</div>
-        <div style="font-family:var(--mono);font-size:7px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-top:4px;line-height:1.4;">RV<br>Sessions</div>
-      </div>
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 10px;text-align:center;">
-        <div style="font-family:var(--display);font-size:28px;color:var(--accent);line-height:1;">84%</div>
-        <div style="font-family:var(--mono);font-size:7px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-top:4px;line-height:1.4;">Best<br>Score</div>
-      </div>
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 10px;text-align:center;">
-        <div style="font-family:var(--display);font-size:28px;color:var(--text);line-height:1;">7</div>
-        <div style="font-family:var(--mono);font-size:7px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;margin-top:4px;line-height:1.4;">Day<br>Streak</div>
-      </div>
-    </div>
-
-    <div style="display:flex;justify-content:center;margin-top:32px;" class="reveal" style="transition-delay:0.25s;">
-      <button class="btn-install" onclick="handleInstall()" style="max-width:300px;">START TRAINING</button>
-    </div>
-
-  </section>
-
-  <!-- ═══════════════════════════════════════════════
-       04  -  EVERY HUMAN HAS THE ABILITY
-  ═══════════════════════════════════════════════ -->
-  <section id="mission" style="padding:96px 0;position:relative;overflow:hidden;">
-
-    <!-- Background wave texture -->
-    <svg style="position:absolute;top:0;left:0;width:100%;height:100%;opacity:0.04;" viewBox="0 0 320 300" preserveAspectRatio="none">
-      <path d="M0 80 Q80 50 160 80 Q240 110 320 80" stroke="#4af0c8" stroke-width="1.5" fill="none"/>
-      <path d="M0 140 Q80 110 160 140 Q240 170 320 140" stroke="#4af0c8" stroke-width="1" fill="none"/>
-      <path d="M0 200 Q80 170 160 200 Q240 230 320 200" stroke="#5b9ef4" stroke-width="0.75" fill="none"/>
-    </svg>
-
-    <div class="reveal" style="padding:0 24px;text-align:center;">
-
-      <!-- Large ability statement -->
-      <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:32px;opacity:0.8;">Our Mission</div>
-
-      <div style="font-family:var(--display);font-size:64px;letter-spacing:3px;line-height:0.95;color:var(--text);margin-bottom:8px;">EVERY</div>
-      <div style="font-family:var(--display);font-size:64px;letter-spacing:3px;line-height:0.95;color:var(--text);margin-bottom:8px;">HUMAN</div>
-      <div style="font-family:var(--display);font-size:64px;letter-spacing:3px;line-height:0.95;color:var(--text);margin-bottom:8px;">HAS THE</div>
-      <div style="font-family:var(--display);font-size:80px;letter-spacing:3px;line-height:0.95;margin-bottom:40px;">
-        <span style="color:var(--text);">ABIL</span><span style="color:var(--accent);">T</span><span style="color:var(--text);">Y</span>
-      </div>
-
-      <div style="width:40px;height:2px;background:var(--accent);opacity:0.4;margin:0 auto 32px;"></div>
-
-      <div style="font-family:var(--body);font-size:16px;color:var(--muted);line-height:1.8;max-width:320px;margin:0 auto 20px;">
-        To perceive beyond what is commonly understood. This is not a belief. It is documented in <strong style="color:var(--text);font-weight:500;">decades of peer-reviewed science</strong> and declassified government research.
-      </div>
-
-      <div style="font-family:var(--body);font-size:15px;color:var(--muted);line-height:1.8;max-width:320px;margin:0 auto 28px;">
-        Build your <strong style="color:var(--text);font-weight:500;">ability</strong> through consistent structured protocols. Track it with detailed analytics. Focus your training where your signal is strongest.
-      </div>
-
-      <div style="font-family:var(--mono);font-size:11px;letter-spacing:1.5px;color:var(--dim);font-style:italic;max-width:280px;margin:0 auto;line-height:1.9;">
-        "The question is not whether the ability exists.<br>The question is how far you can develop it."
-      </div>
-
-    </div>
-
-  </section>
-
-  <!-- ═══════════════════════════════════════════════
-       05  -  SEE IT IN ACTION
-  ═══════════════════════════════════════════════ -->
-  <section id="screenshots" style="padding:72px 0 0;">
-
-    <div style="padding:0 24px 8px;text-align:center;" class="reveal">
-      <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:12px;">The Experience</div>
-      <div style="font-family:var(--display);font-size:48px;letter-spacing:2px;color:var(--text);line-height:1;">SEE IT IN<br>ACTION</div>
-    </div>
-
-    <div class="phone-track reveal" style="transition-delay:0.1s;">
-      <div class="phone-frame"><img src="/HomeMenu.png" alt="ABLTY Home Screen" width="200" height="360"></div>
-      <div class="phone-frame"><img src="/BlankCanvas.png" alt="RV Canvas" width="200" height="360"></div>
-      <div class="phone-frame"><img src="/Impressions.png" alt="Impressions" width="200" height="360"></div>
-      <div class="phone-frame"><img src="/RVGoodScore.png" alt="RV Results" width="200" height="360"></div>
-      <div class="phone-frame"><img src="/Analytics.png" alt="Analytics" width="200" height="360"></div>
-    </div>
-
-  </section>
-
-  <!-- ═══════════════════════════════════════════════
-       06  -  THIS IS REAL SCIENCE
-  ═══════════════════════════════════════════════ -->
-  <section id="learn" style="padding:80px 0 0;">
-
-    <div style="padding:0 24px;" class="reveal">
-      <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--accent);text-transform:uppercase;margin-bottom:12px;">The Research</div>
-      <div style="font-family:var(--display);font-size:48px;letter-spacing:2px;color:var(--text);line-height:1;margin-bottom:8px;">THIS IS<br>REAL SCIENCE</div>
-      <div style="font-family:var(--mono);font-size:10px;letter-spacing:1px;color:var(--muted);line-height:1.6;">23 years. $20 million. Declassified 1995.</div>
-    </div>
-
-    <!-- Signal bars -->
-    <div style="display:flex;align-items:flex-end;gap:3px;height:28px;margin:24px 24px 0;justify-content:center;" class="reveal" style="transition-delay:0.05s;">
-      <div class="signal-bar" style="height:40%;animation-delay:0s"></div>
-      <div class="signal-bar" style="height:65%;animation-delay:0.1s"></div>
-      <div class="signal-bar" style="height:90%;animation-delay:0.2s"></div>
-      <div class="signal-bar" style="height:55%;animation-delay:0.3s"></div>
-      <div class="signal-bar" style="height:100%;animation-delay:0.4s"></div>
-      <div class="signal-bar" style="height:70%;animation-delay:0.5s"></div>
-      <div class="signal-bar" style="height:45%;animation-delay:0.6s"></div>
-      <div class="signal-bar" style="height:80%;animation-delay:0.7s"></div>
-      <div class="signal-bar" style="height:60%;animation-delay:0.8s"></div>
-      <div class="signal-bar" style="height:35%;animation-delay:0.9s"></div>
-      <div class="signal-bar" style="height:75%;animation-delay:1.0s"></div>
-      <div class="signal-bar" style="height:50%;animation-delay:1.1s"></div>
-    </div>
-
-    <!-- Cite cards horizontal -->
-    <div class="hscroll-wrap reveal" style="transition-delay:0.1s;margin-top:20px;">
-      <div class="hscroll-track" id="cite-track" style="padding:8px 24px 24px;">
-
-        <div class="cite-card">
-          <div class="cite-label">CIA · Declassified · 1995</div>
-          <div class="cite-stat">23</div>
-          <div class="cite-stat-label">Years of U.S. government funding</div>
-          <div class="cite-title">Project STARGATE</div>
-          <div class="cite-source-short">SRI International. Defense Intelligence Agency. Hal Puthoff &amp; Russell Targ.</div>
-        </div>
-
-        <div class="cite-card">
-          <div class="cite-label">Journal of Scientific Exploration · 1996</div>
-          <div class="cite-stat">p&lt;.0001</div>
-          <div class="cite-stat-label">Statistical significance</div>
-          <div class="cite-title">RV Meta-Analysis</div>
-          <div class="cite-source-short">653 trials across independent laboratories. Consistent effect sizes. Utts, J.</div>
-        </div>
-
-        <div class="cite-card">
-          <div class="cite-label">Princeton University · 1979-2007</div>
-          <div class="cite-stat">650+</div>
-          <div class="cite-stat-label">Formal remote perception trials</div>
-          <div class="cite-title">PEAR Lab</div>
-          <div class="cite-source-short">28 years. 80+ technical reports. Consistent anomalous cognition effects.</div>
-        </div>
-
-        <div class="cite-card">
-          <div class="cite-label">Psychological Bulletin · 1994</div>
-          <div class="cite-stat">33.2%</div>
-          <div class="cite-stat-label">Hit rate vs 25% chance baseline</div>
-          <div class="cite-title">Ganzfeld Studies</div>
-          <div class="cite-source-short">2,549 sessions across 11 independent databases. Bem &amp; Honorton.</div>
-        </div>
-
-      </div>
-    </div>
-
-    <!-- Stats row -->
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin:20px 24px 0;" class="reveal" style="transition-delay:0.15s;">
-      <div style="background:var(--card);padding:18px 12px;text-align:center;">
-        <div style="font-family:var(--display);font-size:32px;color:var(--accent);line-height:1;">23</div>
-        <div style="font-family:var(--mono);font-size:7px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-top:6px;line-height:1.4;">Years govt. funded</div>
-      </div>
-      <div style="background:var(--card);padding:18px 12px;text-align:center;">
-        <div style="font-family:var(--display);font-size:32px;color:var(--accent);line-height:1;">$20M</div>
-        <div style="font-family:var(--mono);font-size:7px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-top:6px;line-height:1.4;">CIA / DIA budget</div>
-      </div>
-      <div style="background:var(--card);padding:18px 12px;text-align:center;">
-        <div style="font-family:var(--display);font-size:32px;color:var(--accent);line-height:1;">p&lt;.0001</div>
-        <div style="font-family:var(--mono);font-size:7px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-top:6px;line-height:1.4;">Significance</div>
-      </div>
-    </div>
-
-    <div style="display:flex;justify-content:center;margin:32px 0 0;padding:0 24px;" class="reveal" style="transition-delay:0.2s;">
-      <button class="btn-install" onclick="handleInstall()" style="max-width:300px;">TEST YOUR ABILITIES</button>
-    </div>
-
-  </section>
-
-  <!-- ═══════════════════════════════════════════════
-       07  -  COMING SOON
-  ═══════════════════════════════════════════════ -->
-  <section id="coming" style="padding:80px 24px 0;">
-
-    <div class="reveal" style="text-align:center;margin-bottom:32px;">
-      <div style="font-family:var(--mono);font-size:9px;letter-spacing:3px;color:var(--warn);text-transform:uppercase;margin-bottom:12px;">What Is Coming</div>
-      <div style="font-family:var(--display);font-size:48px;letter-spacing:2px;color:var(--text);line-height:1;">THE NEXT<br>EVOLUTION</div>
-    </div>
-
-    <div style="display:flex;flex-direction:column;gap:12px;">
-
-      <div class="coming-card reveal" style="transition-delay:0.05s;">
-        <div class="coming-card-visual">
-          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-            <circle cx="20" cy="20" r="14" stroke="#4af0c8" stroke-width="1" opacity="0.5"/>
-            <ellipse cx="20" cy="20" rx="7" ry="14" stroke="#4af0c8" stroke-width="0.75" opacity="0.3"/>
-            <line x1="6" y1="20" x2="34" y2="20" stroke="#4af0c8" stroke-width="0.75" opacity="0.3"/>
-            <circle cx="20" cy="20" r="3" fill="#4af0c8" opacity="0.6"/>
-          </svg>
-        </div>
-        <div>
-          <div class="coming-name">DAILY COMMUNITY RV</div>
-          <div class="coming-desc">Same target. Every user. Reveals at 11:11 PM.</div>
-        </div>
-      </div>
-
-      <div class="coming-card reveal" style="transition-delay:0.1s;">
-        <div class="coming-card-visual">
-          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-            <rect x="6" y="24" width="7" height="10" fill="#4af0c8" opacity="0.4" rx="1"/>
-            <rect x="17" y="16" width="7" height="18" fill="#4af0c8" opacity="0.6" rx="1"/>
-            <rect x="28" y="8" width="7" height="26" fill="#4af0c8" opacity="0.9" rx="1"/>
-            <line x1="4" y1="34" x2="36" y2="34" stroke="#6b7280" stroke-width="0.75" opacity="0.4"/>
-          </svg>
-        </div>
-        <div>
-          <div class="coming-name">GLOBAL LEADERBOARDS</div>
-          <div class="coming-desc">AI-graded. Objective. Who has the most advanced abilities?</div>
-        </div>
-      </div>
-
-      <div class="coming-card reveal" style="transition-delay:0.15s;">
-        <div class="coming-card-visual">
-          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-            <ellipse cx="22" cy="26" rx="7" ry="10" stroke="#6b7280" stroke-width="1" opacity="0.35"/>
-            <ellipse cx="16" cy="16" rx="6" ry="9" stroke="#9b6fd4" stroke-width="1" stroke-dasharray="2 2" opacity="0.6"/>
-            <circle cx="16" cy="9" r="2" stroke="#9b6fd4" stroke-width="0.75" opacity="0.5"/>
-          </svg>
-        </div>
-        <div>
-          <div class="coming-name">ASTRAL PROJECTION</div>
-          <div class="coming-desc">Guided OBE induction. Hypnagogic threshold protocols.</div>
-        </div>
-      </div>
-
-    </div>
-
-  </section>
-
-  <!-- ═══════════════════════════════════════════════
-       08  -  FINAL CTA
-  ═══════════════════════════════════════════════ -->
-  <section style="padding:96px 24px 80px;text-align:center;position:relative;">
-    <div style="position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:100%;height:60%;background:radial-gradient(ellipse at 50% 100%,rgba(74,240,200,0.06) 0%,transparent 70%);pointer-events:none;"></div>
-
-    <!-- Wave above final CTA -->
-    <svg viewBox="0 0 320 30" style="width:100%;opacity:0.12;margin-bottom:40px;" preserveAspectRatio="none">
-      <path d="M0 15 Q40 5 80 15 Q120 25 160 15 Q200 5 240 15 Q280 25 320 15" stroke="#4af0c8" stroke-width="1.5" fill="none"/>
+  <!-- ═══ MISSION ═══ -->
+  <section class="mission" id="mission">
+    <!-- Animated rings behind text -->
+    <svg class="mission-rings" viewBox="0 0 400 400" id="mission-rings">
+      <circle cx="200" cy="200" r="40" stroke-width="0.5" opacity="0.5"/>
+      <circle cx="200" cy="200" r="80" stroke-width="0.5" opacity="0.35"/>
+      <circle cx="200" cy="200" r="120" stroke-width="0.5" opacity="0.2"/>
+      <circle cx="200" cy="200" r="160" stroke-width="0.3" opacity="0.1"/>
+      <!-- Orbiting dot -->
+      <circle cx="200" cy="200" r="3" fill="var(--accent)" opacity="0">
+        <animateTransform attributeName="transform" type="rotate" from="0 200 200" to="360 200 200" dur="12s" repeatCount="indefinite"/>
+        <animate attributeName="cx" values="280;280" dur="12s"/>
+        <animate attributeName="cy" values="200;200" dur="12s"/>
+        <animate attributeName="opacity" values="0;0.6;0.6;0" dur="12s" repeatCount="indefinite"/>
+      </circle>
     </svg>
 
     <div class="reveal">
+      <div class="tag" style="margin-bottom:32px;opacity:0.8;">The Mission</div>
+
+      <!-- Animated eye SVG -->
+      <div class="mission-eye" id="mission-eye">
+        <svg viewBox="0 0 120 60" width="120" height="60" fill="none">
+          <defs>
+            <radialGradient id="irisG" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.9"/>
+              <stop offset="60%" stop-color="var(--accent2)" stop-opacity="0.4"/>
+              <stop offset="100%" stop-color="transparent"/>
+            </radialGradient>
+          </defs>
+          <!-- Eye shape -->
+          <path d="M10 30 Q60 0 110 30 Q60 60 10 30Z" stroke="var(--accent)" stroke-width="1" opacity="0.4" fill="none"/>
+          <path d="M10 30 Q60 0 110 30 Q60 60 10 30Z" fill="rgba(74,240,200,0.03)"/>
+          <!-- Iris -->
+          <circle cx="60" cy="30" r="14" fill="url(#irisG)" opacity="0.6"/>
+          <circle cx="60" cy="30" r="14" stroke="var(--accent)" stroke-width="0.75" opacity="0.5" fill="none"/>
+          <!-- Pupil -->
+          <circle cx="60" cy="30" r="5" fill="var(--accent)" opacity="0.8"/>
+          <circle cx="60" cy="30" r="5" fill="none" stroke="var(--accent)" stroke-width="0.5" opacity="0.3">
+            <animate attributeName="r" values="5;6;5" dur="3s" repeatCount="indefinite"/>
+          </circle>
+          <!-- Glint -->
+          <circle cx="55" cy="26" r="2" fill="#fff" opacity="0.5"/>
+          <!-- Expanding awareness ring -->
+          <circle cx="60" cy="30" r="20" fill="none" stroke="var(--accent)" stroke-width="0.5" opacity="0">
+            <animate attributeName="r" values="20;40" dur="3s" repeatCount="indefinite"/>
+            <animate attributeName="opacity" values="0.3;0" dur="3s" repeatCount="indefinite"/>
+          </circle>
+        </svg>
+      </div>
+
+      <div class="mission-word" style="font-size:clamp(52px,14vw,72px);">EVERY</div>
+      <div class="mission-word" style="font-size:clamp(52px,14vw,72px);">HUMAN</div>
+      <div class="mission-word" style="font-size:clamp(52px,14vw,72px);">HAS THE</div>
+      <div class="mission-word" style="font-size:clamp(64px,18vw,88px);">
+        <span style="color:var(--text);">ABIL</span><span style="color:var(--accent);">T</span><span style="color:var(--text);">Y</span>
+      </div>
+      <div class="mission-rule"></div>
+      <div class="mission-body">To perceive beyond what is commonly understood. This is not a belief. It is documented in <strong>decades of peer-reviewed science</strong> and declassified government research.</div>
+      <div class="mission-body">Build your <strong>ability</strong> through consistent structured protocols. Track it with detailed analytics. Focus your training where your signal is strongest.</div>
+      <div class="mission-quote">The question is not whether the ability exists.<br>The question is how far you can develop it.</div>
+    </div>
+  </section>
+
+  <!-- Bridge: particles floating up -->
+  <div class="section-bridge" id="bridge1">
+    <div class="bridge-particles" id="bp1"></div>
+    <div class="bridge-line"></div>
+  </div>
+
+  <!-- ═══ EVIDENCE ═══ -->
+  <section class="evidence" id="evidence">
+    <div class="evidence-header reveal">
+      <div class="tag">The Evidence</div>
+    </div>
+
+    <div class="timeline" id="timeline">
+      <div class="timeline-line"></div>
+      <div class="timeline-line-fill" id="tl-fill"></div>
+
+      <!-- Node 1: Stargate - operational, not just academic -->
+      <div class="tl-node reveal" style="transition-delay:0.05s;">
+        <div class="tl-dot-wrap"><div class="tl-dot" data-light></div></div>
+        <div class="tl-content">
+          <div class="tl-year">1972 - 1995  ·  CIA / DIA / NSA</div>
+          <div class="tl-title">PROJECT STARGATE</div>
+          <div class="tl-stat-row">
+            <div class="tl-stat"><div class="tl-stat-val">23</div><div class="tl-stat-label">Years<br>Funded</div></div>
+            <div class="tl-stat"><div class="tl-stat-val">$20M</div><div class="tl-stat-label">Total<br>Budget</div></div>
+            <div class="tl-stat"><div class="tl-stat-val">500+</div><div class="tl-stat-label">Intel<br>Missions</div></div>
+          </div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:10px;line-height:1.6;">Not just studied. <span style="color:var(--text);">Deployed operationally</span> by U.S. intelligence agencies for over two decades. SRI International, Hal Puthoff, Russell Targ.</div>
+        </div>
+      </div>
+
+      <!-- Node 2: Replication across the world -->
+      <div class="tl-node reveal" style="transition-delay:0.1s;">
+        <div class="tl-dot-wrap"><div class="tl-dot" data-light></div></div>
+        <div class="tl-content">
+          <div class="tl-year">1974 - Present  ·  Global</div>
+          <div class="tl-title">REPLICATED WORLDWIDE</div>
+          <div class="tl-stat-row">
+            <div class="tl-stat"><div class="tl-stat-val">3,000+</div><div class="tl-stat-label">Published<br>Studies</div></div>
+            <div class="tl-stat"><div class="tl-stat-val">75+</div><div class="tl-stat-label">Years of<br>Research</div></div>
+          </div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:10px;line-height:1.6;"><span style="color:var(--text);">Princeton, Stanford, Cornell, University of Edinburgh, University of Amsterdam</span>, and dozens more. Independent labs. Different researchers. Same results.</div>
+        </div>
+      </div>
+
+      <!-- Node 3: Effect size comparison - this is the persuasion bomb -->
+      <div class="tl-node reveal" style="transition-delay:0.15s;">
+        <div class="tl-dot-wrap"><div class="tl-dot" data-light></div></div>
+        <div class="tl-content">
+          <div class="tl-year">Meta-Analysis  ·  Effect Size Comparison</div>
+          <div class="tl-title">STRONGER THAN YOU THINK</div>
+          <!-- Horizontal comparison bars -->
+          <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px;">
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+                <div style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--muted);text-transform:uppercase;">Aspirin preventing heart attacks</div>
+              </div>
+              <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;position:relative;">
+                <div class="effect-bar" data-ew="36" style="height:100%;border-radius:3px;background:var(--dim);width:0%;transition:width 1.2s ease 0.5s;"></div>
+              </div>
+              <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:3px;">r = 0.034</div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
+                <div style="font-family:var(--mono);font-size:8px;letter-spacing:1px;color:var(--accent);text-transform:uppercase;">Psi across all study types</div>
+              </div>
+              <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;position:relative;">
+                <div class="effect-bar" data-ew="68" style="height:100%;border-radius:3px;background:var(--accent);width:0%;transition:width 1.2s ease 0.8s;"></div>
+              </div>
+              <div style="font-family:var(--mono);font-size:9px;color:var(--accent);margin-top:3px;">r = 0.12 - 0.20</div>
+            </div>
+          </div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:12px;line-height:1.6;">Aspirin's effect on heart attacks is considered <span style="color:var(--text);">proven medical science</span>. The psi effect is <span style="color:var(--accent);">3 to 6 times larger</span>.</div>
+        </div>
+      </div>
+
+      <!-- Node 4: The Congressional Verdict -->
+      <div class="tl-node reveal" style="transition-delay:0.2s;">
+        <div class="tl-dot-wrap"><div class="tl-dot" data-light></div></div>
+        <div class="tl-content">
+          <div class="tl-year">1995  ·  U.S. Congressional Review</div>
+          <div class="tl-title">THE VERDICT</div>
+          <div class="sig-badge"><div class="sig-badge-dot"></div><div class="sig-badge-text">Statistically Undeniable</div></div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:10px;line-height:1.6;"><span style="color:var(--text);">Professor Jessica Utts</span>, UC Davis statistician, was appointed by Congress to evaluate the program. Her conclusion after reviewing 653 trials across independent labs:</div>
+          <div style="font-family:var(--body);font-size:13px;color:var(--text);margin-top:8px;line-height:1.6;font-style:italic;padding-left:12px;border-left:2px solid rgba(74,240,200,0.3);">"The statistical results are far beyond what is expected by chance. I believe that it would be wasteful of valuable resources to require more replication."</div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:10px;line-height:1.6;">The odds of these results being random chance: <span style="color:var(--accent);">less than 1 in 10,000.</span></div>
+        </div>
+      </div>
+
+      <!-- Node 5: Presentiment - the body knows -->
+      <div class="tl-node reveal" style="transition-delay:0.25s;">
+        <div class="tl-dot-wrap"><div class="tl-dot" data-light></div></div>
+        <div class="tl-content">
+          <div class="tl-year">2014  ·  Frontiers in Human Neuroscience</div>
+          <div class="tl-title">YOUR BODY ALREADY KNOWS</div>
+          <div class="tl-stat-row">
+            <div class="tl-stat"><div class="tl-stat-val">26</div><div class="tl-stat-label">Independent<br>Studies</div></div>
+            <div class="tl-stat"><div class="tl-stat-val" style="font-size:16px;">100B:1</div><div class="tl-stat-label">Odds Against<br>Chance</div></div>
+          </div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:10px;line-height:1.6;">Dean Radin's analysis found your body shows <span style="color:var(--text);">measurable physiological responses</span> to randomly selected future events <span style="color:var(--accent);">before they happen</span>. Heart rate, skin conductance, pupil dilation: all shift seconds before a stimulus is selected.</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Bridge -->
+  <div class="section-bridge" id="bridge2"><div class="bridge-particles" id="bp2"></div><div class="bridge-line"></div></div>
+
+  <!-- ═══ HOW IT WORKS ═══ -->
+  <section class="flow" id="flow">
+    <div class="reveal">
+      <div class="tag">Remote Viewing</div>
+      <div class="big-title" style="font-size:48px;">HOW IT WORKS</div>
+    </div>
+    <div class="flow-steps reveal-scale" id="flow-steps">
+      <div class="flow-spine"></div>
+      <div class="flow-spine-fill" id="flow-spine-fill"></div>
+
+      <div class="flow-node">
+        <div class="flow-ring" data-flow-light><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="3" y="3" width="22" height="22" rx="4" stroke="var(--accent)" stroke-width="1" opacity="0.5"/><text x="14" y="16" text-anchor="middle" font-family="DM Mono,monospace" font-size="9" fill="var(--accent)" opacity="0.9">?</text></svg></div>
+        <div class="flow-text"><div class="flow-num">STEP 01</div><div class="flow-name">BLIND TARGET</div><div class="flow-sub">You see only a reference number</div></div>
+      </div>
+      <div class="flow-node">
+        <div class="flow-ring" data-flow-light><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M6 22 L10 12 L16 18 L22 6" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/></svg></div>
+        <div class="flow-text"><div class="flow-num">STEP 02</div><div class="flow-name">SKETCH + RECORD</div><div class="flow-sub">Draw impressions, log sensory data</div></div>
+      </div>
+      <div class="flow-node">
+        <div class="flow-ring" data-flow-light><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="10" stroke="var(--accent)" stroke-width="1" opacity="0.3"/><path d="M9 14 L12 17 L19 10" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/></svg></div>
+        <div class="flow-text"><div class="flow-num">STEP 03</div><div class="flow-name">AI GRADES IT</div><div class="flow-sub">6 dimensions, instant analysis</div></div>
+      </div>
+      <div class="flow-node">
+        <div class="flow-ring" data-flow-light><svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="5" y="16" width="4" height="7" fill="var(--accent)" opacity="0.4" rx="1"/><rect x="12" y="11" width="4" height="12" fill="var(--accent)" opacity="0.6" rx="1"/><rect x="19" y="6" width="4" height="17" fill="var(--accent)" opacity="0.9" rx="1"/></svg></div>
+        <div class="flow-text"><div class="flow-num">STEP 04</div><div class="flow-name">TRACK PROGRESS</div><div class="flow-sub">See your score, build your signal</div></div>
+      </div>
+
+      <!-- Grader with sketch vs target -->
+      <div class="flow-grader" id="flow-grader">
+        <div class="fg-compare">
+          <div class="fg-compare-cell">
+            <div class="fg-compare-label">Your Sketch</div>
+            <div class="fg-compare-img">
+              <img src="/demosketch.png" alt="User's sketch of aquatic form" style="width:100%;height:100%;object-fit:cover;border-radius:8px;background:#111214;">
+            </div>
+          </div>
+          <div class="fg-compare-cell">
+            <div class="fg-compare-label">Target</div>
+            <div class="fg-compare-img">
+              <img src="/demotarget.png" alt="Target: shark underwater" style="width:100%;height:100%;object-fit:cover;border-radius:8px;background:#0a0c10;">
+            </div>
+          </div>
+        </div>
+        <div class="fg-top"><div class="fg-trn">TRN 6047-5129</div><div class="fg-score">84%</div></div>
+        <div class="fg-dims">
+          <div class="fg-dim"><div class="fg-dim-label">Form</div><div class="fg-dim-bar"><div class="fg-dim-fill" data-w="100"></div></div><div class="fg-dim-val">5/5</div></div>
+          <div class="fg-dim"><div class="fg-dim-label">Spatial</div><div class="fg-dim-bar"><div class="fg-dim-fill" data-w="80"></div></div><div class="fg-dim-val">4/5</div></div>
+          <div class="fg-dim"><div class="fg-dim-label">Texture</div><div class="fg-dim-bar"><div class="fg-dim-fill" data-w="80"></div></div><div class="fg-dim-val">4/5</div></div>
+          <div class="fg-dim"><div class="fg-dim-label">Motion</div><div class="fg-dim-bar"><div class="fg-dim-fill" data-w="80"></div></div><div class="fg-dim-val">4/5</div></div>
+          <div class="fg-dim"><div class="fg-dim-label">Emotion</div><div class="fg-dim-bar"><div class="fg-dim-fill" data-w="60"></div></div><div class="fg-dim-val">3/5</div></div>
+          <div class="fg-dim"><div class="fg-dim-label">Color</div><div class="fg-dim-bar"><div class="fg-dim-fill" data-w="60"></div></div><div class="fg-dim-val">3/5</div></div>
+        </div>
+        <div class="fg-hits">
+          <div class="fg-hit hit">Streamlined form</div><div class="fg-hit hit">Underwater</div><div class="fg-hit hit">Fins</div><div class="fg-hit hit">Movement</div><div class="fg-hit hit">Predator</div><div class="fg-hit noise">Waves above</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;justify-content:center;margin-top:32px;" class="reveal">
+      <button class="btn-install" onclick="handleInstall()" style="max-width:280px;">TRY IT FREE</button>
+    </div>
+  </section>
+
+  <!-- Bridge -->
+  <div class="section-bridge" id="bridge3"><div class="bridge-particles" id="bp3"></div><div class="bridge-line"></div></div>
+
+  <!-- ═══ MODULES ═══ -->
+  <section class="modules" id="modules">
+    <div style="padding:0 24px;text-align:center;" class="reveal">
+      <div class="tag">The Full Suite</div>
+      <div class="big-title" style="font-size:48px;">MORE WAYS<br>TO TRAIN</div>
+    </div>
+    <div class="hscroll-wrap reveal" style="transition-delay:0.1s;">
+      <div class="hscroll-track" id="module-track">
+        <div class="mod-card"><div class="mod-vis rv"><svg width="56" height="56" viewBox="0 0 56 56" fill="none"><circle cx="28" cy="28" r="20" stroke="#4af0c8" stroke-width="0.5" opacity="0.25"/><circle cx="28" cy="28" r="12" stroke="#4af0c8" stroke-width="0.75" opacity="0.4"/><circle cx="28" cy="28" r="4" fill="#4af0c8" opacity="0.7"/><line x1="28" y1="6" x2="28" y2="50" stroke="#4af0c8" stroke-width="0.5" opacity="0.2"/><line x1="6" y1="28" x2="50" y2="28" stroke="#4af0c8" stroke-width="0.5" opacity="0.2"/></svg></div><div class="mod-body"><div class="mod-name">REMOTE VIEWING</div><div class="mod-tag">AI-Graded Blind Targets</div></div></div>
+        <div class="mod-card"><div class="mod-vis psi"><div class="circuit"></div><div style="position:relative;z-index:2;display:flex;gap:10px;opacity:0.55;"><svg width="20" height="20" viewBox="0 0 80 80" fill="none" stroke="rgba(74,240,200,0.9)" stroke-width="3"><circle cx="40" cy="40" r="24"/></svg><svg width="20" height="20" viewBox="0 0 80 80" fill="none" stroke="rgba(91,158,244,0.9)" stroke-width="3"><line x1="40" y1="14" x2="40" y2="66"/><line x1="14" y1="40" x2="66" y2="40"/></svg><svg width="20" height="20" viewBox="0 0 80 80" fill="none" stroke="rgba(74,240,200,0.9)" stroke-width="3"><polygon points="40,12 47,33 70,33 52,46 59,68 40,55 21,68 28,46 10,33 33,33"/></svg></div></div><div class="mod-body"><div class="mod-name">PSI TRAINING</div><div class="mod-tag">Zener  ·  Presentiment  ·  Photo Pair</div></div></div>
+        <div class="mod-card"><div class="mod-vis dream"><svg width="48" height="48" viewBox="0 0 48 48" fill="none"><path d="M30 10 Q18 18 18 28 Q18 40 30 44 Q14 42 10 30 Q7 17 22 10 Q26 8 30 10Z" fill="#5b2d8e" opacity="0.35" stroke="#9b6fd4" stroke-width="1"/><circle cx="26" cy="12" r="1.2" fill="#9b6fd4" opacity="0.8"/><circle cx="34" cy="20" r="0.8" fill="#fff" opacity="0.5"/></svg></div><div class="mod-body"><div class="mod-name">DREAM LAB</div><div class="mod-tag">Lucid Dream Training</div></div></div>
+        <div class="mod-card" style="opacity:0.45;"><div class="mod-vis astral"><svg width="40" height="40" viewBox="0 0 40 40" fill="none"><ellipse cx="22" cy="24" rx="6" ry="10" stroke="#6b7280" stroke-width="1" opacity="0.35"/><ellipse cx="16" cy="14" rx="5" ry="8" stroke="#4af0c8" stroke-width="1" stroke-dasharray="3 2" opacity="0.3"/><circle cx="16" cy="8" r="2" stroke="#4af0c8" stroke-width="0.75" opacity="0.25"/></svg><div class="mod-soon">Soon</div></div><div class="mod-body"><div class="mod-name" style="color:var(--muted);">ASTRAL PROJECTION</div><div class="mod-tag" style="color:var(--dim);">OBE Induction</div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ SCREENSHOTS ═══ -->
+  <section class="screenshots" id="screenshots">
+    <div style="padding:0 24px;text-align:center;" class="reveal">
+      <div class="tag">The Experience</div>
+      <div class="big-title" style="font-size:48px;">SEE IT</div>
+    </div>
+    <div class="phone-track reveal" style="transition-delay:0.1s;">
+      <div class="phone-frame"><img src="/HomeMenu.png" alt="Home" width="170" height="300"><div class="phone-label">Choose module</div></div>
+      <div class="phone-frame"><img src="/BlankCanvas.png" alt="Canvas" width="170" height="300"><div class="phone-label">Sketch blind</div></div>
+      <div class="phone-frame"><img src="/Impressions.png" alt="Impressions" width="170" height="300"><div class="phone-label">Record data</div></div>
+      <div class="phone-frame"><img src="/RVGoodScore.png" alt="Results" width="170" height="300"><div class="phone-label">AI grades it</div></div>
+      <div class="phone-frame"><img src="/Analytics.png" alt="Analytics" width="170" height="300"><div class="phone-label">Track progress</div></div>
+    </div>
+  </section>
+
+  <!-- ═══ COMING SOON ═══ -->
+  <section class="coming" id="coming">
+    <div class="reveal" style="text-align:center;"><div class="tag" style="color:var(--warn);">In Development</div><div class="big-title" style="font-size:42px;">WHAT'S NEXT</div></div>
+    <div class="coming-row reveal" style="transition-delay:0.1s;">
+      <div class="coming-pill"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="#4af0c8" stroke-width="1" opacity="0.5"/><circle cx="12" cy="12" r="2" fill="#4af0c8" opacity="0.6"/></svg><div class="coming-pill-name">COMMUNITY RV</div><div class="coming-pill-sub">Reveals 11:11 PM</div></div>
+      <div class="coming-pill"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="4" y="14" width="4" height="6" fill="#4af0c8" opacity="0.4" rx="1"/><rect x="10" y="10" width="4" height="10" fill="#4af0c8" opacity="0.6" rx="1"/><rect x="16" y="5" width="4" height="15" fill="#4af0c8" opacity="0.9" rx="1"/></svg><div class="coming-pill-name">LEADERBOARDS</div><div class="coming-pill-sub">Global Rankings</div></div>
+      <div class="coming-pill"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><ellipse cx="14" cy="15" rx="4" ry="6" stroke="#6b7280" stroke-width="1" opacity="0.35"/><ellipse cx="10" cy="10" rx="4" ry="5" stroke="#9b6fd4" stroke-width="1" stroke-dasharray="2 2" opacity="0.5"/></svg><div class="coming-pill-name">ASTRAL</div><div class="coming-pill-sub">OBE Protocols</div></div>
+    </div>
+  </section>
+
+  <!-- ═══ FINAL ═══ -->
+  <section class="final">
+    <div class="final-glow"></div>
+    <svg viewBox="0 0 320 30" style="width:100%;opacity:0.12;margin-bottom:40px;" preserveAspectRatio="none"><path d="M0 15 Q40 5 80 15 Q120 25 160 15 Q200 5 240 15 Q280 25 320 15" stroke="#4af0c8" stroke-width="1.5" fill="none"/></svg>
+    <div class="reveal">
       <div style="font-family:var(--display);font-size:72px;letter-spacing:6px;color:var(--text);line-height:1;margin-bottom:6px;">ABL<span style="color:var(--accent);">T</span>Y</div>
       <div style="font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;margin-bottom:36px;">Free to start. Your data is yours.</div>
-      <button class="btn-install" id="final-install-btn" onclick="handleInstall()" style="margin:0 auto;">
+      <button class="btn-install" onclick="handleInstall()" style="margin:0 auto;">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         INSTALL ABLTY
       </button>
     </div>
   </section>
 
-  <!-- FOOTER -->
   <footer>
     <a href="/app.html">Open App</a>
     <a href="#" onclick="openLegal('terms');return false;">Terms</a>
     <a href="#" onclick="openLegal('privacy');return false;">Privacy</a>
-    <a href="mailto:abltyapp@gmail.com">Contact</a>
+    <a href="/cdn-cgi/l/email-protection#1677747a626f77666656717b777f7a3875797b">Contact</a>
   </footer>
-
-</div><!-- /mobile-content --></div><!-- /mobile-content -->
-
-<!-- LEGAL MODALS -->
-<div class="legal-modal-overlay" id="legal-modal">
-  <div class="legal-modal-header">
-    <div class="legal-modal-title" id="legal-modal-title">Terms of Service</div>
-    <div class="legal-modal-close" onclick="closeLegal()">x</div>
-  </div>
-  <div class="legal-modal-body" id="legal-modal-body"></div>
 </div>
 
-<!-- iOS INSTALL MODAL -->
-<div class="modal-overlay" id="ios-modal">
-  <div class="modal-box">
-    <div class="modal-title">Add to Home Screen</div>
-    <div class="modal-sub">Follow these steps in Safari</div>
+<div class="legal-modal-overlay" id="legal-modal"><div class="legal-modal-header"><div class="legal-modal-title" id="legal-modal-title">Terms</div><div class="legal-modal-close" onclick="closeLegal()">x</div></div><div class="legal-modal-body" id="legal-modal-body"></div></div>
+<div class="modal-overlay" id="ios-modal"><div class="modal-box"><div class="modal-title">Add to Home Screen</div><div class="modal-sub">Follow these steps in Safari</div><div class="ios-step"><div class="ios-step-num">1</div><div class="ios-step-text">Tap the <strong>Share button</strong> at the bottom.</div></div><div class="ios-step"><div class="ios-step-num">2</div><div class="ios-step-text">Tap <strong>"Add to Home Screen"</strong></div></div><div class="ios-step"><div class="ios-step-num">3</div><div class="ios-step-text">Tap <strong>"Add"</strong> in the top right.</div></div><button class="modal-close" onclick="closeModal()">Got It</button></div></div>
+<div id="install-success-screen"><div style="font-family:var(--display);font-size:52px;letter-spacing:2px;color:var(--text);line-height:1;">ABL<span style="color:var(--accent);">T</span>Y</div><div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-top:8px;">Installing</div><div style="width:96px;height:96px;border-radius:20px;background:var(--card);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;box-shadow:0 0 28px rgba(74,240,200,0.15);margin-top:12px;"><img src="/icon-192.png" alt="ABLTY" style="width:72px;height:72px;border-radius:14px;"></div><div style="font-family:var(--body);font-size:14px;color:var(--muted);line-height:1.5;max-width:280px;margin-top:8px;">Tap the ABLTY icon on your home screen to launch.</div></div>
 
-    <div class="ios-step">
-      <div class="ios-step-num">1</div>
-      <div class="ios-step-text">Tap the <strong>Share button</strong> at the bottom of your browser  -  it looks like a box with an arrow pointing up.</div>
-    </div>
-    <div class="ios-step">
-      <div class="ios-step-num">2</div>
-      <div class="ios-step-text">Scroll down and tap <strong>"Add to Home Screen"</strong></div>
-    </div>
-    <div class="ios-step">
-      <div class="ios-step-num">3</div>
-      <div class="ios-step-text">Tap <strong>"Add"</strong> in the top right. ABLTY will appear on your home screen like any other app.</div>
-    </div>
+<script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+// Wave
+let wT=0;function animW(){wT+=0.04;const W=300,H=120,C=H/2;const mp=(a,f,p,v)=>{let d='';for(let x=0;x<=W;x+=2){const y=C+v+a*Math.sin(f*x/W*Math.PI*2+p+wT)+(a*0.4)*Math.sin(f*1.7*x/W*Math.PI*2-p*0.5+wT*1.3);d+=(x===0?'M':'L')+x.toFixed(1)+','+y.toFixed(1);}return d;};const e1=document.getElementById('w1'),e2=document.getElementById('w2'),e3=document.getElementById('w3');if(e1)e1.setAttribute('d',mp(28,1.5,0,0));if(e2)e2.setAttribute('d',mp(18,2,Math.PI*0.6,8));if(e3)e3.setAttribute('d',mp(12,1,Math.PI*1.2,-8));requestAnimationFrame(animW);}
+function startHero(){animW();['hl-a','hl-b','hl-l','hl-t','hl-y'].forEach((id,i)=>{setTimeout(()=>{const el=document.getElementById(id);if(el){el.style.opacity='1';el.style.transform='translateY(0)';}},400+i*160);});}
 
-    <button class="modal-close" onclick="closeModal()">Got It</button>
-  </div>
-</div>
-
-<!-- INSTALL SUCCESS SCREEN -->
-<div id="install-success-screen" aria-live="polite">
-  <div class="install-success-card">
-    <div class="install-success-title">ABL<span class="t-accent">T</span>Y Installing</div>
-    <div class="install-success-icon-wrap">
-      <img src="/icon-192.png" alt="ABLTY app icon">
-    </div>
-    <div class="install-success-homehint" id="install-success-subtext">
-      <div class="install-success-homehint-text">
-        Tap the ABLTY icon on your phone's home screen to launch the app.
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-// -- WAVE ANIMATION ------------------------------------------
-let landingWaveT = 0;
-
-function animateLandingWave() {
-  landingWaveT += 0.04;
-  const W = 300, H = 120, CY = H / 2;
-  const makePath = (amp, freq, phase, vShift) => {
-    let d = '';
-    for (let x = 0; x <= W; x += 2) {
-      const y = CY + vShift
-        + amp * Math.sin(freq * x / W * Math.PI * 2 + phase + landingWaveT)
-        + (amp * 0.4) * Math.sin(freq * 1.7 * x / W * Math.PI * 2 - phase * 0.5 + landingWaveT * 1.3);
-      d += (x === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
-    }
-    return d;
-  };
-  const w1 = document.getElementById('lwave1');
-  const w2 = document.getElementById('lwave2');
-  const w3 = document.getElementById('lwave3');
-  if (w1) w1.setAttribute('d', makePath(28, 1.5, 0, 0));
-  if (w2) w2.setAttribute('d', makePath(18, 2, Math.PI * 0.6, 8));
-  if (w3) w3.setAttribute('d', makePath(12, 1, Math.PI * 1.2, -8));
-  requestAnimationFrame(animateLandingWave);
+// Mission words + eye
+function initMission(){
+  const words=document.querySelectorAll('.mission-word');
+  const eye=document.getElementById('mission-eye');
+  const obs=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){
+    if(eye)eye.classList.add('visible');
+    words.forEach((w,i)=>{setTimeout(()=>w.classList.add('loaded'),300+i*120);});
+    obs.unobserve(e.target);
+  }});},{threshold:0.3});
+  if(words[0])obs.observe(words[0].parentElement);
 }
 
-function startLandingAnimation() {
-  animateLandingWave();
-  const letters = ['ll-a', 'll-b', 'll-l', 'll-t', 'll-y'];
-  letters.forEach((id, i) => {
-    setTimeout(() => {
-      const el = document.getElementById(id);
-      if (el) { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; }
-    }, 400 + i * 160);
-  });
-  // Desktop letters
-  const dletters = ['dl-a', 'dl-b', 'dl-l', 'dl-t', 'dl-y'];
-  dletters.forEach((id, i) => {
-    setTimeout(() => {
-      const el = document.getElementById(id);
-      if (el) { el.style.opacity = '1'; el.style.transform = 'translateY(0)'; }
-    }, 400 + i * 160);
-  });
+// Bridge particles
+function spawnParticles(containerId,count){
+  const el=document.getElementById(containerId);if(!el||el.children.length>0)return;
+  for(let i=0;i<count;i++){
+    const p=document.createElement('div');p.className='bridge-particle';
+    p.style.left=(10+Math.random()*80)+'%';
+    p.style.bottom=(Math.random()*20)+'px';
+    p.style.width=p.style.height=(1+Math.random()*2)+'px';
+    p.style.animationDuration=(3+Math.random()*4)+'s';
+    p.style.animationDelay=(Math.random()*3)+'s';
+    p.style.background=Math.random()>0.5?'rgba(74,240,200,0.6)':'rgba(91,158,244,0.4)';
+    el.appendChild(p);
+  }
 }
 
-let desktopWaveT = 0;
-function animateDesktopWave() {
-  desktopWaveT += 0.04;
-  const W = 300, H = 120, CY = H / 2;
-  const makePath = (amp, freq, phase, vShift) => {
-    let d = '';
-    for (let x = 0; x <= W; x += 2) {
-      const y = CY + vShift
-        + amp * Math.sin(freq * x / W * Math.PI * 2 + phase + desktopWaveT)
-        + (amp * 0.4) * Math.sin(freq * 1.7 * x / W * Math.PI * 2 - phase * 0.5 + desktopWaveT * 1.3);
-      d += (x === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
-    }
-    return d;
-  };
-  const w1 = document.getElementById('dwave1');
-  const w2 = document.getElementById('dwave2');
-  const w3 = document.getElementById('dwave3');
-  if (w1) w1.setAttribute('d', makePath(28, 1.5, 0, 0));
-  if (w2) w2.setAttribute('d', makePath(18, 2, Math.PI * 0.6, 8));
-  if (w3) w3.setAttribute('d', makePath(12, 1, Math.PI * 1.2, -8));
-  requestAnimationFrame(animateDesktopWave);
-}
-window.addEventListener('load', animateDesktopWave);
+// Reveal
+function initReveal(){const obs=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('visible');obs.unobserve(e.target);}});},{threshold:0.12});document.querySelectorAll('.reveal,.reveal-scale').forEach(el=>obs.observe(el));}
 
-// Trigger letter animation  -  use DOMContentLoaded + load as backup
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', startLandingAnimation);
-} else {
-  startLandingAnimation();
-}
-window.addEventListener('load', startLandingAnimation);
+// Timeline
+function initTimeline(){const tl=document.getElementById('timeline');if(!tl)return;const fill=document.getElementById('tl-fill');const dots=tl.querySelectorAll('[data-light]');const obs=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){if(fill)fill.classList.add('drawn');dots.forEach((d,i)=>{setTimeout(()=>d.classList.add('lit'),300+i*350);});setTimeout(()=>{document.querySelectorAll('.effect-bar').forEach(b=>{const w=b.getAttribute('data-ew');if(w)b.style.width=w+'%';});},1000);obs.unobserve(e.target);}});},{threshold:0.1});obs.observe(tl);}
 
-// ── DEVICE DETECTION ──────────────────────────────────
-const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+// Flow
+function initFlow(){const steps=document.getElementById('flow-steps');if(!steps)return;const spine=document.getElementById('flow-spine-fill');const rings=steps.querySelectorAll('[data-flow-light]');const grader=document.getElementById('flow-grader');const obs=new IntersectionObserver(entries=>{entries.forEach(e=>{if(e.isIntersecting){if(spine)spine.classList.add('drawn');rings.forEach((r,i)=>{setTimeout(()=>r.classList.add('lit'),i*350);});if(grader){setTimeout(()=>{grader.classList.add('scanning');grader.querySelectorAll('.fg-dim-fill').forEach(b=>{const w=b.getAttribute('data-w');if(w)b.style.width=w+'%';});},1400);}obs.unobserve(e.target);}});},{threshold:0.1});obs.observe(steps);}
+
+// Drag scroll
+function initDrag(id){const t=document.getElementById(id);if(!t)return;let d=false,sX,sL;t.addEventListener('mousedown',e=>{d=true;t.classList.add('grabbing');sX=e.pageX-t.offsetLeft;sL=t.scrollLeft;});t.addEventListener('mouseleave',()=>{d=false;t.classList.remove('grabbing');});t.addEventListener('mouseup',()=>{d=false;t.classList.remove('grabbing');});t.addEventListener('mousemove',e=>{if(!d)return;e.preventDefault();t.scrollLeft=sL-(e.pageX-t.offsetLeft-sX)*1.5;});}
+
+document.querySelectorAll('a[href^="#"]').forEach(a=>{a.addEventListener('click',e=>{e.preventDefault();const t=document.querySelector(a.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth'});});});
+
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+});
+
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+  || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches
   || window.navigator.standalone;
-
-// If already installed as PWA, go straight to app
 if (isInStandaloneMode) {
   window.location.href = '/app.html';
 }
 
-// If opened via notification link with rc param, redirect to app
-if (window.location.search.includes('rc=1')) {
-  window.location.href = '/app.html?rc=1';
-}
-
-// ── INSTALL PROMPT ────────────────────────────────────
-let deferredPrompt = null;
 let installSuccessShown = false;
-
 function showInstallSuccessScreen() {
   if (installSuccessShown) return;
   installSuccessShown = true;
@@ -1854,113 +656,48 @@ function showInstallSuccessScreen() {
   document.body.style.overflow = 'hidden';
 }
 
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  deferredPrompt = e;
-  console.log('[ABLTY Install] beforeinstallprompt fired - native install available');
-  updateInstallButtons();
-});
-
-// Debug: log why install prompt may not be available
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    if (!deferredPrompt) {
-      console.log('[ABLTY Install] beforeinstallprompt has not fired yet');
-      console.log('[ABLTY Install] SW registered:', 'serviceWorker' in navigator);
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistration().then(reg => {
-          console.log('[ABLTY Install] SW registration:', reg ? 'active' : 'none');
-          if (reg) console.log('[ABLTY Install] SW state:', reg.active ? reg.active.state : 'no active worker');
-        });
-      }
-      // Check manifest
-      const manifestLink = document.querySelector('link[rel="manifest"]');
-      console.log('[ABLTY Install] Manifest link:', manifestLink ? manifestLink.href : 'missing');
-    }
-  }, 3000);
-});
-
-function updateInstallButtons() {
-  // Buttons already show INSTALL  -  nothing to change unless we want
-  // to differentiate between "add to home screen" states
-}
-
 async function handleInstall() {
   if (isIOS) {
-    // Show instruction modal
-    document.getElementById('ios-modal').classList.add('visible');
+    document.getElementById('ios-modal')?.classList.add('visible');
     return;
   }
   if (deferredPrompt) {
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
     deferredPrompt = null;
-    if (outcome === 'accepted') {
-      showInstallSuccessScreen();
-    }
-  } else {
-    // No prompt available yet  -  show instructions based on platform
-    if (/Android/.test(navigator.userAgent)) {
-      // Android but prompt not ready  -  show manual instructions
-      showAndroidInstructions();
-    } else {
-      // Unknown  -  open app
-      window.location.href = '/app.html';
-    }
+    if (outcome === 'accepted') showInstallSuccessScreen();
+    return;
   }
+  if (/Android/i.test(navigator.userAgent)) {
+    showAndroidInstructions();
+    return;
+  }
+  window.location.href = '/app.html';
 }
 
 function showAndroidInstructions() {
   const modal = document.getElementById('ios-modal');
-  const title = modal.querySelector('.modal-title');
-  const sub   = modal.querySelector('.modal-sub');
-  const steps = modal.querySelector('.ios-step').parentElement;
+  const title = modal?.querySelector('.modal-title');
+  const sub = modal?.querySelector('.modal-sub');
+  const step1 = modal?.querySelector('.ios-step:nth-of-type(1) .ios-step-text');
+  const step2 = modal?.querySelector('.ios-step:nth-of-type(2) .ios-step-text');
+  const step3 = modal?.querySelector('.ios-step:nth-of-type(3) .ios-step-text');
   if (title) title.textContent = 'Add to Home Screen';
-  if (sub)   sub.textContent   = 'Follow these steps in Chrome';
-  if (steps) steps.innerHTML = `
-    <div class="ios-step">
-      <div class="ios-step-num">1</div>
-      <div class="ios-step-text">Tap the <strong>three-dot menu</strong> in the top right of Chrome.</div>
-    </div>
-    <div class="ios-step">
-      <div class="ios-step-num">2</div>
-      <div class="ios-step-text">Tap <strong>"Add to Home screen"</strong></div>
-    </div>
-    <div class="ios-step">
-      <div class="ios-step-num">3</div>
-      <div class="ios-step-text">Tap <strong>"Add"</strong>. ABLTY will appear on your home screen like any other app.</div>
-    </div>
-    <button class="modal-close" onclick="closeModal()">Got It</button>
-  `;
-  modal.classList.add('visible');
+  if (sub) sub.textContent = 'Follow these steps in Chrome';
+  if (step1) step1.innerHTML = 'Tap the <strong>three-dot menu</strong> in the top right.';
+  if (step2) step2.innerHTML = 'Tap <strong>"Add to Home screen"</strong>';
+  if (step3) step3.innerHTML = 'Tap <strong>"Add"</strong>. ABLTY will appear on your home screen like any other app.';
+  modal?.classList.add('visible');
 }
 
 window.addEventListener('appinstalled', () => {
   showInstallSuccessScreen();
+  deferredPrompt = null;
 });
 
-function closeModal() {
-  document.getElementById('ios-modal').classList.remove('visible');
-}
+function closeModal(){document.getElementById('ios-modal')?.classList.remove('visible');}
+document.getElementById('ios-modal')?.addEventListener('click',function(e){if(e.target===this)closeModal();});
 
-// Close modal on backdrop tap
-document.getElementById('ios-modal').addEventListener('click', function(e) {
-  if (e.target === this) closeModal();
-});
-
-// ── SCROLL REVEAL ─────────────────────────────────────
-const observer = new IntersectionObserver(entries => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting) {
-      entry.target.classList.add('visible');
-    }
-  });
-}, { threshold: 0.1 });
-
-document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
-
-
-// ── LEGAL CONTENT ─────────────────────────────────────
 const LEGAL_CONTENT = {
   terms: `ABLTY  -  TERMS OF SERVICE
 
@@ -2066,8 +803,7 @@ These terms are governed by the laws of the State of Illinois, United States.
 
 13. CONTACT
 
-Questions about these terms: abltyapp@gmail.com
-`,
+Questions about these terms: abltyapp@gmail.com`,
   privacy: `ABLTY  -  PRIVACY POLICY
 
 Last updated: March 2026
@@ -2197,83 +933,24 @@ This Privacy Policy is governed by the laws of the State of Illinois, United Sta
 
 12. CONTACT
 
-Privacy questions and data requests: abltyapp@gmail.com
-`
+Privacy questions and data requests: abltyapp@gmail.com`
 };
+function openLegal(t){const m=document.getElementById('legal-modal'),ti=document.getElementById('legal-modal-title'),b=document.getElementById('legal-modal-body');ti.textContent=t==='terms'?'Terms of Service':'Privacy Policy';b.textContent=LEGAL_CONTENT[t];m.classList.add('visible');document.body.style.overflow='hidden';}
+function closeLegal(){document.getElementById('legal-modal').classList.remove('visible');document.body.style.overflow='';}
+document.getElementById('legal-modal').addEventListener('click',function(e){if(e.target===this)closeLegal();});
 
-function openLegal(type) {
-  const modal = document.getElementById('legal-modal');
-  const title = document.getElementById('legal-modal-title');
-  const body  = document.getElementById('legal-modal-body');
-  title.textContent = type === 'terms' ? 'Terms of Service' : 'Privacy Policy';
-  body.textContent  = LEGAL_CONTENT[type];
-  modal.classList.add('visible');
-  document.body.style.overflow = 'hidden';
-}
-
-function closeLegal() {
-  document.getElementById('legal-modal').classList.remove('visible');
-  document.body.style.overflow = '';
-}
-
-// Close legal modal on backdrop tap
-document.getElementById('legal-modal').addEventListener('click', function(e) {
-  if (e.target === this) closeLegal();
-});
-
-
-// ── PARALLAX ──────────────────────────────────────────
-function initParallax() {
-  const hero = document.querySelector('.hero');
-  const reticle = document.querySelector('.hero-reticle');
-  const glow = document.querySelector('.hero-glow');
-
-  window.addEventListener('scroll', () => {
-    const scrollY = window.scrollY;
-    if (reticle) reticle.style.transform = 'translateY(calc(-50% + ' + (scrollY * 0.3) + 'px))';
-    if (glow)    glow.style.transform    = 'translateX(-50%) translateY(' + (scrollY * 0.15) + 'px)';
-  }, { passive: true });
-}
-initParallax();
-
-// ── DRAG TO SCROLL ─────────────────────────────────────
-function initDragScroll(trackId) {
-  const track = document.getElementById(trackId);
-  if (!track) return;
-  let isDown = false, startX, scrollLeft;
-  track.addEventListener('mousedown', e => {
-    isDown = true;
-    track.classList.add('grabbing');
-    startX = e.pageX - track.offsetLeft;
-    scrollLeft = track.scrollLeft;
-  });
-  track.addEventListener('mouseleave', () => { isDown = false; track.classList.remove('grabbing'); });
-  track.addEventListener('mouseup', () => { isDown = false; track.classList.remove('grabbing'); });
-  track.addEventListener('mousemove', e => {
-    if (!isDown) return;
-    e.preventDefault();
-    const x = e.pageX - track.offsetLeft;
-    track.scrollLeft = scrollLeft - (x - startX) * 1.5;
-  });
-}
-initDragScroll('cite-track');
-initDragScroll('module-track');
-
-// ── SMOOTH SCROLL FOR ANCHOR LINKS ───────────────────
-document.querySelectorAll('a[href^="#"]').forEach(a => {
-  a.addEventListener('click', e => {
-    e.preventDefault();
-    const target = document.querySelector(a.getAttribute('href'));
-    if (target) target.scrollIntoView({ behavior: 'smooth' });
-  });
+document.addEventListener('DOMContentLoaded',()=>{
+  startHero();initMission();spawnParticles('bp1',15);spawnParticles('bp2',12);spawnParticles('bp3',10);initTimeline();initFlow();initDrag('module-track');
+  // Reveal: try observer, fallback to showing everything after 1.5s
+  var revealed=false;
+  function forceReveal(){if(revealed)return;revealed=true;document.querySelectorAll('.reveal,.reveal-scale').forEach(function(el){el.style.opacity='1';el.style.transform='none';});}
+  if('IntersectionObserver' in window){
+    var obs=new IntersectionObserver(function(entries){entries.forEach(function(e){if(e.isIntersecting){e.target.classList.add('visible');e.target.style.opacity='1';e.target.style.transform='none';obs.unobserve(e.target);}});},{threshold:0.08});
+    document.querySelectorAll('.reveal,.reveal-scale').forEach(function(el){obs.observe(el);});
+  } else { forceReveal(); }
+  setTimeout(forceReveal,1500);
 });
 </script>
-
-<script>
-// Register service worker so beforeinstallprompt fires
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
-}
-</script>
+<script>if('serviceWorker' in navigator)navigator.serviceWorker.register('/sw.js').catch(function(){});</script>
 </body>
 </html>

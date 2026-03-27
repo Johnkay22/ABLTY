@@ -734,6 +734,32 @@ html, body {
   border-radius: 12px; padding: 14px;
 }
 .summary-text { font-family: var(--font-mono); font-size: 12px; color: rgba(255,255,255,0.6); line-height: 1.6; }
+.rv-grade-error {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--danger);
+  border-radius: 12px;
+  padding: 14px;
+}
+.result-error-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 1px;
+  color: var(--text);
+  line-height: 1;
+}
+.result-error-body {
+  margin-top: 8px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.session-score.na {
+  color: var(--muted);
+  font-size: 16px;
+  letter-spacing: 0.5px;
+}
 
 /* Loading state */
 .grading-overlay {
@@ -1626,6 +1652,9 @@ html, body {
   position: fixed; inset: 0; z-index: 9990;
   background: var(--bg);
   display: none; flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
   /* Keep onboarding controls visible above mobile gesture bars. */
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -1638,6 +1667,7 @@ html, body {
   display: none; flex: 1; flex-direction: column;
   animation: fadeIn 0.35s ease;
   min-height: 0;
+  overflow: hidden;
 }
 .ob-slide.active { display: flex; }
 
@@ -1666,6 +1696,15 @@ html, body {
   display: flex; flex-direction: column; gap: 0;
   /* Critical for Android/iOS flexbox so footer buttons don't get pushed off-screen. */
   min-height: 0;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.ob-slide-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 .ob-row {
   display: flex; align-items: flex-start; gap: 16px;
@@ -1701,8 +1740,6 @@ html, body {
 .ob-footer {
   flex-shrink: 0; padding: 20px 32px calc(28px + env(safe-area-inset-bottom));
   border-top: 1px solid var(--border);
-  position: sticky;
-  bottom: 0;
   background: var(--bg);
   z-index: 2;
 }
@@ -1733,7 +1770,7 @@ html, body {
 /* CTA grid for slide 2 */
 .ob-module-grid {
   display: flex; flex-direction: column; gap: 10px;
-  padding: 28px 32px 0;
+  padding: 16px 32px 10px;
 }
 .ob-module-btn {
   width: 100%; padding: 16px 20px;
@@ -1790,6 +1827,9 @@ html, body {
   .ob-content {
     padding: 16px 20px 0;
   }
+  .ob-slide-scroll {
+    padding-top: 0;
+  }
   .ob-row {
     padding: 12px 0;
   }
@@ -1818,6 +1858,12 @@ html, body {
   .ob-cta {
     padding: 12px;
     font-size: 16px;
+  }
+  .ob-slide-2-sub {
+    padding: 12px 20px 0;
+  }
+  .ob-module-grid {
+    padding: 12px 20px 8px;
   }
 }
 
@@ -2927,7 +2973,7 @@ html, body {
               <path d="M2 11.5c0-2.5 2-4.5 4.5-4.5s4.5 2 4.5 4.5" stroke="rgba(255,255,255,0.4)" stroke-width="1.1"/>
             </svg>
           </div>
-          <span class="mono-sm">Welcome, Seeker ID: <span id="seeker-id" style="color:var(--text)">#-----</span></span>
+          <span class="mono-sm"><span id="home-greeting" style="color:var(--text)">Welcome, Guest</span></span>
           <div class="pulse-dot"></div>
         </div>
       </div>
@@ -3329,6 +3375,8 @@ html, body {
         <div class="mono-label" style="margin-bottom:8px;">Analyst Summary</div>
         <div class="summary-text" id="result-summary">Loading analysis...</div>
       </div>
+
+      <div class="rv-grade-error card fade-in-delay-2" id="rv-grade-error" style="display:none;"></div>
 
       <!-- Hits & Noise -->
       <div class="section-label fade-in-delay-3">Data Points</div>
@@ -4790,59 +4838,13 @@ const sb = _supabaseSdk && typeof _supabaseSdk.createClient === 'function'
   ? _supabaseSdk.createClient(SUPABASE_URL, SUPABASE_ANON)
   : null;
 
-// ─── TARGET POOL ──────────────────────────────
-// In production: target selection + reveal happens
-// server-side via Cloudflare Worker.
-// For local dev, using public domain images.
-const TARGET_POOL = [
-  // ANIMALS
-  { id:'T001', src:'targets/6047-5129.jpg',  label:'Aquatic Predator', category:'animals',    descriptors:['streamlined','underwater','blue','predator','fins','movement'] },
-  { id:'T002', src:'targets/2847-5031.jpg',  label:'Arid Wanderer',    category:'animals',    descriptors:['large','single form','dunes','warm tones','isolation','arid'] },
-  { id:'T003', src:'targets/6193-8420.jpg',  label:'Swamp Predator',   category:'animals',    descriptors:['reptile','flat','dark water','textured','still','low profile'] },
-  { id:'T004', src:'targets/3756-1294.jpg',  label:'Wading Form',      category:'animals',    descriptors:['pink','curved neck','water','thin legs','standing','soft'] },
-  { id:'T005', src:'targets/9042-6371.jpg',  label:'Elevated Hunter',  category:'animals',    descriptors:['bird','perched','brown','feathers','claws','alert'] },
-  { id:'T006', src:'targets/5518-2983.jpg',  label:'Drifting Bell',    category:'animals',    descriptors:['translucent','glowing','underwater','tendrils','dark blue','floating'] },
-  { id:'T007', src:'targets/7284-4056.jpg',  label:'Display Plumage',  category:'animals',    descriptors:['radial','blue-green','fan','eye pattern','symmetrical','ornate'] },
-  { id:'T008', src:'targets/1639-7812.jpg',  label:'Arctic Mass',      category:'animals',    descriptors:['white','large','ice','standing','fur','cold'] },
-  { id:'T009', src:'targets/4907-3265.jpg',  label:'Crossing Giant',   category:'animals',    descriptors:['large','water','splashing','tusks','grey','powerful'] },
-  { id:'T010', src:'targets/8321-5749.jpg',  label:'Surface Breach',   category:'animals',    descriptors:['massive','ocean','airborne','spray','dark','curved'] },
-  // OBJECTS
-  { id:'T011', src:'targets/2163-9047.jpg',  label:'Stemmed Vessel',   category:'objects',    descriptors:['glass','transparent','stem','dark liquid','bar','bokeh'] },
-  { id:'T012', src:'targets/7836-4512.jpg',  label:'Vertical Stack',   category:'objects',    descriptors:['tall','cylindrical','vertical','metallic','dark sky','launch pad'] },
-  { id:'T013', src:'targets/3271-8064.jpg',  label:'Suspended Light',  category:'objects',    descriptors:['warm glow','dark','hanging','ornate','wood','night'] },
-  { id:'T014', src:'targets/9458-2317.jpg',  label:'Hollow Instrument',category:'objects',    descriptors:['curved','wooden','strings','f-holes','case','brown'] },
-  { id:'T015', src:'targets/1847-6093.jpg',  label:'Heat Vessel',      category:'objects',    descriptors:['round','metallic','handle','stove','kitchen','warm light'] },
-  { id:'T016', src:'targets/6024-3851.jpg',  label:'Corroded Anchor',  category:'objects',    descriptors:['rust','curved','heavy','beach','wet sand','metal'] },
-  { id:'T017', src:'targets/4382-7619.jpg',  label:'Navigation Tool',  category:'objects',    descriptors:['circular','brass','old map','directional','ornate','parchment'] },
-  { id:'T018', src:'targets/5093-7241.jpg',  label:'Key Cluster',      category:'objects',    descriptors:['metal','multiple','ring','serrated','wood surface','small'] },
-  { id:'T018b',src:'targets/5490-1738.jpg',  label:'Carousel Form',    category:'objects',    descriptors:['ornate','painted horse','pole','lights','warm tones','decorative'] },
-  // STRUCTURES
-  { id:'T019', src:'targets/8073-5246.jpg',  label:'Dome Observatory', category:'structures', descriptors:['dome','night sky','stars','glowing','isolated','round'] },
-  { id:'T020', src:'targets/2956-8130.jpg',  label:'Night Wheel',      category:'structures', descriptors:['circular','lit','radial spokes','carnival','dark sky','colorful'] },
-  { id:'T021', src:'targets/5714-3089.jpg',  label:'Signal Array',     category:'structures', descriptors:['dish','white','concave','angled','mechanical','open sky'] },
-  { id:'T022', src:'targets/3628-9471.jpg',  label:'Hilltop Fortress', category:'structures', descriptors:['stone','towers','battlements','green hill','medieval','blue sky'] },
-  { id:'T023', src:'targets/7195-4302.jpg',  label:'Sacred Interior',  category:'structures', descriptors:['arched ceiling','stained glass','light rays','stone','pews','tall'] },
-  { id:'T024', src:'targets/9067-1548.jpg',  label:'Spanning Structure',category:'structures', descriptors:['cables','towers','water below','orange','horizontal','linear'] },
-  { id:'T025', src:'targets/7163-2548.jpg',  label:'Vertical Beacon',  category:'structures', descriptors:['tower','cylindrical','isolated','storm','light beam','stone'] },
-  // LANDSCAPES
-  { id:'T026', src:'targets/4821-9037.jpg',  label:'Cascading Water',  category:'landscapes', descriptors:['flowing','vertical drop','mist','green','movement','rainforest'] },
-  { id:'T027', src:'targets/4531-7826.jpg',  label:'Urban Horizon',    category:'landscapes', descriptors:['skyscrapers','sunset','orange sky','city','street','silhouette'] },
-  { id:'T028', src:'targets/1293-6047.jpg',  label:'Coastal Shore',    category:'landscapes', descriptors:['palm trees','turquoise water','white sand','tropical','sunny','island'] },
-  { id:'T029', src:'targets/6840-2193.jpg',  label:'Dark Wetland',     category:'landscapes', descriptors:['cypress trees','hanging moss','still water','dark','misty','roots'] },
-  { id:'T030', src:'targets/3847-6120.jpg',  label:'Frozen Lake',      category:'landscapes', descriptors:['ice','reflective','pine trees','snow','blue sky','flat'] },
-  { id:'T031', src:'targets/5962-8347.jpg',  label:'Lava Crater',      category:'landscapes', descriptors:['orange glow','circular','dark rock','smoke','heat','molten'] },
-  { id:'T032', src:'targets/2419-7083.jpg',  label:'Arctic Expanse',   category:'landscapes', descriptors:['ice shards','white','vast','jagged peaks','cold','overcast'] },
-  { id:'T033', src:'targets/7530-1648.jpg',  label:'Layered Canyon',   category:'landscapes', descriptors:['red rock','layered','vast','warm tones','carved','cliffs'] },
-  { id:'T034', src:'targets/9184-3725.jpg',  label:'Storm Coast',      category:'landscapes', descriptors:['black rock','waves crashing','spray','grey sky','rough','violent'] },
-  { id:'T035', src:'targets/6371-4908.jpg',  label:'Sand Dunes',       category:'landscapes', descriptors:['rippled sand','beige','open sky','soft curves','minimal','arid'] },
-  { id:'T036', src:'targets/1758-9034.jpg',  label:'Summit Cloud',     category:'landscapes', descriptors:['snow peak','triangular','clouds','grey-blue','cold','high altitude'] },
-];
+// RV targets are now server-assigned by the Cloudflare Worker so blind-session
+// metadata is not exposed in client source.
 
 // ─── APP STATE ────────────────────────────────
 const STATE = {
-  seekerId: null,
   currentTRN: null,
-  currentTargetIndex: null,
+  currentAssignmentId: null,
   currentCategory: 'all',
   sessions: [],
   settings: { pager: false },
@@ -4910,7 +4912,6 @@ function saveState() {
     return s;
   });
   store.set('ablty_sessions', JSON.stringify(pruned));
-  store.set('ablty_seeker', STATE.seekerId);
   store.set('ablty_settings', JSON.stringify(STATE.settings));
 }
 
@@ -4919,14 +4920,6 @@ function loadState() {
     const sessions = store.get('ablty_sessions');
     if (sessions) STATE.sessions = JSON.parse(sessions);
   } catch(e) { STATE.sessions = []; }
-
-  const seeker = store.get('ablty_seeker');
-  if (seeker) {
-    STATE.seekerId = seeker;
-  } else {
-    STATE.seekerId = '#' + Math.floor(10000 + Math.random() * 90000);
-    store.set('ablty_seeker', STATE.seekerId);
-  }
 
   try {
     const settings = store.get('ablty_settings');
@@ -5179,6 +5172,10 @@ function startRVSession() {
 // revealTRN removed  -  TRN displayed immediately on step 2
 
 function openCanvas() {
+  if (!STATE.currentAssignmentId || !STATE.currentTRN) {
+    showToast('Target assignment missing. Please request a new session target.', 'warn', 4500);
+    return;
+  }
   showScreen('canvas', true);
   STATE.isErasing = false;
   const eraseBtn = document.getElementById('eraser-btn');
@@ -5396,7 +5393,14 @@ async function submitSession() {
   const sketchDataURL = canvas ? canvas.toDataURL('image/jpeg', 0.85) : '';
   const sketchB64     = sketchDataURL.split(',')[1] || '';
   const notes = collectImpressions();
-  const target = TARGET_POOL[STATE.currentTargetIndex];
+  const assignmentId = STATE.currentAssignmentId;
+  const currentTrn = STATE.currentTRN;
+  if (!assignmentId || !currentTrn) {
+    showToast('Target assignment expired. Please start a new RV session.', 'warn', 5000);
+    showScreen('rv', false);
+    await rvGoStep(2);
+    return;
+  }
 
   showScreen('results', false);
   // Scroll results screen to top so grading overlay is visible
@@ -5405,7 +5409,7 @@ async function submitSession() {
   const gradingEl = document.getElementById('grading-overlay');
   if (gradingEl) gradingEl.style.display = 'flex';
   const trnLabel = document.getElementById('result-trn-label');
-  if (trnLabel) trnLabel.textContent = 'TRN: ' + STATE.currentTRN;
+  if (trnLabel) trnLabel.textContent = 'TRN: ' + currentTrn;
 
   // Use data URL directly as img src
   const sketchPreview = document.getElementById('sketch-preview');
@@ -5417,47 +5421,78 @@ async function submitSession() {
     sketchPreview.style.display = 'block';
   }
 
-  // Reveal target image
+  // Target reveal is returned by the worker after grading attempt.
   const targetReveal = document.getElementById('target-reveal');
-  if (targetReveal) targetReveal.src = target.src;
+  if (targetReveal) targetReveal.src = '';
 
   let result;
+  let revealedTarget = null;
+  let gradingFailed = false;
+  let gradingErrorMessage = '';
   try {
     updateGradingStatus('Encoding sketch data...');
     await delay(600);
     updateGradingStatus('Contacting AI analyst...');
-    result = await gradeSession(sketchB64, notes, target);
+    result = await gradeSession(sketchB64, notes, assignmentId, currentTrn);
+    revealedTarget = normalizeRVTarget(result?.target, currentTrn);
     updateGradingStatus('Compiling report...');
     await delay(400);
   } catch(err) {
     console.warn('[ABLTY] Grading failed:', err.message || err);
-    result = mockGrade();
-    result.summary = '[AI grading failed: ' + (err.message || 'unknown error') + '] ' + result.summary;
+    gradingFailed = true;
+    gradingErrorMessage = String(err?.message || 'Network or service error');
+    revealedTarget = normalizeRVTarget(err?.target, currentTrn);
+    result = {
+      gestalt_score: null,
+      overall_score: null,
+      dimension_scores: null,
+      hits: [],
+      noise: [],
+      aol: [],
+      summary: 'AI grading is temporarily unavailable. Your session was saved successfully.',
+      grading_failed: true,
+      grading_error: gradingErrorMessage,
+      target: revealedTarget || null,
+    };
   }
+  if (result?.grading_failed === true) {
+    gradingFailed = true;
+    if (!gradingErrorMessage) {
+      gradingErrorMessage = String(result?.grading_error || 'Network or service error');
+    }
+  }
+  if (!revealedTarget) {
+    revealedTarget = normalizeRVTarget(result?.target, currentTrn);
+  }
+  if (targetReveal) targetReveal.src = revealedTarget?.src || '';
 
   const gradingOverlay = document.getElementById('grading-overlay');
   if (gradingOverlay) gradingOverlay.style.display = 'none';
-  renderResults(result, target, notes);
+  renderResults(result, revealedTarget, notes);
 
   // Always save session
   const session = {
     id: Date.now(),
-    trn: STATE.currentTRN,
-    targetId: target.id,
-    targetSrc: target.src,
-    targetLabel: target.label,
-    category: target.category,
-    score: result.gestalt_score || result.overall_score || 0,
+    trn: currentTrn,
+    assignmentId: assignmentId,
+    targetId: revealedTarget?.id || null,
+    targetSrc: revealedTarget?.src || '',
+    targetLabel: revealedTarget?.label || '',
+    category: revealedTarget?.category || STATE.currentCategory || null,
+    score: gradingFailed ? null : (result.gestalt_score ?? result.overall_score ?? null),
     dimension_scores: result.dimension_scores || null,
     hits: result.hits || [],
     noise: result.noise || [],
     aol: result.aol || [],
     summary: result.summary,
+    grading_failed: gradingFailed,
+    grading_error: gradingErrorMessage || null,
     notes: notes,
     duration: STATE.timerSeconds,
     timestamp: new Date().toISOString(),
     sketchData: sketchDataURL,
   };
+  STATE.currentAssignmentId = null;
   STATE.sessions.unshift(session);
   saveState();
   incrementDailyCount();
@@ -5469,14 +5504,48 @@ function updateGradingStatus(msg) {
   if (el) el.textContent = msg;
 }
 
+function normalizeRVTarget(rawTarget, fallbackTrn = '') {
+  if (!rawTarget || typeof rawTarget !== 'object') return null;
+  const src = typeof rawTarget.src === 'string' ? rawTarget.src.trim() : '';
+  const id = (rawTarget.id === null || rawTarget.id === undefined) ? null : String(rawTarget.id);
+  const label = typeof rawTarget.label === 'string' ? rawTarget.label : '';
+  const category = typeof rawTarget.category === 'string' ? rawTarget.category : '';
+  let trn = typeof rawTarget.trn === 'string' ? rawTarget.trn.trim() : '';
+  if (!trn && src) {
+    trn = src.replace(/^targets\//, '').replace(/\.(jpg|jpeg|png|webp)$/i, '');
+  }
+  if (!trn) trn = fallbackTrn || '';
+  return { id, src, label, category, trn };
+}
+
+function getRVSessionScore(session) {
+  const score = Number(session?.score);
+  if (Number.isFinite(score)) return Math.max(0, Math.min(100, score));
+  return null;
+}
+
+function isRVGradingFailed(session) {
+  if (session?.grading_failed === true) return true;
+  return getRVSessionScore(session) === null;
+}
+
 function renderResults(result, target, notes) {
-  const score   = result.gestalt_score || result.overall_score || 0;
+  const score   = Number(result.gestalt_score ?? result.overall_score ?? 0);
   const ring    = document.getElementById('score-ring');
+  const scoreWrap = document.querySelector('#screen-results .result-score-ring');
+  const dataPointsLabel = document.querySelector('#screen-results .section-label.fade-in-delay-3');
   const pctEl   = document.getElementById('score-pct');
   const summary = document.getElementById('result-summary');
   const hitList = document.getElementById('hit-list');
+  const hasGradingFailure = !!result?.grading_failed;
+  const gradingErrorMsg = (result?.grading_error || '').trim();
 
-  if (ring) {
+  // Toggle result views: normal scored UI vs honest grading-failed UI.
+  if (scoreWrap) scoreWrap.style.display = hasGradingFailure ? 'none' : 'flex';
+  if (dataPointsLabel) dataPointsLabel.style.display = hasGradingFailure ? 'none' : 'block';
+  if (hitList) hitList.style.display = hasGradingFailure ? 'none' : 'flex';
+
+  if (!hasGradingFailure && ring) {
     const circumference = 364.4;
     ring.style.stroke = score >= 60 ? 'var(--accent)' : score >= 35 ? 'var(--warn)' : 'var(--danger)';
     setTimeout(() => {
@@ -5484,7 +5553,7 @@ function renderResults(result, target, notes) {
     }, 200);
   }
 
-  if (pctEl) {
+  if (!hasGradingFailure && pctEl) {
     let count = 0;
     const interval = setInterval(() => {
       count += 2;
@@ -5510,9 +5579,27 @@ function renderResults(result, target, notes) {
     notesCard.style.display = 'none';
   }
 
-  if (summary) summary.textContent = result.summary || '';
+  if (summary) {
+    summary.textContent = result.summary || '';
+  }
 
-  if (hitList) {
+  const errorCard = document.getElementById('rv-grade-error');
+  if (errorCard) {
+    if (hasGradingFailure) {
+      errorCard.style.display = 'block';
+      errorCard.innerHTML = `
+        <div class="result-error-title">Session Saved - Grading Failed</div>
+        <div class="result-error-body">Your sketch and impressions were saved successfully.</div>
+        <div class="result-error-body">${gradingErrorMsg ? `Reason: ${gradingErrorMsg}` : 'The AI grading service was unreachable right now.'}</div>
+        <div class="result-error-body">You can run another session now and try grading again later.</div>
+      `;
+    } else {
+      errorCard.style.display = 'none';
+      errorCard.innerHTML = '';
+    }
+  }
+
+  if (!hasGradingFailure && hitList) {
     hitList.innerHTML = '';
     (result.hits  || []).forEach(h => {
       hitList.innerHTML += `<div class="hit-item"><div class="hit-badge hit">Hit</div><div class="hit-text">${h}</div></div>`;
@@ -5532,55 +5619,25 @@ function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 // ─── AI GRADING ───────────────────────────────
 const WORKER_URL = 'https://abltygrader.kayvideoproductions.workers.dev';
 
-async function gradeSession(sketchB64, notes, target) {
-  // Resolve relative target path to full URL so the Worker can fetch it
-  const targetUrl = target.src.startsWith('http')
-    ? target.src
-    : new URL(target.src, window.location.href).href;
-
+async function gradeSession(sketchB64, notes, assignmentId, trn) {
   const resp = await fetch(WORKER_URL + '/grade', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      sketch:       sketchB64,
-      notes:        notes,
-      targetLabel:  target.label,
-      descriptors:  target.descriptors || [],
-      trn:          STATE.currentTRN,
+      sketch: sketchB64,
+      notes: notes,
+      assignment_id: assignmentId,
+      trn: trn,
     }),
   });
-  if (!resp.ok) throw new Error('Worker error ' + resp.status);
-  const data = await resp.json();
-  if (data.error) throw new Error(data.error);
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok || data?.error) {
+    const msg = data?.message || data?.error || ('Worker error ' + resp.status);
+    const err = new Error(msg);
+    if (data?.target) err.target = data.target;
+    throw err;
+  }
   return data;
-}
-
-function mockGrade() {
-  // Realistic mock result for dev/demo before Worker is wired
-  const score = Math.floor(15 + Math.random() * 65);
-  const allHits = [
-    'Detected horizontal banding / layered structure',
-    'Impression of open space or vastness',
-    'Noted water or fluid-like element',
-    'Angular or geometric shapes present in sketch',
-    'Temperature impression: cool / cold',
-    'Motion or flow quality in strokes',
-  ];
-  const allNoise = [
-    'Architectural detail not present in target',
-    'Human figure overlay  -  not in target',
-    'Color impression: red/warm  -  target is predominantly cool',
-    'Grid or lattice pattern: imaginative overlay',
-    'Text or symbol impression: AOL (Analytical Overlay)',
-  ];
-  const hits = allHits.sort(() => .5 - Math.random()).slice(0, 2 + Math.floor(Math.random() * 2));
-  const noise = allNoise.sort(() => .5 - Math.random()).slice(0, 1 + Math.floor(Math.random() * 2));
-  return {
-    gestalt_score: score,
-    hits,
-    noise,
-    summary: `Session produced ${hits.length} verifiable data point${hits.length !== 1 ? 's' : ''} against target. Signal-to-noise ratio is ${score > 50 ? 'above' : 'below'} baseline. Recommend reviewing AOL contamination in notepad entries.`,
-  };
 }
 
 // ─── PROFILE RENDER ───────────────────────────
@@ -5588,9 +5645,9 @@ function renderProfile() {
   renderSettingsState();
   const seekerEl = document.getElementById('profile-seeker-id');
   const avatarEl = document.getElementById('profile-avatar');
-
-  if (seekerEl) seekerEl.textContent = STATE.seekerId;
-  if (avatarEl) avatarEl.textContent = (STATE.seekerId || '#0').replace('#','').charAt(0);
+  const username = (localStorage.getItem('ablty_username') || 'Guest').trim() || 'Guest';
+  if (seekerEl) seekerEl.textContent = username;
+  if (avatarEl) avatarEl.textContent = username.charAt(0).toUpperCase();
   const devBadge = document.getElementById('dev-badge');
   if (devBadge) devBadge.style.display = 'none';
   const rcDebugWrap = document.getElementById('rc-debug-wrap');
@@ -6255,6 +6312,13 @@ function isLoggedIn() {
   return localStorage.getItem('ablty_logged_in') === '1';
 }
 
+function renderHomeGreeting() {
+  const el = document.getElementById('home-greeting');
+  if (!el) return;
+  const username = (localStorage.getItem('ablty_username') || '').trim();
+  el.textContent = isLoggedIn() && username ? `Welcome, ${username}` : 'Welcome, Guest';
+}
+
 function clearLocalAuthCache() {
   ['ablty_logged_in', 'ablty_username', 'ablty_tier', 'ablty_username_changed_at']
     .forEach((k) => localStorage.removeItem(k));
@@ -6845,9 +6909,8 @@ function showComingSoon(name) {
 document.addEventListener('DOMContentLoaded', () => {
   if (enforcePwaOnlyMode()) return;
 
-  try { loadState(); } catch(e) {
-    STATE.seekerId = '#' + Math.floor(10000 + Math.random() * 90000);
-  }
+  try { loadState(); } catch(e) {}
+  try { localStorage.removeItem('ablty_seeker'); } catch(e) {}
   checkAuthCallback();
   if (window.location.search.includes('payment=success')) {
     showToast('Welcome to ABLTY Premium.', 'success', 5000);
@@ -6866,11 +6929,13 @@ document.addEventListener('DOMContentLoaded', () => {
         clearLocalAuthCache();
         renderSettingsState();
         renderProfile();
+        renderHomeGreeting();
       }
     });
     reconcileAuthState().then(() => {
       renderSettingsState();
       renderProfile();
+      renderHomeGreeting();
     }).catch(() => {});
   }
 
@@ -6895,7 +6960,7 @@ document.addEventListener('DOMContentLoaded', () => {
   try { updateClock(); } catch(e) {}
   setInterval(() => { try { updateClock(); } catch(e) {} }, 10000);
 
-  try { document.getElementById('seeker-id').textContent = STATE.seekerId; } catch(e) {}
+  renderHomeGreeting();
 
   try {
     const pager = document.getElementById('toggle-pager');
@@ -7229,15 +7294,16 @@ function switchAnalyticsTab(tab) {
 }
 
 function renderAnalytics() {
-  const rvSessions  = STATE.sessions || [];
+  const rvSessions  = (STATE.sessions || []).filter(s => !isRVGradingFailed(s));
   const zenerRuns   = loadZenerSessions();
 
   // ── Overview ──────────────────────────────────
-  const rvAvg = rvSessions.length
-    ? Math.round(rvSessions.reduce((a, s) => a + s.score, 0) / rvSessions.length)
+  const scoredRvSessions = rvSessions.filter((s) => Number.isFinite(Number(s?.score)));
+  const rvAvg = scoredRvSessions.length
+    ? Math.round(scoredRvSessions.reduce((a, s) => a + Number(s.score), 0) / scoredRvSessions.length)
     : null;
-  const rvBest = rvSessions.length
-    ? Math.max(...rvSessions.map(s => s.score))
+  const rvBest = scoredRvSessions.length
+    ? Math.max(...scoredRvSessions.map((s) => Number(s.score)))
     : null;
   const zAvg = zenerRuns.length
     ? Math.round(zenerRuns.reduce((a, r) => a + r.hitPct, 0) / zenerRuns.length)
@@ -7348,13 +7414,14 @@ function buildBarChart(wrapId, data, valFn, maxVal, suffix, baselinePct) {
 function buildCatBreakdown(rvSessions) {
   const el = document.getElementById('cat-breakdown');
   if (!el) return;
-  if (!rvSessions.length) {
+  const gradedRv = (Array.isArray(rvSessions) ? rvSessions : []).filter((s) => Number.isFinite(Number(s?.score)));
+  if (!gradedRv.length) {
     el.innerHTML = `<div class="no-data-note">No RV sessions yet</div>`;
     return;
   }
 
   const cats = {};
-  rvSessions.forEach(s => {
+  gradedRv.forEach(s => {
     if (!s.category) return;
     if (!cats[s.category]) cats[s.category] = { total: 0, sum: 0 };
     cats[s.category].total++;
@@ -7496,7 +7563,10 @@ function buildCombinedLog(rvSessions, zenerRuns) {
     pp:    s => 'PHOTO PAIR',
   };
   const TYPE_SCORE_DISPLAY = {
-    rv:    s => s.score + '%',
+    rv:    s => {
+      const score = getRVSessionScore(s);
+      return score === null ? 'Not graded' : `${score}%`;
+    },
     zener: s => s.score + '%',
     ts:    s => getTSTrialHit(s) ? 'HIT' : 'MISS',
     pp:    s => s.hit ? 'HIT' : 'MISS',
@@ -7514,9 +7584,10 @@ function buildCombinedLog(rvSessions, zenerRuns) {
     const sessionType = s.type;
     const isHitMiss   = s.type === 'ts' || s.type === 'pp';
     const isHitLike   = s.type === 'ts' ? getTSTrialHit(s) : s.hit;
+    const rvScore = s.type === 'rv' ? getRVSessionScore(s) : null;
     const cls = isHitMiss
       ? (isHitLike ? 'high' : 'low')
-      : (s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low');
+      : (s.type === 'rv' && rvScore === null ? 'na' : (s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low'));
 
     return `<div class="session-card" onclick="openSessionDetail('${sessionType}','${sessionId}')" style="cursor:pointer;">
       <div class="session-thumb">
@@ -7533,7 +7604,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
         <div class="mono-sm" style="margin-top:2px;color:var(--dim);">${label}</div>
         ${s.type === 'rv' && s.notes && s.notes.trim() ? `<div class="mono-sm" style="margin-top:3px;color:var(--muted);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px;">${s.notes.slice(0,60)}${s.notes.length>60?'..':''}</div>` : ''}
       </div>
-      <div class="session-score ${cls}">${scoreDisplay}</div>
+      <div class="session-score ${cls}${(s.type === 'rv' && isRVGradingFailed(s)) ? ' na' : ''}">${scoreDisplay}</div>
     </div>`;
   }).join('');
 }
@@ -7678,13 +7749,15 @@ function renderRVDetail(s) {
   // Score ring
   const ring = document.getElementById('detail-score-ring');
   const pctEl = document.getElementById('detail-score-pct');
+  const score = getRVSessionScore(s);
+  const failed = isRVGradingFailed(s);
   setEl('detail-score-label', 'Gestalt Match');
   if (ring) {
-    const score = s.score || 0;
-    ring.style.stroke = score >= 60 ? 'var(--accent)' : score >= 35 ? 'var(--warn)' : 'var(--danger)';
-    setTimeout(() => { ring.style.strokeDashoffset = 364.4 - (score / 100) * 364.4; }, 100);
+    const ringScore = score ?? 0;
+    ring.style.stroke = failed ? 'var(--muted)' : (ringScore >= 60 ? 'var(--accent)' : ringScore >= 35 ? 'var(--warn)' : 'var(--danger)');
+    setTimeout(() => { ring.style.strokeDashoffset = failed ? 364.4 : (364.4 - (ringScore / 100) * 364.4); }, 100);
   }
-  if (pctEl) pctEl.textContent = (s.score || 0) + '%';
+  if (pctEl) pctEl.textContent = failed ? 'N/A' : `${score}%`;
 
   // Images
   const imagesRow = document.getElementById('detail-images-row');
@@ -7695,7 +7768,11 @@ function renderRVDetail(s) {
   if (targetImg) targetImg.src = s.targetSrc || '';
 
   // Summary
-  setEl('detail-summary', s.summary || 'No summary available.');
+  if (failed) {
+    setEl('detail-summary', 'AI grading failed for this session. Your sketch, target reveal, and notes were saved.');
+  } else {
+    setEl('detail-summary', s.summary || 'No summary available.');
+  }
 
   // Notes
   let detailNotesCard = document.getElementById('detail-notes-card');
@@ -7931,7 +8008,7 @@ function renderCalibration(rvSessions) {
 //  RV STEP NAVIGATION
 // ═══════════════════════════════════════════════════════
 
-function rvGoStep(n) {
+async function rvGoStep(n) {
   document.querySelectorAll('.rv-step').forEach(s => s.classList.remove('active'));
 
   // First time doing RV: inject protocol step between 1 and 2
@@ -7942,34 +8019,64 @@ function rvGoStep(n) {
       const proto = document.getElementById('rv-step-protocol');
       if (proto) { proto.classList.add('active'); return; }
     }
-    // Assign target + display TRN
-    rvAssignTarget();
+    // Show step 2 while fetching secure worker-side assignment.
+    const step2 = document.getElementById('rv-step-2');
+    if (step2) step2.classList.add('active');
+    try {
+      await rvAssignTarget();
+    } catch (e) {
+      console.warn('[ABLTY] Failed to assign RV target:', e?.message || e);
+      showToast('Could not assign a target. Please check your connection and try again.', 'warn', 5000);
+      document.querySelectorAll('.rv-step').forEach(s => s.classList.remove('active'));
+      const step1 = document.getElementById('rv-step-1');
+      if (step1) step1.classList.add('active');
+    }
+    return;
   }
 
   const step = document.getElementById('rv-step-' + n);
   if (step) step.classList.add('active');
 }
 
-function rvAssignTarget() {
-  const pool = STATE.currentCategory === 'all'
-    ? TARGET_POOL
-    : TARGET_POOL.filter(t => t.category === STATE.currentCategory);
-  const activePool = pool.length ? pool : TARGET_POOL;
-  const picked = activePool[Math.floor(Math.random() * activePool.length)];
-  STATE.currentTargetIndex = TARGET_POOL.indexOf(picked);
+function sanitizeRVCategory(cat) {
+  const allowed = new Set(['all', 'animals', 'objects', 'structures', 'landscapes']);
+  return allowed.has(cat) ? cat : 'all';
+}
 
-  // TRN is derived from the filename: "targets/6047-5129.jpg" -> "6047-5129"
-  const filename = picked.src.replace('targets/', '').replace('.jpg', '');
-  STATE.currentTRN = filename;
+async function requestRVAssignment(category) {
+  const resp = await fetch(WORKER_URL + '/rv-assign', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ category: sanitizeRVCategory(category) }),
+  });
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok || data?.error) {
+    throw new Error(data?.message || data?.error || ('Worker error ' + resp.status));
+  }
+  if (!data?.assignment_id || !data?.trn) {
+    throw new Error('Invalid assignment response');
+  }
+  return data;
+}
+
+async function rvAssignTarget() {
+  STATE.currentAssignmentId = null;
+  STATE.currentTRN = null;
+  const trnEl = document.getElementById('trn-display');
+  if (trnEl) trnEl.textContent = 'ASSIGNING...';
+  const canvasTrn = document.getElementById('canvas-trn');
+  if (canvasTrn) canvasTrn.textContent = '--------';
+
+  const assignment = await requestRVAssignment(STATE.currentCategory);
+  const trn = String(assignment.trn);
+
+  STATE.currentAssignmentId = String(assignment.assignment_id);
+  STATE.currentTRN = trn;
 
   // Display with space: "6047 5129"
-  const formatted = filename.replace('-', '  ');
-  const trnEl = document.getElementById('trn-display');
+  const formatted = trn.replace('-', '  ');
   if (trnEl) trnEl.textContent = formatted;
-
-  // Sync canvas TRN badge
-  const canvasTrn = document.getElementById('canvas-trn');
-  if (canvasTrn) canvasTrn.textContent = filename;
+  if (canvasTrn) canvasTrn.textContent = trn;
 }
 
 function showProtocolModal() {
@@ -8231,6 +8338,7 @@ async function onSignedIn(user) {
 
   renderSettingsState();
   renderProfile();
+  renderHomeGreeting();
   updateSyncStatus('syncing');
 
   try {
@@ -8248,6 +8356,10 @@ async function onSignedIn(user) {
 
 function mapRVSessionRow(session, sessionType = 'personal') {
   const targetIdNum = parseInt(String(session?.targetId || '').replace(/\D/g, ''), 10);
+  const rawScore = session?.score;
+  const normalizedScore = (rawScore === null || rawScore === undefined || rawScore === '')
+    ? null
+    : (Number.isFinite(Number(rawScore)) ? Number(rawScore) : null);
   return {
     id: Number(session?.id) || Date.now(),
     session_type: sessionType,
@@ -8256,7 +8368,7 @@ function mapRVSessionRow(session, sessionType = 'personal') {
     target_src: session?.targetSrc || null,
     target_label: session?.targetLabel || null,
     category: session?.category || null,
-    score: Number.isFinite(Number(session?.score)) ? Number(session.score) : null,
+    score: normalizedScore,
     dimension_scores: session?.dimension_scores || null,
     hits: Array.isArray(session?.hits) ? session.hits : [],
     noise: Array.isArray(session?.noise) ? session.noise : [],
@@ -8471,14 +8583,17 @@ async function loadAnalyticsFromCloud(userId, opts = {}) {
     const tsRows = Array.isArray(tsRes?.data) ? tsRes.data : [];
     const ppRows = Array.isArray(ppRes?.data) ? ppRes.data : [];
 
-    const rvLocal = rvRows.map((r) => ({
+  const rvLocal = rvRows.map((r) => ({
       id: Number(r.id) || Date.now(),
       trn: r.trn || '',
       targetId: r.target_id || null,
       targetSrc: r.target_src || '',
       targetLabel: r.target_label || '',
       category: r.category || '',
-      score: Number.isFinite(Number(r.score)) ? Number(r.score) : 0,
+      score: (r.score === null || r.score === undefined || r.score === '')
+        ? null
+        : (Number.isFinite(Number(r.score)) ? Number(r.score) : null),
+      grading_failed: !!r.grading_failed || r.score === null || r.score === undefined,
       dimension_scores: r.dimension_scores || {},
       hits: Array.isArray(r.hits) ? r.hits : [],
       noise: Array.isArray(r.noise) ? r.noise : [],
@@ -10478,28 +10593,30 @@ window.addEventListener('error', (e) => {
         <div class="ob-headline">Where do you want to start?</div>
       </div>
 
-      <div class="ob-slide-2-sub">All modules are available from the home screen at any time.</div>
+      <div class="ob-slide-scroll">
+        <div class="ob-slide-2-sub">All modules are available from the home screen at any time.</div>
 
-      <div class="ob-module-grid">
-        <button class="ob-module-btn primary" onclick="obStartRV()">
-          <span>Remote Viewing</span>
-          <span class="ob-module-arrow">→</span>
-        </button>
-        <button class="ob-module-btn" onclick="obStartZener()">
-          <span>Zener ESP Test</span>
-          <span class="ob-module-arrow">→</span>
-        </button>
-        <button class="ob-module-btn" onclick="obStartPresentiment()">
-          <span>Presentiment</span>
-          <span class="ob-module-arrow">→</span>
-        </button>
-        <button class="ob-module-btn" onclick="obStartRC()">
-          <span>Reality Check Pager</span>
-          <span class="ob-module-arrow">→</span>
-        </button>
+        <div class="ob-module-grid">
+          <button class="ob-module-btn primary" onclick="obStartRV()">
+            <span>Remote Viewing</span>
+            <span class="ob-module-arrow">→</span>
+          </button>
+          <button class="ob-module-btn" onclick="obStartZener()">
+            <span>Zener ESP Test</span>
+            <span class="ob-module-arrow">→</span>
+          </button>
+          <button class="ob-module-btn" onclick="obStartPresentiment()">
+            <span>Presentiment</span>
+            <span class="ob-module-arrow">→</span>
+          </button>
+          <button class="ob-module-btn" onclick="obStartRC()">
+            <span>Reality Check Pager</span>
+            <span class="ob-module-arrow">→</span>
+          </button>
+        </div>
       </div>
 
-      <div class="ob-footer" style="margin-top:auto;">
+      <div class="ob-footer">
         <div class="ob-progress">
           <div class="ob-prog-seg active"></div>
           <div class="ob-prog-seg active"></div>
