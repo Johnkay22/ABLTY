@@ -214,7 +214,17 @@ body::before{content:'';position:fixed;inset:0;z-index:0;background-image:url("d
 .phone-frame::after{content:'';position:absolute;right:-2px;top:74px;width:2px;height:44px;background:rgba(255,255,255,0.14);border-radius:2px}
 .phone-screen{width:100%;height:100%;border-radius:22px;overflow:hidden;background:#090a0d;border:1px solid rgba(255,255,255,0.07)}
 .phone-screen img{width:100%;height:100%;object-fit:cover;object-position:top;display:block}
+.phone-screen img[data-zoomable]{cursor:zoom-in}
 .phone-label{font-family:var(--mono);font-size:8px;letter-spacing:1.5px;color:rgba(255,255,255,0.6);text-transform:uppercase;text-align:center;line-height:1.3;padding:0 6px}
+
+/* Screenshot zoom modal */
+.img-zoom-overlay{position:fixed;inset:0;z-index:9999;background:rgba(3,4,7,0.94);display:none;align-items:center;justify-content:center;padding:18px}
+.img-zoom-overlay.visible{display:flex}
+.img-zoom-stage{width:min(92vw,440px);max-height:90vh;display:flex;flex-direction:column;gap:10px;align-items:center}
+.img-zoom-frame{width:100%;border-radius:16px;background:#06070a;border:1px solid var(--border2);box-shadow:0 20px 45px rgba(0,0,0,0.5);padding:8px}
+.img-zoom-frame img{width:100%;height:auto;max-height:76vh;display:block;border-radius:12px;object-fit:contain;background:#0a0b0d}
+.img-zoom-caption{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;text-align:center}
+.img-zoom-close{position:absolute;top:14px;right:14px;width:38px;height:38px;border-radius:50%;border:1px solid var(--border2);background:rgba(10,11,13,0.92);color:var(--text);font-family:var(--display);font-size:20px;line-height:1;cursor:pointer}
 
 /* ═══ COMING SOON ═══ */
 .coming{padding:80px 24px 0}
@@ -490,13 +500,13 @@ footer a{font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--di
           <div class="fg-compare-cell">
             <div class="fg-compare-label">Your Sketch</div>
             <div class="fg-compare-img">
-              <img src="/demosketch.png" alt="User's sketch of aquatic form" style="width:100%;height:100%;object-fit:cover;border-radius:8px;background:#111214;">
+              <img id="flow-demo-sketch" src="/demo-sketch.png" alt="User's sketch of aquatic form" style="width:100%;height:100%;object-fit:cover;border-radius:8px;background:#111214;">
             </div>
           </div>
           <div class="fg-compare-cell">
             <div class="fg-compare-label">Target</div>
             <div class="fg-compare-img">
-              <img src="/demotarget.png" alt="Target: shark underwater" style="width:100%;height:100%;object-fit:cover;border-radius:8px;background:#0a0c10;">
+              <img id="flow-demo-target" src="/demo-target.png" alt="Target: shark underwater" style="width:100%;height:100%;object-fit:cover;border-radius:8px;background:#0a0c10;">
             </div>
           </div>
         </div>
@@ -546,11 +556,11 @@ footer a{font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--di
       <div class="big-title" style="font-size:48px;">SEE IT</div>
     </div>
     <div class="phone-track reveal" style="transition-delay:0.1s;">
-      <div class="phone-shot"><div class="phone-frame"><div class="phone-screen"><img src="/HomeMenu.png" alt="Home" width="170" height="300"></div></div><div class="phone-label">Choose module</div></div>
-      <div class="phone-shot"><div class="phone-frame"><div class="phone-screen"><img src="/BlankCanvas.png" alt="Canvas" width="170" height="300"></div></div><div class="phone-label">Sketch blind</div></div>
-      <div class="phone-shot"><div class="phone-frame"><div class="phone-screen"><img src="/Impressions.png" alt="Impressions" width="170" height="300"></div></div><div class="phone-label">Record data</div></div>
-      <div class="phone-shot"><div class="phone-frame"><div class="phone-screen"><img src="/RVGoodScore.png" alt="Results" width="170" height="300"></div></div><div class="phone-label">AI grades it</div></div>
-      <div class="phone-shot"><div class="phone-frame"><div class="phone-screen"><img src="/Analytics.png" alt="Analytics" width="170" height="300"></div></div><div class="phone-label">Track progress</div></div>
+      <div class="phone-shot"><div class="phone-frame"><div class="phone-screen"><img src="/HomeMenu.png" alt="Home" width="170" height="300" data-zoomable="1" data-caption="Choose module"></div></div><div class="phone-label">Choose module</div></div>
+      <div class="phone-shot"><div class="phone-frame"><div class="phone-screen"><img src="/BlankCanvas.png" alt="Canvas" width="170" height="300" data-zoomable="1" data-caption="Sketch blind"></div></div><div class="phone-label">Sketch blind</div></div>
+      <div class="phone-shot"><div class="phone-frame"><div class="phone-screen"><img src="/Impressions.png" alt="Impressions" width="170" height="300" data-zoomable="1" data-caption="Record data"></div></div><div class="phone-label">Record data</div></div>
+      <div class="phone-shot"><div class="phone-frame"><div class="phone-screen"><img src="/RVGoodScore.png" alt="Results" width="170" height="300" data-zoomable="1" data-caption="AI grades it"></div></div><div class="phone-label">AI grades it</div></div>
+      <div class="phone-shot"><div class="phone-frame"><div class="phone-screen"><img src="/Analytics.png" alt="Analytics" width="170" height="300" data-zoomable="1" data-caption="Track progress"></div></div><div class="phone-label">Track progress</div></div>
     </div>
   </section>
 
@@ -588,6 +598,13 @@ footer a{font-family:var(--mono);font-size:9px;letter-spacing:1px;color:var(--di
 
 <div class="legal-modal-overlay" id="legal-modal"><div class="legal-modal-header"><div class="legal-modal-title" id="legal-modal-title">Terms</div><div class="legal-modal-close" onclick="closeLegal()">x</div></div><div class="legal-modal-body" id="legal-modal-body"></div></div>
 <div class="modal-overlay" id="ios-modal"><div class="modal-box"><div class="modal-title">Add to Home Screen</div><div class="modal-sub">Follow these steps in Safari</div><div class="ios-step"><div class="ios-step-num">1</div><div class="ios-step-text">Tap the <strong>Share button</strong> at the bottom.</div></div><div class="ios-step"><div class="ios-step-num">2</div><div class="ios-step-text">Tap <strong>"Add to Home Screen"</strong></div></div><div class="ios-step"><div class="ios-step-num">3</div><div class="ios-step-text">Tap <strong>"Add"</strong> in the top right.</div></div><button class="modal-close" onclick="closeModal()">Got It</button></div></div>
+<div class="img-zoom-overlay" id="img-zoom-overlay">
+  <button class="img-zoom-close" type="button" aria-label="Close image preview" onclick="closeImageLightbox()">&times;</button>
+  <div class="img-zoom-stage">
+    <div class="img-zoom-frame"><img id="img-zoom-image" src="" alt="Screenshot preview"></div>
+    <div class="img-zoom-caption" id="img-zoom-caption"></div>
+  </div>
+</div>
 <div id="install-success-screen"><div style="font-family:var(--display);font-size:52px;letter-spacing:2px;color:var(--text);line-height:1;">ABL<span style="color:var(--accent);">T</span>Y</div><div style="font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-top:8px;">Installing</div><div style="width:96px;height:96px;border-radius:20px;background:var(--card);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;box-shadow:0 0 28px rgba(74,240,200,0.15);margin-top:12px;"><img src="/icon-192.png" alt="ABLTY" style="width:72px;height:72px;border-radius:14px;"></div><div style="font-family:var(--body);font-size:14px;color:var(--muted);line-height:1.5;max-width:280px;margin-top:8px;">Tap the ABLTY icon on your home screen to launch.</div></div>
 
 <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
@@ -633,6 +650,62 @@ function initFlow(){const steps=document.getElementById('flow-steps');if(!steps)
 
 // Drag scroll
 function initDrag(id){const t=document.getElementById(id);if(!t)return;let d=false,sX,sL;t.addEventListener('mousedown',e=>{d=true;t.classList.add('grabbing');sX=e.pageX-t.offsetLeft;sL=t.scrollLeft;});t.addEventListener('mouseleave',()=>{d=false;t.classList.remove('grabbing');});t.addEventListener('mouseup',()=>{d=false;t.classList.remove('grabbing');});t.addEventListener('mousemove',e=>{if(!d)return;e.preventDefault();t.scrollLeft=sL-(e.pageX-t.offsetLeft-sX)*1.5;});}
+
+function openImageLightbox(src, caption){
+  const overlay = document.getElementById('img-zoom-overlay');
+  const image = document.getElementById('img-zoom-image');
+  const cap = document.getElementById('img-zoom-caption');
+  if(!overlay || !image || !src) return;
+  image.src = src;
+  image.alt = caption || 'Screenshot preview';
+  if(cap) cap.textContent = caption || '';
+  overlay.classList.add('visible');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeImageLightbox(){
+  const overlay = document.getElementById('img-zoom-overlay');
+  const image = document.getElementById('img-zoom-image');
+  if(!overlay) return;
+  overlay.classList.remove('visible');
+  if(image) image.src = '';
+  document.body.style.overflow = '';
+}
+
+function initScreenshotZoom(){
+  const overlay = document.getElementById('img-zoom-overlay');
+  if(overlay){
+    overlay.addEventListener('click', function(e){
+      if(e.target === overlay) closeImageLightbox();
+    });
+  }
+  document.querySelectorAll('.phone-screen img[data-zoomable]').forEach(function(img){
+    img.addEventListener('click', function(){
+      openImageLightbox(img.getAttribute('src'), img.getAttribute('data-caption') || img.getAttribute('alt') || '');
+    });
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape') closeImageLightbox();
+  });
+}
+
+function setFirstAvailableImage(element, candidates){
+  if(!element || !Array.isArray(candidates) || !candidates.length) return;
+  let idx = 0;
+  function tryNext(){
+    if(idx >= candidates.length) return;
+    element.src = candidates[idx++];
+  }
+  element.onerror = tryNext;
+  tryNext();
+}
+
+function initFlowDemoImages(){
+  const sketch = document.getElementById('flow-demo-sketch');
+  const target = document.getElementById('flow-demo-target');
+  setFirstAvailableImage(sketch, ['/demo-sketch.png', '/demosketch.png', '/demo-sketch.pngb']);
+  setFirstAvailableImage(target, ['/demo-target.png', '/demotarget.png', '/demo-target.jpg']);
+}
 
 document.querySelectorAll('a[href^="#"]').forEach(a=>{a.addEventListener('click',e=>{e.preventDefault();const t=document.querySelector(a.getAttribute('href'));if(t)t.scrollIntoView({behavior:'smooth'});});});
 
@@ -944,6 +1017,8 @@ document.getElementById('legal-modal').addEventListener('click',function(e){if(e
 
 document.addEventListener('DOMContentLoaded',()=>{
   startHero();initMission();spawnParticles('bp1',15);spawnParticles('bp2',12);spawnParticles('bp3',10);initTimeline();initFlow();initDrag('module-track');
+  initFlowDemoImages();
+  initScreenshotZoom();
   // Reveal: try observer, fallback to showing everything after 1.5s
   var revealed=false;
   function forceReveal(){if(revealed)return;revealed=true;document.querySelectorAll('.reveal,.reveal-scale').forEach(function(el){el.style.opacity='1';el.style.transform='none';});}
