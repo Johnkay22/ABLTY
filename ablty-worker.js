@@ -996,7 +996,7 @@ async function sendVapidPush(subscription, env, opts = {}) {
 
   const vapidPublic = env.VAPID_PUBLIC_KEY;
   const vapidPrivate = env.VAPID_PRIVATE_KEY;
-  const vapidSubject = 'mailto:kayvideoproductions@gmail.com';
+  const vapidSubject = 'mailto:abltyapp@gmail.com';
 
   const header = b64url(JSON.stringify({ typ: 'JWT', alg: 'ES256' }));
   const now = Math.floor(Date.now() / 1000);
