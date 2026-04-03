@@ -3378,6 +3378,12 @@ html, body {
 
       <div class="rv-grade-error card fade-in-delay-2" id="rv-grade-error" style="display:none;"></div>
 
+      <!-- Next Session Tip -->
+      <div class="summary-card fade-in-delay-2" id="score-reasoning-card" style="display:none; border-left: 2px solid var(--accent);">
+        <div class="mono-label" style="margin-bottom:8px;">Next Session Tip</div>
+        <div class="summary-text" id="score-reasoning-text"></div>
+      </div>
+
       <!-- Hits & Noise -->
       <div class="section-label fade-in-delay-3">Data Points</div>
       <div class="hit-list fade-in-delay-3" id="hit-list"></div>
@@ -5485,6 +5491,7 @@ async function submitSession() {
     noise: result.noise || [],
     aol: result.aol || [],
     summary: result.summary,
+    score_reasoning: result.score_reasoning || '',
     grading_failed: gradingFailed,
     grading_error: gradingErrorMessage || null,
     notes: notes,
@@ -5581,6 +5588,16 @@ function renderResults(result, target, notes) {
 
   if (summary) {
     summary.textContent = result.summary || '';
+  }
+
+  // Show score reasoning tip
+  const reasoningCard = document.getElementById('score-reasoning-card');
+  const reasoningText = document.getElementById('score-reasoning-text');
+  if (reasoningCard && reasoningText && result.score_reasoning) {
+    reasoningText.textContent = result.score_reasoning;
+    reasoningCard.style.display = 'block';
+  } else if (reasoningCard) {
+    reasoningCard.style.display = 'none';
   }
 
   const errorCard = document.getElementById('rv-grade-error');
@@ -7772,6 +7789,25 @@ function renderRVDetail(s) {
     setEl('detail-summary', 'AI grading failed for this session. Your sketch, target reveal, and notes were saved.');
   } else {
     setEl('detail-summary', s.summary || 'No summary available.');
+  }
+
+  // Show score reasoning in detail view
+  let detailReasoningCard = document.getElementById('detail-reasoning-card');
+  if (!detailReasoningCard) {
+    detailReasoningCard = document.createElement('div');
+    detailReasoningCard.id = 'detail-reasoning-card';
+    detailReasoningCard.className = 'summary-card';
+    detailReasoningCard.style.borderLeft = '2px solid var(--accent)';
+    const detailSummaryCard = document.getElementById('detail-summary-card');
+    if (detailSummaryCard && detailSummaryCard.parentNode) {
+      detailSummaryCard.parentNode.insertBefore(detailReasoningCard, detailSummaryCard.nextSibling);
+    }
+  }
+  if (s.score_reasoning) {
+    detailReasoningCard.style.display = 'block';
+    detailReasoningCard.innerHTML = '<div class="mono-label" style="margin-bottom:8px;">Next Session Tip</div><div class="summary-text">' + s.score_reasoning + '</div>';
+  } else {
+    detailReasoningCard.style.display = 'none';
   }
 
   // Notes
