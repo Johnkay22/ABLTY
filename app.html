@@ -7507,6 +7507,24 @@ function getTSTrialHit(trial) {
   return false;
 }
 
+function getTSElapsedSeconds(trial) {
+  const delta = Number(trial?.delta);
+  if (Number.isFinite(delta)) return Math.abs(delta);
+
+  const eventSec = Number(trial?.eventTime);
+  const tapSec = Number(trial?.tapTime);
+  if (Number.isFinite(eventSec) && Number.isFinite(tapSec)) {
+    return Math.abs(eventSec - tapSec);
+  }
+
+  const eventMs = Number(trial?.eventMs);
+  const tapMs = Number(trial?.tappedMs);
+  if (Number.isFinite(eventMs) && Number.isFinite(tapMs)) {
+    return Math.abs(eventMs - tapMs) / 1000;
+  }
+  return null;
+}
+
 function buildCombinedLog(rvSessions, zenerRuns) {
   const el = document.getElementById('combined-log-list');
   if (!el) return;
@@ -7570,7 +7588,10 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   const TYPE_LABEL = {
     rv:    s => s.targetLabel || '-',
     zener: s => `${s.hits}/25 hits`,
-    ts:    s => (getTSTrialHit(s) ? 'Hit' : 'Miss'),
+    ts:    s => {
+      const elapsed = getTSElapsedSeconds(s);
+      return elapsed === null ? 'Miss' : `${elapsed.toFixed(1)}s from event`;
+    },
     pp:    s => s.hit ? 'Hit' : 'Miss',
   };
   const TYPE_TITLE = {
@@ -7585,7 +7606,10 @@ function buildCombinedLog(rvSessions, zenerRuns) {
       return score === null ? 'Not graded' : `${score}%`;
     },
     zener: s => s.score + '%',
-    ts:    s => getTSTrialHit(s) ? 'HIT' : 'MISS',
+    ts:    s => {
+      const elapsed = getTSElapsedSeconds(s);
+      return elapsed === null ? 'MISS' : `${elapsed.toFixed(1)}s`;
+    },
     pp:    s => s.hit ? 'HIT' : 'MISS',
   };
 
