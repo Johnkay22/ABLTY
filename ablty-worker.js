@@ -834,11 +834,13 @@ Respond ONLY with valid JSON, no markdown, no preamble:
     "color_light": 0
   },
   "overall_score": 0,
+  "score_reasoning": "",
   "summary": "",
   "hits": [],
   "noise": [],
   "aol": []
 }
+SCORE REASONING: In "score_reasoning", write 1-2 sentences explaining which specific dimensions held the score back and what kind of impressions would push it higher. Frame it as forward-looking coaching, not criticism. Example: "Spatial context and color data were minimal this session. Adding environmental details like scale, setting, or lighting in your impressions would strengthen these dimensions." Do NOT repeat the summary. Do NOT mention the word "dimension" or score numbers. Keep it plain-language and actionable.
 IMPORTANT: overall_score must use the WEIGHTED formula above (max 50). hits should include ALL correct impressions. noise should only include clearly wrong elements.`;
 }
 
