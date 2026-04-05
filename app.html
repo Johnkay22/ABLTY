@@ -9340,6 +9340,26 @@ function saveEditModal() {
 
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
+const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
+
+async function checkHtmlUpdateFallback() {
+  try {
+    const resp = await fetch('/app.html?update_check=' + Date.now(), {
+      method: 'HEAD',
+      cache: 'no-store',
+    });
+    if (!resp || !resp.ok) return;
+    const remoteLastModified = resp.headers.get('last-modified') || '';
+    if (!remoteLastModified) return;
+
+    const remoteTs = Date.parse(remoteLastModified);
+    const currentTs = Date.parse(APP_BOOT_LAST_MODIFIED);
+    if (!Number.isFinite(remoteTs) || !Number.isFinite(currentTs)) return;
+
+    // If deployed app.html is newer than the one currently running, surface update UI.
+    if (remoteTs > (currentTs + 1000)) showUpdateBanner();
+  } catch (e) {}
+}
 
 async function registerSW() {
   if (!('serviceWorker' in navigator)) return;
@@ -9371,6 +9391,7 @@ async function registerSW() {
     try {
       await reg.update();
       checkForWaitingUpdate();
+      checkHtmlUpdateFallback();
     } catch(e) {}
 
     // Detect when a new version is waiting
@@ -9404,6 +9425,7 @@ async function registerSW() {
           await reg.update();
         } catch (e) {}
         checkForWaitingUpdate();
+        checkHtmlUpdateFallback();
       };
       setInterval(poll, 60000);
       document.addEventListener('visibilitychange', () => {
