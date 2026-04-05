@@ -7579,10 +7579,26 @@ function normalizeExportDateLabel(raw, fallback) {
   return String(raw || fallback || 'all').replace(/[^0-9A-Za-z_-]/g, '');
 }
 
+function normalizeCsvText(value) {
+  return String(value === null || value === undefined ? '' : value)
+    .replace(/[\r\n]+/g, ' | ')
+    .replace(/\s*\|\s*/g, ' | ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function csvEscape(val) {
-  const s = val === null || val === undefined ? '' : String(val);
+  const s = normalizeCsvText(val);
   if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
   return s;
+}
+
+function formatExportDateTime(timestamp) {
+  const d = new Date(timestamp || '');
+  if (!Number.isFinite(d.getTime())) return { date: '', time: '' };
+  const date = d.toISOString().slice(0, 10);
+  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return { date, time };
 }
 
 function dayKeyToIso(dayKey) {
@@ -7600,34 +7616,94 @@ function getDreamExportRows() {
     if (streak && streak.lastDate) {
       const ts = dayKeyToIso(streak.lastDate);
       if (ts) {
+        const dt = formatExportDateTime(ts);
         rows.push({
-          timestamp: ts,
+          date: dt.date,
+          time: dt.time,
           module: 'Dreams',
           score: '',
           result: 'Reality Check',
+          target_id: '',
+          category: '',
           label: 'RC Streak',
           details: `Streak count: ${Number(streak.count || 0)} day(s)`,
-          tags: '',
-          notes: '',
         });
       }
     }
 
     const wbtb = JSON.parse(localStorage.getItem('ablty_wbtb') || 'null');
     if (wbtb && Number.isFinite(Number(wbtb.startTime))) {
+      const iso = new Date(Number(wbtb.startTime)).toISOString();
+      const dt = formatExportDateTime(iso);
       rows.push({
-        timestamp: new Date(Number(wbtb.startTime)).toISOString(),
+        date: dt.date,
+        time: dt.time,
         module: 'Dreams',
         score: '',
         result: 'WBTB',
+        target_id: '',
+        category: '',
         label: 'WBTB Timer',
         details: `Duration: ${Number(wbtb.duration || 0)}h`,
-        tags: '',
-        notes: '',
       });
     }
   } catch (e) {}
   return rows;
+}
+
+const RV_DIMENSION_EXPORT_FIELDS = [
+  { key: 'form_shape', label: 'Form/Shape', aliases: ['FORM / SHAPE', 'FORM/SHAPE'] },
+  { key: 'texture_surface', label: 'Texture/Surface', aliases: ['TEXTURE / SURFACE', 'TEXTURE/SURFACE'] },
+  { key: 'motion_movement', label: 'Motion/Movement', aliases: ['MOTION / MOVEMENT', 'MOTION/MOVEMENT'] },
+  { key: 'emotion_atmosphere', label: 'Emotion/Atmosphere', aliases: ['EMOTION / ATMOSPHERE', 'EMOTION/ATMOSPHERE'] },
+  { key: 'color_light', label: 'Color/Light', aliases: ['COLOR / LIGHT', 'COLOR/LIGHT'] },
+];
+
+function parseRvDimensionNotes(rawNotes) {
+  const out = {
+    form_shape: '',
+    texture_surface: '',
+    motion_movement: '',
+    emotion_atmosphere: '',
+    color_light: '',
+    notes_general: '',
+  };
+  const notes = String(rawNotes || '');
+  if (!notes.trim()) return out;
+
+  const aliases = RV_DIMENSION_EXPORT_FIELDS.flatMap((f) => f.aliases);
+  const pattern = new RegExp(`(${aliases.map((a) => a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\s*:\\s*`, 'g');
+  const matches = [...notes.matchAll(pattern)];
+
+  if (!matches.length) {
+    out.notes_general = normalizeCsvText(notes);
+    return out;
+  }
+
+  let cursor = 0;
+  const leftovers = [];
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+    const label = String(m[1] || '').toUpperCase();
+    const pre = notes.slice(cursor, m.index);
+    if (normalizeCsvText(pre)) leftovers.push(normalizeCsvText(pre));
+    const start = m.index + m[0].length;
+    const end = i + 1 < matches.length ? matches[i + 1].index : notes.length;
+    const value = normalizeCsvText(notes.slice(start, end));
+    const field = RV_DIMENSION_EXPORT_FIELDS.find((f) => f.aliases.includes(label));
+    if (field) out[field.key] = value;
+    cursor = end;
+  }
+  const tail = notes.slice(cursor);
+  if (normalizeCsvText(tail)) leftovers.push(normalizeCsvText(tail));
+  out.notes_general = leftovers.join(' | ');
+  return out;
+}
+
+function splitRvDetails(s) {
+  const targetId = String(s?.trn || '').trim();
+  const category = String(s?.category || '').trim();
+  return { target_id: targetId, category };
 }
 
 function collectExportRows(modules) {
@@ -7638,71 +7714,92 @@ function collectExportRows(modules) {
     rows = rows.concat((STATE.sessions || []).map((s) => {
       const score = getRVSessionScore(s);
       const gradingFailed = isRVGradingFailed(s);
+      const dt = formatExportDateTime(s.timestamp || '');
+      const dims = parseRvDimensionNotes(s.note || s.notes || '');
+      const rvSplit = splitRvDetails(s);
       return {
-        timestamp: s.timestamp || '',
+        date: dt.date,
+        time: dt.time,
         module: 'RV',
         score: score === null ? '' : score,
         result: gradingFailed ? 'Not graded' : 'Graded',
+        target_id: rvSplit.target_id,
+        category: rvSplit.category,
         label: s.targetLabel || (s.trn ? `TRN ${s.trn}` : 'RV Session'),
         details: [
-          s.trn ? `TRN ${s.trn}` : '',
-          s.category ? `Category: ${s.category}` : '',
           gradingFailed ? 'AI grading failed' : '',
         ].filter(Boolean).join(' | '),
-        tags: Array.isArray(s.tags) ? s.tags.join('|') : '',
-        notes: s.note || s.notes || '',
+        form_shape: dims.form_shape,
+        texture_surface: dims.texture_surface,
+        motion_movement: dims.motion_movement,
+        emotion_atmosphere: dims.emotion_atmosphere,
+        color_light: dims.color_light,
+        notes: dims.notes_general || '',
       };
     }));
   }
 
   if (selected.has('zener')) {
-    rows = rows.concat(loadZenerSessions().map((run) => ({
-      timestamp: run.timestamp || '',
-      module: 'Zener',
-      score: Number.isFinite(Number(run.hitPct)) ? Number(run.hitPct) : '',
-      result: `${Number(run.hits || 0)}/25 hits`,
-      label: 'Zener Run',
-      details: run.stdDev !== undefined ? `Std dev: ${run.stdDev}` : '',
-      tags: Array.isArray(run.tags) ? run.tags.join('|') : '',
-      notes: run.note || '',
-    })));
+    rows = rows.concat(loadZenerSessions().map((run) => {
+      const dt = formatExportDateTime(run.timestamp || '');
+      return {
+        date: dt.date,
+        time: dt.time,
+        module: 'Zener',
+        score: Number.isFinite(Number(run.hitPct)) ? Number(run.hitPct) : '',
+        result: `${Number(run.hits || 0)}/25 hits`,
+        target_id: '',
+        category: '',
+        label: 'Zener Run',
+        details: run.stdDev !== undefined ? `Std dev: ${run.stdDev}` : '',
+        notes: run.note || '',
+      };
+    }));
   }
 
   if (selected.has('ts')) {
     rows = rows.concat(loadTimestampAll().map((trial) => {
       const elapsed = getTSElapsedSeconds(trial);
       const hit = getTSTrialHit(trial);
+      const dt = formatExportDateTime(trial.timestamp || '');
       return {
-        timestamp: trial.timestamp || '',
+        date: dt.date,
+        time: dt.time,
         module: 'Presentiment',
         score: elapsed === null ? '' : Number(elapsed.toFixed(2)),
         result: elapsed === null ? 'Miss' : (hit ? 'Hit' : 'Tap (miss)'),
+        target_id: '',
+        category: '',
         label: 'Presentiment Trial',
         details: elapsed === null ? 'No tap before event' : `${elapsed.toFixed(2)}s from event`,
-        tags: '',
         notes: '',
       };
     }));
   }
 
   if (selected.has('pp')) {
-    rows = rows.concat(loadPPSessions().map((session) => ({
-      timestamp: session.timestamp || '',
-      module: 'Photo Pair',
-      score: session.hit ? 100 : 0,
-      result: session.hit ? 'Hit' : 'Miss',
-      label: 'Photo Pair Trial',
-      details: 'Pleasant vs neutral selection',
-      tags: '',
-      notes: '',
-    })));
+    rows = rows.concat(loadPPSessions().map((session) => {
+      const dt = formatExportDateTime(session.timestamp || '');
+      return {
+        date: dt.date,
+        time: dt.time,
+        module: 'Photo Pair',
+        score: session.hit ? 100 : 0,
+        result: session.hit ? 'Hit' : 'Miss',
+        target_id: '',
+        category: '',
+        label: 'Photo Pair Trial',
+        details: 'Pleasant vs neutral selection',
+        notes: '',
+      };
+    }));
   }
 
   if (selected.has('dreams')) {
     rows = rows.concat(getDreamExportRows());
   }
 
-  return rows.filter((r) => Number.isFinite(Date.parse(r.timestamp || '')));
+  return rows.filter((r) => !!r.date && !!r.time);
 }
 
 function downloadExportCSV() {
@@ -7728,15 +7825,52 @@ function downloadExportCSV() {
     return;
   }
 
-  let rows = collectExportRows(modules).filter((r) => inExportDateRange(r.timestamp, startRaw, endRaw));
-  rows.sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
+  let rows = collectExportRows(modules).filter((r) => inExportDateRange(`${r.date}T${r.time}:00`, startRaw, endRaw));
+  rows.sort((a, b) => Date.parse(`${a.date}T${a.time}:00`) - Date.parse(`${b.date}T${b.time}:00`));
   if (!rows.length) {
     showToast('No data found for that selection.', 'warn');
     return;
   }
 
-  const headers = ['timestamp', 'module', 'score', 'result', 'label', 'details', 'tags', 'notes'];
-  const lines = [headers.join(',')];
+  const preferredHeaders = [
+    'date',
+    'time',
+    'module',
+    'score',
+    'result',
+    'target_id',
+    'category',
+    'label',
+    'details',
+    'form_shape',
+    'texture_surface',
+    'motion_movement',
+    'emotion_atmosphere',
+    'color_light',
+    'notes',
+  ];
+  const headerLabels = {
+    date: 'Date',
+    time: 'Time',
+    module: 'Module',
+    score: 'Score',
+    result: 'Result',
+    target_id: 'Target ID',
+    category: 'Category',
+    label: 'Label',
+    details: 'Details',
+    form_shape: 'Form/Shape',
+    texture_surface: 'Texture/Surface',
+    motion_movement: 'Motion/Movement',
+    emotion_atmosphere: 'Emotion/Atmosphere',
+    color_light: 'Color/Light',
+    notes: 'Notes',
+  };
+  const headers = preferredHeaders.filter((h) => {
+    if (h === 'date' || h === 'time' || h === 'module') return true;
+    return rows.some((r) => normalizeCsvText(r[h]) !== '');
+  });
+  const lines = [headers.map((h) => csvEscape(headerLabels[h] || h)).join(',')];
   rows.forEach((row) => {
     lines.push(headers.map((h) => csvEscape(row[h])).join(','));
   });
