@@ -1,8 +1,8 @@
-// ABLTY Service Worker v12
+// ABLTY Service Worker v13
 // Strategy: network-first for HTML, cache-first for static assets
 // Includes update detection to notify users of new versions
 
-const CACHE_NAME = 'ablty-v12';
+const CACHE_NAME = 'ablty-v13';
 const STATIC_ASSETS = [
   '/',
   '/app.html',
@@ -11,7 +11,22 @@ const STATIC_ASSETS = [
 // -- Install: cache static assets and activate immediately -----
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+      await cache.addAll(STATIC_ASSETS);
+
+      // If there is already an active worker, this install represents an update.
+      // Notify open clients so the app can show a refresh banner immediately.
+      if (self.registration.active) {
+        const allClients = await self.clients.matchAll({
+          type: 'window',
+          includeUncontrolled: true,
+        });
+        allClients.forEach((client) => {
+          client.postMessage({ type: 'UPDATE_READY' });
+        });
+      }
+    })()
   );
   // Don't skipWaiting here - we want to notify the user instead
   // so they can choose when to update
