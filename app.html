@@ -2046,27 +2046,48 @@ html, body {
    ANALYTICS IMPROVEMENTS
 ═══════════════════════════════════════════ */
 .log-filter-bar {
-  display: flex; gap: 6px; flex-wrap: wrap;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
   margin-bottom: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px;
 }
 .log-filter-btn {
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: 8px; padding: 6px 12px;
-  font-family: var(--font-mono); font-size: 10px;
-  letter-spacing: 1px; color: var(--muted);
-  cursor: pointer; transition: all 0.15s;
+  background: rgba(255,255,255,0.02);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
   text-transform: uppercase;
+  line-height: 1;
 }
 .log-filter-btn.active {
-  border-color: var(--accent); color: var(--accent);
-  background: rgba(74,240,200,0.06);
+  border-color: rgba(74,240,200,0.55);
+  color: var(--text);
+  background: linear-gradient(135deg, rgba(74,240,200,0.16), rgba(91,158,244,0.12));
+  box-shadow: 0 0 0 1px rgba(74,240,200,0.15) inset;
+}
+.log-filter-btn:active {
+  transform: translateY(1px);
 }
 .log-sort-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  margin: -4px 0 12px;
+  margin: -2px 0 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 10px;
 }
 .log-sort-label {
   font-family: var(--font-mono);
@@ -2080,21 +2101,27 @@ html, body {
   gap: 6px;
 }
 .log-sort-btn {
-  background: var(--card);
+  background: rgba(255,255,255,0.02);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 6px 10px;
+  border-radius: 999px;
+  padding: 6px 12px;
   font-family: var(--font-mono);
   font-size: 9px;
-  letter-spacing: 1px;
+  letter-spacing: 1.1px;
   color: var(--muted);
   cursor: pointer;
   text-transform: uppercase;
+  line-height: 1;
+  transition: all 0.15s ease;
 }
 .log-sort-btn.active {
-  border-color: var(--accent2);
-  color: var(--accent2);
-  background: rgba(91,158,244,0.08);
+  border-color: rgba(91,158,244,0.55);
+  color: var(--text);
+  background: linear-gradient(135deg, rgba(91,158,244,0.16), rgba(74,240,200,0.1));
+  box-shadow: 0 0 0 1px rgba(91,158,244,0.14) inset;
+}
+.log-sort-btn:active {
+  transform: translateY(1px);
 }
 .empty-motivate {
   text-align: center; padding: 28px 16px;
@@ -3819,7 +3846,6 @@ html, body {
         <div class="analytics-tab active" id="atab-overview" onclick="switchAnalyticsTab('overview')">Overview</div>
         <div class="analytics-tab" id="atab-rv" onclick="switchAnalyticsTab('rv')">RV</div>
         <div class="analytics-tab" id="atab-psi" onclick="switchAnalyticsTab('psi')">PSI</div>
-        <div class="analytics-tab" id="atab-dreams" onclick="switchAnalyticsTab('dreams')">Dreams</div>
         <div class="analytics-tab" id="atab-log" onclick="switchAnalyticsTab('log')">Log</div>
       </div>
 
@@ -3915,11 +3941,6 @@ html, body {
             <div class="mono-sm" id="pp-analytics-note" style="color:var(--dim);text-align:center;">Complete 10+ trials for statistical analysis.</div>
           </div>
         </div>
-      </div>
-
-      <!-- DREAMS PANEL -->
-      <div class="analytics-panel" id="apanel-dreams" style="margin-top:16px;">
-        <div class="no-data-note">Dream analytics coming soon</div>
       </div>
 
       <!-- LOG PANEL -->
@@ -9319,6 +9340,26 @@ function saveEditModal() {
 
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
+const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
+
+async function checkHtmlUpdateFallback() {
+  try {
+    const resp = await fetch('/app.html?update_check=' + Date.now(), {
+      method: 'HEAD',
+      cache: 'no-store',
+    });
+    if (!resp || !resp.ok) return;
+    const remoteLastModified = resp.headers.get('last-modified') || '';
+    if (!remoteLastModified) return;
+
+    const remoteTs = Date.parse(remoteLastModified);
+    const currentTs = Date.parse(APP_BOOT_LAST_MODIFIED);
+    if (!Number.isFinite(remoteTs) || !Number.isFinite(currentTs)) return;
+
+    // If deployed app.html is newer than the one currently running, surface update UI.
+    if (remoteTs > (currentTs + 1000)) showUpdateBanner();
+  } catch (e) {}
+}
 
 async function registerSW() {
   if (!('serviceWorker' in navigator)) return;
@@ -9350,6 +9391,7 @@ async function registerSW() {
     try {
       await reg.update();
       checkForWaitingUpdate();
+      checkHtmlUpdateFallback();
     } catch(e) {}
 
     // Detect when a new version is waiting
@@ -9383,6 +9425,7 @@ async function registerSW() {
           await reg.update();
         } catch (e) {}
         checkForWaitingUpdate();
+        checkHtmlUpdateFallback();
       };
       setInterval(poll, 60000);
       document.addEventListener('visibilitychange', () => {
