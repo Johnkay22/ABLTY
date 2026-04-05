@@ -236,6 +236,24 @@ html, body {
   color: var(--muted);
   flex-shrink: 0;
 }
+.home-gear-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+.home-gear-btn:active {
+  color: var(--text);
+  border-color: var(--border2);
+  background: var(--card2);
+}
 
 /* ═══════════════════════════════════════════
    TYPOGRAPHY UTILITIES
@@ -369,6 +387,7 @@ html, body {
 .seeker-row {
   display: flex; align-items: center; gap: 8px; margin-top: 8px;
 }
+.seeker-row.clickable { cursor: pointer; }
 .seeker-badge {
   width: 24px; height: 24px; border-radius: 5px;
   background: var(--card); border: 1px solid var(--border);
@@ -833,6 +852,18 @@ html, body {
 }
 .setting-label { font-size: 14px; color: var(--text); }
 .setting-desc { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
+.settings-section {
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.settings-section-header {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
 
 /* Toggle */
 .toggle {
@@ -1062,9 +1093,9 @@ html, body {
   flex-shrink: 0; margin: 0 -18px; padding: 0 18px;
 }
 .analytics-tab {
-  flex: 1; padding: 12px 4px;
+  flex: 1; padding: 12px 2px;
   font-family: var(--font-mono); font-size: 9px;
-  letter-spacing: 1.5px; text-transform: uppercase;
+  letter-spacing: 1.1px; text-transform: uppercase;
   color: var(--muted); cursor: pointer; text-align: center;
   border-bottom: 2px solid transparent;
   transition: color 0.15s, border-color 0.15s;
@@ -2960,20 +2991,22 @@ html, body {
       <!-- Status bar -->
       <div class="status-bar" style="padding:0 2px 0;">
         <span id="time-display" class="mono-sm">9:41</span>
-
+        <button class="home-gear-btn" onclick="navigate('profile')" aria-label="Open Settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        </button>
       </div>
 
       <!-- Brand -->
       <div class="fade-in">
         <div class="display-xl">ABLTY</div>
-        <div class="seeker-row">
-          <div class="seeker-badge">
+        <div class="seeker-row clickable">
+          <div class="seeker-badge" onclick="navigate('profile')" style="cursor:pointer;" role="button" aria-label="Open Settings">
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
               <circle cx="6.5" cy="4.5" r="2.2" stroke="rgba(255,255,255,0.4)" stroke-width="1.1"/>
               <path d="M2 11.5c0-2.5 2-4.5 4.5-4.5s4.5 2 4.5 4.5" stroke="rgba(255,255,255,0.4)" stroke-width="1.1"/>
             </svg>
           </div>
-          <span class="mono-sm"><span id="home-greeting" style="color:var(--text)">Welcome, Guest</span></span>
+          <span class="mono-sm" onclick="navigate('profile')" style="cursor:pointer;" role="button" aria-label="Open Settings"><span id="home-greeting" style="color:var(--text)">Welcome, Guest</span></span>
           <div class="pulse-dot"></div>
         </div>
       </div>
@@ -3414,54 +3447,53 @@ html, body {
 
       <div class="display-lg fade-in">SETTINGS</div>
 
-      <!-- Account section  -  two states -->
-      <div class="section-label fade-in-delay-1">Account</div>
+      <!-- Account Info -->
+      <div class="settings-section fade-in-delay-1">
+        <div class="settings-section-header">Account Info</div>
 
-      <!-- LOGGED OUT STATE -->
-      <div class="settings-logged-out fade-in-delay-1" id="settings-logged-out" style="display:flex;flex-direction:column;gap:8px;">
-        <!-- Create Account + Sign In side by side -->
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-primary" style="flex:1;min-width:0;" onclick="openAuthScreen('signup')">Create Account</button>
-          <button class="btn btn-ghost" style="flex:1;min-width:0;" onclick="openAuthScreen('login')">Sign In</button>
-        </div>
-        <!-- Upgrade box — same total width as button row above -->
-        <div style="background:linear-gradient(135deg,rgba(74,240,200,0.06),rgba(91,158,244,0.04));border:1px solid rgba(74,240,200,0.18);border-radius:16px;padding:18px 20px;">
-          <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:6px;">⚡ Unlock Full Access</div>
-          <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:14px;">Cloud sync, all modules, leaderboards and more.</div>
-          <button style="width:100%;padding:14px;background:var(--accent);color:#000;border:none;border-radius:12px;font-family:var(--font-display);font-size:20px;letter-spacing:2px;cursor:pointer;" onclick="showUpgradeModal('settings','Premium','Unlock unlimited sessions, all modules, and global leaderboards.')">UPGRADE TO PREMIUM</button>
-        </div>
-      </div>
-
-      <!-- LOGGED IN STATE (hidden until auth  -  Cursor wires this) -->
-      <div class="settings-logged-in fade-in-delay-1" id="settings-logged-in" style="display:none;flex-direction:column;gap:8px;">
-        <div class="settings-user-card">
-          <div class="settings-avatar" id="settings-avatar">S</div>
-          <div>
-            <div class="settings-username" id="settings-username" onclick="openUsernameEdit()" style="cursor:pointer;">Seeker</div>
-            <div id="settings-tier-badge" class="tier-badge tier-free" style="margin-top:4px;">FREE</div>
+        <!-- LOGGED OUT STATE -->
+        <div class="settings-logged-out" id="settings-logged-out" style="display:flex;flex-direction:column;gap:8px;">
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-primary" style="flex:1;min-width:0;" onclick="openAuthScreen('signup')">Create Account</button>
+            <button class="btn btn-ghost" style="flex:1;min-width:0;" onclick="openAuthScreen('login')">Sign In</button>
           </div>
-          <button class="settings-signout-btn" onclick="handleSignOut()">Sign Out</button>
+          <div style="background:linear-gradient(135deg,rgba(74,240,200,0.06),rgba(91,158,244,0.04));border:1px solid rgba(74,240,200,0.18);border-radius:16px;padding:18px 20px;">
+            <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:6px;">⚡ Unlock Full Access</div>
+            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:14px;">Cloud sync, all modules, leaderboards and more.</div>
+            <button style="width:100%;padding:14px;background:var(--accent);color:#000;border:none;border-radius:12px;font-family:var(--font-display);font-size:20px;letter-spacing:2px;cursor:pointer;" onclick="showUpgradeModal('settings','Premium','Unlock unlimited sessions, all modules, and global leaderboards.')">UPGRADE TO PREMIUM</button>
+          </div>
         </div>
-        <!-- Sync status indicator -->
-        <div class="setting-row" id="sync-status-row">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <div class="sync-dot sync-dot-synced" id="sync-dot"></div>
+
+        <!-- LOGGED IN STATE -->
+        <div class="settings-logged-in" id="settings-logged-in" style="display:none;flex-direction:column;gap:8px;">
+          <div class="settings-user-card">
+            <div class="settings-avatar" id="settings-avatar">S</div>
             <div>
-              <div class="setting-label">Data Sync</div>
-              <div class="setting-desc" id="sync-status-label">Synced to cloud</div>
+              <div class="settings-username" id="settings-username" onclick="openUsernameEdit()" style="cursor:pointer;">Seeker</div>
+              <div id="settings-tier-badge" class="tier-badge tier-free" style="margin-top:4px;">FREE</div>
+            </div>
+            <button class="settings-signout-btn" onclick="handleSignOut()">Sign Out</button>
+          </div>
+          <div class="setting-row" id="sync-status-row">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div class="sync-dot sync-dot-synced" id="sync-dot"></div>
+              <div>
+                <div class="setting-label">Data Sync</div>
+                <div class="setting-desc" id="sync-status-label">Synced to cloud</div>
+              </div>
             </div>
           </div>
-        </div>
-        <div id="settings-upgrade-row" style="display:none;background:linear-gradient(135deg,rgba(74,240,200,0.06),rgba(91,158,244,0.04));border:1px solid rgba(74,240,200,0.18);border-radius:16px;padding:18px 20px;">
-          <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:6px;">⚡ Unlock Full Access</div>
-          <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:14px;">Unlimited sessions, all modules, leaderboards and more.</div>
-          <button id="settings-upgrade-btn" style="width:100%;padding:14px;background:var(--accent);color:#000;border:none;border-radius:12px;font-family:var(--font-display);font-size:20px;letter-spacing:2px;cursor:pointer;" onclick="handleUpgradeCTA()">UPGRADE TO PREMIUM</button>
+          <div id="settings-upgrade-row" style="display:none;background:linear-gradient(135deg,rgba(74,240,200,0.06),rgba(91,158,244,0.04));border:1px solid rgba(74,240,200,0.18);border-radius:16px;padding:18px 20px;">
+            <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:6px;">⚡ Unlock Full Access</div>
+            <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:14px;">Unlimited sessions, all modules, leaderboards and more.</div>
+            <button id="settings-upgrade-btn" style="width:100%;padding:14px;background:var(--accent);color:#000;border:none;border-radius:12px;font-family:var(--font-display);font-size:20px;letter-spacing:2px;cursor:pointer;" onclick="handleUpgradeCTA()">UPGRADE TO PREMIUM</button>
+          </div>
         </div>
       </div>
 
-      <!-- App settings -->
-      <div class="section-label fade-in-delay-2">App</div>
-      <div style="display:flex;flex-direction:column;gap:8px;" class="fade-in-delay-2">
+      <!-- App Preferences -->
+      <div class="settings-section fade-in-delay-2">
+        <div class="settings-section-header">App Preferences</div>
         <div class="setting-row" onclick="navigate('reality-check')" style="cursor:pointer;">
           <div>
             <div class="setting-label">Reality Check Pager</div>
@@ -3469,11 +3501,6 @@ html, body {
           </div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
         </div>
-      </div>
-
-      <!-- Data -->
-      <div class="section-label fade-in-delay-3">Data</div>
-      <div style="display:flex;flex-direction:column;gap:8px;" class="fade-in-delay-3">
         <div class="setting-row" onclick="clearAllData()" style="cursor:pointer;">
           <div>
             <div class="setting-label" style="color:var(--danger);">Clear All Session Data</div>
@@ -3789,18 +3816,38 @@ html, body {
       <div class="display-lg fade-in" style="margin-bottom:12px;">ANALYTICS</div>
 
       <div class="analytics-tabs">
-        <div class="analytics-tab active" id="atab-overview"    onclick="switchAnalyticsTab('overview')">Overview</div>
-        <div class="analytics-tab"        id="atab-performance" onclick="switchAnalyticsTab('performance')">Performance</div>
-        <div class="analytics-tab"        id="atab-log"         onclick="switchAnalyticsTab('log')">Log</div>
+        <div class="analytics-tab active" id="atab-overview" onclick="switchAnalyticsTab('overview')">Overview</div>
+        <div class="analytics-tab" id="atab-rv" onclick="switchAnalyticsTab('rv')">RV</div>
+        <div class="analytics-tab" id="atab-psi" onclick="switchAnalyticsTab('psi')">PSI</div>
+        <div class="analytics-tab" id="atab-dreams" onclick="switchAnalyticsTab('dreams')">Dreams</div>
+        <div class="analytics-tab" id="atab-log" onclick="switchAnalyticsTab('log')">Log</div>
       </div>
 
       <!-- OVERVIEW PANEL -->
       <div class="analytics-panel panel-active" id="apanel-overview" style="margin-top:16px;">
-
-        <!-- Streak Banner  -  FIRST -->
         <div id="streak-banner-wrap"></div>
 
-        <!-- Calibration Score  -  SECOND -->
+        <div class="chart-card" id="tod-card">
+          <div class="chart-title">Time of Day Pattern</div>
+          <div id="tod-wrap"></div>
+        </div>
+
+        <div class="kpi-grid">
+          <div class="kpi-card" style="cursor:pointer;" onclick="openAnalyticsDetail('log','combined-log-list')">
+            <div class="mono-label">Total Sessions</div>
+            <div class="kpi-val" id="kpi-total-sessions">0</div>
+            <div class="kpi-delta" id="kpi-total-sessions-sub">Tap for session log</div>
+          </div>
+          <div class="kpi-card" style="cursor:pointer;" onclick="openAnalyticsDetail('rv','calibration-card')">
+            <div class="mono-label">Active Days</div>
+            <div class="kpi-val warn" id="kpi-active-days">0</div>
+            <div class="kpi-delta" id="kpi-active-days-sub">Tap for detailed trends</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RV PANEL -->
+      <div class="analytics-panel" id="apanel-rv" style="margin-top:16px;">
         <div class="calibration-card" id="calibration-card">
           <div style="display:flex;align-items:center;justify-content:space-between;">
             <div class="mono-label">RV Calibration</div>
@@ -3813,49 +3860,9 @@ html, body {
           <div style="font-family:var(--font-mono);font-size:9px;color:var(--dim);margin-top:6px;line-height:1.5;" id="cal-desc">Complete more sessions to track trend</div>
         </div>
 
-        <!-- KPI row -->
-        <div class="kpi-grid">
-          <div class="kpi-card">
-            <div class="mono-label">RV Sessions</div>
-            <div class="kpi-val" id="kpi-rv-sessions">0</div>
-            <div class="kpi-delta" id="kpi-rv-avg">Avg: -</div>
-          </div>
-          <div class="kpi-card">
-            <div class="mono-label">Zener Runs</div>
-            <div class="kpi-val" id="kpi-z-runs">0</div>
-            <div class="kpi-delta" id="kpi-z-avg">Avg: -%</div>
-          </div>
-          <div class="kpi-card">
-            <div class="mono-label">Best RV Score</div>
-            <div class="kpi-val accent" id="kpi-rv-best">-</div>
-            <div class="kpi-delta">All time</div>
-          </div>
-          <div class="kpi-card">
-            <div class="mono-label">Training Streak</div>
-            <div class="kpi-val warn" id="kpi-streak">0</div>
-            <div class="kpi-delta">Days active</div>
-          </div>
-        </div>
-
-        <!-- Time of Day Pattern -->
-        <div class="chart-card" id="tod-card">
-          <div class="chart-title">Best Time of Day</div>
-          <div id="tod-wrap"></div>
-        </div>
-
-      </div>
-
-      <!-- PERFORMANCE PANEL -->
-      <div class="analytics-panel" id="apanel-performance" style="margin-top:16px;">
-
         <div class="chart-card" id="rv-chart-card">
           <div class="chart-title">RV Score Trend</div>
           <div class="chart-svg-wrap" id="rv-chart-wrap"></div>
-        </div>
-
-        <div class="chart-card" id="zener-chart-card">
-          <div class="chart-title">Zener Hit Rate</div>
-          <div class="chart-svg-wrap" id="zener-chart-wrap"></div>
         </div>
 
         <div class="chart-card">
@@ -3864,19 +3871,21 @@ html, body {
         </div>
 
         <div class="chart-card">
-          <div class="chart-title">Zener Symbol Accuracy</div>
-          <div class="symbol-acc-grid" id="symbol-acc-grid"></div>
-        </div>
-
-        <div class="chart-card">
           <div class="chart-title">Dimension Strengths</div>
           <div id="dim-strength-wrap"></div>
         </div>
+      </div>
 
-        <div class="chart-card" id="tag-correlation-card">
-          <div class="chart-title">Condition Correlation</div>
-          <div class="mono-sm" style="color:var(--dim);margin-bottom:10px;">Avg RV score by session condition</div>
-          <div id="tag-correlation-wrap"></div>
+      <!-- PSI PANEL -->
+      <div class="analytics-panel" id="apanel-psi" style="margin-top:16px;">
+        <div class="chart-card" id="zener-chart-card">
+          <div class="chart-title">Zener Hit Rate</div>
+          <div class="chart-svg-wrap" id="zener-chart-wrap"></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">Zener Symbol Accuracy</div>
+          <div class="symbol-acc-grid" id="symbol-acc-grid"></div>
         </div>
 
         <div class="chart-card" id="presentiment-stats-card">
@@ -3885,7 +3894,6 @@ html, body {
           <div id="presentiment-stats-wrap"></div>
         </div>
 
-        <!-- Photo Pair Stats -->
         <div class="chart-card" id="pp-analytics-card">
           <div class="chart-title">Photo Pair</div>
           <div class="mono-sm" style="color:var(--dim);margin-bottom:12px;">Implicit psi · Emotional valence</div>
@@ -3907,7 +3915,11 @@ html, body {
             <div class="mono-sm" id="pp-analytics-note" style="color:var(--dim);text-align:center;">Complete 10+ trials for statistical analysis.</div>
           </div>
         </div>
+      </div>
 
+      <!-- DREAMS PANEL -->
+      <div class="analytics-panel" id="apanel-dreams" style="margin-top:16px;">
+        <div class="no-data-note">Dream analytics coming soon</div>
       </div>
 
       <!-- LOG PANEL -->
@@ -4815,14 +4827,14 @@ Privacy questions and data requests: <a href="mailto:abltyapp@gmail.com">abltyap
       <span>PSI</span>
       <div class="nav-dot"></div>
     </div>
+    <div class="nav-item" id="nav-dream" onclick="navigate('dream-lab')">
+      <svg viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 119.5 4 7 7 0 0020 14.5z"/></svg>
+      <span>Dream Lab</span>
+      <div class="nav-dot"></div>
+    </div>
     <div class="nav-item" id="nav-analytics" onclick="navigate('analytics')">
       <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
       <span>Stats</span>
-      <div class="nav-dot"></div>
-    </div>
-    <div class="nav-item" id="nav-profile" onclick="navigate('profile')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-      <span>Settings</span>
       <div class="nav-dot"></div>
     </div>
   </nav>
@@ -4958,8 +4970,6 @@ const SCREENS = {
   'terms':                'screen-terms',
   'privacy':               'screen-privacy',
 };
-const NAV_SCREENS = ['home', 'analytics', 'profile'];
-
 let currentScreen = 'home';
 
 function showScreen(name, hideNav = false) {
@@ -4991,7 +5001,7 @@ function showScreen(name, hideNav = false) {
     analytics:      'nav-analytics',
     history:        'nav-analytics',
     detail:         'nav-analytics',
-    profile:        'nav-profile',
+    profile:        'nav-home',
     timestamp:              'nav-psi',
     'timestamp-session':    'nav-psi',
     'timestamp-results':    'nav-psi',
@@ -4999,10 +5009,10 @@ function showScreen(name, hideNav = false) {
     'zener-session':        'nav-psi',
     'zener-results':        'nav-psi',
     psi:                    'nav-psi',
-    'dream-lab':            'nav-home',
-    wbtb:                   'nav-home',
-    terms:                  'nav-profile',
-    privacy:                'nav-profile',
+    'dream-lab':            'nav-dream',
+    wbtb:                   'nav-dream',
+    terms:                  'nav-home',
+    privacy:                'nav-home',
     photopair:              'nav-psi',
   };
   const activeNav = document.getElementById(navMap[name]);
@@ -7311,67 +7321,61 @@ function switchAnalyticsTab(tab) {
 }
 
 function renderAnalytics() {
-  const rvSessions  = (STATE.sessions || []).filter(s => !isRVGradingFailed(s));
-  const zenerRuns   = loadZenerSessions();
+  const rvSessions = (STATE.sessions || []).filter(s => !isRVGradingFailed(s));
+  const zenerRuns  = loadZenerSessions();
 
-  // ── Overview ──────────────────────────────────
   const scoredRvSessions = rvSessions.filter((s) => Number.isFinite(Number(s?.score)));
-  const rvAvg = scoredRvSessions.length
-    ? Math.round(scoredRvSessions.reduce((a, s) => a + Number(s.score), 0) / scoredRvSessions.length)
-    : null;
   const rvBest = scoredRvSessions.length
     ? Math.max(...scoredRvSessions.map((s) => Number(s.score)))
     : null;
-  const zAvg = zenerRuns.length
-    ? Math.round(zenerRuns.reduce((a, r) => a + r.hitPct, 0) / zenerRuns.length)
-    : null;
 
-  setEl('kpi-rv-sessions', rvSessions.length);
-  setEl('kpi-rv-avg',      rvAvg !== null ? 'Avg: ' + rvAvg + '%' : 'Avg: -');
-  setEl('kpi-z-runs',      zenerRuns.length);
-  setEl('kpi-z-avg',       zAvg !== null ? 'Avg: ' + zAvg + '%' : 'Avg: -%');
-  setEl('kpi-rv-best',     rvBest !== null ? rvBest + '%' : '-');
+  // Overview KPIs: high-level engagement only
+  const totalSessions = rvSessions.length + zenerRuns.length + loadTimestampAll().length + loadPPSessions().length;
+  const activeDays = calcActiveDays([...rvSessions, ...zenerRuns, ...loadTimestampAll(), ...loadPPSessions()]);
+  setEl('kpi-total-sessions', totalSessions);
+  setEl('kpi-total-sessions-sub', 'Tap for session log');
+  setEl('kpi-active-days', activeDays);
+  setEl('kpi-active-days-sub', 'Tap for detailed trends');
 
-  // Training streak
-  const streak = calcStreak(rvSessions, zenerRuns);
-  setEl('kpi-streak', streak);
-
-  // Zener vs chance bar
-  setEl('baseline-your-pct', zAvg !== null ? zAvg + '%' : '-%');
-  const baselineBar = document.getElementById('baseline-your-bar');
-  if (baselineBar) {
-    baselineBar.style.width = (zAvg || 0) + '%';
-    baselineBar.style.background = (zAvg || 0) > 20 ? 'var(--accent)' : 'var(--danger)';
-  }
-
-  // ── Overview extras ────────────────────────────
+  // Keep key sections rendered by their new tab grouping
   buildTODChart(rvSessions);
-  buildTagCorrelation(rvSessions);
+  renderStreakBanner(rvSessions, zenerRuns);
+
+  renderCalibration(rvSessions);
+  buildBarChartMotivated('rv-chart-wrap', rvSessions.slice(-10), s => s.score, 100, '%', undefined, 3, 'RV session');
+  buildCatBreakdown(rvSessions);
+  buildDimStrengths(rvSessions);
+
+  buildBarChartMotivated('zener-chart-wrap', zenerRuns.slice(-10), r => r.hitPct, 100, '%', 20, 3, 'Zener run');
+  buildSymbolAccuracy(zenerRuns);
   buildPresentimentStats();
   renderPPAnalyticsCard();
 
-  // ── Performance charts ─────────────────────────
-  buildBarChartMotivated('rv-chart-wrap',    rvSessions.slice(-10), s => s.score,   100, '%', undefined, 3, 'RV session');
-  buildBarChartMotivated('zener-chart-wrap', zenerRuns.slice(-10),  r => r.hitPct,  100, '%', 20,        3, 'Zener run');
-
-  // Category breakdown
-  buildCatBreakdown(rvSessions);
-
-  // Symbol accuracy
-  buildSymbolAccuracy(zenerRuns);
-
-  // Dimension strengths
-  buildDimStrengths(rvSessions);
-
-  // ── Log ───────────────────────────────────────
   const logTotalEl = document.getElementById('log-total');
   const logBestEl  = document.getElementById('log-best');
-  if (logTotalEl) logTotalEl.textContent = rvSessions.length + zenerRuns.length;
+  if (logTotalEl) logTotalEl.textContent = totalSessions;
   if (logBestEl)  logBestEl.textContent  = rvBest !== null ? rvBest + '%' : '-';
 
-  buildCombinedLog(rvSessions, zenerRuns); // PP and TS loaded inside buildCombinedLog
-  renderStreakBanner(rvSessions, zenerRuns);
-  renderCalibration(rvSessions);
+  buildCombinedLog(rvSessions, zenerRuns);
+}
+
+function calcActiveDays(items) {
+  const uniqueDays = new Set();
+  (Array.isArray(items) ? items : []).forEach((s) => {
+    const d = new Date(s?.timestamp);
+    if (!Number.isFinite(d.getTime())) return;
+    uniqueDays.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
+  });
+  return uniqueDays.size;
+}
+
+function openAnalyticsDetail(tab, anchorId) {
+  switchAnalyticsTab(tab);
+  if (!anchorId) return;
+  const el = document.getElementById(anchorId);
+  if (el && typeof el.scrollIntoView === 'function') {
+    requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
 }
 
 function setEl(id, val) {
@@ -9322,10 +9326,21 @@ async function registerSW() {
     const reg = await navigator.serviceWorker.register('/sw.js');
     console.log('[ABLTY] Service worker registered');
     window._swRegistration = reg;
+    if (!window._swPendingWorker) window._swPendingWorker = null;
 
     const checkForWaitingUpdate = () => {
-      // Show banner whenever a worker is waiting, even if controller is transiently null.
-      if (reg.waiting) showUpdateBanner();
+      // Primary path: officially waiting worker.
+      if (reg.waiting) {
+        window._swPendingWorker = reg.waiting;
+        showUpdateBanner();
+        return;
+      }
+      // Fallback path for browsers that delay `reg.waiting` population.
+      const installing = reg.installing;
+      if (installing && installing.state === 'installed' && navigator.serviceWorker.controller) {
+        window._swPendingWorker = installing;
+        showUpdateBanner();
+      }
     };
 
     // Common case on reopen: new SW is already waiting.
@@ -9342,7 +9357,13 @@ async function registerSW() {
       const newWorker = reg.installing;
       if (!newWorker) return;
       newWorker.addEventListener('statechange', () => {
-        if (newWorker.state === 'installed') checkForWaitingUpdate();
+        if (newWorker.state !== 'installed') return;
+        if (navigator.serviceWorker.controller) {
+          window._swPendingWorker = newWorker;
+          showUpdateBanner();
+          return;
+        }
+        checkForWaitingUpdate();
       });
     });
 
@@ -9374,6 +9395,7 @@ async function registerSW() {
       if (event.data && event.data.type === 'RC_OPEN')     openRCTask();
       if (event.data && event.data.type === 'WBTB_OPEN')   openWBTBWakeScreen();
       if (event.data && event.data.type === 'WBTB_RETURN') showWBTBReturnPrompt();
+      if (event.data && event.data.type === 'UPDATE_READY') checkForWaitingUpdate();
     });
 
     setTimeout(() => validatePushSubscription(reg), 2000);
@@ -9408,11 +9430,37 @@ function showUpdateBanner() {
   document.body.appendChild(banner);
 }
 
+function getPendingServiceWorker() {
+  const waiting = window._swRegistration && window._swRegistration.waiting;
+  if (waiting) return waiting;
+  if (window._swPendingWorker) return window._swPendingWorker;
+  return null;
+}
+
 function applyUpdate() {
-  if (window._swRegistration && window._swRegistration.waiting) {
-    window._swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+  const pending = getPendingServiceWorker();
+  if (!pending) {
+    window.location.reload();
+    return;
   }
-  window.location.reload();
+
+  let reloaded = false;
+  const doReload = () => {
+    if (reloaded) return;
+    reloaded = true;
+    window.location.reload();
+  };
+
+  if (navigator.serviceWorker) {
+    const onControllerChange = () => {
+      navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+      doReload();
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+  }
+
+  pending.postMessage({ type: 'SKIP_WAITING' });
+  setTimeout(doReload, 2500);
 }
 
 // Check if the push subscription is still valid. If the browser cleared it
