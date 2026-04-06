@@ -2,6 +2,7 @@
 // Routes:
 //   POST /rv-assign       - Assign blind RV target/TRN
 //   POST /grade           - AI grading via Gemini
+//   POST /tag-dream       - Dream tag extraction via Gemini
 //   POST /subscribe       - Save push subscription
 //   POST /wbtb-schedule   - Schedule WBTB push alarms
 //   POST /wbtb-cancel     - Cancel WBTB alarms
@@ -177,6 +178,17 @@ export default {
       }
       await env.ABLTY_KV.put(rateLimitKey, String(current + 1), { expirationTtl: 86400 });
       return handleGrade(request, env, origin);
+    }
+
+    if (url.pathname === '/tag-dream' && request.method === 'POST') {
+      const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const rateLimitKey = 'ratelimit:tagdream:' + ip + ':' + new Date().toISOString().slice(0, 10);
+      const current = parseInt(await env.ABLTY_KV.get(rateLimitKey) || '0', 10);
+      if (current >= 200) {
+        return json([], 200, origin);
+      }
+      await env.ABLTY_KV.put(rateLimitKey, String(current + 1), { expirationTtl: 86400 });
+      return handleTagDream(request, env, origin);
     }
 
     if (url.pathname === '/rv-assign' && request.method === 'POST') {
@@ -842,6 +854,62 @@ Respond ONLY with valid JSON, no markdown, no preamble:
 }
 SCORE REASONING: In "score_reasoning", write 1-2 sentences explaining which specific dimensions held the score back and what kind of impressions would push it higher. Frame it as forward-looking coaching, not criticism. Example: "Spatial context and color data were minimal this session. Adding environmental details like scale, setting, or lighting in your impressions would strengthen these dimensions." Do NOT repeat the summary. Do NOT mention the word "dimension" or score numbers. Keep it plain-language and actionable.
 IMPORTANT: overall_score must use the WEIGHTED formula above (max 50). hits should include ALL correct impressions. noise should only include clearly wrong elements.`;
+}
+
+async function handleTagDream(request, env, origin = '') {
+  try {
+    if (!env.GEMINI_API_KEY) return json([], 200, origin);
+
+    const body = await request.json().catch(() => ({}));
+    const dreamText = String(body?.body || '').trim();
+    if (!dreamText) return json([], 200, origin);
+
+    const prompt = [
+      'You are a dream analysis assistant. Extract a list of recurring symbolic elements from the following dream description.',
+      'Return only a JSON array of short lowercase noun or verb strings, maximum 8 items, no explanations, no markdown.',
+      'Example output: ["water","running","school","stranger"]',
+      '',
+      'Dream description:',
+      dreamText,
+    ].join('\n');
+
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.1, maxOutputTokens: 512, thinkingConfig: { thinkingBudget: 0 } },
+        }),
+      }
+    );
+    if (!geminiRes.ok) return json([], 200, origin);
+
+    const geminiData = await geminiRes.json().catch(() => ({}));
+    const text = String(geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+    if (!text) return json([], 200, origin);
+
+    const cleaned = text.replace(/```json|```/gi, '').trim();
+    const match = cleaned.match(/\[[\s\S]*\]/);
+    if (!match) return json([], 200, origin);
+
+    const parsed = JSON.parse(match[0]);
+    if (!Array.isArray(parsed)) return json([], 200, origin);
+
+    const deduped = [];
+    const seen = new Set();
+    for (const raw of parsed) {
+      const tag = String(raw || '').trim().toLowerCase();
+      if (!tag || seen.has(tag)) continue;
+      seen.add(tag);
+      deduped.push(tag);
+      if (deduped.length >= 8) break;
+    }
+    return json(deduped, 200, origin);
+  } catch (e) {
+    return json([], 200, origin);
+  }
 }
 
 // --- WBTB SCHEDULE -----------------------------------

@@ -2333,6 +2333,197 @@ html, body {
 .edit-note-input:focus { border-color: var(--accent); }
 
 /* ═══════════════════════════════════════════
+  DREAM JOURNAL
+═══════════════════════════════════════════ */
+.dream-entry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.dream-entry-row {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  cursor: pointer;
+}
+.dream-entry-row:active {
+  background: var(--card2);
+}
+.dream-entry-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.dream-entry-preview {
+  font-size: 13px;
+  color: var(--dim);
+  line-height: 1.45;
+}
+.dream-lucid-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  border: 1px solid var(--border2);
+}
+.dream-lucid-pill.lucid {
+  color: var(--accent);
+  border-color: rgba(74,240,200,0.4);
+  background: rgba(74,240,200,0.08);
+}
+.dream-lucid-pill.partial {
+  color: var(--accent2);
+  border-color: rgba(91,158,244,0.38);
+  background: rgba(91,158,244,0.12);
+}
+.dream-tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.dream-tag-pill {
+  background: rgba(74,240,200,0.08);
+  border: 1px solid rgba(74,240,200,0.2);
+  border-radius: 10px;
+  padding: 2px 7px;
+  font-family: var(--font-mono);
+  font-size: 8px;
+  color: var(--accent);
+  letter-spacing: 0.4px;
+}
+.dream-chart-meta {
+  margin-top: 10px;
+  color: var(--dim);
+}
+.dream-empty {
+  text-align: center;
+  padding: 26px 12px;
+  color: var(--dim);
+}
+.dream-clarity-row {
+  display: flex;
+  gap: 8px;
+}
+.dream-clarity-btn {
+  flex: 1;
+  min-width: 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--card2);
+  color: var(--muted);
+  padding: 10px 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.dream-clarity-btn.active {
+  border-color: var(--accent);
+  background: rgba(74,240,200,0.12);
+  color: var(--accent);
+}
+.dream-seg-row {
+  display: flex;
+  gap: 6px;
+}
+.dream-seg-btn {
+  flex: 1;
+  min-width: 0;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.02);
+  color: var(--muted);
+  padding: 8px 10px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.dream-seg-btn.active {
+  border-color: rgba(74,240,200,0.55);
+  color: var(--text);
+  background: linear-gradient(135deg, rgba(74,240,200,0.16), rgba(91,158,244,0.12));
+  box-shadow: 0 0 0 1px rgba(74,240,200,0.15) inset;
+}
+.dream-emotion-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.dream-emotion-row::-webkit-scrollbar {
+  display: none;
+}
+.dream-emotion-btn {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--card2);
+  color: var(--muted);
+  padding: 7px 11px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.9px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.dream-emotion-btn.active {
+  border-color: rgba(74,240,200,0.5);
+  background: rgba(74,240,200,0.12);
+  color: var(--accent);
+}
+.dream-textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+.dream-inline-error {
+  display: none;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--danger);
+  margin-top: 6px;
+}
+.dream-inline-error.visible {
+  display: block;
+}
+.dream-detail-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.dream-dot-row {
+  display: flex;
+  gap: 6px;
+}
+.dream-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--card2);
+  border: 1px solid var(--border);
+}
+.dream-dot.on {
+  background: var(--accent);
+  border-color: rgba(74,240,200,0.55);
+}
+
+/* ═══════════════════════════════════════════
    TIMESTAMP PREDICTION MODULE
 ═══════════════════════════════════════════ */
 
@@ -4372,7 +4563,150 @@ html, body {
         </div>
       </div>
 
+      <!-- Dream Journal -->
+      <div class="module-card fade-in-delay-3" onclick="gatedNavigate('dream-journal','Dream Journal','Create a free account to log dreams and reveal recurring dream signs.')" style="flex-shrink:0;">
+        <div class="card-visual dream-bg">
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
+            <svg width="60" height="60" viewBox="0 0 64 64" fill="none">
+              <rect x="16" y="12" width="32" height="40" rx="4" fill="rgba(74,240,200,0.08)" stroke="rgba(74,240,200,0.35)" stroke-width="1.4"/>
+              <line x1="24" y1="23" x2="40" y2="23" stroke="rgba(74,240,200,0.55)" stroke-width="1.2"/>
+              <line x1="24" y1="30" x2="40" y2="30" stroke="rgba(74,240,200,0.45)" stroke-width="1.2"/>
+              <line x1="24" y1="37" x2="36" y2="37" stroke="rgba(74,240,200,0.4)" stroke-width="1.2"/>
+              <circle cx="44" cy="16" r="1.2" fill="rgba(255,255,255,0.65)"/>
+            </svg>
+          </div>
+        </div>
+        <div class="card-overlay">
+          <div class="card-tag">Module 03</div>
+          <div class="display-md">DREAM JOURNAL</div>
+          <div class="mono-sm" style="margin-top:4px">Log · Tag · Recognize Patterns</div>
+        </div>
+      </div>
 
+
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: DREAM JOURNAL
+  ═══════════════════════════════════ -->
+  <div id="screen-dream-journal" class="screen">
+    <div class="screen-inner">
+
+      <div class="screen-hdr fade-in">
+        <button class="screen-hdr-back" onclick="navigate('dream-lab')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div>
+          <div class="screen-hdr-title">DREAM JOURNAL</div>
+          <div class="screen-hdr-sub">Sleep · Log · Train</div>
+        </div>
+      </div>
+
+      <div class="chart-card fade-in-delay-1">
+        <div class="chart-title">Dream Signs</div>
+        <div id="dream-signs-wrap" class="mono-sm" style="color:var(--dim);">Loading...</div>
+      </div>
+
+      <div class="fade-in-delay-2">
+        <button class="btn btn-primary" style="width:100%;" onclick="navigate('dream-new-entry')">NEW ENTRY</button>
+      </div>
+
+      <div id="dream-entry-list" class="dream-entry-list fade-in-delay-3"></div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: DREAM JOURNAL - NEW ENTRY
+  ═══════════════════════════════════ -->
+  <div id="screen-dream-new-entry" class="screen">
+    <div class="screen-inner">
+
+      <div class="screen-hdr fade-in">
+        <button class="screen-hdr-back" onclick="navigate('dream-journal')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div>
+          <div class="screen-hdr-title">NEW ENTRY</div>
+          <div class="screen-hdr-sub">Log your dream</div>
+        </div>
+      </div>
+
+      <div class="section-label fade-in-delay-1">Clarity</div>
+      <div class="dream-clarity-row fade-in-delay-1" id="dream-clarity-row">
+        <button type="button" class="dream-clarity-btn" data-value="1" onclick="setDreamClarity(1)">1</button>
+        <button type="button" class="dream-clarity-btn" data-value="2" onclick="setDreamClarity(2)">2</button>
+        <button type="button" class="dream-clarity-btn" data-value="3" onclick="setDreamClarity(3)">3</button>
+        <button type="button" class="dream-clarity-btn" data-value="4" onclick="setDreamClarity(4)">4</button>
+        <button type="button" class="dream-clarity-btn" data-value="5" onclick="setDreamClarity(5)">5</button>
+      </div>
+      <div class="mono-sm fade-in-delay-1" id="dream-clarity-desc" style="color:var(--dim);">Select clarity level</div>
+
+      <div class="section-label fade-in-delay-2">Lucid Dream?</div>
+      <div class="dream-seg-row fade-in-delay-2" id="dream-lucid-row">
+        <button type="button" class="dream-seg-btn" data-value="yes" onclick="setDreamLucid('yes')">YES</button>
+        <button type="button" class="dream-seg-btn" data-value="partial" onclick="setDreamLucid('partial')">PARTIAL</button>
+        <button type="button" class="dream-seg-btn" data-value="no" onclick="setDreamLucid('no')">NO</button>
+      </div>
+
+      <div class="section-label fade-in-delay-2">Primary Emotion</div>
+      <div class="dream-emotion-row fade-in-delay-2" id="dream-emotion-row">
+        <button type="button" class="dream-emotion-btn" data-value="Calm" onclick="setDreamEmotion('Calm')">Calm</button>
+        <button type="button" class="dream-emotion-btn" data-value="Anxious" onclick="setDreamEmotion('Anxious')">Anxious</button>
+        <button type="button" class="dream-emotion-btn" data-value="Euphoric" onclick="setDreamEmotion('Euphoric')">Euphoric</button>
+        <button type="button" class="dream-emotion-btn" data-value="Fearful" onclick="setDreamEmotion('Fearful')">Fearful</button>
+        <button type="button" class="dream-emotion-btn" data-value="Curious" onclick="setDreamEmotion('Curious')">Curious</button>
+        <button type="button" class="dream-emotion-btn" data-value="Confused" onclick="setDreamEmotion('Confused')">Confused</button>
+        <button type="button" class="dream-emotion-btn" data-value="Sad" onclick="setDreamEmotion('Sad')">Sad</button>
+        <button type="button" class="dream-emotion-btn" data-value="Neutral" onclick="setDreamEmotion('Neutral')">Neutral</button>
+      </div>
+
+      <div class="section-label fade-in-delay-3">Describe Your Dream</div>
+      <textarea id="dream-entry-body" class="imp-field dream-textarea fade-in-delay-3" placeholder="Write freely. Details, feelings, fragments — everything helps."></textarea>
+      <div id="dream-entry-error" class="dream-inline-error fade-in-delay-3">Please describe your dream before saving.</div>
+
+      <button class="btn btn-primary fade-in-delay-3" onclick="saveDreamEntry()">SAVE ENTRY</button>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: DREAM JOURNAL - ENTRY DETAIL
+  ═══════════════════════════════════ -->
+  <div id="screen-dream-entry-detail" class="screen">
+    <div class="screen-inner">
+
+      <div class="screen-hdr fade-in">
+        <button class="screen-hdr-back" onclick="navigate('dream-journal')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div>
+          <div class="screen-hdr-title" id="dream-detail-date-title">Dream Entry</div>
+          <div class="screen-hdr-sub">Sleep log detail</div>
+        </div>
+      </div>
+
+      <div class="dream-detail-card fade-in-delay-1">
+        <div>
+          <div class="mono-label" style="margin-bottom:8px;">Clarity</div>
+          <div class="dream-dot-row" id="dream-detail-clarity"></div>
+        </div>
+
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <span id="dream-detail-lucid" style="display:none;"></span>
+          <span id="dream-detail-emotion" class="dream-tag-pill"></span>
+        </div>
+
+        <div id="dream-detail-body" class="body-sm" style="color:var(--text);line-height:1.7;white-space:pre-wrap;"></div>
+
+        <div>
+          <div class="mono-label" style="margin-bottom:8px;">Dream Signs Detected</div>
+          <div id="dream-detail-tags" class="dream-tag-row"></div>
+          <div id="dream-detail-tags-empty" class="mono-sm" style="color:var(--dim);display:none;">Analyzing...</div>
+        </div>
+      </div>
 
     </div>
   </div>
@@ -4989,6 +5323,13 @@ const STATE = {
   currentAssignmentId: null,
   currentCategory: 'all',
   sessions: [],
+  dreamEntries: [],
+  dreamDetailEntry: null,
+  dreamDraft: {
+    clarity: null,
+    lucid: 'no',
+    emotion: 'Neutral',
+  },
   settings: { pager: false },
   strokeSize: 2,
   isErasing: false,
@@ -5002,6 +5343,35 @@ const RV_SKETCH_KEEP_RECENT = 30;
 const MAX_ZENER_LOCAL_RUNS = 600;
 const MAX_TS_LOCAL_TRIALS = 1200;
 const MAX_PP_LOCAL_TRIALS = 1200;
+const DREAM_EMOTION_OPTIONS = ['Calm', 'Anxious', 'Euphoric', 'Fearful', 'Curious', 'Confused', 'Sad', 'Neutral'];
+const DREAM_CLARITY_LABELS = {
+  1: 'Barely remembered',
+  2: 'Fragmented',
+  3: 'Moderate detail',
+  4: 'Vivid',
+  5: 'Hyper-vivid',
+};
+const DREAM_DEFAULT_FORM = {
+  clarity: null,
+  lucid: 'no',
+  emotion: 'Neutral',
+  body: '',
+};
+const DREAM_JOURNAL_STATE = {
+  entries: [],
+  selectedEntryId: '',
+  loadedForUser: '',
+  loading: false,
+  form: { ...DREAM_DEFAULT_FORM },
+};
+
+function resetDreamJournalState() {
+  DREAM_JOURNAL_STATE.entries = [];
+  DREAM_JOURNAL_STATE.selectedEntryId = '';
+  DREAM_JOURNAL_STATE.loadedForUser = '';
+  DREAM_JOURNAL_STATE.loading = false;
+  DREAM_JOURNAL_STATE.form = { ...DREAM_DEFAULT_FORM };
+}
 
 // ─── PERSISTENCE ──────────────────────────────
 // Safe localStorage wrapper  -  never throws
@@ -5090,6 +5460,9 @@ const SCREENS = {
   'psi':                  'screen-psi',
   'photopair':            'screen-photopair',
   'dream-lab':            'screen-dream-lab',
+  'dream-journal':        'screen-dream-journal',
+  'dream-new-entry':      'screen-dream-new-entry',
+  'dream-entry-detail':   'screen-dream-entry-detail',
   'wbtb':                 'screen-wbtb',
   'terms':                'screen-terms',
   'privacy':               'screen-privacy',
@@ -5134,6 +5507,9 @@ function showScreen(name, hideNav = false) {
     'zener-results':        'nav-psi',
     psi:                    'nav-psi',
     'dream-lab':            'nav-dream',
+    'dream-journal':        'nav-dream',
+    'dream-new-entry':      'nav-dream',
+    'dream-entry-detail':   'nav-dream',
     wbtb:                   'nav-dream',
     terms:                  'nav-home',
     privacy:                'nav-home',
@@ -5164,6 +5540,9 @@ const BACK_MAP = {
   photopair:            'psi',
   psi:                  'home',
   'dream-lab':          'home',
+  'dream-journal':      'dream-lab',
+  'dream-new-entry':    'dream-journal',
+  'dream-entry-detail': 'dream-journal',
   'reality-check':      'dream-lab',
   'rc-task':            'reality-check',
   analytics:            'home',
@@ -5208,6 +5587,10 @@ function navigate(name) {
   if (name === 'login')  { openAuthScreen('login');  return; }
   if (name === 'signup') { openAuthScreen('signup'); return; }
   if (name === 'forgot') { openAuthScreen('forgot'); return; }
+  if ((name === 'dream-journal' || name === 'dream-new-entry' || name === 'dream-entry-detail') && !isLoggedIn()) {
+    showUpgradeModal('dream-journal', 'Dream Journal', 'Create a free account to log dreams and reveal recurring dream signs.');
+    return;
+  }
 
   showScreen(name, false);
   if (name === 'analytics' || name === 'history') {
@@ -5225,6 +5608,9 @@ function navigate(name) {
   if (name === 'timestamp') renderTimestampBrief();
   if (name === 'psi')      renderPSIHub();
   if (name === 'dream-lab') renderDreamLab();
+  if (name === 'dream-journal') renderDreamJournal();
+  if (name === 'dream-new-entry') renderDreamNewEntry();
+  if (name === 'dream-entry-detail') renderDreamEntryDetail();
   if (name === 'wbtb')      { /* init wbtb */ }
   if (name === 'photopair') renderPhotoPairBrief();
   if (name === 'home')     updateHomeRCStreak();
@@ -6473,6 +6859,7 @@ function renderHomeGreeting() {
 function clearLocalAuthCache() {
   ['ablty_logged_in', 'ablty_username', 'ablty_tier', 'ablty_username_changed_at']
     .forEach((k) => localStorage.removeItem(k));
+  resetDreamJournalState();
 }
 
 async function reconcileAuthState() {
@@ -6497,6 +6884,9 @@ const TIER_ACCESS = {
   timestamp:    ['free','premium'],
   photopair:    ['free','premium'],
   'dream-lab':  ['free','premium'],
+  'dream-journal': ['free','premium'],
+  'dream-new-entry': ['free','premium'],
+  'dream-entry-detail': ['free','premium'],
   'reality-check': ['free','premium'],
   analytics:    ['free','premium'],
   wbtb:         ['free','premium'],
@@ -7078,6 +7468,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (event === 'SIGNED_IN' && session && typeof onSignedIn === 'function') onSignedIn(session.user);
       if (event === 'SIGNED_OUT') {
         clearLocalAuthCache();
+        if (currentScreen === 'dream-journal' || currentScreen === 'dream-new-entry' || currentScreen === 'dream-entry-detail') {
+          navigate('dream-lab');
+        }
         renderSettingsState();
         renderProfile();
         renderHomeGreeting();
@@ -7187,6 +7580,459 @@ function buildDreamParticles(containerId) {
       ? 'rgba(160,130,255,0.7)'
       : 'rgba(74,240,200,0.5)';
     el.appendChild(p);
+  }
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function clampDreamClarity(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  const rounded = Math.round(n);
+  if (rounded < 1 || rounded > 5) return null;
+  return rounded;
+}
+
+function normalizeDreamLucid(value) {
+  const v = String(value || '').toLowerCase();
+  if (v === 'yes' || v === 'partial' || v === 'no') return v;
+  return 'no';
+}
+
+function normalizeDreamTags(tags) {
+  const out = [];
+  const seen = new Set();
+  (Array.isArray(tags) ? tags : []).forEach((t) => {
+    const tag = String(t || '').trim().toLowerCase();
+    if (!tag || seen.has(tag)) return;
+    seen.add(tag);
+    out.push(tag);
+  });
+  return out.slice(0, 8);
+}
+
+function formatDreamListDate(iso) {
+  const d = new Date(iso || '');
+  if (!Number.isFinite(d.getTime())) return '--';
+  return d.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatDreamDetailDate(iso) {
+  const d = new Date(iso || '');
+  if (!Number.isFinite(d.getTime())) return 'Dream Entry';
+  return d.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function summarizeDreamBody(text, max = 60) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!clean) return 'No description.';
+  return clean.length > max ? clean.slice(0, max - 1) + '…' : clean;
+}
+
+async function getLoggedInUserId() {
+  if (!sb || !isLoggedIn()) return '';
+  try {
+    const { data } = await sb.auth.getSession();
+    return data?.session?.user?.id || '';
+  } catch (e) {
+    return '';
+  }
+}
+
+function mapDreamEntryRow(row) {
+  return {
+    id: String(row?.id || ''),
+    user_id: row?.user_id || null,
+    created_at: row?.created_at || new Date().toISOString(),
+    clarity: clampDreamClarity(row?.clarity),
+    lucid: normalizeDreamLucid(row?.lucid),
+    emotion: String(row?.emotion || 'Neutral'),
+    body: String(row?.body || ''),
+    ai_tags: normalizeDreamTags(row?.ai_tags),
+  };
+}
+
+async function loadDreamEntriesFromCloud(force = false) {
+  if (!sb || !isLoggedIn()) {
+    resetDreamJournalState();
+    return [];
+  }
+
+  const userId = await getLoggedInUserId();
+  if (!userId) return [];
+  if (!force && DREAM_JOURNAL_STATE.loadedForUser === userId && Array.isArray(DREAM_JOURNAL_STATE.entries)) {
+    return DREAM_JOURNAL_STATE.entries;
+  }
+
+  DREAM_JOURNAL_STATE.loading = true;
+  try {
+    const { data, error } = await sb
+      .from('dream_entries')
+      .select('id,user_id,created_at,clarity,lucid,emotion,body,ai_tags')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+
+    const mapped = (Array.isArray(data) ? data : []).map(mapDreamEntryRow);
+    DREAM_JOURNAL_STATE.entries = mapped;
+    DREAM_JOURNAL_STATE.loadedForUser = userId;
+    STATE.dreamEntries = mapped.slice();
+    return mapped;
+  } catch (e) {
+    showToast('Could not load dream entries right now.', 'warn', 3500);
+    return DREAM_JOURNAL_STATE.entries;
+  } finally {
+    DREAM_JOURNAL_STATE.loading = false;
+  }
+}
+
+function computeDreamTagFrequencies(entries) {
+  const freq = Object.create(null);
+  (Array.isArray(entries) ? entries : []).forEach((entry) => {
+    (Array.isArray(entry?.ai_tags) ? entry.ai_tags : []).forEach((tag) => {
+      const key = String(tag || '').trim().toLowerCase();
+      if (!key) return;
+      freq[key] = (freq[key] || 0) + 1;
+    });
+  });
+  return Object.entries(freq)
+    .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]))
+    .slice(0, 5)
+    .map(([tag, count]) => ({ tag, count }));
+}
+
+function renderDreamSignsCard(entries) {
+  const wrap = document.getElementById('dream-signs-wrap');
+  if (!wrap) return;
+  const totalEntries = Array.isArray(entries) ? entries.length : 0;
+
+  if (totalEntries < 10) {
+    wrap.innerHTML = '<div class="mono-sm" style="color:var(--dim);">Log 10 dreams to reveal your personal dream signs.</div>';
+    return;
+  }
+
+  const top = computeDreamTagFrequencies(entries);
+  if (!top.length) {
+    wrap.innerHTML = `<div class="mono-sm" style="color:var(--dim);">Not enough AI tags yet. Keep logging dreams.</div><div class="mono-sm dream-chart-meta">Based on ${totalEntries} entries</div>`;
+    return;
+  }
+
+  const max = Math.max(...top.map((t) => t.count), 1);
+  const rows = top.map((item) => {
+    const pct = Math.max(8, Math.round((item.count / max) * 100));
+    return `
+      <div style="display:grid;grid-template-columns:minmax(72px,1fr) 1fr auto;gap:8px;align-items:center;margin-top:8px;">
+        <div class="mono-sm" style="color:var(--text);text-transform:lowercase;">${escapeHtml(item.tag)}</div>
+        <div style="height:7px;border-radius:999px;background:rgba(255,255,255,0.06);overflow:hidden;">
+          <div style="height:100%;width:${pct}%;background:var(--accent);border-radius:999px;"></div>
+        </div>
+        <div class="mono-sm" style="color:var(--muted);min-width:18px;text-align:right;">${item.count}</div>
+      </div>
+    `;
+  }).join('');
+
+  wrap.innerHTML = rows + `<div class="mono-sm dream-chart-meta">Based on ${totalEntries} entries</div>`;
+}
+
+function openDreamEntryDetail(entryId) {
+  const id = String(entryId || '');
+  if (!id) return;
+  DREAM_JOURNAL_STATE.selectedEntryId = id;
+  const found = (DREAM_JOURNAL_STATE.entries || []).find((e) => String(e.id) === id) || null;
+  STATE.dreamDetailEntry = found;
+  navigate('dream-entry-detail');
+}
+
+function renderDreamEntryList(entries) {
+  const list = document.getElementById('dream-entry-list');
+  if (!list) return;
+  const rows = Array.isArray(entries) ? entries : [];
+
+  if (!rows.length) {
+    list.innerHTML = '<div class="dream-empty mono-sm">No entries yet. Log your first dream.</div>';
+    return;
+  }
+
+  list.innerHTML = rows.map((entry) => {
+    const lucid = normalizeDreamLucid(entry?.lucid);
+    const lucidBadge = lucid === 'yes'
+      ? '<span class="dream-lucid-pill lucid">LUCID</span>'
+      : (lucid === 'partial' ? '<span class="dream-lucid-pill partial">PARTIAL</span>' : '');
+    const tags = normalizeDreamTags(entry?.ai_tags).slice(0, 4);
+    const tagsHtml = tags.length
+      ? `<div class="dream-tag-row">${tags.map((t) => `<span class="dream-tag-pill">${escapeHtml(t)}</span>`).join('')}</div>`
+      : '';
+    return `
+      <button type="button" class="dream-entry-row" data-entry-id="${escapeHtml(entry.id)}">
+        <div class="dream-entry-meta">
+          <div class="mono-label">${escapeHtml(formatDreamListDate(entry.created_at))}</div>
+          ${lucidBadge}
+        </div>
+        <div class="dream-entry-preview">${escapeHtml(summarizeDreamBody(entry.body, 60))}</div>
+        ${tagsHtml}
+      </button>
+    `;
+  }).join('');
+
+  list.querySelectorAll('.dream-entry-row[data-entry-id]').forEach((el) => {
+    el.addEventListener('click', () => openDreamEntryDetail(el.getAttribute('data-entry-id')));
+  });
+}
+
+async function renderDreamJournal() {
+  if (!isLoggedIn()) return;
+  const signsWrap = document.getElementById('dream-signs-wrap');
+  const list = document.getElementById('dream-entry-list');
+  if (signsWrap) signsWrap.textContent = 'Loading...';
+  if (list) list.innerHTML = '<div class="dream-empty mono-sm">Loading entries...</div>';
+
+  const entries = await loadDreamEntriesFromCloud(false);
+  renderDreamSignsCard(entries);
+  renderDreamEntryList(entries);
+}
+
+function syncDreamDraftFromForm() {
+  const textarea = document.getElementById('dream-entry-body');
+  const body = textarea ? textarea.value : '';
+  DREAM_JOURNAL_STATE.form = {
+    clarity: clampDreamClarity(DREAM_JOURNAL_STATE.form.clarity),
+    lucid: normalizeDreamLucid(DREAM_JOURNAL_STATE.form.lucid),
+    emotion: DREAM_EMOTION_OPTIONS.includes(DREAM_JOURNAL_STATE.form.emotion) ? DREAM_JOURNAL_STATE.form.emotion : 'Neutral',
+    body: String(body || ''),
+  };
+}
+
+function renderDreamFormControls() {
+  const form = DREAM_JOURNAL_STATE.form || { ...DREAM_DEFAULT_FORM };
+  const clarity = clampDreamClarity(form.clarity);
+  const lucid = normalizeDreamLucid(form.lucid);
+  const emotion = DREAM_EMOTION_OPTIONS.includes(form.emotion) ? form.emotion : 'Neutral';
+
+  document.querySelectorAll('#dream-clarity-row .dream-clarity-btn').forEach((btn) => {
+    const value = clampDreamClarity(btn.getAttribute('data-value'));
+    btn.classList.toggle('active', value === clarity);
+  });
+  document.querySelectorAll('#dream-lucid-row .dream-seg-btn').forEach((btn) => {
+    const value = normalizeDreamLucid(btn.getAttribute('data-value'));
+    btn.classList.toggle('active', value === lucid);
+  });
+  document.querySelectorAll('#dream-emotion-row .dream-emotion-btn').forEach((btn) => {
+    const value = String(btn.getAttribute('data-value') || '');
+    btn.classList.toggle('active', value === emotion);
+  });
+
+  const desc = document.getElementById('dream-clarity-desc');
+  if (desc) {
+    desc.textContent = clarity ? DREAM_CLARITY_LABELS[clarity] : 'Select clarity level';
+  }
+}
+
+function renderDreamNewEntry() {
+  DREAM_JOURNAL_STATE.form = { ...DREAM_DEFAULT_FORM };
+  const input = document.getElementById('dream-entry-body');
+  if (input) input.value = '';
+  const errorEl = document.getElementById('dream-entry-error');
+  if (errorEl) errorEl.classList.remove('visible');
+  renderDreamFormControls();
+}
+
+function setDreamClarity(value) {
+  DREAM_JOURNAL_STATE.form.clarity = clampDreamClarity(value);
+  renderDreamFormControls();
+}
+
+function setDreamLucid(value) {
+  DREAM_JOURNAL_STATE.form.lucid = normalizeDreamLucid(value);
+  renderDreamFormControls();
+}
+
+function setDreamEmotion(value) {
+  DREAM_JOURNAL_STATE.form.emotion = DREAM_EMOTION_OPTIONS.includes(value) ? value : 'Neutral';
+  renderDreamFormControls();
+}
+
+function normalizeDreamTagResponse(data) {
+  const tags = Array.isArray(data)
+    ? data
+    : (Array.isArray(data?.tags) ? data.tags : []);
+  return normalizeDreamTags(tags);
+}
+
+async function updateDreamEntryTags(entryId, tags) {
+  const userId = await getLoggedInUserId();
+  if (!userId || !sb) return;
+  await sb
+    .from('dream_entries')
+    .update({ ai_tags: normalizeDreamTags(tags) })
+    .eq('id', entryId)
+    .eq('user_id', userId);
+}
+
+async function postDreamTagsInBackground(entryId, bodyText) {
+  try {
+    const resp = await fetch(WORKER_URL + '/tag-dream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ body: String(bodyText || '') }),
+    });
+    const data = await resp.json().catch(() => []);
+    const tags = normalizeDreamTagResponse(data);
+    await updateDreamEntryTags(entryId, tags);
+
+    DREAM_JOURNAL_STATE.entries = (DREAM_JOURNAL_STATE.entries || []).map((entry) =>
+      String(entry.id) === String(entryId) ? { ...entry, ai_tags: tags } : entry
+    );
+    STATE.dreamEntries = DREAM_JOURNAL_STATE.entries.slice();
+
+    if (currentScreen === 'dream-journal') renderDreamJournal();
+    if (currentScreen === 'dream-entry-detail') renderDreamEntryDetail();
+  } catch (e) {
+    // Silent by design: tagging is non-blocking and optional.
+  }
+}
+
+async function saveDreamEntry() {
+  if (!isLoggedIn()) {
+    showUpgradeModal('dream-journal', 'Dream Journal', 'Create a free account to log dreams and reveal recurring dream signs.');
+    return;
+  }
+  if (!sb) {
+    showToast('Cloud sync not configured.', 'error');
+    return;
+  }
+
+  syncDreamDraftFromForm();
+  const bodyText = String(DREAM_JOURNAL_STATE.form.body || '').trim();
+  const errorEl = document.getElementById('dream-entry-error');
+  if (!bodyText) {
+    if (errorEl) errorEl.classList.add('visible');
+    return;
+  }
+  if (errorEl) errorEl.classList.remove('visible');
+
+  const saveBtn = document.querySelector('#screen-dream-new-entry .btn.btn-primary');
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'SAVING...';
+  }
+
+  try {
+    const userId = await getLoggedInUserId();
+    if (!userId) throw new Error('Not signed in');
+
+    const payload = {
+      user_id: userId,
+      clarity: clampDreamClarity(DREAM_JOURNAL_STATE.form.clarity),
+      lucid: normalizeDreamLucid(DREAM_JOURNAL_STATE.form.lucid),
+      emotion: DREAM_EMOTION_OPTIONS.includes(DREAM_JOURNAL_STATE.form.emotion) ? DREAM_JOURNAL_STATE.form.emotion : 'Neutral',
+      body: bodyText,
+      ai_tags: [],
+    };
+
+    const { data, error } = await sb
+      .from('dream_entries')
+      .insert(payload)
+      .select('id,user_id,created_at,clarity,lucid,emotion,body,ai_tags')
+      .single();
+    if (error) throw error;
+
+    const mapped = mapDreamEntryRow(data);
+    DREAM_JOURNAL_STATE.entries = [mapped, ...(DREAM_JOURNAL_STATE.entries || [])];
+    STATE.dreamEntries = DREAM_JOURNAL_STATE.entries.slice();
+    DREAM_JOURNAL_STATE.form = { ...DREAM_DEFAULT_FORM };
+
+    navigate('dream-journal');
+    renderDreamJournal();
+    postDreamTagsInBackground(mapped.id, bodyText);
+  } catch (e) {
+    showToast('Could not save dream entry. Try again.', 'error');
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'SAVE ENTRY';
+    }
+  }
+}
+
+function renderDreamEntryDetail() {
+  const title = document.getElementById('dream-detail-date-title');
+  const clarityWrap = document.getElementById('dream-detail-clarity');
+  const lucidEl = document.getElementById('dream-detail-lucid');
+  const emotionEl = document.getElementById('dream-detail-emotion');
+  const bodyEl = document.getElementById('dream-detail-body');
+  const tagsWrap = document.getElementById('dream-detail-tags');
+  const tagsEmpty = document.getElementById('dream-detail-tags-empty');
+
+  const selected = (DREAM_JOURNAL_STATE.entries || []).find(
+    (entry) => String(entry.id) === String(DREAM_JOURNAL_STATE.selectedEntryId || '')
+  ) || STATE.dreamDetailEntry || null;
+
+  if (!selected) {
+    if (title) title.textContent = 'Dream Entry';
+    if (clarityWrap) clarityWrap.innerHTML = '';
+    if (lucidEl) lucidEl.style.display = 'none';
+    if (emotionEl) emotionEl.textContent = 'Neutral';
+    if (bodyEl) bodyEl.textContent = 'Entry not found.';
+    if (tagsWrap) tagsWrap.innerHTML = '';
+    if (tagsEmpty) tagsEmpty.style.display = 'block';
+    return;
+  }
+
+  if (title) title.textContent = formatDreamDetailDate(selected.created_at);
+  if (clarityWrap) {
+    const clarity = clampDreamClarity(selected.clarity) || 0;
+    clarityWrap.innerHTML = '';
+    for (let i = 1; i <= 5; i++) {
+      const dot = document.createElement('span');
+      dot.className = 'dream-dot' + (i <= clarity ? ' on' : '');
+      clarityWrap.appendChild(dot);
+    }
+  }
+
+  if (lucidEl) {
+    const lucid = normalizeDreamLucid(selected.lucid);
+    if (lucid === 'yes' || lucid === 'partial') {
+      lucidEl.style.display = 'inline-flex';
+      lucidEl.className = lucid === 'yes' ? 'dream-lucid-pill lucid' : 'dream-lucid-pill partial';
+      lucidEl.textContent = lucid === 'yes' ? 'LUCID' : 'PARTIAL';
+    } else {
+      lucidEl.style.display = 'none';
+      lucidEl.textContent = '';
+      lucidEl.className = '';
+    }
+  }
+
+  if (emotionEl) {
+    emotionEl.textContent = selected.emotion || 'Neutral';
+  }
+  if (bodyEl) {
+    bodyEl.textContent = selected.body || '';
+  }
+
+  const tags = normalizeDreamTags(selected.ai_tags);
+  if (tagsWrap) {
+    tagsWrap.innerHTML = tags.map((tag) => `<span class="dream-tag-pill">${escapeHtml(tag)}</span>`).join('');
+  }
+  if (tagsEmpty) {
+    tagsEmpty.style.display = tags.length ? 'none' : 'block';
   }
 }
 
@@ -7579,10 +8425,26 @@ function normalizeExportDateLabel(raw, fallback) {
   return String(raw || fallback || 'all').replace(/[^0-9A-Za-z_-]/g, '');
 }
 
+function normalizeCsvText(value) {
+  return String(value === null || value === undefined ? '' : value)
+    .replace(/[\r\n]+/g, ' | ')
+    .replace(/\s*\|\s*/g, ' | ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
 function csvEscape(val) {
-  const s = val === null || val === undefined ? '' : String(val);
+  const s = normalizeCsvText(val);
   if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
   return s;
+}
+
+function formatExportDateTime(timestamp) {
+  const d = new Date(timestamp || '');
+  if (!Number.isFinite(d.getTime())) return { date: '', time: '' };
+  const date = d.toISOString().slice(0, 10);
+  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return { date, time };
 }
 
 function dayKeyToIso(dayKey) {
@@ -7600,34 +8462,94 @@ function getDreamExportRows() {
     if (streak && streak.lastDate) {
       const ts = dayKeyToIso(streak.lastDate);
       if (ts) {
+        const dt = formatExportDateTime(ts);
         rows.push({
-          timestamp: ts,
+          date: dt.date,
+          time: dt.time,
           module: 'Dreams',
           score: '',
           result: 'Reality Check',
+          target_id: '',
+          category: '',
           label: 'RC Streak',
           details: `Streak count: ${Number(streak.count || 0)} day(s)`,
-          tags: '',
-          notes: '',
         });
       }
     }
 
     const wbtb = JSON.parse(localStorage.getItem('ablty_wbtb') || 'null');
     if (wbtb && Number.isFinite(Number(wbtb.startTime))) {
+      const iso = new Date(Number(wbtb.startTime)).toISOString();
+      const dt = formatExportDateTime(iso);
       rows.push({
-        timestamp: new Date(Number(wbtb.startTime)).toISOString(),
+        date: dt.date,
+        time: dt.time,
         module: 'Dreams',
         score: '',
         result: 'WBTB',
+        target_id: '',
+        category: '',
         label: 'WBTB Timer',
         details: `Duration: ${Number(wbtb.duration || 0)}h`,
-        tags: '',
-        notes: '',
       });
     }
   } catch (e) {}
   return rows;
+}
+
+const RV_DIMENSION_EXPORT_FIELDS = [
+  { key: 'form_shape', label: 'Form/Shape', aliases: ['FORM / SHAPE', 'FORM/SHAPE'] },
+  { key: 'texture_surface', label: 'Texture/Surface', aliases: ['TEXTURE / SURFACE', 'TEXTURE/SURFACE'] },
+  { key: 'motion_movement', label: 'Motion/Movement', aliases: ['MOTION / MOVEMENT', 'MOTION/MOVEMENT'] },
+  { key: 'emotion_atmosphere', label: 'Emotion/Atmosphere', aliases: ['EMOTION / ATMOSPHERE', 'EMOTION/ATMOSPHERE'] },
+  { key: 'color_light', label: 'Color/Light', aliases: ['COLOR / LIGHT', 'COLOR/LIGHT'] },
+];
+
+function parseRvDimensionNotes(rawNotes) {
+  const out = {
+    form_shape: '',
+    texture_surface: '',
+    motion_movement: '',
+    emotion_atmosphere: '',
+    color_light: '',
+    notes_general: '',
+  };
+  const notes = String(rawNotes || '');
+  if (!notes.trim()) return out;
+
+  const aliases = RV_DIMENSION_EXPORT_FIELDS.flatMap((f) => f.aliases);
+  const pattern = new RegExp(`(${aliases.map((a) => a.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\s*:\\s*`, 'g');
+  const matches = [...notes.matchAll(pattern)];
+
+  if (!matches.length) {
+    out.notes_general = normalizeCsvText(notes);
+    return out;
+  }
+
+  let cursor = 0;
+  const leftovers = [];
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i];
+    const label = String(m[1] || '').toUpperCase();
+    const pre = notes.slice(cursor, m.index);
+    if (normalizeCsvText(pre)) leftovers.push(normalizeCsvText(pre));
+    const start = m.index + m[0].length;
+    const end = i + 1 < matches.length ? matches[i + 1].index : notes.length;
+    const value = normalizeCsvText(notes.slice(start, end));
+    const field = RV_DIMENSION_EXPORT_FIELDS.find((f) => f.aliases.includes(label));
+    if (field) out[field.key] = value;
+    cursor = end;
+  }
+  const tail = notes.slice(cursor);
+  if (normalizeCsvText(tail)) leftovers.push(normalizeCsvText(tail));
+  out.notes_general = leftovers.join(' | ');
+  return out;
+}
+
+function splitRvDetails(s) {
+  const targetId = String(s?.trn || '').trim();
+  const category = String(s?.category || '').trim();
+  return { target_id: targetId, category };
 }
 
 function collectExportRows(modules) {
@@ -7638,71 +8560,92 @@ function collectExportRows(modules) {
     rows = rows.concat((STATE.sessions || []).map((s) => {
       const score = getRVSessionScore(s);
       const gradingFailed = isRVGradingFailed(s);
+      const dt = formatExportDateTime(s.timestamp || '');
+      const dims = parseRvDimensionNotes(s.note || s.notes || '');
+      const rvSplit = splitRvDetails(s);
       return {
-        timestamp: s.timestamp || '',
+        date: dt.date,
+        time: dt.time,
         module: 'RV',
         score: score === null ? '' : score,
         result: gradingFailed ? 'Not graded' : 'Graded',
+        target_id: rvSplit.target_id,
+        category: rvSplit.category,
         label: s.targetLabel || (s.trn ? `TRN ${s.trn}` : 'RV Session'),
         details: [
-          s.trn ? `TRN ${s.trn}` : '',
-          s.category ? `Category: ${s.category}` : '',
           gradingFailed ? 'AI grading failed' : '',
         ].filter(Boolean).join(' | '),
-        tags: Array.isArray(s.tags) ? s.tags.join('|') : '',
-        notes: s.note || s.notes || '',
+        form_shape: dims.form_shape,
+        texture_surface: dims.texture_surface,
+        motion_movement: dims.motion_movement,
+        emotion_atmosphere: dims.emotion_atmosphere,
+        color_light: dims.color_light,
+        notes: dims.notes_general || '',
       };
     }));
   }
 
   if (selected.has('zener')) {
-    rows = rows.concat(loadZenerSessions().map((run) => ({
-      timestamp: run.timestamp || '',
-      module: 'Zener',
-      score: Number.isFinite(Number(run.hitPct)) ? Number(run.hitPct) : '',
-      result: `${Number(run.hits || 0)}/25 hits`,
-      label: 'Zener Run',
-      details: run.stdDev !== undefined ? `Std dev: ${run.stdDev}` : '',
-      tags: Array.isArray(run.tags) ? run.tags.join('|') : '',
-      notes: run.note || '',
-    })));
+    rows = rows.concat(loadZenerSessions().map((run) => {
+      const dt = formatExportDateTime(run.timestamp || '');
+      return {
+        date: dt.date,
+        time: dt.time,
+        module: 'Zener',
+        score: Number.isFinite(Number(run.hitPct)) ? Number(run.hitPct) : '',
+        result: `${Number(run.hits || 0)}/25 hits`,
+        target_id: '',
+        category: '',
+        label: 'Zener Run',
+        details: run.stdDev !== undefined ? `Std dev: ${run.stdDev}` : '',
+        notes: run.note || '',
+      };
+    }));
   }
 
   if (selected.has('ts')) {
     rows = rows.concat(loadTimestampAll().map((trial) => {
       const elapsed = getTSElapsedSeconds(trial);
       const hit = getTSTrialHit(trial);
+      const dt = formatExportDateTime(trial.timestamp || '');
       return {
-        timestamp: trial.timestamp || '',
+        date: dt.date,
+        time: dt.time,
         module: 'Presentiment',
         score: elapsed === null ? '' : Number(elapsed.toFixed(2)),
         result: elapsed === null ? 'Miss' : (hit ? 'Hit' : 'Tap (miss)'),
+        target_id: '',
+        category: '',
         label: 'Presentiment Trial',
         details: elapsed === null ? 'No tap before event' : `${elapsed.toFixed(2)}s from event`,
-        tags: '',
         notes: '',
       };
     }));
   }
 
   if (selected.has('pp')) {
-    rows = rows.concat(loadPPSessions().map((session) => ({
-      timestamp: session.timestamp || '',
-      module: 'Photo Pair',
-      score: session.hit ? 100 : 0,
-      result: session.hit ? 'Hit' : 'Miss',
-      label: 'Photo Pair Trial',
-      details: 'Pleasant vs neutral selection',
-      tags: '',
-      notes: '',
-    })));
+    rows = rows.concat(loadPPSessions().map((session) => {
+      const dt = formatExportDateTime(session.timestamp || '');
+      return {
+        date: dt.date,
+        time: dt.time,
+        module: 'Photo Pair',
+        score: session.hit ? 100 : 0,
+        result: session.hit ? 'Hit' : 'Miss',
+        target_id: '',
+        category: '',
+        label: 'Photo Pair Trial',
+        details: 'Pleasant vs neutral selection',
+        notes: '',
+      };
+    }));
   }
 
   if (selected.has('dreams')) {
     rows = rows.concat(getDreamExportRows());
   }
 
-  return rows.filter((r) => Number.isFinite(Date.parse(r.timestamp || '')));
+  return rows.filter((r) => !!r.date && !!r.time);
 }
 
 function downloadExportCSV() {
@@ -7728,15 +8671,52 @@ function downloadExportCSV() {
     return;
   }
 
-  let rows = collectExportRows(modules).filter((r) => inExportDateRange(r.timestamp, startRaw, endRaw));
-  rows.sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
+  let rows = collectExportRows(modules).filter((r) => inExportDateRange(`${r.date}T${r.time}:00`, startRaw, endRaw));
+  rows.sort((a, b) => Date.parse(`${a.date}T${a.time}:00`) - Date.parse(`${b.date}T${b.time}:00`));
   if (!rows.length) {
     showToast('No data found for that selection.', 'warn');
     return;
   }
 
-  const headers = ['timestamp', 'module', 'score', 'result', 'label', 'details', 'tags', 'notes'];
-  const lines = [headers.join(',')];
+  const preferredHeaders = [
+    'date',
+    'time',
+    'module',
+    'score',
+    'result',
+    'target_id',
+    'category',
+    'label',
+    'details',
+    'form_shape',
+    'texture_surface',
+    'motion_movement',
+    'emotion_atmosphere',
+    'color_light',
+    'notes',
+  ];
+  const headerLabels = {
+    date: 'Date',
+    time: 'Time',
+    module: 'Module',
+    score: 'Score',
+    result: 'Result',
+    target_id: 'Target ID',
+    category: 'Category',
+    label: 'Label',
+    details: 'Details',
+    form_shape: 'Form/Shape',
+    texture_surface: 'Texture/Surface',
+    motion_movement: 'Motion/Movement',
+    emotion_atmosphere: 'Emotion/Atmosphere',
+    color_light: 'Color/Light',
+    notes: 'Notes',
+  };
+  const headers = preferredHeaders.filter((h) => {
+    if (h === 'date' || h === 'time' || h === 'module') return true;
+    return rows.some((r) => normalizeCsvText(r[h]) !== '');
+  });
+  const lines = [headers.map((h) => csvEscape(headerLabels[h] || h)).join(',')];
   rows.forEach((row) => {
     lines.push(headers.map((h) => csvEscape(row[h])).join(','));
   });
@@ -8796,6 +9776,8 @@ async function onSignedIn(user) {
       await loadAnalyticsFromCloud(user.id);
     }
     updateSyncStatus('synced');
+    if (currentScreen === 'dream-journal') renderDreamJournal();
+    if (currentScreen === 'dream-entry-detail') renderDreamEntryDetail();
   } catch(e) {
     updateSyncStatus('local');
   }
