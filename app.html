@@ -2349,9 +2349,18 @@ html, body {
   flex-direction: column;
   gap: 7px;
   cursor: pointer;
+  width: 100%;
+  text-align: left;
+  appearance: none;
+  -webkit-appearance: none;
 }
 .dream-entry-row:active {
   background: var(--card2);
+}
+.dream-entry-row:focus-visible {
+  outline: none;
+  border-color: rgba(74,240,200,0.5);
+  box-shadow: 0 0 0 1px rgba(74,240,200,0.2) inset;
 }
 .dream-entry-meta {
   display: flex;
@@ -2404,6 +2413,10 @@ html, body {
 .dream-chart-meta {
   margin-top: 10px;
   color: var(--dim);
+}
+.dream-field-label {
+  margin-top: 14px;
+  margin-bottom: 8px;
 }
 .dream-empty {
   text-align: center;
@@ -2506,6 +2519,25 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+.dream-emotion-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(74,240,200,0.28);
+  background: rgba(74,240,200,0.08);
+  color: var(--accent);
+  padding: 3px 10px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.dream-emotion-pill.neutral {
+  border-color: var(--border);
+  background: rgba(255,255,255,0.03);
+  color: var(--muted);
 }
 .dream-dot-row {
   display: flex;
@@ -4605,7 +4637,7 @@ html, body {
       </div>
 
       <div class="chart-card fade-in-delay-1">
-        <div class="chart-title">Dream Signs</div>
+        <div class="chart-title">DREAM SIGNS</div>
         <div id="dream-signs-wrap" class="mono-sm" style="color:var(--dim);">Loading...</div>
       </div>
 
@@ -4634,7 +4666,7 @@ html, body {
         </div>
       </div>
 
-      <div class="section-label fade-in-delay-1">Clarity</div>
+      <div class="mono-label dream-field-label fade-in-delay-1">CLARITY</div>
       <div class="dream-clarity-row fade-in-delay-1" id="dream-clarity-row">
         <button type="button" class="dream-clarity-btn" data-value="1" onclick="setDreamClarity(1)">1</button>
         <button type="button" class="dream-clarity-btn" data-value="2" onclick="setDreamClarity(2)">2</button>
@@ -4644,14 +4676,14 @@ html, body {
       </div>
       <div class="mono-sm fade-in-delay-1" id="dream-clarity-desc" style="color:var(--dim);">Select clarity level</div>
 
-      <div class="section-label fade-in-delay-2">Lucid Dream?</div>
+      <div class="mono-label dream-field-label fade-in-delay-2">LUCID DREAM?</div>
       <div class="dream-seg-row fade-in-delay-2" id="dream-lucid-row">
         <button type="button" class="dream-seg-btn" data-value="yes" onclick="setDreamLucid('yes')">YES</button>
         <button type="button" class="dream-seg-btn" data-value="partial" onclick="setDreamLucid('partial')">PARTIAL</button>
         <button type="button" class="dream-seg-btn" data-value="no" onclick="setDreamLucid('no')">NO</button>
       </div>
 
-      <div class="section-label fade-in-delay-2">Primary Emotion</div>
+      <div class="mono-label dream-field-label fade-in-delay-2">PRIMARY EMOTION</div>
       <div class="dream-emotion-row fade-in-delay-2" id="dream-emotion-row">
         <button type="button" class="dream-emotion-btn" data-value="Calm" onclick="setDreamEmotion('Calm')">Calm</button>
         <button type="button" class="dream-emotion-btn" data-value="Anxious" onclick="setDreamEmotion('Anxious')">Anxious</button>
@@ -4663,7 +4695,7 @@ html, body {
         <button type="button" class="dream-emotion-btn" data-value="Neutral" onclick="setDreamEmotion('Neutral')">Neutral</button>
       </div>
 
-      <div class="section-label fade-in-delay-3">Describe Your Dream</div>
+      <div class="mono-label dream-field-label fade-in-delay-3">DESCRIBE YOUR DREAM</div>
       <textarea id="dream-entry-body" class="imp-field dream-textarea fade-in-delay-3" placeholder="Write freely. Details, feelings, fragments — everything helps."></textarea>
       <div id="dream-entry-error" class="dream-inline-error fade-in-delay-3">Please describe your dream before saving.</div>
 
@@ -4696,13 +4728,13 @@ html, body {
 
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <span id="dream-detail-lucid" style="display:none;"></span>
-          <span id="dream-detail-emotion" class="dream-tag-pill"></span>
+          <span id="dream-detail-emotion" class="dream-emotion-pill"></span>
         </div>
 
         <div id="dream-detail-body" class="body-sm" style="color:var(--text);line-height:1.7;white-space:pre-wrap;"></div>
 
         <div>
-          <div class="mono-label" style="margin-bottom:8px;">Dream Signs Detected</div>
+          <div class="mono-label" style="margin-bottom:8px;">DREAM SIGNS DETECTED</div>
           <div id="dream-detail-tags" class="dream-tag-row"></div>
           <div id="dream-detail-tags-empty" class="mono-sm" style="color:var(--dim);display:none;">Analyzing...</div>
         </div>
@@ -7989,7 +8021,10 @@ function renderDreamEntryDetail() {
     if (title) title.textContent = 'Dream Entry';
     if (clarityWrap) clarityWrap.innerHTML = '';
     if (lucidEl) lucidEl.style.display = 'none';
-    if (emotionEl) emotionEl.textContent = 'Neutral';
+    if (emotionEl) {
+      emotionEl.textContent = 'Neutral';
+      emotionEl.className = 'dream-emotion-pill neutral';
+    }
     if (bodyEl) bodyEl.textContent = 'Entry not found.';
     if (tagsWrap) tagsWrap.innerHTML = '';
     if (tagsEmpty) tagsEmpty.style.display = 'block';
@@ -8021,7 +8056,9 @@ function renderDreamEntryDetail() {
   }
 
   if (emotionEl) {
-    emotionEl.textContent = selected.emotion || 'Neutral';
+    const emotion = String(selected.emotion || 'Neutral');
+    emotionEl.textContent = emotion;
+    emotionEl.className = 'dream-emotion-pill' + (emotion.toLowerCase() === 'neutral' ? ' neutral' : '');
   }
   if (bodyEl) {
     bodyEl.textContent = selected.body || '';
