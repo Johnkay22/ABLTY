@@ -183,6 +183,16 @@ html, body {
   z-index: 100;
 }
 
+/* Safety: always hide bottom nav during immersive session screens. */
+#screen-canvas.active ~ #nav,
+#screen-zener-session.active ~ #nav,
+#screen-timestamp-session.active ~ #nav,
+#screen-rc-task.active ~ #nav {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 .nav-item {
   display: flex;
   flex-direction: column;
