@@ -224,6 +224,33 @@ html, body {
 .profile-pull-closing {
   transition: transform 0.22s ease, opacity 0.22s ease;
 }
+.profile-pull-indicator {
+  position: absolute;
+  top: calc(6px + var(--safe-top));
+  left: 50%;
+  transform: translate(-50%, -12px);
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border2);
+  background: rgba(10,11,13,0.92);
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 1.1px;
+  text-transform: uppercase;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  z-index: 35;
+}
+.profile-pull-indicator.show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+.profile-pull-indicator.ready {
+  color: var(--accent);
+  border-color: rgba(74,240,200,0.5);
+}
 
 
 
