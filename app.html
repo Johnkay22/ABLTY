@@ -1165,6 +1165,66 @@ html, body {
 }
 .chart-svg-wrap { width: 100%; overflow: hidden; }
 
+/* Overview protocol sparklines */
+.overview-signal-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.overview-spark-card {
+  width: 100%;
+  cursor: default;
+}
+.overview-spark-card:active {
+  transform: none;
+  border-color: var(--border);
+}
+.overview-spark-visual {
+  height: 130px;
+  background: var(--card);
+  padding: 10px 10px 44px;
+  align-items: stretch;
+  justify-content: stretch;
+}
+.overview-spark-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.overview-spark-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 22px 12px 10px;
+}
+.protocol-activity-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.protocol-activity-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.protocol-activity-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.protocol-activity-bar {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--card2);
+  overflow: hidden;
+}
+.protocol-activity-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
 /* Category breakdown bars */
 .cat-breakdown { display: flex; flex-direction: column; gap: 10px; }
 .cat-row { display: flex; flex-direction: column; gap: 5px; }
@@ -4246,16 +4306,17 @@ html, body {
 
       <!-- OVERVIEW PANEL -->
       <div class="analytics-panel panel-active" id="apanel-overview" style="margin-top:16px;">
-        <div class="export-toolbar">
-          <button id="export-data-btn" class="export-data-btn locked" onclick="openExportModal()" disabled>
-            <span class="export-data-btn-main">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 20h16"/></svg>
-              <span>Export Data</span>
-            </span>
-            <span id="export-premium-badge" class="export-premium-badge">Premium</span>
-          </button>
-        </div>
         <div id="streak-banner-wrap"></div>
+
+        <div>
+          <div class="mono-label" style="margin-bottom:8px;">SIGNAL TREND</div>
+          <div id="overview-signal-trend" class="overview-signal-stack"></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-title">PROTOCOL ACTIVITY</div>
+          <div id="protocol-activity-wrap"></div>
+        </div>
 
         <div class="chart-card" id="tod-card">
           <div class="chart-title">Time of Day Pattern</div>
@@ -4273,6 +4334,16 @@ html, body {
             <div class="kpi-val warn" id="kpi-active-days">0</div>
             <div class="kpi-delta" id="kpi-active-days-sub">Tap for detailed trends</div>
           </div>
+        </div>
+
+        <div class="export-toolbar">
+          <button id="export-data-btn" class="export-data-btn locked" onclick="openExportModal()" disabled>
+            <span class="export-data-btn-main">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 20h16"/></svg>
+              <span>Export Data</span>
+            </span>
+            <span id="export-premium-badge" class="export-premium-badge">Premium</span>
+          </button>
         </div>
       </div>
 
@@ -8464,6 +8535,8 @@ function switchAnalyticsTab(tab) {
 function renderAnalytics() {
   const rvSessions = (STATE.sessions || []).filter(s => !isRVGradingFailed(s));
   const zenerRuns  = loadZenerSessions();
+  const tsTrials = loadTimestampAll();
+  const ppSessions = loadPPSessions();
   updateExportButtonState();
 
   const scoredRvSessions = rvSessions.filter((s) => Number.isFinite(Number(s?.score)));
@@ -8472,8 +8545,8 @@ function renderAnalytics() {
     : null;
 
   // Overview KPIs: high-level engagement only
-  const totalSessions = rvSessions.length + zenerRuns.length + loadTimestampAll().length + loadPPSessions().length;
-  const activeDays = calcActiveDays([...rvSessions, ...zenerRuns, ...loadTimestampAll(), ...loadPPSessions()]);
+  const totalSessions = rvSessions.length + zenerRuns.length + tsTrials.length + ppSessions.length;
+  const activeDays = calcActiveDays([...rvSessions, ...zenerRuns, ...tsTrials, ...ppSessions]);
   setEl('kpi-total-sessions', totalSessions);
   setEl('kpi-total-sessions-sub', 'Tap for session log');
   setEl('kpi-active-days', activeDays);
@@ -8482,6 +8555,8 @@ function renderAnalytics() {
   // Keep key sections rendered by their new tab grouping
   buildTODChart(rvSessions);
   renderStreakBanner(rvSessions, zenerRuns);
+  buildOverviewSparklines();
+  buildProtocolActivity();
 
   renderCalibration(rvSessions);
   buildBarChartMotivated('rv-chart-wrap', rvSessions.slice(-10), s => s.score, 100, '%', undefined, 3, 'RV session');
@@ -8499,6 +8574,166 @@ function renderAnalytics() {
   if (logBestEl)  logBestEl.textContent  = rvBest !== null ? rvBest + '%' : '-';
 
   buildCombinedLog(rvSessions, zenerRuns);
+}
+
+function clampPct(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, n));
+}
+
+function rollingAverage(values, windowSize = 5) {
+  const out = [];
+  for (let i = 0; i < values.length; i++) {
+    const start = Math.max(0, i - windowSize + 1);
+    const slice = values.slice(start, i + 1).filter((v) => Number.isFinite(Number(v)));
+    if (!slice.length) {
+      out.push(0);
+      continue;
+    }
+    out.push(slice.reduce((a, b) => a + Number(b), 0) / slice.length);
+  }
+  return out;
+}
+
+function buildSparklineSVG(series, opts = {}) {
+  const width = 360;
+  const height = 90;
+  const pad = 8;
+  const baseline = Number.isFinite(Number(opts.baselinePct)) ? clampPct(opts.baselinePct) : 50;
+  const baselineY = (height - pad) - (baseline / 100) * (height - pad * 2);
+
+  const baselineLine = `<line x1="${pad}" y1="${baselineY.toFixed(2)}" x2="${(width - pad)}" y2="${baselineY.toFixed(2)}" stroke="var(--border)" stroke-width="1"/>`;
+
+  const points = (Array.isArray(series) ? series : []).map((v, i, arr) => {
+    const x = arr.length <= 1
+      ? width / 2
+      : pad + (i * (width - pad * 2)) / (arr.length - 1);
+    const y = (height - pad) - (clampPct(v) / 100) * (height - pad * 2);
+    return [x, y];
+  });
+
+  if (points.length < 2) {
+    const y = baselineY;
+    return `<svg class="overview-spark-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">${baselineLine}<line x1="${pad}" y1="${y.toFixed(2)}" x2="${(width - pad)}" y2="${y.toFixed(2)}" stroke="var(--dim)" stroke-width="2" stroke-dasharray="5 5"/></svg>`;
+  }
+
+  const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(2)} ${p[1].toFixed(2)}`).join(' ');
+  return `<svg class="overview-spark-svg" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none">${baselineLine}<path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+function buildOverviewSparklines() {
+  const wrap = document.getElementById('overview-signal-trend');
+  if (!wrap) return;
+
+  const rvSessions = (STATE.sessions || []).filter((s) => !isRVGradingFailed(s) && Number.isFinite(Number(s?.score)));
+  const zenerRuns = loadZenerSessions().filter((r) => Number.isFinite(Number(r?.hitPct)));
+  const tsTrials = (typeof loadTimestampAll === 'function' ? loadTimestampAll() : []);
+  const ppSessions = loadPPSessions();
+
+  const rvValues = rvSessions.map((s) => Number(s.score));
+  const rvAvg = rvValues.length ? (rvValues.reduce((a, b) => a + b, 0) / rvValues.length) : null;
+
+  const zenerValues = zenerRuns.map((r) => Number(r.hitPct));
+  const zenerAvg = zenerValues.length ? (zenerValues.reduce((a, b) => a + b, 0) / zenerValues.length) : null;
+
+  // Presentiment source/value field: loadTimestampAll() + delta/miss from buildPresentimentStats().
+  const presentimentValues = tsTrials.map((t) => {
+    if (t?.miss) return 0;
+    const delta = Math.abs(Number(t?.delta));
+    if (!Number.isFinite(delta)) return 0;
+    return clampPct((1 - Math.min(delta, 30) / 30) * 100);
+  });
+  const presentimentTaps = tsTrials.filter((t) => !t?.miss && Number.isFinite(Number(t?.delta)));
+  const presentimentMeanDelta = presentimentTaps.length
+    ? (presentimentTaps.reduce((a, t) => a + Math.abs(Number(t.delta)), 0) / presentimentTaps.length)
+    : null;
+  const presentimentAvgPct = presentimentValues.length
+    ? (presentimentValues.reduce((a, b) => a + b, 0) / presentimentValues.length)
+    : null;
+
+  const ppValues = ppSessions.map((s) => (s?.hit ? 100 : 0));
+  const ppAvg = ppValues.length ? (ppValues.reduce((a, b) => a + b, 0) / ppValues.length) : null;
+
+  const cards = [
+    {
+      label: 'RV',
+      values: rollingAverage(rvValues, 5),
+      count: rvValues.length,
+      baselinePct: 50,
+      avgLabel: rvAvg === null ? '--' : (Math.round(rvAvg) + '%'),
+      avgColor: rvAvg === null ? 'var(--muted)' : 'var(--accent)',
+    },
+    {
+      label: 'ZENER',
+      values: rollingAverage(zenerValues, 5),
+      count: zenerValues.length,
+      baselinePct: 20,
+      avgLabel: zenerAvg === null ? '--' : (Math.round(zenerAvg) + '%'),
+      avgColor: zenerAvg === null ? 'var(--muted)' : (zenerAvg > 20 ? 'var(--accent)' : zenerAvg < 20 ? 'var(--danger)' : 'var(--muted)'),
+    },
+    {
+      label: 'PRESENTIMENT',
+      values: rollingAverage(presentimentValues, 5),
+      count: presentimentValues.length,
+      baselinePct: (1 - (10 / 30)) * 100,
+      avgLabel: presentimentAvgPct === null ? '--' : (Math.round(presentimentAvgPct) + '%'),
+      avgColor: presentimentMeanDelta === null ? 'var(--muted)' : (presentimentMeanDelta < 10 ? 'var(--accent)' : presentimentMeanDelta > 10 ? 'var(--danger)' : 'var(--muted)'),
+    },
+    {
+      label: 'PHOTO PAIR',
+      values: rollingAverage(ppValues, 5),
+      count: ppValues.length,
+      baselinePct: 50,
+      avgLabel: ppAvg === null ? '--' : (Math.round(ppAvg) + '%'),
+      avgColor: ppAvg === null ? 'var(--muted)' : (ppAvg > 50 ? 'var(--accent)' : ppAvg < 50 ? 'var(--danger)' : 'var(--muted)'),
+    },
+  ];
+
+  wrap.innerHTML = cards.map((card) => `
+    <div class="module-card overview-spark-card">
+      <div class="card-visual overview-spark-visual">
+        ${buildSparklineSVG(card.values, { baselinePct: card.baselinePct, dashed: card.count < 2 })}
+      </div>
+      <div class="card-overlay overview-spark-overlay">
+        <span class="mono-label">${card.label}</span>
+        <span class="mono-label" style="color:${card.avgColor};">${card.avgLabel}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function buildProtocolActivity() {
+  const wrap = document.getElementById('protocol-activity-wrap');
+  if (!wrap) return;
+
+  const counts = [
+    { label: 'RV', count: (STATE.sessions || []).filter((s) => !isRVGradingFailed(s)).length },
+    { label: 'Zener', count: loadZenerSessions().length },
+    { label: 'Presentiment', count: (typeof loadTimestampAll === 'function' ? loadTimestampAll() : []).length },
+    { label: 'Photo Pair', count: loadPPSessions().length },
+  ];
+
+  const total = counts.reduce((sum, item) => sum + item.count, 0);
+  wrap.innerHTML = `
+    <div class="protocol-activity-list">
+      ${counts.map((item) => {
+        const pct = total > 0 ? (item.count / total) * 100 : 0;
+        const countColor = item.count > 0 ? 'var(--text)' : 'var(--dim)';
+        return `
+          <div class="protocol-activity-row">
+            <div class="protocol-activity-head">
+              <span class="mono-label">${item.label}</span>
+              <span class="mono-label" style="color:${countColor};">${item.count}</span>
+            </div>
+            <div class="protocol-activity-bar">
+              <div class="protocol-activity-fill" style="width:${pct.toFixed(2)}%;"></div>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
 }
 
 function calcActiveDays(items) {
@@ -11015,7 +11250,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.04.07.3';
+const APP_VERSION = '2026.04.07.4';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
