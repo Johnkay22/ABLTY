@@ -754,7 +754,8 @@ async function handleGrade(request, env, origin = '') {
 
     const prompt = buildGradingPrompt(notes, target.label, target.descriptors);
     const parts = [];
-    if (sketch) parts.push({ inline_data: { mime_type: 'image/jpeg', data: sketch } });
+    // Gemini REST API expects camelCase fields for inline image parts.
+    if (sketch) parts.push({ inlineData: { mimeType: 'image/jpeg', data: sketch } });
     parts.push({ text: prompt });
 
     const geminiRes = await fetch(
@@ -769,7 +770,14 @@ async function handleGrade(request, env, origin = '') {
       }
     );
 
-    if (!geminiRes.ok) return json(buildGradingFailure(target, 'Gemini API error'), 200, origin);
+    if (!geminiRes.ok) {
+      const errText = (await geminiRes.text().catch(() => '') || '').slice(0, 500);
+      console.warn('[GRADE] Gemini non-OK:', geminiRes.status, errText);
+      const reason = geminiRes.status === 429
+        ? 'Gemini API quota exceeded'
+        : `Gemini API error (${geminiRes.status})`;
+      return json(buildGradingFailure(target, reason), 200, origin);
+    }
 
     const geminiData = await geminiRes.json();
     const text = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
