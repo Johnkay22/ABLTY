@@ -221,6 +221,9 @@ html, body {
   font-size: 10px; color: var(--dim);
   letter-spacing: 0.5px; margin-top: 2px;
 }
+.profile-pull-closing {
+  transition: transform 0.22s ease, opacity 0.22s ease;
+}
 
 
 
@@ -7571,6 +7574,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   runSplash();
+  bindProfilePullToDismiss();
   checkRCHash();
   checkWBTBHash();
   restoreWBTBIfActive();
@@ -10433,6 +10437,7 @@ let currentLogFilter = 'all';
 let currentLogSort = 'date';
 let editingSessionId = null;
 let editingSessionType = null;
+let profilePullGestureBound = false;
 
 function setLogFilter(filter) {
   currentLogFilter = filter;
@@ -10452,6 +10457,123 @@ function setLogSort(mode) {
     b.classList.toggle('active', b.dataset.sort === currentLogSort);
   });
   buildCombinedLog(STATE.sessions || [], loadZenerSessions());
+}
+
+function bindProfilePullToDismiss() {
+  if (profilePullGestureBound) return;
+  const screen = document.getElementById('screen-profile');
+  if (!screen) return;
+  profilePullGestureBound = true;
+
+  let startY = 0;
+  let startX = 0;
+  let dragging = false;
+  let pointerId = null;
+  let lastDelta = 0;
+  let lockedHorizontal = false;
+  let lockedVertical = false;
+
+  function reset() {
+    dragging = false;
+    pointerId = null;
+    lastDelta = 0;
+    lockedHorizontal = false;
+    lockedVertical = false;
+    screen.classList.remove('profile-pull-active');
+    screen.style.transform = '';
+  }
+
+  function begin(clientX, clientY, id) {
+    if (currentScreen !== 'profile') return false;
+    if (screen.scrollTop > 2) return false;
+    startY = clientY;
+    startX = clientX;
+    pointerId = id;
+    dragging = true;
+    lastDelta = 0;
+    lockedHorizontal = false;
+    lockedVertical = false;
+    screen.classList.add('profile-pull-active');
+    return true;
+  }
+
+  function move(clientX, clientY) {
+    if (!dragging) return;
+    const dy = clientY - startY;
+    const dx = clientX - startX;
+
+    if (!lockedHorizontal && !lockedVertical) {
+      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+        if (Math.abs(dx) > Math.abs(dy) * 1.25) {
+          lockedHorizontal = true;
+          reset();
+          return;
+        }
+        lockedVertical = true;
+      }
+    }
+
+    if (dy <= 0) {
+      lastDelta = 0;
+      screen.style.transform = '';
+      return;
+    }
+
+    const eased = Math.min(120, dy * 0.52);
+    lastDelta = eased;
+    screen.style.transform = `translateY(${eased}px)`;
+  }
+
+  function end() {
+    if (!dragging) return;
+    const shouldDismiss = lastDelta >= 48;
+    reset();
+    if (shouldDismiss) {
+      navigate('home');
+    }
+  }
+
+  screen.addEventListener('touchstart', (e) => {
+    if (!e.touches || !e.touches.length) return;
+    const t = e.touches[0];
+    begin(t.clientX, t.clientY, 'touch');
+  }, { passive: true });
+
+  screen.addEventListener('touchmove', (e) => {
+    if (!dragging || pointerId !== 'touch' || !e.touches || !e.touches.length) return;
+    const t = e.touches[0];
+    move(t.clientX, t.clientY);
+  }, { passive: true });
+
+  screen.addEventListener('touchend', () => {
+    if (pointerId !== 'touch') return;
+    end();
+  });
+
+  screen.addEventListener('touchcancel', () => {
+    if (pointerId !== 'touch') return;
+    reset();
+  });
+
+  screen.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch') return;
+    begin(e.clientX, e.clientY, e.pointerId);
+  });
+
+  screen.addEventListener('pointermove', (e) => {
+    if (!dragging || pointerId !== e.pointerId) return;
+    move(e.clientX, e.clientY);
+  });
+
+  screen.addEventListener('pointerup', (e) => {
+    if (pointerId !== e.pointerId) return;
+    end();
+  });
+
+  screen.addEventListener('pointercancel', (e) => {
+    if (pointerId !== e.pointerId) return;
+    reset();
+  });
 }
 
 // ── Time of Day pattern ─────────────────────
