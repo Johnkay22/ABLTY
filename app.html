@@ -8774,6 +8774,16 @@ function rollingAverage(values, windowSize = 5) {
   return out;
 }
 
+function sortByTimestampAsc(list) {
+  return [...(Array.isArray(list) ? list : [])].sort((a, b) => {
+    const ta = Date.parse(a?.timestamp || '');
+    const tb = Date.parse(b?.timestamp || '');
+    const va = Number.isFinite(ta) ? ta : 0;
+    const vb = Number.isFinite(tb) ? tb : 0;
+    return va - vb;
+  });
+}
+
 function buildSparklineSVG(series, opts = {}) {
   const width = 360;
   const height = 90;
@@ -8804,10 +8814,10 @@ function buildOverviewSparklines() {
   const wrap = document.getElementById('overview-signal-trend');
   if (!wrap) return;
 
-  const rvSessions = (STATE.sessions || []).filter((s) => !isRVGradingFailed(s) && Number.isFinite(Number(s?.score)));
-  const zenerRuns = loadZenerSessions().filter((r) => Number.isFinite(Number(r?.hitPct)));
-  const tsTrials = (typeof loadTimestampAll === 'function' ? loadTimestampAll() : []);
-  const ppSessions = loadPPSessions();
+  const rvSessions = sortByTimestampAsc((STATE.sessions || []).filter((s) => !isRVGradingFailed(s) && Number.isFinite(Number(s?.score)));
+  const zenerRuns = sortByTimestampAsc(loadZenerSessions().filter((r) => Number.isFinite(Number(r?.hitPct))));
+  const tsTrials = sortByTimestampAsc(typeof loadTimestampAll === 'function' ? loadTimestampAll() : []);
+  const ppSessions = sortByTimestampAsc(loadPPSessions());
 
   const rvValues = rvSessions.map((s) => Number(s.score));
   const rvAvg = rvValues.length ? (rvValues.reduce((a, b) => a + b, 0) / rvValues.length) : null;
@@ -8895,6 +8905,10 @@ function buildProtocolActivity() {
   const total = counts.reduce((sum, item) => sum + item.count, 0);
   wrap.innerHTML = `
     <div class="protocol-activity-list">
+      <div class="protocol-activity-head" style="margin-bottom:2px;">
+        <span class="mono-label" style="color:var(--dim);">Protocol</span>
+        <span class="mono-label" style="color:var(--dim);"># of Runs</span>
+      </div>
       ${counts.map((item) => {
         const pct = total > 0 ? (item.count / total) * 100 : 0;
         const countColor = item.count > 0 ? 'var(--text)' : 'var(--dim)';
