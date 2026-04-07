@@ -8814,7 +8814,7 @@ function buildOverviewSparklines() {
   const wrap = document.getElementById('overview-signal-trend');
   if (!wrap) return;
 
-  const rvSessions = sortByTimestampAsc((STATE.sessions || []).filter((s) => !isRVGradingFailed(s) && Number.isFinite(Number(s?.score)));
+  const rvSessions = sortByTimestampAsc((STATE.sessions || []).filter((s) => !isRVGradingFailed(s) && Number.isFinite(Number(s?.score))));
   const zenerRuns = sortByTimestampAsc(loadZenerSessions().filter((r) => Number.isFinite(Number(r?.hitPct))));
   const tsTrials = sortByTimestampAsc(typeof loadTimestampAll === 'function' ? loadTimestampAll() : []);
   const ppSessions = sortByTimestampAsc(loadPPSessions());
