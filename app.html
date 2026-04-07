@@ -225,7 +225,7 @@ html, body {
   transition: transform 0.22s ease, opacity 0.22s ease;
 }
 .profile-pull-indicator {
-  position: absolute;
+  position: fixed;
   top: calc(6px + var(--safe-top));
   left: 50%;
   transform: translate(-50%, -12px);
@@ -241,7 +241,7 @@ html, body {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.15s ease, transform 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-  z-index: 35;
+  z-index: 120;
 }
 .profile-pull-indicator.show {
   opacity: 1;
@@ -3864,6 +3864,7 @@ html, body {
        SCREEN: PROFILE
   ═══════════════════════════════════ -->
   <div id="screen-profile" class="screen">
+    <div id="profile-pull-indicator" class="profile-pull-indicator">PULL TO CLOSE</div>
     <div class="screen-inner">
 
       <div class="display-lg fade-in">SETTINGS</div>
@@ -6968,9 +6969,28 @@ function renderHomeGreeting() {
 }
 
 function clearLocalAuthCache() {
-  ['ablty_logged_in', 'ablty_username', 'ablty_tier', 'ablty_username_changed_at']
+  ['ablty_logged_in', 'ablty_username', 'ablty_tier', 'ablty_username_changed_at', 'ablty_user_email']
     .forEach((k) => localStorage.removeItem(k));
   resetDreamJournalState();
+}
+
+async function hydrateProfileFromSession(user) {
+  if (!sb || !user?.id) return;
+  try {
+    const { data: profile } = await sb
+      .from('profiles')
+      .select('username, tier, username_changed_at')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (profile) {
+      localStorage.setItem('ablty_username', profile.username || localStorage.getItem('ablty_username') || 'Seeker');
+      localStorage.setItem('ablty_tier', profile.tier || localStorage.getItem('ablty_tier') || 'free');
+      localStorage.setItem('ablty_username_changed_at', profile.username_changed_at || localStorage.getItem('ablty_username_changed_at') || '');
+    }
+    localStorage.setItem('ablty_logged_in', '1');
+    if (user?.email) localStorage.setItem('ablty_user_email', String(user.email));
+  } catch (e) {}
 }
 
 async function reconcileAuthState() {
@@ -6981,7 +7001,7 @@ async function reconcileAuthState() {
     if (!hasSession) {
       clearLocalAuthCache();
     } else {
-      localStorage.setItem('ablty_logged_in', '1');
+      await hydrateProfileFromSession(data.session.user);
     }
   } catch (e) {
     clearLocalAuthCache();
@@ -7076,7 +7096,10 @@ function handleUpgradeCTA() {
     return;
   }
 
-  const checkoutUrl = 'https://buy.stripe.com/test_5kQfZhe6OfNg5On3p78g000';
+  const email = String(localStorage.getItem('ablty_user_email') || '').trim();
+  const checkoutUrl = email
+    ? ('https://buy.stripe.com/test_5kQfZhe6OfNg5On3p78g000' + '?prefilled_email=' + encodeURIComponent(email))
+    : 'https://buy.stripe.com/test_5kQfZhe6OfNg5On3p78g000';
   const opened = openCheckoutUrl(checkoutUrl);
   if (!opened) {
     showToast('Could not open checkout. Please allow popups.', 'error');
@@ -7172,6 +7195,7 @@ async function handleSignOut() {
   localStorage.removeItem('ablty_username');
   localStorage.removeItem('ablty_tier');
   localStorage.removeItem('ablty_username_changed_at');
+  localStorage.removeItem('ablty_user_email');
   renderSettingsState();
   renderProfile();
   showToast('Signed out.', 'success');
@@ -7583,6 +7607,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (sb) {
     sb.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session && typeof onSignedIn === 'function') onSignedIn(session.user);
+      if ((event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') && session?.user) {
+        hydrateProfileFromSession(session.user).then(() => {
+          renderSettingsState();
+          renderProfile();
+          renderHomeGreeting();
+        }).catch(() => {});
+      }
       if (event === 'SIGNED_OUT') {
         clearLocalAuthCache();
         if (currentScreen === 'dream-journal' || currentScreen === 'dream-new-entry' || currentScreen === 'dream-entry-detail') {
@@ -9913,6 +9944,7 @@ async function onSignedIn(user) {
   localStorage.setItem('ablty_username', username);
   localStorage.setItem('ablty_tier', tier);
   localStorage.setItem('ablty_username_changed_at', changedAt || '');
+  if (user?.email) localStorage.setItem('ablty_user_email', String(user.email));
 
   renderSettingsState();
   renderProfile();
@@ -10493,9 +10525,10 @@ function bindProfilePullToDismiss() {
   profilePullGestureBound = true;
   const DISMISS_THRESHOLD = 78;
 
-  let indicator = screen.querySelector('.profile-pull-indicator');
+  let indicator = document.getElementById('profile-pull-indicator') || screen.querySelector('.profile-pull-indicator');
   if (!indicator) {
     indicator = document.createElement('div');
+    indicator.id = 'profile-pull-indicator';
     indicator.className = 'profile-pull-indicator';
     indicator.textContent = 'PULL TO CLOSE';
     screen.appendChild(indicator);
