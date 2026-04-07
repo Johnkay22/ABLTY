@@ -7021,30 +7021,36 @@ function closeUpgradeModal() {
   if (modal) modal.classList.remove('visible');
 }
 
+function openCheckoutUrl(checkoutUrl) {
+  if (!checkoutUrl) return false;
+  // Prefer new tab, but iOS/PWA environments may block popups.
+  try {
+    const popup = window.open(checkoutUrl, '_blank', 'noopener,noreferrer');
+    if (popup && !popup.closed) return true;
+  } catch (e) {}
+  try {
+    window.location.assign(checkoutUrl);
+    return true;
+  } catch (e) {}
+  return false;
+}
+
 function handleUpgradeCTA() {
   closeUpgradeModal();
-  if (!sb) {
-    showToast('Auth is not configured.', 'error');
+  if (!isLoggedIn()) {
+    clearLocalAuthCache();
+    renderSettingsState();
+    renderProfile();
+    showToast('Create a free account first, then upgrade.', 'info');
+    openAuthScreen('signup');
     return;
   }
 
-  sb.auth.getSession().then(({ data }) => {
-    const session = data?.session;
-    if (!session?.user?.email) {
-      clearLocalAuthCache();
-      renderSettingsState();
-      renderProfile();
-      showToast('Create a free account first, then upgrade.', 'info');
-      openAuthScreen('signup');
-      return;
-    }
-
-    const checkoutUrl = 'https://buy.stripe.com/test_5kQfZhe6OfNg5On3p78g000'
-      + '?prefilled_email=' + encodeURIComponent(session.user.email);
-    window.open(checkoutUrl, '_blank');
-  }).catch(() => {
-    showToast('Could not open checkout.', 'error');
-  });
+  const checkoutUrl = 'https://buy.stripe.com/test_5kQfZhe6OfNg5On3p78g000';
+  const opened = openCheckoutUrl(checkoutUrl);
+  if (!opened) {
+    showToast('Could not open checkout. Please allow popups.', 'error');
+  }
 }
 
 function handleFreeAccountCTA() {
