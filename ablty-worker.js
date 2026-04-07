@@ -125,6 +125,10 @@ function assignmentKey(id) {
   return 'rv_assign:' + id;
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function createAssignmentId() {
   try {
     return crypto.randomUUID().replace(/-/g, '');
@@ -758,24 +762,33 @@ async function handleGrade(request, env, origin = '') {
     if (sketch) parts.push({ inlineData: { mimeType: 'image/jpeg', data: sketch } });
     parts.push({ text: prompt });
 
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts }],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 0 } },
-        }),
-      }
-    );
+    let geminiRes = null;
+    let geminiErrText = '';
+    for (let attempt = 0; attempt < 3; attempt++) {
+      geminiRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts }],
+            generationConfig: { temperature: 0.2, maxOutputTokens: 4096, thinkingConfig: { thinkingBudget: 0 } },
+          }),
+        }
+      );
+      if (geminiRes.ok) break;
+      geminiErrText = ((await geminiRes.text().catch(() => '')) || '').slice(0, 500);
+      console.warn('[GRADE] Gemini non-OK attempt', attempt + 1, geminiRes.status, geminiErrText);
+      const transient = geminiRes.status === 429 || geminiRes.status === 500 || geminiRes.status === 502 || geminiRes.status === 503 || geminiRes.status === 504;
+      if (!transient || attempt === 2) break;
+      await sleep((attempt + 1) * 450);
+    }
 
-    if (!geminiRes.ok) {
-      const errText = (await geminiRes.text().catch(() => '') || '').slice(0, 500);
-      console.warn('[GRADE] Gemini non-OK:', geminiRes.status, errText);
-      const reason = geminiRes.status === 429
+    if (!geminiRes || !geminiRes.ok) {
+      const status = geminiRes ? geminiRes.status : 0;
+      const reason = status === 429
         ? 'Gemini API quota exceeded'
-        : `Gemini API error (${geminiRes.status})`;
+        : `Gemini API error (${status || 'no response'})`;
       return json(buildGradingFailure(target, reason), 200, origin);
     }
 
