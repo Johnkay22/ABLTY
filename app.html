@@ -1657,6 +1657,40 @@ html, body {
   color: var(--muted); line-height: 1.6; text-align: center;
 }
 .rc-nose-prompt strong { color: var(--text); font-style: normal; }
+.rc-critical-wrap {
+  width: 100%;
+  margin-top: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  text-align: center;
+}
+.rc-critical-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.rc-critical-question {
+  margin-top: 8px;
+  font-family: var(--font-body);
+  font-size: 17px;
+  line-height: 1.45;
+  color: var(--text);
+}
+.rc-critical-hint {
+  margin-top: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.5;
+  color: var(--dim);
+}
+.rc-critical-btn-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
 
 /* ═══════════════════════════════════════════
    ADMIN / LIMIT MODALS
@@ -4721,7 +4755,7 @@ html, body {
         <div class="card-overlay">
           <div class="card-tag">Protocol 1  -  Active</div>
           <div class="display-md">REALITY CHECK PAGER</div>
-          <div class="mono-sm" style="margin-top:4px">Perceptual Training · <span id="dl-rc-streak" style="color:var(--accent);">0 day streak</span></div>
+          <div class="mono-sm" style="margin-top:4px">Daytime habit training + WBTB protocol. The research-backed path to consistent lucid dreams.</div>
         </div>
       </div>
 
@@ -4917,55 +4951,112 @@ html, body {
           <!-- Card 1: What it is -->
           <div class="rc-info-card">
             <div class="rc-card-eyebrow">01 / 05  -  How It Works</div>
-            <div class="rc-card-icon">🌙</div>
+            <div class="rc-card-icon"><svg width="48" height="48" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M38 14C28 16 22 24 22 33s6 17 16 19C24 54 13 44 13 33S21 11 38 14z" fill="rgba(91,63,180,0.25)" stroke="rgba(160,130,255,0.7)" stroke-width="1.2"/>
+  <line x1="32" y1="8" x2="32" y2="20" stroke="#4af0c8" stroke-width="1" opacity="0.5" stroke-linecap="round"/>
+  <line x1="32" y1="44" x2="32" y2="56" stroke="#4af0c8" stroke-width="1" opacity="0.5" stroke-linecap="round"/>
+  <line x1="8" y1="32" x2="20" y2="32" stroke="#4af0c8" stroke-width="1" opacity="0.5" stroke-linecap="round"/>
+  <line x1="44" y1="32" x2="56" y2="32" stroke="#4af0c8" stroke-width="1" opacity="0.5" stroke-linecap="round"/>
+  <circle cx="32" cy="32" r="1.5" fill="#4af0c8" opacity="0.8"/>
+  <line x1="50" y1="18" x2="46" y2="22" stroke="#5b9ef4" stroke-width="1" opacity="0.4" stroke-linecap="round"/>
+  <line x1="14" y1="18" x2="18" y2="22" stroke="#5b9ef4" stroke-width="1" opacity="0.4" stroke-linecap="round"/>
+</svg></div>
             <div class="rc-card-title">Lucid Dream Training</div>
             <div class="rc-card-body">
               To have a lucid dream you need to <strong>recognize you're dreaming while it's happening</strong>. The obstacle: your dreaming mind accepts everything as real by default.<br><br>
-              Reality checks train the habit of deliberate awareness. Do them enough while awake and your sleeping mind eventually asks the same question  -  and catches the answer.
+              Reality checks train the habit of deliberate awareness. Do them consistently while awake and your sleeping mind eventually asks the same question — and catches the answer.<br><br>
+              <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:0.5px;">Based on LaBerge (1980, Stanford) and Stumbrys et al. (2012) systematic review of lucid dream induction techniques.</span>
             </div>
           </div>
 
           <!-- Card 2: The pager -->
           <div class="rc-info-card">
             <div class="rc-card-eyebrow">02 / 05  -  The Pager</div>
-            <div class="rc-card-icon">📳</div>
+            <div class="rc-card-icon"><svg width="48" height="48" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <line x1="8" y1="44" x2="56" y2="44" stroke="rgba(74,240,200,0.2)" stroke-width="1"/>
+  <line x1="12" y1="44" x2="12" y2="34" stroke="#5b9ef4" stroke-width="1.2" stroke-linecap="round" opacity="0.5"/>
+  <circle cx="12" cy="33" r="1.8" fill="#5b9ef4" opacity="0.5"/>
+  <line x1="22" y1="44" x2="22" y2="26" stroke="#4af0c8" stroke-width="1.2" stroke-linecap="round" opacity="0.8"/>
+  <circle cx="22" cy="25" r="2" fill="#4af0c8" opacity="0.9"/>
+  <line x1="30" y1="44" x2="30" y2="38" stroke="#5b9ef4" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+  <circle cx="30" cy="37" r="1.5" fill="#5b9ef4" opacity="0.4"/>
+  <line x1="42" y1="44" x2="42" y2="18" stroke="#4af0c8" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/>
+  <circle cx="42" cy="17" r="2" fill="#4af0c8" opacity="0.8"/>
+  <line x1="52" y1="44" x2="52" y2="36" stroke="#5b9ef4" stroke-width="1.2" stroke-linecap="round" opacity="0.45"/>
+  <circle cx="52" cy="35" r="1.8" fill="#5b9ef4" opacity="0.45"/>
+  <text x="32" y="58" text-anchor="middle" font-family="DM Mono,monospace" font-size="6" fill="rgba(74,240,200,0.35)" letter-spacing="1.5">RANDOMIZED</text>
+</svg></div>
             <div class="rc-card-title">Random Triggers</div>
             <div class="rc-card-body">
-              The checks are sent at <strong>random intervals</strong> throughout your waking hours  -  not on a fixed schedule. Randomness is key. If you knew when to expect them, you'd anticipate them instead of genuinely checking.<br><br>
-              Each notification opens a short micro-task. The whole thing takes under 30 seconds.
+              Checks are sent at <strong>random intervals</strong> throughout your waking hours — not on a fixed schedule. Randomness is key. If you knew when to expect them, you'd anticipate them instead of genuinely checking.<br><br>
+              Research supports 5–10 checks per day as the effective range. Each check takes under 30 seconds, but the mental pause is the point — not the tap.
             </div>
           </div>
 
-          <!-- Card 3: Nose pinch -->
+          <!-- Card 3: Physical checks -->
           <div class="rc-info-card">
-            <div class="rc-card-eyebrow">03 / 05  -  Physical Check</div>
-            <div class="rc-card-icon">👃</div>
-            <div class="rc-card-title">Nose Pinch Test</div>
+            <div class="rc-card-eyebrow">03 / 05  -  Physical Checks</div>
+            <div class="rc-card-icon"><svg width="48" height="48" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M20 42 Q18 54 22 56 Q32 60 42 56 Q46 54 44 42" stroke="#4af0c8" stroke-width="1.2" fill="none" opacity="0.7" stroke-linecap="round"/>
+  <line x1="24" y1="42" x2="24" y2="20" stroke="#4af0c8" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/>
+  <line x1="30" y1="42" x2="30" y2="16" stroke="#4af0c8" stroke-width="1.4" stroke-linecap="round" opacity="0.9"/>
+  <line x1="36" y1="42" x2="36" y2="18" stroke="#4af0c8" stroke-width="1.2" stroke-linecap="round" opacity="0.7"/>
+  <line x1="42" y1="42" x2="42" y2="24" stroke="#4af0c8" stroke-width="1.2" stroke-linecap="round" opacity="0.6"/>
+  <path d="M20 42 Q16 38 16 32 Q16 27 20 26" stroke="#5b9ef4" stroke-width="1.2" fill="none" opacity="0.6" stroke-linecap="round"/>
+  <circle cx="24" cy="36" r="1" fill="rgba(74,240,200,0.4)"/>
+  <circle cx="30" cy="36" r="1" fill="rgba(74,240,200,0.4)"/>
+  <circle cx="36" cy="36" r="1" fill="rgba(74,240,200,0.4)"/>
+  <circle cx="42" cy="36" r="1" fill="rgba(74,240,200,0.4)"/>
+</svg></div>
+            <div class="rc-card-title">Physical Checks</div>
             <div class="rc-card-body">
-              Pinch your nose shut and try to breathe through it. In waking life: impossible. In a dream: <strong>you can still breathe</strong>.<br><br>
-              This is one of the most reliable checks available because it requires no subjective judgment  -  the result is binary and unmistakable once you're trained to test for it.
+              <strong>Nose pinch:</strong> Pinch your nose shut and try to breathe through it. In waking life: impossible. In a dream: you can still breathe. Binary and unmistakable once trained.<br><br>
+              <strong>Hand check:</strong> Look at your hands. Count your fingers slowly. In dreams, hands are frequently malformed — extra fingers, fused digits, shifting shapes.<br><br>
+              <strong>Text check:</strong> Read something near you. Look away, then read it again. In dreams, text almost always changes or becomes unreadable the second time.
             </div>
           </div>
 
           <!-- Card 4: Location + strangeness -->
           <div class="rc-info-card">
             <div class="rc-card-eyebrow">04 / 05  -  Mental Checks</div>
-            <div class="rc-card-icon">🧠</div>
+            <div class="rc-card-icon"><svg width="48" height="48" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="8" y="8" width="48" height="48" rx="2" stroke="rgba(74,240,200,0.15)" stroke-width="1"/>
+  <rect x="16" y="16" width="32" height="32" rx="2" stroke="rgba(74,240,200,0.3)" stroke-width="1"/>
+  <rect x="24" y="24" width="16" height="16" rx="1.5" stroke="rgba(74,240,200,0.55)" stroke-width="1.2"/>
+  <circle cx="32" cy="32" r="2.5" fill="#4af0c8" opacity="0.85"/>
+  <path d="M8 18 L8 8 L18 8" stroke="#5b9ef4" stroke-width="1.5" fill="none" opacity="0.5" stroke-linecap="round"/>
+  <path d="M46 8 L56 8 L56 18" stroke="#5b9ef4" stroke-width="1.5" fill="none" opacity="0.5" stroke-linecap="round"/>
+  <path d="M8 46 L8 56 L18 56" stroke="#5b9ef4" stroke-width="1.5" fill="none" opacity="0.5" stroke-linecap="round"/>
+  <path d="M46 56 L56 56 L56 46" stroke="#5b9ef4" stroke-width="1.5" fill="none" opacity="0.5" stroke-linecap="round"/>
+</svg></div>
             <div class="rc-card-title">Location & Strangeness</div>
             <div class="rc-card-body">
+              <strong>The critical question:</strong> Don't just perform the check mechanically. Genuinely ask yourself — 'Could this actually be a dream right now?' Pause with it. Visualize what becoming lucid would feel like. This is the step most people skip, and it's the most important one.<br><br>
               <strong>Location memory:</strong> Dreams rarely have coherent origin stories. Ask yourself how you got here. If you can't trace it, that's a signal.<br><br>
-              <strong>Strangeness rating:</strong> Dream environments shift and distort in subtle ways. Rating your surroundings on a 1-5 scale trains you to notice when something's off.
+              <strong>Strangeness rating:</strong> Rate your environment 1–5 for anything that feels subtly off. Training this perception while awake is what carries it into dreams.
             </div>
           </div>
 
-          <!-- Card 5: Evening primer -->
+          <!-- Card 5: WBTB window -->
           <div class="rc-info-card">
-            <div class="rc-card-eyebrow">05 / 05  -  Evening Primer</div>
-            <div class="rc-card-icon">✦</div>
-            <div class="rc-card-title">Pre-Sleep Suggestion</div>
+            <div class="rc-card-eyebrow">05 / 05  -  The WBTB Window</div>
+            <div class="rc-card-icon"><svg width="48" height="48" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M10 44 A26 26 0 0 1 54 44" stroke="rgba(74,240,200,0.25)" stroke-width="1" fill="none"/>
+  <path d="M28 20 A26 26 0 0 1 36 20" stroke="#4af0c8" stroke-width="2.5" fill="none" stroke-linecap="round" opacity="0.9"/>
+  <circle cx="32" cy="18" r="3" fill="none" stroke="#4af0c8" stroke-width="1.5" opacity="0.9"/>
+  <circle cx="32" cy="18" r="1.2" fill="#4af0c8" opacity="0.9"/>
+  <line x1="12" y1="38" x2="15" y2="34" stroke="#5b9ef4" stroke-width="1" opacity="0.4" stroke-linecap="round"/>
+  <line x1="20" y1="24" x2="23" y2="22" stroke="#5b9ef4" stroke-width="1" opacity="0.4" stroke-linecap="round"/>
+  <line x1="44" y1="24" x2="41" y2="22" stroke="#5b9ef4" stroke-width="1" opacity="0.4" stroke-linecap="round"/>
+  <line x1="52" y1="38" x2="49" y2="34" stroke="#5b9ef4" stroke-width="1" opacity="0.4" stroke-linecap="round"/>
+  <text x="32" y="56" text-anchor="middle" font-family="DM Mono,monospace" font-size="6" fill="rgba(74,240,200,0.4)" letter-spacing="1">5–6 HRS</text>
+</svg></div>
+            <div class="rc-card-title">The WBTB Window</div>
             <div class="rc-card-body">
-              30 minutes before your set bedtime, the pager sends a final notification with a presleep intention.<br><br>
-              This targets the <strong>hypnagogic transition</strong>  -  the window between wakefulness and sleep where suggestion is most effective. It reinforces the habit right before your mind enters the state you're training for.
+              The most effective intervention isn't the daytime checks — it's what happens <strong>after your first 5–6 hours of sleep</strong>.<br><br>
+              When the WBTB alarm wakes you, stay awake for 20–60 minutes and practice the MILD technique: recall your last dream, identify a strange element in it, visualize yourself back in that dream becoming lucid, and repeat the intention <em>'Next time I'm dreaming, I will recognize I'm dreaming.'</em> Then return to sleep.<br><br>
+              Research shows WBTB + MILD produces lucid dreams in up to 54% of participants. The daytime checks build the habit — this window is the mechanism.<br><br>
+              <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:0.5px;">Aspy et al. (2017, 2020) · LaBerge et al. (1994, Stanford)</span>
             </div>
           </div>
 
@@ -5062,7 +5153,13 @@ html, body {
           <strong>Pinch your nose.</strong> Can you breathe through it?<br>
           <span style="color:var(--dim);font-size:9px;">In dreams, you usually can.</span>
         </div>
-        <button class="btn btn-primary" style="margin-top:14px;" id="rc-task-done-btn" onclick="completeRCTask()">Done</button>
+        <button class="btn btn-primary" style="margin-top:14px;" id="rc-task-done-btn" onclick="beginRCCriticalPause()">Done</button>
+        <div id="rc-critical-wrap" class="rc-critical-wrap" style="display:none;">
+          <div class="rc-critical-label">CRITICAL QUESTION</div>
+          <div class="rc-critical-question">Could this actually be a dream right now?</div>
+          <div class="rc-critical-hint">Don't answer immediately. Look around. Try to trace how you got here.</div>
+          <button class="btn btn-primary rc-critical-btn-disabled" style="margin-top:12px;" id="rc-critical-confirm-btn" onclick="finishRCCriticalPause()">I CHECKED</button>
+        </div>
       </div>
 
     </div>
@@ -6845,6 +6942,45 @@ const RC_TASKS = [
 ];
 
 let rcTaskIndex = 0;
+let rcCriticalEnableTimer = null;
+
+function getRCSessions() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('ablty_rc_sessions') || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveRCSessions(sessions) {
+  localStorage.setItem('ablty_rc_sessions', JSON.stringify(Array.isArray(sessions) ? sessions : []));
+}
+
+function appendRCSession(pausedForCriticalQ) {
+  const sessions = getRCSessions();
+  const task = RC_TASKS[rcTaskIndex] || null;
+  sessions.push({
+    timestamp: new Date().toISOString(),
+    pausedForCriticalQ: !!pausedForCriticalQ,
+    taskTag: task?.tag || '',
+  });
+  saveRCSessions(sessions);
+}
+
+function resetRCCriticalPauseUI() {
+  if (rcCriticalEnableTimer) {
+    clearTimeout(rcCriticalEnableTimer);
+    rcCriticalEnableTimer = null;
+  }
+  const criticalWrap = document.getElementById('rc-critical-wrap');
+  const criticalBtn = document.getElementById('rc-critical-confirm-btn');
+  if (criticalWrap) criticalWrap.style.display = 'none';
+  if (criticalBtn) {
+    criticalBtn.disabled = true;
+    criticalBtn.classList.add('rc-critical-btn-disabled');
+  }
+}
 
 function openRCTask() {
   // Rotate through tasks
@@ -6873,7 +7009,11 @@ function openRCTask() {
   }
 
   const doneBtn = document.getElementById('rc-task-done-btn');
-  if (doneBtn) doneBtn.disabled = task.type === 'rating'; // require selection for rating
+  if (doneBtn) {
+    doneBtn.disabled = task.type === 'rating'; // require selection for rating
+    doneBtn.style.display = 'block';
+  }
+  resetRCCriticalPauseUI();
 }
 
 function selectRating(btn) {
@@ -6883,9 +7023,37 @@ function selectRating(btn) {
   if (doneBtn) doneBtn.disabled = false;
 }
 
-function completeRCTask() {
+function beginRCCriticalPause() {
+  const doneBtn = document.getElementById('rc-task-done-btn');
+  const criticalWrap = document.getElementById('rc-critical-wrap');
+  const criticalBtn = document.getElementById('rc-critical-confirm-btn');
+  if (!criticalWrap || !criticalBtn) {
+    completeRCTask(false);
+    return;
+  }
+  if (doneBtn && doneBtn.disabled) return;
+  if (doneBtn) doneBtn.style.display = 'none';
+
+  criticalWrap.style.display = 'block';
+  criticalBtn.disabled = true;
+  criticalBtn.classList.add('rc-critical-btn-disabled');
+  if (rcCriticalEnableTimer) clearTimeout(rcCriticalEnableTimer);
+  rcCriticalEnableTimer = setTimeout(() => {
+    criticalBtn.disabled = false;
+    criticalBtn.classList.remove('rc-critical-btn-disabled');
+    rcCriticalEnableTimer = null;
+  }, 4000);
+}
+
+function finishRCCriticalPause() {
+  completeRCTask(true);
+}
+
+function completeRCTask(pausedForCriticalQ = false) {
+  appendRCSession(pausedForCriticalQ);
   incrementRCStreak();
   renderRCScreen();
+  resetRCCriticalPauseUI();
   // Go back to where the user came from or home
   navigate('home');
 }
@@ -12653,7 +12821,7 @@ window.addEventListener('error', (e) => {
           <div class="ob-num">03</div>
           <div class="ob-row-text">
             <div class="ob-row-label">Reality Check Pager</div>
-            <div class="ob-row-sub">Randomized daily notifications that build perceptual awareness  -  the foundation of lucid dreaming practice.</div>
+            <div class="ob-row-sub">Randomized daily checks build the perceptual habit. Paired with WBTB + MILD  -  the most research-backed lucid dream induction combination available.</div>
           </div>
         </div>
         <div class="ob-row">
