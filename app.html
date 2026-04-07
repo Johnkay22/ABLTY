@@ -10491,6 +10491,15 @@ function bindProfilePullToDismiss() {
   const screen = document.getElementById('screen-profile');
   if (!screen) return;
   profilePullGestureBound = true;
+  const DISMISS_THRESHOLD = 78;
+
+  let indicator = screen.querySelector('.profile-pull-indicator');
+  if (!indicator) {
+    indicator = document.createElement('div');
+    indicator.className = 'profile-pull-indicator';
+    indicator.textContent = 'PULL TO CLOSE';
+    screen.appendChild(indicator);
+  }
 
   let startY = 0;
   let startX = 0;
@@ -10500,6 +10509,19 @@ function bindProfilePullToDismiss() {
   let lockedHorizontal = false;
   let lockedVertical = false;
 
+  function updateIndicator(delta) {
+    if (!indicator) return;
+    if (!delta || delta < 8) {
+      indicator.classList.remove('show', 'ready');
+      indicator.textContent = 'PULL TO CLOSE';
+      return;
+    }
+    indicator.classList.add('show');
+    const ready = delta >= DISMISS_THRESHOLD;
+    indicator.classList.toggle('ready', ready);
+    indicator.textContent = ready ? 'RELEASE TO CLOSE' : 'PULL TO CLOSE';
+  }
+
   function reset() {
     dragging = false;
     pointerId = null;
@@ -10508,6 +10530,7 @@ function bindProfilePullToDismiss() {
     lockedVertical = false;
     screen.classList.remove('profile-pull-active');
     screen.style.transform = '';
+    updateIndicator(0);
   }
 
   function begin(clientX, clientY, id) {
@@ -10521,6 +10544,7 @@ function bindProfilePullToDismiss() {
     lockedHorizontal = false;
     lockedVertical = false;
     screen.classList.add('profile-pull-active');
+    updateIndicator(0);
     return true;
   }
 
@@ -10543,17 +10567,19 @@ function bindProfilePullToDismiss() {
     if (dy <= 0) {
       lastDelta = 0;
       screen.style.transform = '';
+      updateIndicator(0);
       return;
     }
 
     const eased = Math.min(120, dy * 0.52);
     lastDelta = eased;
     screen.style.transform = `translateY(${eased}px)`;
+    updateIndicator(eased);
   }
 
   function end() {
     if (!dragging) return;
-    const shouldDismiss = lastDelta >= 48;
+    const shouldDismiss = lastDelta >= DISMISS_THRESHOLD;
     reset();
     if (shouldDismiss) {
       navigate('home');
