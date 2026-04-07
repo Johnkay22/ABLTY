@@ -8648,6 +8648,9 @@ function buildOverviewSparklines() {
   const presentimentMeanDelta = presentimentTaps.length
     ? (presentimentTaps.reduce((a, t) => a + Math.abs(Number(t.delta)), 0) / presentimentTaps.length)
     : null;
+  const presentimentAvgPct = presentimentValues.length
+    ? (presentimentValues.reduce((a, b) => a + b, 0) / presentimentValues.length)
+    : null;
 
   const ppValues = ppSessions.map((s) => (s?.hit ? 100 : 0));
   const ppAvg = ppValues.length ? (ppValues.reduce((a, b) => a + b, 0) / ppValues.length) : null;
@@ -8674,7 +8677,7 @@ function buildOverviewSparklines() {
       values: rollingAverage(presentimentValues, 5),
       count: presentimentValues.length,
       baselinePct: (1 - (10 / 30)) * 100,
-      avgLabel: presentimentMeanDelta === null ? '--' : (presentimentMeanDelta.toFixed(1) + 's'),
+      avgLabel: presentimentAvgPct === null ? '--' : (Math.round(presentimentAvgPct) + '%'),
       avgColor: presentimentMeanDelta === null ? 'var(--muted)' : (presentimentMeanDelta < 10 ? 'var(--accent)' : presentimentMeanDelta > 10 ? 'var(--danger)' : 'var(--muted)'),
     },
     {
