@@ -10980,6 +10980,40 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
+const VERSION_MANIFEST_PATH = '/version.json';
+
+async function fetchManifestVersion(url, cacheMode = 'default') {
+  try {
+    const resp = await fetch(url, {
+      method: 'GET',
+      cache: cacheMode,
+      headers: { 'Accept': 'application/json' },
+    });
+    if (!resp || !resp.ok) return '';
+    const data = await resp.json().catch(() => null);
+    const version = String(data?.version || '').trim();
+    return version;
+  } catch (e) {
+    return '';
+  }
+}
+
+async function checkVersionManifestUpdate() {
+  try {
+    // "current" comes from default fetch path (typically SW cache if installed).
+    // "remote" bypasses cache and asks server for latest manifest.
+    const remoteUrl = VERSION_MANIFEST_PATH + '?update_check=' + Date.now();
+    const [currentVersion, remoteVersion] = await Promise.all([
+      fetchManifestVersion(VERSION_MANIFEST_PATH, 'default'),
+      fetchManifestVersion(remoteUrl, 'no-store'),
+    ]);
+    if (!currentVersion || !remoteVersion) return;
+    if (currentVersion !== remoteVersion) {
+      window._pendingManifestVersion = remoteVersion;
+      showUpdateBanner();
+    }
+  } catch (e) {}
+}
 
 async function checkHtmlUpdateFallback() {
   try {
@@ -11030,6 +11064,7 @@ async function registerSW() {
     try {
       await reg.update();
       checkForWaitingUpdate();
+      checkVersionManifestUpdate();
       checkHtmlUpdateFallback();
     } catch(e) {}
 
@@ -11064,6 +11099,7 @@ async function registerSW() {
           await reg.update();
         } catch (e) {}
         checkForWaitingUpdate();
+        checkVersionManifestUpdate();
         checkHtmlUpdateFallback();
       };
       setInterval(poll, 60000);
@@ -11077,7 +11113,10 @@ async function registerSW() {
       if (event.data && event.data.type === 'RC_OPEN')     openRCTask();
       if (event.data && event.data.type === 'WBTB_OPEN')   openWBTBWakeScreen();
       if (event.data && event.data.type === 'WBTB_RETURN') showWBTBReturnPrompt();
-      if (event.data && event.data.type === 'UPDATE_READY') checkForWaitingUpdate();
+      if (event.data && event.data.type === 'UPDATE_READY') {
+        checkForWaitingUpdate();
+        checkVersionManifestUpdate();
+      }
     });
 
     setTimeout(() => validatePushSubscription(reg), 2000);
