@@ -229,14 +229,14 @@ html, body {
   top: calc(6px + var(--safe-top));
   left: 50%;
   transform: translate(-50%, -12px);
-  padding: 5px 10px;
+  padding: 6px 11px;
   border-radius: 999px;
-  border: 1px solid var(--border2);
-  background: rgba(10,11,13,0.92);
+  border: 1px solid rgba(74,240,200,0.28);
+  background: rgba(10,11,13,0.96);
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 8px;
-  letter-spacing: 1.1px;
+  font-size: 9px;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
   opacity: 0;
   pointer-events: none;
@@ -10544,7 +10544,7 @@ function bindProfilePullToDismiss() {
 
   function updateIndicator(delta) {
     if (!indicator) return;
-    if (!delta || delta < 8) {
+    if (!delta || delta <= 0) {
       indicator.classList.remove('show', 'ready');
       indicator.textContent = 'PULL TO CLOSE';
       return;
@@ -10577,7 +10577,9 @@ function bindProfilePullToDismiss() {
     lockedHorizontal = false;
     lockedVertical = false;
     screen.classList.add('profile-pull-active');
-    updateIndicator(0);
+    indicator.classList.add('show');
+    indicator.classList.remove('ready');
+    indicator.textContent = 'PULL TO CLOSE';
     return true;
   }
 
@@ -11013,6 +11015,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
+const APP_VERSION = '2026.04.07.3';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -11033,15 +11036,10 @@ async function fetchManifestVersion(url, cacheMode = 'default') {
 
 async function checkVersionManifestUpdate() {
   try {
-    // "current" comes from default fetch path (typically SW cache if installed).
-    // "remote" bypasses cache and asks server for latest manifest.
     const remoteUrl = VERSION_MANIFEST_PATH + '?update_check=' + Date.now();
-    const [currentVersion, remoteVersion] = await Promise.all([
-      fetchManifestVersion(VERSION_MANIFEST_PATH, 'default'),
-      fetchManifestVersion(remoteUrl, 'no-store'),
-    ]);
-    if (!currentVersion || !remoteVersion) return;
-    if (currentVersion !== remoteVersion) {
+    const remoteVersion = await fetchManifestVersion(remoteUrl, 'no-store');
+    if (!remoteVersion) return;
+    if (remoteVersion !== APP_VERSION) {
       window._pendingManifestVersion = remoteVersion;
       showUpdateBanner();
     }
