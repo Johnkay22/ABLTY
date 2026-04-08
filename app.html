@@ -11332,9 +11332,15 @@ function buildPresentimentStats() {
   const timingAdvantageRaw = baselineMean > 0
     ? ((baselineMean - mean) / baselineMean) * 100
     : 0;
-  const timingAdvantage = Number.isFinite(timingAdvantageRaw) ? Math.max(0, timingAdvantageRaw) : 0;
-  const timingAdvantageRounded = Math.round(timingAdvantage);
+  const timingAdvantage = Number.isFinite(timingAdvantageRaw) ? Math.max(0, Math.round(timingAdvantageRaw)) : 0;
+  const timingAdvantageRounded = timingAdvantage;
 
+  console.log('[buildPresentimentStats gate vars]', {
+    confidence: confidencePct,
+    timingAdvantage,
+    allTrialsLength: allTrials.length,
+    strictHitRate
+  });
   let signalLabel, signalColor, signalNote;
   if (taps.length < 8) {
     signalLabel = 'INSUFFICIENT DATA';
