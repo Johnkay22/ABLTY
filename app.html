@@ -11346,11 +11346,11 @@ function buildPresentimentStats() {
     signalLabel = 'INSUFFICIENT DATA';
     signalColor = 'var(--muted)';
     signalNote = 'Complete 8+ tapped trials to unlock signal analysis.';
-  } else if (confidencePct > 80 && timingAdvantage > 8 && allTrials.length >= 50 && strictHitRate > 15) {
+  } else if (confidencePct > 90 && timingAdvantage >= 10 && allTrials.length >= 75 && strictHitRate >= 18) {
     signalLabel = 'STRONG SIGNAL';
     signalColor = 'var(--accent)';
     signalNote = 'Your timing pattern is statistically unlikely to be random across a meaningful sample.';
-  } else if (confidencePct > 65 && timingAdvantage > 4 && allTrials.length >= 25) {
+  } else if (confidencePct > 70 && timingAdvantage >= 4 && allTrials.length >= 25 && strictHitRate >= 10) {
     signalLabel = 'MODERATE SIGNAL';
     signalColor = '#a3e4d0';
     signalNote = 'Early pattern detected. Continue training to strengthen the signal.';
