@@ -1079,6 +1079,92 @@ async function sendWebPush(subscription, payload, env, isPrimer = false) {
   });
 }
 
+// --- WEB PUSH ENCRYPTION (RFC 8291 aes128gcm) ----------
+async function encryptPushPayload(plaintext, p256dhB64, authB64) {
+  const uaPublic = base64ToBytes(p256dhB64);
+  const authSecret = base64ToBytes(authB64);
+
+  // Generate ephemeral ECDH key pair
+  const asKeyPair = await crypto.subtle.generateKey(
+    { name: 'ECDH', namedCurve: 'P-256' },
+    true,
+    ['deriveBits']
+  );
+  const asPublicRaw = new Uint8Array(
+    await crypto.subtle.exportKey('raw', asKeyPair.publicKey)
+  );
+
+  // Import subscriber's p256dh public key
+  const uaKey = await crypto.subtle.importKey(
+    'raw', uaPublic,
+    { name: 'ECDH', namedCurve: 'P-256' },
+    false, []
+  );
+
+  // ECDH shared secret
+  const ecdhSecret = new Uint8Array(
+    await crypto.subtle.deriveBits(
+      { name: 'ECDH', public: uaKey },
+      asKeyPair.privateKey,
+      256
+    )
+  );
+
+  // Derive IKM: HKDF(salt=authSecret, ikm=ecdhSecret, info="WebPush: info\0" || uaPublic || asPublic)
+  const authInfo = concatBytes(
+    new TextEncoder().encode('WebPush: info\0'),
+    uaPublic,
+    asPublicRaw
+  );
+  const ikm = await hkdfDerive(ecdhSecret, authSecret, authInfo, 32);
+
+  // Random salt for content encryption
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+
+  // Derive content encryption key (16 bytes) and nonce (12 bytes)
+  const cekInfo = new TextEncoder().encode('Content-Encoding: aes128gcm\0');
+  const nonceInfo = new TextEncoder().encode('Content-Encoding: nonce\0');
+  const cek = await hkdfDerive(ikm, salt, cekInfo, 16);
+  const nonce = await hkdfDerive(ikm, salt, nonceInfo, 12);
+
+  // Pad plaintext with 0x02 delimiter (final record)
+  const padded = concatBytes(plaintext, new Uint8Array([2]));
+
+  // Encrypt with AES-128-GCM
+  const cekKey = await crypto.subtle.importKey('raw', cek, { name: 'AES-GCM' }, false, ['encrypt']);
+  const ciphertext = new Uint8Array(
+    await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, cekKey, padded)
+  );
+
+  // Build aes128gcm payload: salt(16) + rs(4) + idlen(1) + keyid(65) + ciphertext
+  const header = new Uint8Array(86);
+  header.set(salt, 0);
+  new DataView(header.buffer).setUint32(16, 4096);
+  header[20] = 65;
+  header.set(asPublicRaw, 21);
+
+  return concatBytes(header, ciphertext);
+}
+
+async function hkdfDerive(ikm, salt, info, length) {
+  const key = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
+  return new Uint8Array(
+    await crypto.subtle.deriveBits(
+      { name: 'HKDF', hash: 'SHA-256', salt, info },
+      key,
+      length * 8
+    )
+  );
+}
+
+function concatBytes(...arrays) {
+  const total = arrays.reduce((sum, a) => sum + a.length, 0);
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const a of arrays) { result.set(a, offset); offset += a.length; }
+  return result;
+}
+
 async function sendVapidPush(subscription, env, opts = {}) {
   const endpoint = subscription.endpoint;
   const p256dh = subscription.keys?.p256dh;
@@ -1116,19 +1202,28 @@ async function sendVapidPush(subscription, env, opts = {}) {
 
   const jwt = `${signingInput}.${b64url(sig)}`;
   const bodyText = typeof opts.bodyText === 'string' ? opts.bodyText : null;
-  const pushBody = bodyText ? new TextEncoder().encode(bodyText) : null;
   const ttl = opts.ttl || '86400';
   const errorPrefix = opts.errorPrefix || 'Push failed';
 
+  let pushBody = null;
+  const pushHeaders = {
+    Authorization: `vapid t=${jwt}, k=${vapidPublic}`,
+    TTL: ttl,
+    'Content-Length': '0',
+  };
+
+  if (bodyText) {
+    const plaintext = new TextEncoder().encode(bodyText);
+    const encrypted = await encryptPushPayload(plaintext, p256dh, auth);
+    pushBody = encrypted;
+    pushHeaders['Content-Type'] = 'application/octet-stream';
+    pushHeaders['Content-Encoding'] = 'aes128gcm';
+    pushHeaders['Content-Length'] = String(encrypted.byteLength);
+  }
+
   const res = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      Authorization: `vapid t=${jwt}, k=${vapidPublic}`,
-      TTL: ttl,
-      ...(pushBody
-        ? { 'Content-Type': 'text/plain', 'Content-Length': String(pushBody.length) }
-        : { 'Content-Length': '0' }),
-    },
+    headers: pushHeaders,
     ...(pushBody ? { body: pushBody } : {}),
   });
 
