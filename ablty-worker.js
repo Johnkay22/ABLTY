@@ -245,6 +245,11 @@ export default {
     }
 
     if (url.pathname === '/wbtb-cancel' && request.method === 'POST') {
+      const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const rlKey = 'ratelimit:wbtbcancel:' + ip + ':' + new Date().toISOString().slice(0, 10);
+      const count = parseInt(await env.ABLTY_KV.get(rlKey) || '0', 10);
+      if (count >= 30) return json({ error: 'rate_limit' }, 429, origin);
+      await env.ABLTY_KV.put(rlKey, String(count + 1), { expirationTtl: 86400 });
       return handleWBTBCancel(request, env, origin);
     }
 
