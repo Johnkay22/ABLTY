@@ -4402,7 +4402,8 @@ html, body {
             <span style="font-family:var(--font-display);font-size:40px;color:var(--text);line-height:1;" id="cal-score">-</span>
             <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted);" id="cal-label">Need 3+ sessions</span>
           </div>
-          <div style="font-family:var(--font-mono);font-size:9px;color:var(--dim);margin-top:6px;line-height:1.5;" id="cal-desc">Complete more sessions to track trend</div>
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--dim);margin-top:6px;line-height:1.5;" id="cal-desc">Complete more sessions to see your calibration</div>
+          <div class="calibration-bars" id="cal-bars"></div>
         </div>
 
         <div class="chart-card" id="rv-chart-card">
@@ -5940,7 +5941,7 @@ const RV_DAILY_LIMIT = 2;
 
 function getTodayKey() {
   const d = new Date();
-  return d.getFullYear() + '-' + d.getMonth() + '-' + d.getDate();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
 function getDailyCount() {
@@ -5968,8 +5969,8 @@ function isPremiumTier() {
 }
 
 function startRVSession() {
-  // Check daily limit (skip for dev mode and premium users)
-  if (!isDevMode() && !isPremiumTier() && getDailyCount() >= RV_DAILY_LIMIT) {
+  // Check daily limit (skip for premium users; server enforces this too)
+  if (!isPremiumTier() && getDailyCount() >= RV_DAILY_LIMIT) {
     document.getElementById('limit-modal').style.display = 'flex';
     return;
   }
@@ -6024,7 +6025,7 @@ function saveSnapshot() {
   if (!canvas || !ctx) return;
   canvasHistory.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
   canvasRedo = [];
-  if (canvasHistory.length > 50) canvasHistory.shift();
+  if (canvasHistory.length > 30) canvasHistory.shift();
 }
 
 function restoreSnapshot(imageData) {
@@ -8732,7 +8733,7 @@ function renderAnalytics() {
 
   // Keep key sections rendered by their new tab grouping
   buildTODChart(rvSessions);
-  renderStreakBanner(rvSessions, zenerRuns);
+  renderStreakBanner(rvSessions, zenerRuns, tsTrials, ppSessions);
   buildOverviewSparklines();
   buildProtocolActivity();
 
@@ -9344,16 +9345,22 @@ function setEl(id, val) {
   if (el) el.textContent = val;
 }
 
-function calcStreak(rvSessions, zenerRuns) {
-  // Collect all unique active dates
+function calcStreak(rvSessions, zenerRuns, tsTrials, ppSessions) {
+  // Collect all unique active dates across all 4 protocols
   const dates = new Set();
-  [...rvSessions, ...zenerRuns].forEach(s => {
+  [...rvSessions, ...zenerRuns, ...(tsTrials || []), ...(ppSessions || [])].forEach(s => {
     const d = new Date(s.timestamp);
     dates.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
   });
-  let streak = 0;
   const now = new Date();
-  for (let i = 0; i < 365; i++) {
+  const todayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+
+  // If no session today, start counting from yesterday —
+  // the streak is still alive until end of today.
+  const startOffset = dates.has(todayKey) ? 0 : 1;
+
+  let streak = 0;
+  for (let i = startOffset; i < 365; i++) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
     const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -9914,17 +9921,17 @@ function renderZenerDetail(run) {
 //  STREAK BANNER
 // ═══════════════════════════════════════════════════════
 
-function renderStreakBanner(rvSessions, zenerRuns) {
+function renderStreakBanner(rvSessions, zenerRuns, tsTrials, ppSessions) {
   const wrap = document.getElementById('streak-banner-wrap');
   if (!wrap) return;
 
-  const streak = calcStreak(rvSessions, zenerRuns);
+  const streak = calcStreak(rvSessions, zenerRuns, tsTrials, ppSessions);
 
   // Check if user trained yesterday (to detect broken streak)
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yKey = `${yesterday.getFullYear()}-${yesterday.getMonth()}-${yesterday.getDate()}`;
-  const allDates = new Set([...rvSessions, ...zenerRuns].map(s => {
+  const allDates = new Set([...rvSessions, ...zenerRuns, ...(tsTrials || []), ...(ppSessions || [])].map(s => {
     const d = new Date(s.timestamp);
     return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
   }));
@@ -9939,22 +9946,26 @@ function renderStreakBanner(rvSessions, zenerRuns) {
   if (streak >= 3) {
     icon = '🔥';
     title = `${streak}-DAY STREAK`;
-    sub = trainedToday ? 'Active today. Keep it going.' : 'Train today to maintain your streak.';
+    sub = trainedToday ? 'Active today. Keep it going.' : 'Train today to keep your streak alive.';
     cls = 'active';
   } else if (streak === 1 || streak === 2) {
     icon = '⚡';
     title = `${streak}-DAY STREAK`;
-    sub = trainedToday ? 'Good. Train again tomorrow.' : 'Train today to build momentum.';
+    sub = trainedToday ? 'Good. Train again tomorrow.' : 'Train today to keep building.';
     cls = 'active';
-  } else if (!trainedToday && trainedYesterday) {
-    icon = '💀';
-    title = 'STREAK BROKEN';
-    sub = 'You missed yesterday. Start a new streak today.';
-    cls = 'broken';
+  } else if (trainedYesterday && !trainedToday) {
+    // They trained yesterday but calcStreak returned 0 — means the day
+    // before yesterday was a miss, so they only have a 1-day run.
+    // This shouldn't normally happen with the new calcStreak (which would
+    // return 1), but kept as a safety net.
+    icon = '⚡';
+    title = '1-DAY STREAK';
+    sub = 'Train today to keep building.';
+    cls = 'active';
   } else {
     icon = '○';
     title = 'NO ACTIVE STREAK';
-    sub = 'Train daily to build a streak.';
+    sub = 'Complete a session to start a new streak.';
     cls = 'cold';
   }
 
@@ -9968,8 +9979,34 @@ function renderStreakBanner(rvSessions, zenerRuns) {
 }
 
 // ═══════════════════════════════════════════════════════
-//  CALIBRATION SCORE
+//  RV CALIBRATION SCORE
 // ═══════════════════════════════════════════════════════
+//
+//  Calibration = how consistent + above-chance your signal is.
+//
+//  Formula:  calScore = consistency * performance
+//
+//  consistency (0-100):  100 minus the coefficient of variation of
+//                        recent scores, clamped to 0-100.  Low spread
+//                        around the mean = high consistency.
+//
+//  performance (0-1):    recent average / 100, so a consistent viewer
+//                        who averages 20% isn't rewarded the same as
+//                        one who averages 70%.
+//
+//  The trend arrow compares recent-half calibration vs early-half.
+
+function calcCalibrationScore(scores) {
+  if (!scores.length) return 0;
+  const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+  if (mean === 0) return 0;
+  const variance = scores.reduce((a, v) => a + (v - mean) ** 2, 0) / scores.length;
+  const stdDev = Math.sqrt(variance);
+  const cv = (stdDev / mean) * 100;                  // coefficient of variation as %
+  const consistency = Math.max(0, Math.min(100, 100 - cv));
+  const performance = mean / 100;                     // 0-1 scale
+  return Math.round(consistency * performance);
+}
 
 function renderCalibration(rvSessions) {
   const arrowEl = document.getElementById('cal-arrow');
@@ -9981,44 +10018,42 @@ function renderCalibration(rvSessions) {
   if (!rvSessions || rvSessions.length < 3) {
     if (scoreEl) scoreEl.textContent = '-';
     if (labelEl) labelEl.textContent = `Need ${Math.max(0, 3 - (rvSessions||[]).length)} more sessions`;
-    if (descEl)  descEl.textContent  = 'Complete more RV sessions to see your calibration trend.';
+    if (descEl)  descEl.textContent  = 'Complete more RV sessions to see your calibration score.';
     if (barsEl)  barsEl.innerHTML    = '';
     return;
   }
 
-  // Split sessions into two halves  -  early vs recent
   const sorted = [...rvSessions].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  const allScores = sorted.map(s => Number(s.score));
   const half = Math.floor(sorted.length / 2);
-  const early  = sorted.slice(0, half);
-  const recent = sorted.slice(half);
+  const earlyScores  = allScores.slice(0, half);
+  const recentScores = allScores.slice(half);
 
-  const earlyAvg  = Math.round(early.reduce((a,s)  => a + s.score, 0) / early.length);
-  const recentAvg = Math.round(recent.reduce((a,s) => a + s.score, 0) / recent.length);
-  const delta = recentAvg - earlyAvg;
+  const earlyCal  = calcCalibrationScore(earlyScores);
+  const recentCal = calcCalibrationScore(recentScores);
+  const calScore  = calcCalibrationScore(allScores);
+  const delta = recentCal - earlyCal;
 
-  // Current calibration score = weighted recent avg
-  const calScore = recentAvg;
-
-  if (scoreEl) scoreEl.textContent = calScore + '%';
+  if (scoreEl) scoreEl.textContent = calScore;
 
   if (delta > 3) {
     if (arrowEl) { arrowEl.textContent = '↑'; arrowEl.className = 'trend-arrow up'; }
-    if (labelEl) labelEl.textContent = `+${delta}% vs early sessions`;
-    if (descEl)  descEl.textContent  = 'Signal quality is improving. Recent sessions outperform your baseline.';
+    if (labelEl) labelEl.textContent = `+${delta} vs earlier sessions`;
+    if (descEl)  descEl.textContent  = 'Your signal is getting stronger and more consistent.';
   } else if (delta < -3) {
     if (arrowEl) { arrowEl.textContent = '↓'; arrowEl.className = 'trend-arrow down'; }
-    if (labelEl) labelEl.textContent = `${delta}% vs early sessions`;
-    if (descEl)  descEl.textContent  = 'Recent performance is below your early baseline. Review session conditions.';
+    if (labelEl) labelEl.textContent = `${delta} vs earlier sessions`;
+    if (descEl)  descEl.textContent  = 'Recent sessions are less consistent. Try controlling session conditions.';
   } else {
     if (arrowEl) { arrowEl.textContent = '→'; arrowEl.className = 'trend-arrow flat'; }
-    if (labelEl) labelEl.textContent = 'Stable trend';
-    if (descEl)  descEl.textContent  = 'Performance is consistent. Continue building your session history.';
+    if (labelEl) labelEl.textContent = 'Holding steady';
+    if (descEl)  descEl.textContent  = 'Your signal consistency is stable. Keep building your session count.';
   }
 
   // Mini bar chart of all scores
   if (barsEl && sorted.length) {
     const maxScore = 100;
-    const cutoff = sorted.length - recent.length;
+    const cutoff = sorted.length - recentScores.length;
     barsEl.innerHTML = sorted.map((s, i) => {
       const h = Math.max(4, Math.round((s.score / maxScore) * 40));
       const isRecent = i >= cutoff;
@@ -10051,10 +10086,14 @@ async function rvGoStep(n) {
       await rvAssignTarget();
     } catch (e) {
       console.warn('[ABLTY] Failed to assign RV target:', e?.message || e);
-      showToast('Could not assign a target. Please check your connection and try again.', 'warn', 5000);
       document.querySelectorAll('.rv-step').forEach(s => s.classList.remove('active'));
       const step1 = document.getElementById('rv-step-1');
       if (step1) step1.classList.add('active');
+      if (e.code === 'daily_limit') {
+        document.getElementById('limit-modal').style.display = 'flex';
+      } else {
+        showToast('Could not assign a target. Please check your connection and try again.', 'warn', 5000);
+      }
     }
     return;
   }
@@ -10069,14 +10108,23 @@ function sanitizeRVCategory(cat) {
 }
 
 async function requestRVAssignment(category) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (sb) {
+    try {
+      const { data: s } = await sb.auth.getSession();
+      if (s?.session?.access_token) headers['Authorization'] = 'Bearer ' + s.session.access_token;
+    } catch (e) {}
+  }
   const resp = await fetch(WORKER_URL + '/rv-assign', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ category: sanitizeRVCategory(category) }),
   });
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok || data?.error) {
-    throw new Error(data?.message || data?.error || ('Worker error ' + resp.status));
+    const err = new Error(data?.message || data?.error || ('Worker error ' + resp.status));
+    err.code = data?.error || '';
+    throw err;
   }
   if (!data?.assignment_id || !data?.trn) {
     throw new Error('Invalid assignment response');

@@ -75,7 +75,7 @@ function getCORS(origin) {
   return {
     'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Stripe-Signature',
+    'Access-Control-Allow-Headers': 'Content-Type, Stripe-Signature, Authorization',
     Vary: 'Origin',
   };
 }
@@ -88,9 +88,15 @@ function json(data, status = 200, origin = '') {
 }
 
 function isAllowedOrigin(origin) {
-  // Allow during local development (empty origin or localhost)
-  if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) return true;
-  return ALLOWED_ORIGINS.includes(origin);
+  if (!origin) return true;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  // Allow actual localhost during development (exact hostname match)
+  try {
+    const h = new URL(origin).hostname;
+    return h === 'localhost' || h === '127.0.0.1';
+  } catch (e) {
+    return false;
+  }
 }
 
 function sanitizeRVCategory(category) {
@@ -203,6 +209,20 @@ export default {
         return json({ error: 'rate_limit', message: 'Too many target requests. Try again later.' }, 429, origin);
       }
       await env.ABLTY_KV.put(rateLimitKey, String(current + 1), { expirationTtl: 86400 });
+
+      // Free-tier daily limit (2/day) — premium users bypass
+      const authHeader = request.headers.get('Authorization') || '';
+      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+      const isPremium = token ? await checkPremiumTier(token, env) : false;
+      if (!isPremium) {
+        const dailyKey = 'rvdaily:' + ip + ':' + new Date().toISOString().slice(0, 10);
+        const dailyCount = parseInt(await env.ABLTY_KV.get(dailyKey) || '0', 10);
+        if (dailyCount >= 2) {
+          return json({ error: 'daily_limit', message: 'Free tier allows 2 RV sessions per day. Upgrade to Premium for unlimited sessions.' }, 429, origin);
+        }
+        await env.ABLTY_KV.put(dailyKey, String(dailyCount + 1), { expirationTtl: 86400 });
+      }
+
       return handleRVAssign(request, env, origin);
     }
 
@@ -225,6 +245,11 @@ export default {
     }
 
     if (url.pathname === '/wbtb-cancel' && request.method === 'POST') {
+      const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const rlKey = 'ratelimit:wbtbcancel:' + ip + ':' + new Date().toISOString().slice(0, 10);
+      const count = parseInt(await env.ABLTY_KV.get(rlKey) || '0', 10);
+      if (count >= 30) return json({ error: 'rate_limit' }, 429, origin);
+      await env.ABLTY_KV.put(rlKey, String(count + 1), { expirationTtl: 86400 });
       return handleWBTBCancel(request, env, origin);
     }
 
@@ -342,19 +367,17 @@ async function findSupabaseUserIdByEmail(email, env) {
     Authorization: 'Bearer ' + env.SUPABASE_SERVICE_KEY,
   };
 
-  for (let page = 1; page <= 8; page++) {
-    const u = new URL(env.SUPABASE_URL + '/auth/v1/admin/users');
-    u.searchParams.set('page', String(page));
-    u.searchParams.set('per_page', '200');
+  // Single-request lookup using Supabase admin email filter
+  const u = new URL(env.SUPABASE_URL + '/auth/v1/admin/users');
+  u.searchParams.set('filter', needle);
+  u.searchParams.set('per_page', '10');
 
-    const res = await fetch(u.toString(), { headers });
-    if (!res.ok) break;
-    const payload = await res.json().catch(() => ({}));
-    const users = payload?.users || [];
-    const match = users.find((u2) => String(u2?.email || '').toLowerCase() === needle);
-    if (match?.id) return match.id;
-    if (users.length < 200) break;
-  }
+  const res = await fetch(u.toString(), { headers });
+  if (!res.ok) return '';
+  const payload = await res.json().catch(() => ({}));
+  const users = payload?.users || [];
+  const match = users.find((u2) => String(u2?.email || '').toLowerCase() === needle);
+  if (match?.id) return match.id;
 
   return '';
 }
@@ -380,6 +403,50 @@ async function updateProfileTierByUserId(userId, tier, env) {
   if (!res.ok) {
     const txt = await res.text().catch(() => '');
     throw new Error('profiles tier update failed: ' + res.status + ' ' + txt);
+  }
+}
+
+async function checkPremiumTier(accessToken, env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) return false;
+  try {
+    // Verify token and get user ID
+    const userRes = await fetch(env.SUPABASE_URL + '/auth/v1/user', {
+      headers: {
+        apikey: env.SUPABASE_SERVICE_KEY,
+        Authorization: 'Bearer ' + accessToken,
+      },
+    });
+    if (!userRes.ok) return false;
+    const user = await userRes.json();
+    if (!user?.id) return false;
+
+    // Check KV cache first (avoids DB round-trip on repeat requests)
+    const cacheKey = 'tier:' + user.id;
+    const cached = await env.ABLTY_KV.get(cacheKey);
+    if (cached === 'premium') return true;
+    if (cached === 'free') return false;
+
+    // Look up tier in profiles table
+    const profileUrl = new URL(env.SUPABASE_URL + '/rest/v1/profiles');
+    profileUrl.searchParams.set('id', 'eq.' + user.id);
+    profileUrl.searchParams.set('select', 'tier');
+    const profileRes = await fetch(profileUrl.toString(), {
+      headers: {
+        apikey: env.SUPABASE_SERVICE_KEY,
+        Authorization: 'Bearer ' + env.SUPABASE_SERVICE_KEY,
+      },
+    });
+    if (!profileRes.ok) return false;
+    const profiles = await profileRes.json();
+    const tier = profiles?.[0]?.tier || 'free';
+
+    // Cache for 5 minutes
+    if (env.ABLTY_KV) {
+      await env.ABLTY_KV.put(cacheKey, tier, { expirationTtl: 300 });
+    }
+    return tier === 'premium';
+  } catch (e) {
+    return false;
   }
 }
 
@@ -748,7 +815,7 @@ async function handleGrade(request, env, origin = '') {
     }
 
     const sketch = String(body?.sketch || '');
-    if (!sketch || sketch.length < 100) {
+    if (!sketch || sketch.length < 100 || sketch.length > 5 * 1024 * 1024) {
       return json({ error: 'Missing or invalid sketch payload' }, 400, origin);
     }
     const notes = body?.notes;
@@ -883,7 +950,7 @@ async function handleTagDream(request, env, origin = '') {
 
     const body = await request.json().catch(() => ({}));
     const dreamText = String(body?.body || '').trim();
-    if (!dreamText) return json([], 200, origin);
+    if (!dreamText || dreamText.length > 10000) return json([], 200, origin);
 
     const prompt = [
       'You are a dream analysis assistant. Extract a list of recurring symbolic elements from the following dream description.',
@@ -941,7 +1008,7 @@ async function handleWBTBSchedule(request, env, origin = '') {
       return json({ error: 'Missing endpoint or fireAt' }, 400, origin);
     }
     const duration = Number(body.duration);
-    if (!Number.isFinite(duration) || duration <= 0) {
+    if (!Number.isFinite(duration) || duration <= 0 || duration > 12) {
       return json({ error: 'Missing or invalid duration' }, 400, origin);
     }
     if (!env.ABLTY_KV) return json({ error: 'KV not bound' }, 500, origin);
