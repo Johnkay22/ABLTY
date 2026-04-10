@@ -6024,7 +6024,7 @@ function saveSnapshot() {
   if (!canvas || !ctx) return;
   canvasHistory.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
   canvasRedo = [];
-  if (canvasHistory.length > 50) canvasHistory.shift();
+  if (canvasHistory.length > 30) canvasHistory.shift();
 }
 
 function restoreSnapshot(imageData) {
