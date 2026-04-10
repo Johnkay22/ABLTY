@@ -812,7 +812,7 @@ async function handleGrade(request, env, origin = '') {
     }
 
     const sketch = String(body?.sketch || '');
-    if (!sketch || sketch.length < 100) {
+    if (!sketch || sketch.length < 100 || sketch.length > 5 * 1024 * 1024) {
       return json({ error: 'Missing or invalid sketch payload' }, 400, origin);
     }
     const notes = body?.notes;
@@ -947,7 +947,7 @@ async function handleTagDream(request, env, origin = '') {
 
     const body = await request.json().catch(() => ({}));
     const dreamText = String(body?.body || '').trim();
-    if (!dreamText) return json([], 200, origin);
+    if (!dreamText || dreamText.length > 10000) return json([], 200, origin);
 
     const prompt = [
       'You are a dream analysis assistant. Extract a list of recurring symbolic elements from the following dream description.',
@@ -1005,7 +1005,7 @@ async function handleWBTBSchedule(request, env, origin = '') {
       return json({ error: 'Missing endpoint or fireAt' }, 400, origin);
     }
     const duration = Number(body.duration);
-    if (!Number.isFinite(duration) || duration <= 0) {
+    if (!Number.isFinite(duration) || duration <= 0 || duration > 12) {
       return json({ error: 'Missing or invalid duration' }, 400, origin);
     }
     if (!env.ABLTY_KV) return json({ error: 'KV not bound' }, 500, origin);
