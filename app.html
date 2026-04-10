@@ -1370,7 +1370,7 @@ html, body {
 }
 
 /* ═══════════════════════════════════════════
-   CALIBRATION SCORE
+   PROGRESS CARD
 ═══════════════════════════════════════════ */
 .calibration-card {
   background: var(--card); border: 1px solid var(--border);
@@ -4395,14 +4395,15 @@ html, body {
       <div class="analytics-panel" id="apanel-rv" style="margin-top:16px;">
         <div class="calibration-card" id="calibration-card">
           <div style="display:flex;align-items:center;justify-content:space-between;">
-            <div class="mono-label">RV Calibration</div>
+            <div class="mono-label">RV Progress</div>
             <span style="font-family:var(--font-mono);font-size:18px;" id="cal-arrow"> - </span>
           </div>
           <div style="display:flex;align-items:baseline;gap:10px;margin-top:6px;">
             <span style="font-family:var(--font-display);font-size:40px;color:var(--text);line-height:1;" id="cal-score">-</span>
             <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted);" id="cal-label">Need 3+ sessions</span>
           </div>
-          <div style="font-family:var(--font-mono);font-size:9px;color:var(--dim);margin-top:6px;line-height:1.5;" id="cal-desc">Complete more sessions to track trend</div>
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--dim);margin-top:6px;line-height:1.5;" id="cal-desc">Complete more sessions to track your progress</div>
+          <div class="calibration-bars" id="cal-bars"></div>
         </div>
 
         <div class="chart-card" id="rv-chart-card">
@@ -9968,7 +9969,7 @@ function renderStreakBanner(rvSessions, zenerRuns, tsTrials, ppSessions) {
 }
 
 // ═══════════════════════════════════════════════════════
-//  CALIBRATION SCORE
+//  RV PROGRESS
 // ═══════════════════════════════════════════════════════
 
 function renderCalibration(rvSessions) {
@@ -9981,7 +9982,7 @@ function renderCalibration(rvSessions) {
   if (!rvSessions || rvSessions.length < 3) {
     if (scoreEl) scoreEl.textContent = '-';
     if (labelEl) labelEl.textContent = `Need ${Math.max(0, 3 - (rvSessions||[]).length)} more sessions`;
-    if (descEl)  descEl.textContent  = 'Complete more RV sessions to see your calibration trend.';
+    if (descEl)  descEl.textContent  = 'Complete more RV sessions to see your progress trend.';
     if (barsEl)  barsEl.innerHTML    = '';
     return;
   }
@@ -9996,22 +9997,20 @@ function renderCalibration(rvSessions) {
   const recentAvg = Math.round(recent.reduce((a,s) => a + s.score, 0) / recent.length);
   const delta = recentAvg - earlyAvg;
 
-  // Current calibration score = weighted recent avg
-  const calScore = recentAvg;
-
-  if (scoreEl) scoreEl.textContent = calScore + '%';
+  // Display recent average as the headline score
+  if (scoreEl) scoreEl.textContent = recentAvg + '%';
 
   if (delta > 3) {
     if (arrowEl) { arrowEl.textContent = '↑'; arrowEl.className = 'trend-arrow up'; }
-    if (labelEl) labelEl.textContent = `+${delta}% vs early sessions`;
-    if (descEl)  descEl.textContent  = 'Signal quality is improving. Recent sessions outperform your baseline.';
+    if (labelEl) labelEl.textContent = `Recent avg +${delta}% vs earlier`;
+    if (descEl)  descEl.textContent  = 'Your scores are improving. Recent sessions outperform your earlier baseline.';
   } else if (delta < -3) {
     if (arrowEl) { arrowEl.textContent = '↓'; arrowEl.className = 'trend-arrow down'; }
-    if (labelEl) labelEl.textContent = `${delta}% vs early sessions`;
-    if (descEl)  descEl.textContent  = 'Recent performance is below your early baseline. Review session conditions.';
+    if (labelEl) labelEl.textContent = `Recent avg ${delta}% vs earlier`;
+    if (descEl)  descEl.textContent  = 'Recent scores are below your earlier baseline. Review session conditions.';
   } else {
     if (arrowEl) { arrowEl.textContent = '→'; arrowEl.className = 'trend-arrow flat'; }
-    if (labelEl) labelEl.textContent = 'Stable trend';
+    if (labelEl) labelEl.textContent = `Stable — recent avg ≈ earlier`;
     if (descEl)  descEl.textContent  = 'Performance is consistent. Continue building your session history.';
   }
 
@@ -13084,7 +13083,7 @@ window.addEventListener('error', (e) => {
           </div>
           <div>
             <div class="ob-benefit-title">Full Analytics</div>
-            <div class="ob-benefit-sub">Track score trends, calibration, and session history over time.</div>
+            <div class="ob-benefit-sub">Track score trends, progress, and session history over time.</div>
           </div>
         </div>
 
