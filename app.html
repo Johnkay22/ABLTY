@@ -5968,8 +5968,8 @@ function isPremiumTier() {
 }
 
 function startRVSession() {
-  // Check daily limit (skip for dev mode and premium users)
-  if (!isDevMode() && !isPremiumTier() && getDailyCount() >= RV_DAILY_LIMIT) {
+  // Check daily limit (skip for premium users; server enforces this too)
+  if (!isPremiumTier() && getDailyCount() >= RV_DAILY_LIMIT) {
     document.getElementById('limit-modal').style.display = 'flex';
     return;
   }
