@@ -362,19 +362,17 @@ async function findSupabaseUserIdByEmail(email, env) {
     Authorization: 'Bearer ' + env.SUPABASE_SERVICE_KEY,
   };
 
-  for (let page = 1; page <= 8; page++) {
-    const u = new URL(env.SUPABASE_URL + '/auth/v1/admin/users');
-    u.searchParams.set('page', String(page));
-    u.searchParams.set('per_page', '200');
+  // Single-request lookup using Supabase admin email filter
+  const u = new URL(env.SUPABASE_URL + '/auth/v1/admin/users');
+  u.searchParams.set('filter', needle);
+  u.searchParams.set('per_page', '10');
 
-    const res = await fetch(u.toString(), { headers });
-    if (!res.ok) break;
-    const payload = await res.json().catch(() => ({}));
-    const users = payload?.users || [];
-    const match = users.find((u2) => String(u2?.email || '').toLowerCase() === needle);
-    if (match?.id) return match.id;
-    if (users.length < 200) break;
-  }
+  const res = await fetch(u.toString(), { headers });
+  if (!res.ok) return '';
+  const payload = await res.json().catch(() => ({}));
+  const users = payload?.users || [];
+  const match = users.find((u2) => String(u2?.email || '').toLowerCase() === needle);
+  if (match?.id) return match.id;
 
   return '';
 }
