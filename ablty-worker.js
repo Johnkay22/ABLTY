@@ -88,9 +88,15 @@ function json(data, status = 200, origin = '') {
 }
 
 function isAllowedOrigin(origin) {
-  // Allow during local development (empty origin or localhost)
-  if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) return true;
-  return ALLOWED_ORIGINS.includes(origin);
+  if (!origin) return true;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  // Allow actual localhost during development (exact hostname match)
+  try {
+    const h = new URL(origin).hostname;
+    return h === 'localhost' || h === '127.0.0.1';
+  } catch (e) {
+    return false;
+  }
 }
 
 function sanitizeRVCategory(category) {
