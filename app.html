@@ -6468,6 +6468,39 @@ async function gradeSession(sketchB64, notes, assignmentId, trn) {
   return data;
 }
 
+async function retryGrading(sessionId) {
+  const session = STATE.sessions.find(s => String(s.id) === String(sessionId));
+  if (!session) { showToast('Session not found.', 'warn'); return; }
+  if (!session.sketchData) { showToast('No sketch data saved for this session.', 'warn'); return; }
+
+  const btn = document.querySelector('#detail-retry-card button');
+  if (btn) { btn.disabled = true; btn.textContent = 'GRADING...'; }
+
+  try {
+    const sketchB64 = session.sketchData.replace(/^data:image\/\w+;base64,/, '');
+    const result = await gradeSession(sketchB64, session.notes || '', session.assignmentId || '', session.trn || '');
+
+    if (result?.grading_failed) throw new Error(result.grading_error || 'Grading failed');
+
+    session.score = result.gestalt_score ?? result.overall_score ?? null;
+    session.dimension_scores = result.dimension_scores || null;
+    session.hits = result.hits || [];
+    session.noise = result.noise || [];
+    session.aol = result.aol || [];
+    session.summary = result.summary || '';
+    session.score_reasoning = result.score_reasoning || '';
+    session.grading_failed = false;
+    session.grading_error = null;
+    saveState();
+
+    showToast('Grading complete!', 'success');
+    renderRVDetail(session);
+  } catch (err) {
+    showToast('Grading failed: ' + (err.message || 'Try again later.'), 'warn');
+    if (btn) { btn.disabled = false; btn.textContent = 'RETRY GRADING'; }
+  }
+}
+
 // ─── PROFILE RENDER ───────────────────────────
 function renderProfile() {
   renderSettingsState();
@@ -9785,6 +9818,23 @@ function renderRVDetail(s) {
     setEl('detail-summary', 'AI grading failed for this session. Your sketch, target reveal, and notes were saved.');
   } else {
     setEl('detail-summary', s.summary || 'No summary available.');
+  }
+
+  // Retry grading button for failed sessions
+  let retryCard = document.getElementById('detail-retry-card');
+  if (!retryCard) {
+    retryCard = document.createElement('div');
+    retryCard.id = 'detail-retry-card';
+    const summaryCard = document.getElementById('detail-summary-card');
+    if (summaryCard && summaryCard.parentNode) {
+      summaryCard.parentNode.insertBefore(retryCard, summaryCard.nextSibling);
+    }
+  }
+  if (failed && s.sketchData) {
+    retryCard.style.display = 'block';
+    retryCard.innerHTML = `<button class="btn-primary" style="width:100%;margin-top:12px;" onclick="retryGrading('${s.id}')">RETRY GRADING</button>`;
+  } else {
+    retryCard.style.display = 'none';
   }
 
   // Show score reasoning in detail view
