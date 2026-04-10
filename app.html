@@ -10051,10 +10051,14 @@ async function rvGoStep(n) {
       await rvAssignTarget();
     } catch (e) {
       console.warn('[ABLTY] Failed to assign RV target:', e?.message || e);
-      showToast('Could not assign a target. Please check your connection and try again.', 'warn', 5000);
       document.querySelectorAll('.rv-step').forEach(s => s.classList.remove('active'));
       const step1 = document.getElementById('rv-step-1');
       if (step1) step1.classList.add('active');
+      if (e.code === 'daily_limit') {
+        document.getElementById('limit-modal').style.display = 'flex';
+      } else {
+        showToast('Could not assign a target. Please check your connection and try again.', 'warn', 5000);
+      }
     }
     return;
   }
@@ -10069,14 +10073,23 @@ function sanitizeRVCategory(cat) {
 }
 
 async function requestRVAssignment(category) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (sb) {
+    try {
+      const { data: s } = await sb.auth.getSession();
+      if (s?.session?.access_token) headers['Authorization'] = 'Bearer ' + s.session.access_token;
+    } catch (e) {}
+  }
   const resp = await fetch(WORKER_URL + '/rv-assign', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ category: sanitizeRVCategory(category) }),
   });
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok || data?.error) {
-    throw new Error(data?.message || data?.error || ('Worker error ' + resp.status));
+    const err = new Error(data?.message || data?.error || ('Worker error ' + resp.status));
+    err.code = data?.error || '';
+    throw err;
   }
   if (!data?.assignment_id || !data?.trn) {
     throw new Error('Invalid assignment response');

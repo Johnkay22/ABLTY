@@ -75,7 +75,7 @@ function getCORS(origin) {
   return {
     'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Stripe-Signature',
+    'Access-Control-Allow-Headers': 'Content-Type, Stripe-Signature, Authorization',
     Vary: 'Origin',
   };
 }
@@ -209,6 +209,20 @@ export default {
         return json({ error: 'rate_limit', message: 'Too many target requests. Try again later.' }, 429, origin);
       }
       await env.ABLTY_KV.put(rateLimitKey, String(current + 1), { expirationTtl: 86400 });
+
+      // Free-tier daily limit (2/day) — premium users bypass
+      const authHeader = request.headers.get('Authorization') || '';
+      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+      const isPremium = token ? await checkPremiumTier(token, env) : false;
+      if (!isPremium) {
+        const dailyKey = 'rvdaily:' + ip + ':' + new Date().toISOString().slice(0, 10);
+        const dailyCount = parseInt(await env.ABLTY_KV.get(dailyKey) || '0', 10);
+        if (dailyCount >= 2) {
+          return json({ error: 'daily_limit', message: 'Free tier allows 2 RV sessions per day. Upgrade to Premium for unlimited sessions.' }, 429, origin);
+        }
+        await env.ABLTY_KV.put(dailyKey, String(dailyCount + 1), { expirationTtl: 86400 });
+      }
+
       return handleRVAssign(request, env, origin);
     }
 
@@ -386,6 +400,50 @@ async function updateProfileTierByUserId(userId, tier, env) {
   if (!res.ok) {
     const txt = await res.text().catch(() => '');
     throw new Error('profiles tier update failed: ' + res.status + ' ' + txt);
+  }
+}
+
+async function checkPremiumTier(accessToken, env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) return false;
+  try {
+    // Verify token and get user ID
+    const userRes = await fetch(env.SUPABASE_URL + '/auth/v1/user', {
+      headers: {
+        apikey: env.SUPABASE_SERVICE_KEY,
+        Authorization: 'Bearer ' + accessToken,
+      },
+    });
+    if (!userRes.ok) return false;
+    const user = await userRes.json();
+    if (!user?.id) return false;
+
+    // Check KV cache first (avoids DB round-trip on repeat requests)
+    const cacheKey = 'tier:' + user.id;
+    const cached = await env.ABLTY_KV.get(cacheKey);
+    if (cached === 'premium') return true;
+    if (cached === 'free') return false;
+
+    // Look up tier in profiles table
+    const profileUrl = new URL(env.SUPABASE_URL + '/rest/v1/profiles');
+    profileUrl.searchParams.set('id', 'eq.' + user.id);
+    profileUrl.searchParams.set('select', 'tier');
+    const profileRes = await fetch(profileUrl.toString(), {
+      headers: {
+        apikey: env.SUPABASE_SERVICE_KEY,
+        Authorization: 'Bearer ' + env.SUPABASE_SERVICE_KEY,
+      },
+    });
+    if (!profileRes.ok) return false;
+    const profiles = await profileRes.json();
+    const tier = profiles?.[0]?.tier || 'free';
+
+    // Cache for 5 minutes
+    if (env.ABLTY_KV) {
+      await env.ABLTY_KV.put(cacheKey, tier, { expirationTtl: 300 });
+    }
+    return tier === 'premium';
+  } catch (e) {
+    return false;
   }
 }
 
