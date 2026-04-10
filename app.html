@@ -1370,7 +1370,7 @@ html, body {
 }
 
 /* ═══════════════════════════════════════════
-   PROGRESS CARD
+   CALIBRATION SCORE
 ═══════════════════════════════════════════ */
 .calibration-card {
   background: var(--card); border: 1px solid var(--border);
@@ -4395,14 +4395,14 @@ html, body {
       <div class="analytics-panel" id="apanel-rv" style="margin-top:16px;">
         <div class="calibration-card" id="calibration-card">
           <div style="display:flex;align-items:center;justify-content:space-between;">
-            <div class="mono-label">RV Progress</div>
+            <div class="mono-label">RV Calibration</div>
             <span style="font-family:var(--font-mono);font-size:18px;" id="cal-arrow"> - </span>
           </div>
           <div style="display:flex;align-items:baseline;gap:10px;margin-top:6px;">
             <span style="font-family:var(--font-display);font-size:40px;color:var(--text);line-height:1;" id="cal-score">-</span>
             <span style="font-family:var(--font-mono);font-size:10px;color:var(--muted);" id="cal-label">Need 3+ sessions</span>
           </div>
-          <div style="font-family:var(--font-mono);font-size:9px;color:var(--dim);margin-top:6px;line-height:1.5;" id="cal-desc">Complete more sessions to track your progress</div>
+          <div style="font-family:var(--font-mono);font-size:9px;color:var(--dim);margin-top:6px;line-height:1.5;" id="cal-desc">Complete more sessions to see your calibration</div>
           <div class="calibration-bars" id="cal-bars"></div>
         </div>
 
@@ -9969,8 +9969,34 @@ function renderStreakBanner(rvSessions, zenerRuns, tsTrials, ppSessions) {
 }
 
 // ═══════════════════════════════════════════════════════
-//  RV PROGRESS
+//  RV CALIBRATION SCORE
 // ═══════════════════════════════════════════════════════
+//
+//  Calibration = how consistent + above-chance your signal is.
+//
+//  Formula:  calScore = consistency * performance
+//
+//  consistency (0-100):  100 minus the coefficient of variation of
+//                        recent scores, clamped to 0-100.  Low spread
+//                        around the mean = high consistency.
+//
+//  performance (0-1):    recent average / 100, so a consistent viewer
+//                        who averages 20% isn't rewarded the same as
+//                        one who averages 70%.
+//
+//  The trend arrow compares recent-half calibration vs early-half.
+
+function calcCalibrationScore(scores) {
+  if (!scores.length) return 0;
+  const mean = scores.reduce((a, b) => a + b, 0) / scores.length;
+  if (mean === 0) return 0;
+  const variance = scores.reduce((a, v) => a + (v - mean) ** 2, 0) / scores.length;
+  const stdDev = Math.sqrt(variance);
+  const cv = (stdDev / mean) * 100;                  // coefficient of variation as %
+  const consistency = Math.max(0, Math.min(100, 100 - cv));
+  const performance = mean / 100;                     // 0-1 scale
+  return Math.round(consistency * performance);
+}
 
 function renderCalibration(rvSessions) {
   const arrowEl = document.getElementById('cal-arrow');
@@ -9982,42 +10008,42 @@ function renderCalibration(rvSessions) {
   if (!rvSessions || rvSessions.length < 3) {
     if (scoreEl) scoreEl.textContent = '-';
     if (labelEl) labelEl.textContent = `Need ${Math.max(0, 3 - (rvSessions||[]).length)} more sessions`;
-    if (descEl)  descEl.textContent  = 'Complete more RV sessions to see your progress trend.';
+    if (descEl)  descEl.textContent  = 'Complete more RV sessions to see your calibration score.';
     if (barsEl)  barsEl.innerHTML    = '';
     return;
   }
 
-  // Split sessions into two halves  -  early vs recent
   const sorted = [...rvSessions].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+  const allScores = sorted.map(s => Number(s.score));
   const half = Math.floor(sorted.length / 2);
-  const early  = sorted.slice(0, half);
-  const recent = sorted.slice(half);
+  const earlyScores  = allScores.slice(0, half);
+  const recentScores = allScores.slice(half);
 
-  const earlyAvg  = Math.round(early.reduce((a,s)  => a + s.score, 0) / early.length);
-  const recentAvg = Math.round(recent.reduce((a,s) => a + s.score, 0) / recent.length);
-  const delta = recentAvg - earlyAvg;
+  const earlyCal  = calcCalibrationScore(earlyScores);
+  const recentCal = calcCalibrationScore(recentScores);
+  const calScore  = calcCalibrationScore(allScores);
+  const delta = recentCal - earlyCal;
 
-  // Display recent average as the headline score
-  if (scoreEl) scoreEl.textContent = recentAvg + '%';
+  if (scoreEl) scoreEl.textContent = calScore;
 
   if (delta > 3) {
     if (arrowEl) { arrowEl.textContent = '↑'; arrowEl.className = 'trend-arrow up'; }
-    if (labelEl) labelEl.textContent = `Recent avg +${delta}% vs earlier`;
-    if (descEl)  descEl.textContent  = 'Your scores are improving. Recent sessions outperform your earlier baseline.';
+    if (labelEl) labelEl.textContent = `+${delta} vs earlier sessions`;
+    if (descEl)  descEl.textContent  = 'Your signal is getting stronger and more consistent.';
   } else if (delta < -3) {
     if (arrowEl) { arrowEl.textContent = '↓'; arrowEl.className = 'trend-arrow down'; }
-    if (labelEl) labelEl.textContent = `Recent avg ${delta}% vs earlier`;
-    if (descEl)  descEl.textContent  = 'Recent scores are below your earlier baseline. Review session conditions.';
+    if (labelEl) labelEl.textContent = `${delta} vs earlier sessions`;
+    if (descEl)  descEl.textContent  = 'Recent sessions are less consistent. Try controlling session conditions.';
   } else {
     if (arrowEl) { arrowEl.textContent = '→'; arrowEl.className = 'trend-arrow flat'; }
-    if (labelEl) labelEl.textContent = `Stable — recent avg ≈ earlier`;
-    if (descEl)  descEl.textContent  = 'Performance is consistent. Continue building your session history.';
+    if (labelEl) labelEl.textContent = 'Holding steady';
+    if (descEl)  descEl.textContent  = 'Your signal consistency is stable. Keep building your session count.';
   }
 
   // Mini bar chart of all scores
   if (barsEl && sorted.length) {
     const maxScore = 100;
-    const cutoff = sorted.length - recent.length;
+    const cutoff = sorted.length - recentScores.length;
     barsEl.innerHTML = sorted.map((s, i) => {
       const h = Math.max(4, Math.round((s.score / maxScore) * 40));
       const isRecent = i >= cutoff;
@@ -13083,7 +13109,7 @@ window.addEventListener('error', (e) => {
           </div>
           <div>
             <div class="ob-benefit-title">Full Analytics</div>
-            <div class="ob-benefit-sub">Track score trends, progress, and session history over time.</div>
+            <div class="ob-benefit-sub">Track score trends, calibration, and session history over time.</div>
           </div>
         </div>
 
