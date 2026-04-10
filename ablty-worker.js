@@ -820,9 +820,6 @@ async function handleGrade(request, env, origin = '') {
     }
     const notes = body?.notes;
 
-    // One-time assignment consumption prevents replay/regrade on same token.
-    await env.ABLTY_KV.delete(assignmentKey(assignmentId));
-
     const prompt = buildGradingPrompt(notes, target.label, target.descriptors);
     const parts = [];
     // Gemini REST API expects camelCase fields for inline image parts.
@@ -871,6 +868,8 @@ async function handleGrade(request, env, origin = '') {
     if (!parsed || typeof parsed !== 'object') {
       return json(buildGradingFailure(target, 'Invalid grading payload'), 200, origin);
     }
+    // Only consume assignment after successful grading so retries work.
+    await env.ABLTY_KV.delete(assignmentKey(assignmentId));
     parsed.target = publicTarget(target);
     return json(parsed, 200, origin);
   } catch (e) {
