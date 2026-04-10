@@ -9352,9 +9352,15 @@ function calcStreak(rvSessions, zenerRuns, tsTrials, ppSessions) {
     const d = new Date(s.timestamp);
     dates.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
   });
-  let streak = 0;
   const now = new Date();
-  for (let i = 0; i < 365; i++) {
+  const todayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+
+  // If no session today, start counting from yesterday —
+  // the streak is still alive until end of today.
+  const startOffset = dates.has(todayKey) ? 0 : 1;
+
+  let streak = 0;
+  for (let i = startOffset; i < 365; i++) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
     const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -9940,22 +9946,26 @@ function renderStreakBanner(rvSessions, zenerRuns, tsTrials, ppSessions) {
   if (streak >= 3) {
     icon = '🔥';
     title = `${streak}-DAY STREAK`;
-    sub = trainedToday ? 'Active today. Keep it going.' : 'Train today to maintain your streak.';
+    sub = trainedToday ? 'Active today. Keep it going.' : 'Train today to keep your streak alive.';
     cls = 'active';
   } else if (streak === 1 || streak === 2) {
     icon = '⚡';
     title = `${streak}-DAY STREAK`;
-    sub = trainedToday ? 'Good. Train again tomorrow.' : 'Train today to build momentum.';
+    sub = trainedToday ? 'Good. Train again tomorrow.' : 'Train today to keep building.';
     cls = 'active';
-  } else if (!trainedToday && trainedYesterday) {
-    icon = '💀';
-    title = 'STREAK BROKEN';
-    sub = 'You missed yesterday. Start a new streak today.';
-    cls = 'broken';
+  } else if (trainedYesterday && !trainedToday) {
+    // They trained yesterday but calcStreak returned 0 — means the day
+    // before yesterday was a miss, so they only have a 1-day run.
+    // This shouldn't normally happen with the new calcStreak (which would
+    // return 1), but kept as a safety net.
+    icon = '⚡';
+    title = '1-DAY STREAK';
+    sub = 'Train today to keep building.';
+    cls = 'active';
   } else {
     icon = '○';
     title = 'NO ACTIVE STREAK';
-    sub = 'Train daily to build a streak.';
+    sub = 'Complete a session to start a new streak.';
     cls = 'cold';
   }
 
