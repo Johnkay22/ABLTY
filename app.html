@@ -8732,7 +8732,7 @@ function renderAnalytics() {
 
   // Keep key sections rendered by their new tab grouping
   buildTODChart(rvSessions);
-  renderStreakBanner(rvSessions, zenerRuns);
+  renderStreakBanner(rvSessions, zenerRuns, tsTrials, ppSessions);
   buildOverviewSparklines();
   buildProtocolActivity();
 
@@ -9344,10 +9344,10 @@ function setEl(id, val) {
   if (el) el.textContent = val;
 }
 
-function calcStreak(rvSessions, zenerRuns) {
-  // Collect all unique active dates
+function calcStreak(rvSessions, zenerRuns, tsTrials, ppSessions) {
+  // Collect all unique active dates across all 4 protocols
   const dates = new Set();
-  [...rvSessions, ...zenerRuns].forEach(s => {
+  [...rvSessions, ...zenerRuns, ...(tsTrials || []), ...(ppSessions || [])].forEach(s => {
     const d = new Date(s.timestamp);
     dates.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
   });
@@ -9914,17 +9914,17 @@ function renderZenerDetail(run) {
 //  STREAK BANNER
 // ═══════════════════════════════════════════════════════
 
-function renderStreakBanner(rvSessions, zenerRuns) {
+function renderStreakBanner(rvSessions, zenerRuns, tsTrials, ppSessions) {
   const wrap = document.getElementById('streak-banner-wrap');
   if (!wrap) return;
 
-  const streak = calcStreak(rvSessions, zenerRuns);
+  const streak = calcStreak(rvSessions, zenerRuns, tsTrials, ppSessions);
 
   // Check if user trained yesterday (to detect broken streak)
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yKey = `${yesterday.getFullYear()}-${yesterday.getMonth()}-${yesterday.getDate()}`;
-  const allDates = new Set([...rvSessions, ...zenerRuns].map(s => {
+  const allDates = new Set([...rvSessions, ...zenerRuns, ...(tsTrials || []), ...(ppSessions || [])].map(s => {
     const d = new Date(s.timestamp);
     return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
   }));
