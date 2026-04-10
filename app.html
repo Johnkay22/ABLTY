@@ -11365,15 +11365,17 @@ function buildPresentimentStats() {
     best = Math.min(...deltas);
   }
 
-  // Keep baseline consistent with the existing app model.
-  const chanceBaseline = 10;
-  const deltaColor = mean > 0 && mean < chanceBaseline ? 'var(--accent)' : 'var(--warn)';
-
   const pairable = taps
     .filter((t) => Number.isFinite(Number(t?.eventTime)) && Number.isFinite(Number(t?.tapTime)))
     .map((t) => ({ eventTime: Number(t.eventTime), tapTime: Number(t.tapTime) }));
 
   const confidence = estimatePresentimentConfidence(pairable, mean);
+
+  // Use the real chance baseline from the permutation test when available.
+  const chanceBaseline = (confidence.nullMean && Number.isFinite(confidence.nullMean))
+    ? confidence.nullMean
+    : 10;
+  const deltaColor = mean > 0 && mean < chanceBaseline ? 'var(--accent)' : 'var(--warn)';
   const verdict = getPresentimentVerdict(confidence.confidencePct, allTrials.length, tapRate);
   const confidenceLabel = pairable.length >= 8 ? `${confidence.confidencePct}%` : 'Need 8+ taps';
   const confidenceWidth = pairable.length >= 8 ? confidence.confidencePct : 0;
@@ -11440,7 +11442,7 @@ function buildPresentimentStats() {
       </div>
       <div style="display:flex;justify-content:space-between;margin-top:4px;">
         <span style="font-family:var(--font-mono);font-size:8px;color:var(--muted);">Your avg: ${deltas.length ? mean.toFixed(1)+'s' : '--'}</span>
-        <span style="font-family:var(--font-mono);font-size:8px;color:var(--dim);">Chance: ~${chanceBaseline}s</span>
+        <span style="font-family:var(--font-mono);font-size:8px;color:var(--dim);">Chance: ~${Number(chanceBaseline).toFixed(1)}s</span>
       </div>
       ${(timingAdvantage !== null && timingAdvantage > 0)
         ? `<div style="font-family:var(--font-mono);font-size:9px;color:var(--accent);margin-top:8px;text-align:center;">Timing advantage vs randomized pairing: ${timingAdvantage}%</div>`
