@@ -3802,6 +3802,25 @@ html, body {
     </div>
   </div>
 
+  <div class="modal-overlay" id="calibration-info-modal" style="display:none;" onclick="closeCalibrationInfoModal(event)">
+    <div class="modal-box">
+      <div class="section-label">RV CALIBRATION</div>
+      <div class="modal-title" style="font-size:30px;margin-bottom:10px;">How this is calculated</div>
+      <div class="modal-body" style="margin-bottom:12px;">
+        RV Calibration compares your recent RV performance to your earlier baseline to show whether your signal is improving, stable, or dropping.
+      </div>
+      <div class="mono-label" style="margin-bottom:6px;">FORMULA</div>
+      <div class="modal-body" style="margin-bottom:14px;">
+        1) Your RV sessions are ordered oldest to newest.<br>
+        2) They are split into two halves: early sessions and recent sessions.<br>
+        3) Early average and recent average are compared.<br>
+        4) The displayed calibration score is your recent average.<br>
+        5) The trend arrow and delta show how much recent sessions changed vs early sessions.
+      </div>
+      <button class="modal-close-btn" onclick="closeCalibrationInfoModal()">Got It</button>
+    </div>
+  </div>
+
   <!-- ══════════════════════════════════
        SCREEN: RV - CANVAS
   ═══════════════════════════════════ -->
@@ -4396,7 +4415,10 @@ html, body {
         <div class="calibration-card" id="calibration-card">
           <div style="display:flex;align-items:center;justify-content:space-between;">
             <div class="mono-label">RV Calibration</div>
-            <span style="font-family:var(--font-mono);font-size:18px;" id="cal-arrow"> - </span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <button type="button" onclick="openCalibrationInfoModal()" aria-label="How RV calibration is calculated" style="width:20px;height:20px;border-radius:50%;border:1px solid var(--border2);background:var(--surface);color:var(--muted);font-family:var(--font-mono);font-size:11px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;">?</button>
+              <span style="font-family:var(--font-mono);font-size:18px;" id="cal-arrow"> - </span>
+            </div>
           </div>
           <div style="display:flex;align-items:baseline;gap:10px;margin-top:6px;">
             <span style="font-family:var(--font-display);font-size:40px;color:var(--text);line-height:1;" id="cal-score">-</span>
@@ -4427,6 +4449,7 @@ html, body {
         <div class="chart-card" id="zener-chart-card">
           <div class="chart-title">Zener Hit Rate</div>
           <div class="chart-svg-wrap" id="zener-chart-wrap"></div>
+          <div id="zener-signal-wrap" style="margin-top:12px;"></div>
         </div>
 
         <div class="chart-card">
@@ -4443,23 +4466,7 @@ html, body {
         <div class="chart-card" id="pp-analytics-card">
           <div class="chart-title">Photo Pair</div>
           <div class="mono-sm" style="color:var(--dim);margin-bottom:12px;">Implicit psi · Emotional valence</div>
-          <div id="pp-analytics-wrap">
-            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
-              <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center;">
-                <div class="mono-label">Trials</div>
-                <div style="font-family:var(--font-display);font-size:26px;color:var(--text);line-height:1;margin-top:4px;" id="pp-analytics-trials">0</div>
-              </div>
-              <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center;">
-                <div class="mono-label">Hit Rate</div>
-                <div style="font-family:var(--font-display);font-size:26px;color:var(--text);line-height:1;margin-top:4px;" id="pp-analytics-hitrate">-</div>
-              </div>
-              <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 8px;text-align:center;">
-                <div class="mono-label">Chance</div>
-                <div style="font-family:var(--font-display);font-size:26px;color:var(--muted);line-height:1;margin-top:4px;">50%</div>
-              </div>
-            </div>
-            <div class="mono-sm" id="pp-analytics-note" style="color:var(--dim);text-align:center;">Complete 10+ trials for statistical analysis.</div>
-          </div>
+          <div id="pp-analytics-wrap"></div>
         </div>
       </div>
 
@@ -8796,6 +8803,67 @@ function clampPct(value) {
   return Math.max(0, Math.min(100, n));
 }
 
+function erfApprox(x) {
+  const sign = x < 0 ? -1 : 1;
+  const ax = Math.abs(x);
+  const p = 0.3275911;
+  const a1 = 0.254829592;
+  const a2 = -0.284496736;
+  const a3 = 1.421413741;
+  const a4 = -1.453152027;
+  const a5 = 1.061405429;
+  const t = 1 / (1 + p * ax);
+  const y = 1 - (((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t) * Math.exp(-ax * ax);
+  return sign * y;
+}
+
+function normalCdf(z) {
+  if (!Number.isFinite(z)) return 0.5;
+  return 0.5 * (1 + erfApprox(z / Math.SQRT2));
+}
+
+function approximateBinomialPValue(successes, trials, baseline = 0.5) {
+  const n = Number(trials);
+  const k = Number(successes);
+  const p0 = Number(baseline);
+  if (!Number.isFinite(n) || !Number.isFinite(k) || !Number.isFinite(p0) || n <= 0 || p0 <= 0 || p0 >= 1) return null;
+  const mean = n * p0;
+  const variance = n * p0 * (1 - p0);
+  if (variance <= 0) return null;
+  const z = (k - mean) / Math.sqrt(variance);
+  const pUpper = 1 - normalCdf(z);
+  return Math.max(0, Math.min(1, pUpper));
+}
+
+function buildPsiTrendCard(opts = {}) {
+  const title = String(opts.title || 'No Clear Signal');
+  const subtitle = String(opts.subtitle || '');
+  const accent = String(opts.accent || 'var(--muted)');
+  const bg = String(opts.bg || 'rgba(255,255,255,0.02)');
+  const border = String(opts.border || 'var(--border)');
+  const meterLabel = String(opts.meterLabel || 'Statistical Significance');
+  const meterLeft = String(opts.meterLeft || '');
+  const meterRight = String(opts.meterRight || '');
+  const meterValue = Math.max(0, Math.min(100, Number(opts.meterValue || 0)));
+  return `
+    <div style="background:${bg};border:1px solid ${border};border-radius:12px;padding:12px;margin-bottom:12px;">
+      <div style="font-family:var(--font-display);font-size:42px;line-height:1;color:${accent};">${title}</div>
+      <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.45;margin-top:4px;">${subtitle}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+        <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1.2px;text-transform:uppercase;">${meterLabel}</span>
+        <span style="font-family:var(--font-mono);font-size:28px;color:${accent};line-height:1;">${meterRight}</span>
+      </div>
+      <div style="position:relative;height:8px;background:var(--card);border-radius:4px;overflow:hidden;margin-top:7px;">
+        <div style="position:absolute;left:0;top:0;height:100%;width:${meterValue}%;background:${accent};border-radius:4px;transition:width 0.5s;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+        <span style="font-family:var(--font-mono);font-size:8px;color:${accent};">${meterLeft}</span>
+        <span style="font-family:var(--font-mono);font-size:8px;color:var(--dim);">Threshold: p < 0.05</span>
+      </div>
+    </div>
+  `;
+}
+
 function rollingAverage(values, windowSize = 5) {
   const out = [];
   for (let i = 0; i < values.length; i++) {
@@ -9474,9 +9542,23 @@ function buildCatBreakdown(rvSessions) {
 
 function buildSymbolAccuracy(zenerRuns) {
   const el = document.getElementById('symbol-acc-grid');
+  const verdictWrap = document.getElementById('zener-signal-wrap');
   if (!el) return;
   if (!zenerRuns.length) {
     el.innerHTML = `<div class="no-data-note" style="grid-column:1/-1;">No Zener runs yet</div>`;
+    if (verdictWrap) {
+      verdictWrap.innerHTML = buildPsiTrendCard({
+        title: 'NO DATA YET',
+        subtitle: 'Complete a few runs to estimate whether your Zener performance is above chance.',
+        accent: 'var(--muted)',
+        bg: 'rgba(255,255,255,0.02)',
+        border: 'var(--border)',
+        meterLabel: 'Statistical Significance',
+        meterLeft: 'Need more runs',
+        meterRight: 'p = --',
+        meterValue: 0,
+      });
+    }
     return;
   }
 
@@ -9500,6 +9582,79 @@ function buildSymbolAccuracy(zenerRuns) {
       <div class="symbol-acc-pct ${good ? 'good' : ''}">${pct}%</div>
     </div>`;
   }).join('');
+
+  if (verdictWrap) {
+    const totalTrials = zenerRuns.reduce((sum, run) => sum + Math.max(0, Number(run?.trials || 25)), 0);
+    const totalHits = zenerRuns.reduce((sum, run) => sum + Math.max(0, Number(run?.hits || 0)), 0);
+    const hitRate = totalTrials > 0 ? (totalHits / totalTrials) * 100 : 0;
+    const chance = 20;
+    const edge = hitRate - chance;
+    const pValue = approximateBinomialPValue(totalHits, totalTrials, 0.2);
+    const sigPct = pValue === null ? 0 : Math.round((1 - pValue) * 100);
+
+    let title = 'NO CLEAR SIGNAL';
+    let subtitle = 'Your current Zener pattern is within chance range. Keep stacking runs.';
+    let accent = 'var(--muted)';
+    let bg = 'rgba(255,255,255,0.02)';
+    let border = 'var(--border)';
+
+    if (totalTrials < 75) {
+      title = 'EARLY TREND';
+      subtitle = 'Good start. Build a larger sample before making a strong psi claim.';
+      accent = 'var(--muted)';
+    } else if (pValue !== null && pValue < 0.01 && hitRate >= 28) {
+      title = 'STRONG SIGNAL';
+      subtitle = 'Your hit pattern is well above 20% chance with strong statistical support.';
+      accent = 'var(--accent)';
+      bg = 'rgba(74,240,200,0.08)';
+      border = 'rgba(74,240,200,0.35)';
+    } else if (pValue !== null && pValue < 0.05 && hitRate >= 24) {
+      title = 'SUGGESTIVE TREND';
+      subtitle = 'There is a non-random signal emerging. More runs can confirm stability.';
+      accent = 'var(--warn)';
+      bg = 'rgba(240,169,74,0.10)';
+      border = 'rgba(240,169,74,0.35)';
+    } else if (edge > 0) {
+      title = 'POSSIBLE TREND';
+      subtitle = 'You are trending above chance, but statistical confidence is still limited.';
+      accent = '#a3e4d0';
+      bg = 'rgba(163,228,208,0.10)';
+      border = 'rgba(163,228,208,0.4)';
+    }
+
+    const meterLeft = pValue === null
+      ? 'Need more data'
+      : (pValue < 0.05 ? 'Statistically significant' : pValue < 0.1 ? 'Near threshold' : 'Above threshold');
+    const meterRight = pValue === null ? 'p = --' : `p = ${pValue.toFixed(3)}`;
+
+    verdictWrap.innerHTML = `
+      ${buildPsiTrendCard({
+        title,
+        subtitle,
+        accent,
+        bg,
+        border,
+        meterLabel: 'Statistical Significance',
+        meterLeft,
+        meterRight,
+        meterValue: sigPct,
+      })}
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;">
+          <div class="mono-label">Total Trials</div>
+          <div style="font-family:var(--font-display);font-size:24px;color:var(--text);line-height:1;margin-top:4px;">${totalTrials}</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;">
+          <div class="mono-label">Hit Rate</div>
+          <div style="font-family:var(--font-display);font-size:24px;color:${hitRate > 20 ? 'var(--accent)' : hitRate < 20 ? 'var(--warn)' : 'var(--text)'};line-height:1;margin-top:4px;">${Math.round(hitRate)}%</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;">
+          <div class="mono-label">Edge vs Chance</div>
+          <div style="font-family:var(--font-display);font-size:24px;color:${edge > 0 ? 'var(--accent)' : 'var(--warn)'};line-height:1;margin-top:4px;">${edge >= 0 ? '+' : ''}${Math.round(edge)}%</div>
+        </div>
+      </div>
+    `;
+  }
 }
 
 function getTSTrialHit(trial) {
@@ -10112,6 +10267,18 @@ function renderCalibration(rvSessions) {
       return `<div class="cal-bar ${isRecent ? '' : 'old'}" style="height:${h}px;" title="${s.score}%"></div>`;
     }).join('');
   }
+}
+
+function openCalibrationInfoModal() {
+  const modal = document.getElementById('calibration-info-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeCalibrationInfoModal(event) {
+  const modal = document.getElementById('calibration-info-modal');
+  if (!modal) return;
+  if (event && event.target !== modal && !event.target.classList.contains('modal-close-btn')) return;
+  modal.style.display = 'none';
 }
 
 
@@ -11350,18 +11517,17 @@ function estimatePresentimentConfidence(pairs, observedMean) {
   return { confidencePct, pValue, nullMean: nullAccum / iterations };
 }
 
-function getPresentimentVerdict(pValue, trials, tapRate, timingAdvantage) {
-  if (trials < 20 || tapRate < 70 || pValue === null) {
+function getPresentimentVerdict(confidencePct, trials, timingAdvantage) {
+  if (trials < 20) {
     return {
-      title: 'Insufficient Data',
-      sub: 'Complete more trials with a higher tap rate to get a reliable reading.',
+      title: 'No Clear Signal Yet',
+      sub: 'Build a larger sample before judging signal strength.',
       color: 'var(--muted)',
       bg: 'rgba(255,255,255,0.02)',
       border: 'var(--border)',
     };
   }
-  // p < 0.05 = statistically significant (standard scientific threshold)
-  if (pValue < 0.05 && timingAdvantage >= 10) {
+  if (confidencePct >= 90 && Number.isFinite(timingAdvantage) && timingAdvantage >= 10) {
     return {
       title: 'Significant Signal',
       sub: 'Your timing is statistically better than random with a meaningful effect size.',
@@ -11370,7 +11536,7 @@ function getPresentimentVerdict(pValue, trials, tapRate, timingAdvantage) {
       border: 'rgba(74,240,200,0.35)',
     };
   }
-  if (pValue < 0.05) {
+  if (confidencePct >= 75 && Number.isFinite(timingAdvantage) && timingAdvantage >= 5) {
     return {
       title: 'Statistically Significant',
       sub: 'Your timing is statistically better than random, but the effect is small. Keep training.',
@@ -11379,19 +11545,9 @@ function getPresentimentVerdict(pValue, trials, tapRate, timingAdvantage) {
       border: 'rgba(74,240,200,0.25)',
     };
   }
-  // p < 0.10 = suggestive but not significant
-  if (pValue < 0.10) {
-    return {
-      title: 'Suggestive Trend',
-      sub: 'Some indication of non-random timing, but not yet statistically significant.',
-      color: 'var(--warn)',
-      bg: 'rgba(240,169,74,0.10)',
-      border: 'rgba(240,169,74,0.35)',
-    };
-  }
   return {
-    title: 'No Signal Detected',
-    sub: 'Current timing pattern is consistent with random chance.',
+    title: 'No Clear Signal Yet',
+    sub: 'Current timing looks close to random baseline.',
     color: 'var(--muted)',
     bg: 'rgba(255,255,255,0.02)',
     border: 'var(--border)',
@@ -11418,8 +11574,9 @@ function buildPresentimentStats() {
   const missRate = Math.round((misses.length / allTrials.length) * 100);
   const tapRate = Math.max(0, 100 - missRate);
   const deltas = taps.map((t) => Math.abs(Number(t.delta))).filter((v) => Number.isFinite(v));
-  const strictHitCount = deltas.filter((d) => d <= 3).length;
-  const strictHitRate = deltas.length ? Math.round((strictHitCount / deltas.length) * 100) : 0;
+  const strictHitCount = taps.filter((t) => Math.abs(Number(t.delta)) <= 3.0).length;
+  const strictHitRateRaw = taps.length ? (strictHitCount / taps.length) * 100 : 0;
+  const strictHitRate = Math.round(strictHitRateRaw);
 
   let mean = 0;
   let best = 0;
@@ -11428,57 +11585,106 @@ function buildPresentimentStats() {
     best = Math.min(...deltas);
   }
 
+  // Keep baseline consistent with the existing app model.
+  const chanceBaseline = 10;
+  const deltaColor = mean > 0 && mean < chanceBaseline ? 'var(--accent)' : 'var(--warn)';
+
   const pairable = taps
     .filter((t) => Number.isFinite(Number(t?.eventTime)) && Number.isFinite(Number(t?.tapTime)))
     .map((t) => ({ eventTime: Number(t.eventTime), tapTime: Number(t.tapTime) }));
 
   const confidence = estimatePresentimentConfidence(pairable, mean);
+  const confidencePct = Number(confidence?.confidencePct || 0);
+  const baselineMean = Number.isFinite(Number(confidence?.nullMean)) ? Number(confidence.nullMean) : chanceBaseline;
+  const timingAdvantageRaw = baselineMean > 0
+    ? ((baselineMean - mean) / baselineMean) * 100
+    : 0;
+  const timingAdvantage = Number.isFinite(timingAdvantageRaw) ? Math.max(0, Math.round(timingAdvantageRaw)) : 0;
+  const timingAdvantageRounded = timingAdvantage;
 
-  // Use the real chance baseline from the permutation test when available.
-  const chanceBaseline = (confidence.nullMean && Number.isFinite(confidence.nullMean))
-    ? confidence.nullMean
-    : 10;
-  const deltaColor = mean > 0 && mean < chanceBaseline ? 'var(--accent)' : 'var(--warn)';
-  const timingAdvantage = confidence.nullMean && Number.isFinite(confidence.nullMean)
-    ? Math.max(0, Math.round(((confidence.nullMean - mean) / confidence.nullMean) * 100))
-    : null;
-  const pValue = confidence.pValue;
-  const verdict = getPresentimentVerdict(pValue, allTrials.length, tapRate, timingAdvantage || 0);
-  const hasPValue = pairable.length >= 8 && pValue !== null;
-  const pLabel = hasPValue ? `p = ${pValue.toFixed(3)}` : 'Need 8+ taps';
-  const sigLabel = !hasPValue ? '' : pValue < 0.05 ? 'Significant' : pValue < 0.10 ? 'Near threshold' : 'Not significant';
-  const sigColor = !hasPValue ? 'var(--muted)' : pValue < 0.05 ? 'var(--accent)' : pValue < 0.10 ? 'var(--warn)' : 'var(--muted)';
-  // Bar: map -log10(p) so that p=1→0%, p=0.05→65%, p=0.01→100%
-  const pBarWidth = hasPValue ? Math.min(100, Math.round(Math.max(0, -Math.log10(pValue)) * 50)) : 0;
+  console.log('[buildPresentimentStats gate vars]', {
+    confidence: confidencePct,
+    timingAdvantage,
+    allTrialsLength: allTrials.length,
+    strictHitRate
+  });
+  let signalLabel, signalColor, signalNote;
+  if (taps.length < 8) {
+    signalLabel = 'INSUFFICIENT DATA';
+    signalColor = 'var(--muted)';
+    signalNote = 'Complete 8+ tapped trials to unlock signal analysis.';
+  } else if (confidencePct > 90 && timingAdvantage >= 10 && allTrials.length >= 75 && strictHitRate >= 18) {
+    signalLabel = 'STRONG SIGNAL';
+    signalColor = 'var(--accent)';
+    signalNote = 'Your timing pattern is statistically unlikely to be random across a meaningful sample.';
+  } else if (confidencePct > 70 && timingAdvantage >= 4 && allTrials.length >= 25 && strictHitRate >= 10) {
+    signalLabel = 'MODERATE SIGNAL';
+    signalColor = '#a3e4d0';
+    signalNote = 'Early pattern detected. Continue training to strengthen the signal.';
+  } else if (timingAdvantage > 0 && taps.length >= 8) {
+    signalLabel = 'EARLY SIGNAL';
+    signalColor = 'var(--muted)';
+    signalNote = 'Slight advantage over chance. More trials needed for reliable analysis.';
+  } else {
+    signalLabel = 'NO SIGNAL';
+    signalColor = 'var(--warn)';
+    signalNote = 'Performance is at or below chance baseline. Keep training.';
+  }
+
+  const signalBg = signalColor === 'var(--accent)'
+    ? 'rgba(74,240,200,0.08)'
+    : signalColor === '#a3e4d0'
+      ? 'rgba(163,228,208,0.10)'
+      : signalColor === 'var(--warn)'
+        ? 'rgba(240,169,74,0.10)'
+        : 'rgba(255,255,255,0.02)';
+  const signalBorder = signalColor === 'var(--accent)'
+    ? 'rgba(74,240,200,0.35)'
+    : signalColor === '#a3e4d0'
+      ? 'rgba(163,228,208,0.4)'
+      : signalColor === 'var(--warn)'
+        ? 'rgba(240,169,74,0.35)'
+        : 'var(--border)';
+
+  const strictColor = strictHitRate > 15
+    ? 'var(--accent)'
+    : strictHitRate >= 10
+      ? 'var(--muted)'
+      : 'var(--warn)';
+
+  const confidenceLabel = pairable.length >= 8 ? `${confidence.confidencePct}%` : 'Need 8+ taps';
+  const confidenceWidth = pairable.length >= 8 ? confidence.confidencePct : 0;
   const sampleQuality = allTrials.length >= 30 && tapRate >= 85
     ? 'Good'
     : allTrials.length >= 20 && tapRate >= 75
       ? 'Fair'
       : 'Low';
   const qualityColor = sampleQuality === 'Good' ? 'var(--accent)' : sampleQuality === 'Fair' ? 'var(--warn)' : 'var(--danger)';
-  const advLabel = timingAdvantage !== null ? `${timingAdvantage}%` : '--';
-  const advColor = timingAdvantage !== null && timingAdvantage >= 10 ? 'var(--accent)' : timingAdvantage !== null && timingAdvantage >= 5 ? 'var(--warn)' : 'var(--muted)';
+  const advLabel = `${timingAdvantageRounded}%`;
+  const advColor = timingAdvantageRounded >= 10 ? 'var(--accent)' : timingAdvantageRounded >= 5 ? 'var(--warn)' : 'var(--muted)';
 
   el.innerHTML = `
-    <div style="background:${verdict.bg};border:1px solid ${verdict.border};border-radius:12px;padding:12px;margin-bottom:10px;">
-      <div style="font-family:var(--font-display);font-size:24px;line-height:1;color:${verdict.color};">${verdict.title}</div>
-      <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);margin-top:4px;line-height:1.45;">${verdict.sub}</div>
+    <div style="background:${signalBg};border:1px solid ${signalBorder};border-radius:12px;padding:12px;margin-bottom:10px;">
+      <div style="font-family:var(--font-display);font-size:24px;line-height:1;color:${signalColor};">${signalLabel}</div>
+      <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);margin-top:4px;line-height:1.45;">${signalNote}</div>
       <div style="margin-top:10px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Statistical Significance</span>
-          <span style="font-family:var(--font-mono);font-size:13px;color:${sigColor};line-height:1;">${pLabel}</span>
+          <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Confidence this is not random</span>
+          <span style="font-family:var(--font-display);font-size:18px;color:${signalColor};line-height:1;">${confidenceLabel}</span>
         </div>
+        <div style="font-family:var(--font-mono);font-size:9px;color:var(--dim);margin-bottom:6px;">Based on ${allTrials.length} trial${allTrials.length !== 1 ? 's' : ''} · Reliability improves after 100+</div>
         <div style="position:relative;height:8px;background:var(--card);border-radius:4px;overflow:hidden;">
-          <div style="position:absolute;left:0;top:0;height:100%;width:${pBarWidth}%;background:${verdict.color};border-radius:4px;transition:width 0.6s;"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-top:4px;">
-          <span style="font-family:var(--font-mono);font-size:8px;color:${sigColor};">${sigLabel}</span>
-          <span style="font-family:var(--font-mono);font-size:8px;color:var(--dim);">Threshold: p &lt; 0.05</span>
+          <div style="position:absolute;left:0;top:0;height:100%;width:${confidenceWidth}%;background:${signalColor};border-radius:4px;transition:width 0.6s;"></div>
         </div>
       </div>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
+      <div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
+        <div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Strict Hit Rate</div>
+        <div style="font-family:var(--font-display);font-size:26px;color:${strictColor};line-height:1;">${strictHitRate}%</div>
+        <div style="font-family:var(--font-mono);font-size:8px;color:var(--dim);margin-top:5px;">Taps within 3.0s of event</div>
+      </div>
       <div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
         <div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Total Trials</div>
         <div style="font-family:var(--font-display);font-size:26px;color:var(--text);line-height:1;">${allTrials.length}</div>
@@ -11503,12 +11709,12 @@ function buildPresentimentStats() {
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
         <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;">
-          <div style="font-family:var(--font-mono);font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Average Gap</div>
-          <div style="font-family:var(--font-display);font-size:22px;color:${deltaColor};line-height:1.1;">${deltas.length ? mean.toFixed(1) + 's' : '--'}</div>
+          <div style="font-family:var(--font-mono);font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Tap Rate</div>
+          <div style="font-family:var(--font-display);font-size:22px;color:${tapRate >= 80 ? 'var(--accent)' : 'var(--warn)'};line-height:1.1;">${tapRate}%</div>
         </div>
         <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;">
-          <div style="font-family:var(--font-mono);font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Best Gap</div>
-          <div style="font-family:var(--font-display);font-size:22px;color:var(--accent);line-height:1.1;">${deltas.length ? best.toFixed(1) + 's' : '--'}</div>
+          <div style="font-family:var(--font-mono);font-size:8px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Strict Hit Rate</div>
+          <div style="font-family:var(--font-display);font-size:22px;color:${strictHitRate >= 35 ? 'var(--accent)' : strictHitRate >= 20 ? 'var(--warn)' : 'var(--danger)'};line-height:1.1;">${strictHitRate}%</div>
         </div>
       </div>
       <div style="position:relative;height:8px;background:var(--card);border-radius:4px;overflow:hidden;">
@@ -11518,7 +11724,9 @@ function buildPresentimentStats() {
         <span style="font-family:var(--font-mono);font-size:8px;color:var(--muted);">Your avg: ${deltas.length ? mean.toFixed(1)+'s' : '--'}</span>
         <span style="font-family:var(--font-mono);font-size:8px;color:var(--dim);">Chance: ~${Number(chanceBaseline).toFixed(1)}s</span>
       </div>
-      <div style="font-family:var(--font-mono);font-size:8px;color:var(--dim);margin-top:8px;text-align:center;">Significance uses a ${pairable.length >= 8 ? '10,000' : '10k'}-iteration permutation test (p &lt; 0.05 = significant).</div>
+      <div style="font-family:var(--font-mono);font-size:9px;color:${timingAdvantageRounded > 0 ? 'var(--accent)' : 'var(--warn)'};margin-top:8px;text-align:center;">Timing advantage vs randomized pairing: ${timingAdvantageRounded}%</div>
+      <div style="font-family:var(--font-mono);font-size:8px;color:var(--dim);margin-top:6px;text-align:center;">Meaningful signal typically appears above 8–10%</div>
+      <div style="font-family:var(--font-mono);font-size:8px;color:var(--dim);margin-top:8px;text-align:center;">Verdict and confidence are timing-driven. Hit rate is secondary context. Strict hits use ≤3.0s from event.</div>
     </div>
   `;
 }
@@ -12777,22 +12985,76 @@ function renderPPAnalyticsCard(sessions, n, hits, hitPct, hitStr, aboveBelow) {
     aboveBelow = hitPct !== null ? (hitPct > 50 ? ' above' : hitPct < 50 ? ' below' : '') : '';
   }
 
-  const trialsEl  = document.getElementById('pp-analytics-trials');
-  const hitrateEl = document.getElementById('pp-analytics-hitrate');
-  const noteEl2   = document.getElementById('pp-analytics-note');
+  const wrap = document.getElementById('pp-analytics-wrap');
+  if (!wrap) return;
 
-  if (trialsEl)  trialsEl.textContent  = n;
-  if (hitrateEl) {
-    hitrateEl.textContent = hitStr;
-    hitrateEl.style.color = hitPct !== null ? (hitPct > 50 ? 'var(--accent)' : hitPct < 50 ? 'var(--danger)' : 'var(--text)') : 'var(--text)';
+  const chance = 50;
+  const edge = hitPct === null ? 0 : (hitPct - chance);
+  const pValue = n > 0 ? approximateBinomialPValue(hits, n, 0.5) : null;
+  const sigPct = pValue === null ? 0 : Math.round((1 - pValue) * 100);
+
+  let title = 'NO CLEAR SIGNAL';
+  let subtitle = 'Current selections are within chance range. Keep training.';
+  let accent = 'var(--muted)';
+  let bg = 'rgba(255,255,255,0.02)';
+  let border = 'var(--border)';
+
+  if (n < 30) {
+    title = 'EARLY TREND';
+    subtitle = 'Photo Pair needs a larger sample before claiming reliable psi signal.';
+  } else if (pValue !== null && pValue < 0.01 && hitPct >= 62) {
+    title = 'STRONG SIGNAL';
+    subtitle = 'Your selections are clearly above 50% chance with strong statistical support.';
+    accent = 'var(--accent)';
+    bg = 'rgba(74,240,200,0.08)';
+    border = 'rgba(74,240,200,0.35)';
+  } else if (pValue !== null && pValue < 0.05 && hitPct >= 56) {
+    title = 'SUGGESTIVE TREND';
+    subtitle = 'A non-random pattern is emerging. Additional trials can confirm consistency.';
+    accent = 'var(--warn)';
+    bg = 'rgba(240,169,74,0.10)';
+    border = 'rgba(240,169,74,0.35)';
+  } else if (edge > 0) {
+    title = 'POSSIBLE TREND';
+    subtitle = 'You are trending above chance, but confidence is not yet strong.';
+    accent = '#a3e4d0';
+    bg = 'rgba(163,228,208,0.10)';
+    border = 'rgba(163,228,208,0.4)';
   }
-  if (noteEl2) {
-    if (n < 10) noteEl2.textContent = (10 - n) + ' more trial' + (10 - n !== 1 ? 's' : '') + ' needed for statistical analysis.';
-    else {
-      const sig = hitPct > 58 ? 'Trending above chance.' : hitPct < 42 ? 'Trending below chance.' : 'Within chance range.';
-      noteEl2.textContent = n + ' trials - avg ' + hitPct + '% vs 50% chance. ' + sig;
-    }
-  }
+
+  const meterLeft = pValue === null
+    ? 'Need more data'
+    : (pValue < 0.05 ? 'Statistically significant' : pValue < 0.1 ? 'Near threshold' : 'Above threshold');
+  const meterRight = pValue === null ? 'p = --' : `p = ${pValue.toFixed(3)}`;
+
+  wrap.innerHTML = `
+    ${buildPsiTrendCard({
+      title,
+      subtitle,
+      accent,
+      bg,
+      border,
+      meterLabel: 'Statistical Significance',
+      meterLeft,
+      meterRight,
+      meterValue: sigPct,
+    })}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;">
+        <div class="mono-label">Total Trials</div>
+        <div style="font-family:var(--font-display);font-size:24px;color:var(--text);line-height:1;margin-top:4px;">${n}</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;">
+        <div class="mono-label">Hit Rate</div>
+        <div style="font-family:var(--font-display);font-size:24px;color:${hitPct !== null ? (hitPct > 50 ? 'var(--accent)' : hitPct < 50 ? 'var(--warn)' : 'var(--text)') : 'var(--text)'};line-height:1;margin-top:4px;">${hitStr}</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;">
+        <div class="mono-label">Edge vs Chance</div>
+        <div style="font-family:var(--font-display);font-size:24px;color:${edge > 0 ? 'var(--accent)' : 'var(--warn)'};line-height:1;margin-top:4px;">${hitPct === null ? '--' : `${edge >= 0 ? '+' : ''}${Math.round(edge)}%`}</div>
+      </div>
+    </div>
+    <div class="mono-sm" style="color:var(--dim);text-align:center;margin-top:10px;">Based on ${n} trial${n !== 1 ? 's' : ''}. Reliability improves with larger sample sizes.</div>
+  `;
 }
 
 function startPPTrial() {
