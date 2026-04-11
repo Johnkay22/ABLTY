@@ -11670,7 +11670,12 @@ function buildPresentimentStats() {
       : 'var(--warn)';
 
   const confidenceLabel = pairable.length >= 8 ? `${confidence.confidencePct}%` : 'Need 8+ taps';
-  const confidenceWidth = pairable.length >= 8 ? confidence.confidencePct : 0;
+  const chanceGapLabel = Number.isFinite(baselineMean) ? `${baselineMean.toFixed(1)}s` : '--';
+  const userGapLabel = deltas.length ? `${mean.toFixed(1)}s` : '--';
+  // Visual scale: 0% advantage = baseline, 10%+ starts to look meaningful, 20% = maxed.
+  const advantageMeterWidth = pairable.length >= 8
+    ? Math.max(0, Math.min(100, Math.round((timingAdvantageRounded / 20) * 100)))
+    : 0;
   const sampleQuality = allTrials.length >= 30 && tapRate >= 85
     ? 'Good'
     : allTrials.length >= 20 && tapRate >= 75
@@ -11686,13 +11691,18 @@ function buildPresentimentStats() {
       <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);margin-top:4px;line-height:1.45;">${signalNote}</div>
       <div style="margin-top:10px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Confidence this is not random</span>
-          <span style="font-family:var(--font-display);font-size:18px;color:${signalColor};line-height:1;">${confidenceLabel}</span>
+          <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Timing Advantage vs Chance Baseline</span>
+          <span style="font-family:var(--font-display);font-size:18px;color:${signalColor};line-height:1;">${timingAdvantageRounded}%</span>
         </div>
-        <div style="font-family:var(--font-mono);font-size:9px;color:var(--dim);margin-bottom:6px;">Based on ${allTrials.length} trial${allTrials.length !== 1 ? 's' : ''} · Reliability improves after 100+</div>
+        <div style="font-family:var(--font-mono);font-size:9px;color:var(--dim);margin-bottom:6px;">Chance avg gap: ~${chanceGapLabel} · Your avg gap: ${userGapLabel}</div>
         <div style="position:relative;height:8px;background:var(--card);border-radius:4px;overflow:hidden;">
-          <div style="position:absolute;left:0;top:0;height:100%;width:${confidenceWidth}%;background:${signalColor};border-radius:4px;transition:width 0.6s;"></div>
+          <div style="position:absolute;left:0;top:0;height:100%;width:${advantageMeterWidth}%;background:${signalColor};border-radius:4px;transition:width 0.6s;"></div>
         </div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;">
+          <span style="font-family:var(--font-mono);font-size:8px;color:var(--dim);">0% = random baseline</span>
+          <span style="font-family:var(--font-mono);font-size:8px;color:var(--dim);">10%+ usually meaningful</span>
+        </div>
+        <div style="font-family:var(--font-mono);font-size:8px;color:var(--dim);margin-top:6px;">Permutation confidence (exploratory): ${confidenceLabel}</div>
       </div>
     </div>
 
