@@ -8835,6 +8835,23 @@ function approximateBinomialPValue(successes, trials, baseline = 0.5) {
   return Math.max(0, Math.min(1, pUpper));
 }
 
+function significanceMeterWidthFromPValue(pValue) {
+  const p = Number(pValue);
+  if (!Number.isFinite(p) || p <= 0) return p === 0 ? 100 : 0;
+  // Keep bars low for weak evidence and only grow rapidly near/under p < 0.05.
+  if (p >= 0.1) {
+    const capped = Math.min(p, 0.2);
+    return Math.max(4, Math.round(((0.2 - capped) / 0.1) * 20));
+  }
+  if (p >= 0.05) {
+    return Math.round(20 + ((0.1 - p) / 0.05) * 35);
+  }
+  if (p >= 0.01) {
+    return Math.round(55 + ((0.05 - p) / 0.04) * 35);
+  }
+  return Math.min(100, Math.round(90 + ((0.01 - p) / 0.01) * 10));
+}
+
 function buildPsiTrendCard(opts = {}) {
   const title = String(opts.title || 'No Clear Signal');
   const subtitle = String(opts.subtitle || '');
@@ -9590,7 +9607,7 @@ function buildSymbolAccuracy(zenerRuns) {
     const chance = 20;
     const edge = hitRate - chance;
     const pValue = approximateBinomialPValue(totalHits, totalTrials, 0.2);
-    const sigPct = pValue === null ? 0 : Math.round((1 - pValue) * 100);
+    const sigPct = pValue === null ? 0 : significanceMeterWidthFromPValue(pValue);
 
     let title = 'NO CLEAR SIGNAL';
     let subtitle = 'Your current Zener pattern is within chance range. Keep stacking runs.';
@@ -9614,17 +9631,17 @@ function buildSymbolAccuracy(zenerRuns) {
       accent = 'var(--warn)';
       bg = 'rgba(240,169,74,0.10)';
       border = 'rgba(240,169,74,0.35)';
-    } else if (edge > 0) {
+    } else if (edge >= 3 && pValue !== null && pValue < 0.2) {
       title = 'POSSIBLE TREND';
-      subtitle = 'You are trending above chance, but statistical confidence is still limited.';
-      accent = '#a3e4d0';
-      bg = 'rgba(163,228,208,0.10)';
-      border = 'rgba(163,228,208,0.4)';
+      subtitle = 'Above-chance performance is emerging, but this is still below significance.';
+      accent = 'var(--warn)';
+      bg = 'rgba(240,169,74,0.10)';
+      border = 'rgba(240,169,74,0.35)';
     }
 
     const meterLeft = pValue === null
       ? 'Need more data'
-      : (pValue < 0.05 ? 'Statistically significant' : pValue < 0.1 ? 'Near threshold' : 'Above threshold');
+      : (pValue < 0.01 ? 'Strong evidence' : pValue < 0.05 ? 'Statistically significant' : pValue < 0.1 ? 'Suggestive (not significant)' : 'Not significant');
     const meterRight = pValue === null ? 'p = --' : `p = ${pValue.toFixed(3)}`;
 
     verdictWrap.innerHTML = `
@@ -12991,7 +13008,7 @@ function renderPPAnalyticsCard(sessions, n, hits, hitPct, hitStr, aboveBelow) {
   const chance = 50;
   const edge = hitPct === null ? 0 : (hitPct - chance);
   const pValue = n > 0 ? approximateBinomialPValue(hits, n, 0.5) : null;
-  const sigPct = pValue === null ? 0 : Math.round((1 - pValue) * 100);
+  const sigPct = pValue === null ? 0 : significanceMeterWidthFromPValue(pValue);
 
   let title = 'NO CLEAR SIGNAL';
   let subtitle = 'Current selections are within chance range. Keep training.';
@@ -13014,17 +13031,17 @@ function renderPPAnalyticsCard(sessions, n, hits, hitPct, hitStr, aboveBelow) {
     accent = 'var(--warn)';
     bg = 'rgba(240,169,74,0.10)';
     border = 'rgba(240,169,74,0.35)';
-  } else if (edge > 0) {
+  } else if (edge >= 4 && pValue !== null && pValue < 0.2) {
     title = 'POSSIBLE TREND';
-    subtitle = 'You are trending above chance, but confidence is not yet strong.';
-    accent = '#a3e4d0';
-    bg = 'rgba(163,228,208,0.10)';
-    border = 'rgba(163,228,208,0.4)';
+    subtitle = 'Above-chance performance is emerging, but this is still below significance.';
+    accent = 'var(--warn)';
+    bg = 'rgba(240,169,74,0.10)';
+    border = 'rgba(240,169,74,0.35)';
   }
 
   const meterLeft = pValue === null
     ? 'Need more data'
-    : (pValue < 0.05 ? 'Statistically significant' : pValue < 0.1 ? 'Near threshold' : 'Above threshold');
+    : (pValue < 0.01 ? 'Strong evidence' : pValue < 0.05 ? 'Statistically significant' : pValue < 0.1 ? 'Suggestive (not significant)' : 'Not significant');
   const meterRight = pValue === null ? 'p = --' : `p = ${pValue.toFixed(3)}`;
 
   wrap.innerHTML = `
