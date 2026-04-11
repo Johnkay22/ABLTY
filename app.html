@@ -4346,7 +4346,8 @@ html, body {
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
           Back
         </button>
-        <button class="btn btn-primary" style="flex:2;" onclick="openZenerSession()">Run Again</button>
+        <button class="btn btn-ghost" style="flex:1;" onclick="openPsiAnalytics('zener-chart-card')">Full Stats</button>
+        <button class="btn btn-primary" style="flex:1;" onclick="openZenerSession()">Run Again</button>
       </div>
 
     </div>
@@ -4731,7 +4732,8 @@ html, body {
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
           Back
         </button>
-        <button class="btn btn-primary" style="flex:2;" onclick="openTimestampSession()">Run More Trials</button>
+        <button class="btn btn-ghost" style="flex:1;" onclick="openPsiAnalytics('presentiment-stats-card')">Full Stats</button>
+        <button class="btn btn-primary" style="flex:1;" onclick="openTimestampSession()">Run More Trials</button>
       </div>
 
     </div>
@@ -5286,6 +5288,7 @@ html, body {
         </div>
         <button class="btn btn-primary" style="width:100%;" onclick="startPPTrial()">NEXT TRIAL</button>
         <button class="btn btn-ghost" style="width:100%;" onclick="showPPView('brief')">Stats / Back</button>
+        <button class="btn btn-ghost" style="width:100%;" onclick="openPsiAnalytics('pp-analytics-card')">Full Stats</button>
       </div>
 
     </div>
@@ -9066,6 +9069,13 @@ function openAnalyticsDetail(tab, anchorId) {
   if (el && typeof el.scrollIntoView === 'function') {
     requestAnimationFrame(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
+}
+
+function openPsiAnalytics(anchorId) {
+  navigate('analytics');
+  requestAnimationFrame(() => {
+    openAnalyticsDetail('psi', anchorId || '');
+  });
 }
 
 function updateExportButtonState() {
