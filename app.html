@@ -11328,7 +11328,7 @@ function estimatePresentimentConfidence(pairs, observedMean) {
   const tapTimes = pairs.map((p) => Number(p.tapTime));
   const eventTimes = pairs.map((p) => Number(p.eventTime));
   const n = pairs.length;
-  const iterations = 2500;
+  const iterations = 10000;
   let extreme = 0;
   let nullAccum = 0;
 
@@ -11350,37 +11350,48 @@ function estimatePresentimentConfidence(pairs, observedMean) {
   return { confidencePct, pValue, nullMean: nullAccum / iterations };
 }
 
-function getPresentimentVerdict(confidencePct, trials, tapRate) {
-  if (trials < 20 || tapRate < 70) {
+function getPresentimentVerdict(pValue, trials, tapRate, timingAdvantage) {
+  if (trials < 20 || tapRate < 70 || pValue === null) {
     return {
-      title: 'No Clear Signal Yet',
-      sub: 'Build a larger, cleaner sample before judging performance.',
+      title: 'Insufficient Data',
+      sub: 'Complete more trials with a higher tap rate to get a reliable reading.',
       color: 'var(--muted)',
       bg: 'rgba(255,255,255,0.02)',
       border: 'var(--border)',
     };
   }
-  if (confidencePct >= 90) {
+  // p < 0.05 = statistically significant (standard scientific threshold)
+  if (pValue < 0.05 && timingAdvantage >= 10) {
     return {
-      title: 'Strong Signal',
-      sub: 'Your timing pattern is unlikely to be random.',
+      title: 'Significant Signal',
+      sub: 'Your timing is statistically better than random with a meaningful effect size.',
       color: 'var(--accent)',
       bg: 'rgba(74,240,200,0.08)',
       border: 'rgba(74,240,200,0.35)',
     };
   }
-  if (confidencePct >= 75) {
+  if (pValue < 0.05) {
     return {
-      title: 'Possible Signal',
-      sub: 'Promising trend. More trials will confirm if it holds.',
+      title: 'Statistically Significant',
+      sub: 'Your timing is statistically better than random, but the effect is small. Keep training.',
+      color: 'var(--accent)',
+      bg: 'rgba(74,240,200,0.06)',
+      border: 'rgba(74,240,200,0.25)',
+    };
+  }
+  // p < 0.10 = suggestive but not significant
+  if (pValue < 0.10) {
+    return {
+      title: 'Suggestive Trend',
+      sub: 'Some indication of non-random timing, but not yet statistically significant.',
       color: 'var(--warn)',
       bg: 'rgba(240,169,74,0.10)',
       border: 'rgba(240,169,74,0.35)',
     };
   }
   return {
-    title: 'No Clear Signal Yet',
-    sub: 'Current timing looks close to random baseline.',
+    title: 'No Signal Detected',
+    sub: 'Current timing pattern is consistent with random chance.',
     color: 'var(--muted)',
     bg: 'rgba(255,255,255,0.02)',
     border: 'var(--border)',
@@ -11428,18 +11439,25 @@ function buildPresentimentStats() {
     ? confidence.nullMean
     : 10;
   const deltaColor = mean > 0 && mean < chanceBaseline ? 'var(--accent)' : 'var(--warn)';
-  const verdict = getPresentimentVerdict(confidence.confidencePct, allTrials.length, tapRate);
-  const confidenceLabel = pairable.length >= 8 ? `${confidence.confidencePct}%` : 'Need 8+ taps';
-  const confidenceWidth = pairable.length >= 8 ? confidence.confidencePct : 0;
+  const timingAdvantage = confidence.nullMean && Number.isFinite(confidence.nullMean)
+    ? Math.max(0, Math.round(((confidence.nullMean - mean) / confidence.nullMean) * 100))
+    : null;
+  const pValue = confidence.pValue;
+  const verdict = getPresentimentVerdict(pValue, allTrials.length, tapRate, timingAdvantage || 0);
+  const hasPValue = pairable.length >= 8 && pValue !== null;
+  const pLabel = hasPValue ? `p = ${pValue.toFixed(3)}` : 'Need 8+ taps';
+  const sigLabel = !hasPValue ? '' : pValue < 0.05 ? 'Significant' : pValue < 0.10 ? 'Near threshold' : 'Not significant';
+  const sigColor = !hasPValue ? 'var(--muted)' : pValue < 0.05 ? 'var(--accent)' : pValue < 0.10 ? 'var(--warn)' : 'var(--muted)';
+  // Bar: map -log10(p) so that p=1→0%, p=0.05→65%, p=0.01→100%
+  const pBarWidth = hasPValue ? Math.min(100, Math.round(Math.max(0, -Math.log10(pValue)) * 50)) : 0;
   const sampleQuality = allTrials.length >= 30 && tapRate >= 85
     ? 'Good'
     : allTrials.length >= 20 && tapRate >= 75
       ? 'Fair'
       : 'Low';
   const qualityColor = sampleQuality === 'Good' ? 'var(--accent)' : sampleQuality === 'Fair' ? 'var(--warn)' : 'var(--danger)';
-  const timingAdvantage = confidence.nullMean && Number.isFinite(confidence.nullMean)
-    ? Math.max(0, Math.round(((confidence.nullMean - mean) / confidence.nullMean) * 100))
-    : null;
+  const advLabel = timingAdvantage !== null ? `${timingAdvantage}%` : '--';
+  const advColor = timingAdvantage !== null && timingAdvantage >= 10 ? 'var(--accent)' : timingAdvantage !== null && timingAdvantage >= 5 ? 'var(--warn)' : 'var(--muted)';
 
   el.innerHTML = `
     <div style="background:${verdict.bg};border:1px solid ${verdict.border};border-radius:12px;padding:12px;margin-bottom:10px;">
@@ -11447,11 +11465,15 @@ function buildPresentimentStats() {
       <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);margin-top:4px;line-height:1.45;">${verdict.sub}</div>
       <div style="margin-top:10px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-          <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Confidence this is not random</span>
-          <span style="font-family:var(--font-display);font-size:18px;color:${verdict.color};line-height:1;">${confidenceLabel}</span>
+          <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;">Statistical Significance</span>
+          <span style="font-family:var(--font-mono);font-size:13px;color:${sigColor};line-height:1;">${pLabel}</span>
         </div>
         <div style="position:relative;height:8px;background:var(--card);border-radius:4px;overflow:hidden;">
-          <div style="position:absolute;left:0;top:0;height:100%;width:${confidenceWidth}%;background:${verdict.color};border-radius:4px;transition:width 0.6s;"></div>
+          <div style="position:absolute;left:0;top:0;height:100%;width:${pBarWidth}%;background:${verdict.color};border-radius:4px;transition:width 0.6s;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:4px;">
+          <span style="font-family:var(--font-mono);font-size:8px;color:${sigColor};">${sigLabel}</span>
+          <span style="font-family:var(--font-mono);font-size:8px;color:var(--dim);">Threshold: p &lt; 0.05</span>
         </div>
       </div>
     </div>
@@ -11462,16 +11484,16 @@ function buildPresentimentStats() {
         <div style="font-family:var(--font-display);font-size:26px;color:var(--text);line-height:1;">${allTrials.length}</div>
       </div>
       <div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
-        <div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Data Quality</div>
-        <div style="font-family:var(--font-display);font-size:26px;color:${qualityColor};line-height:1;">${sampleQuality}</div>
+        <div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Timing Advantage</div>
+        <div style="font-family:var(--font-display);font-size:26px;color:${advColor};line-height:1;">${advLabel}</div>
       </div>
       <div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
         <div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Tap Rate</div>
         <div style="font-family:var(--font-display);font-size:26px;color:${tapRate >= 80 ? 'var(--accent)' : 'var(--warn)'};line-height:1;">${tapRate}%</div>
       </div>
       <div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
-        <div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Strict Hit Rate</div>
-        <div style="font-family:var(--font-display);font-size:26px;color:${strictHitRate >= 35 ? 'var(--accent)' : strictHitRate >= 20 ? 'var(--warn)' : 'var(--danger)'};line-height:1;">${strictHitRate}%</div>
+        <div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Data Quality</div>
+        <div style="font-family:var(--font-display);font-size:26px;color:${qualityColor};line-height:1;">${sampleQuality}</div>
       </div>
     </div>
 
@@ -11496,10 +11518,7 @@ function buildPresentimentStats() {
         <span style="font-family:var(--font-mono);font-size:8px;color:var(--muted);">Your avg: ${deltas.length ? mean.toFixed(1)+'s' : '--'}</span>
         <span style="font-family:var(--font-mono);font-size:8px;color:var(--dim);">Chance: ~${Number(chanceBaseline).toFixed(1)}s</span>
       </div>
-      ${(timingAdvantage !== null && timingAdvantage > 0)
-        ? `<div style="font-family:var(--font-mono);font-size:9px;color:var(--accent);margin-top:8px;text-align:center;">Timing advantage vs randomized pairing: ${timingAdvantage}%</div>`
-        : ''}
-      <div style="font-family:var(--font-mono);font-size:8px;color:var(--dim);margin-top:8px;text-align:center;">Strict hits use ≤3.0s from event. Confidence unlocks after 8+ tapped trials.</div>
+      <div style="font-family:var(--font-mono);font-size:8px;color:var(--dim);margin-top:8px;text-align:center;">Significance uses a ${pairable.length >= 8 ? '10,000' : '10k'}-iteration permutation test (p &lt; 0.05 = significant).</div>
     </div>
   `;
 }
