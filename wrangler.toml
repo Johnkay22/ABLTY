@@ -1,0 +1,7 @@
+name = "abltygrader"
+main = "ablty-worker.js"
+compatibility_date = "2025-01-01"
+
+[[kv_namespaces]]
+binding = "ABLTY_KV"
+id = "04bf49415ff94efda43532364def70db"

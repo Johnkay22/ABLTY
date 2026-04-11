@@ -75,7 +75,7 @@ function getCORS(origin) {
   return {
     'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Stripe-Signature',
+    'Access-Control-Allow-Headers': 'Content-Type, Stripe-Signature, Authorization',
     Vary: 'Origin',
   };
 }
@@ -88,9 +88,15 @@ function json(data, status = 200, origin = '') {
 }
 
 function isAllowedOrigin(origin) {
-  // Allow during local development (empty origin or localhost)
-  if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) return true;
-  return ALLOWED_ORIGINS.includes(origin);
+  if (!origin) return true;
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  // Allow actual localhost during development (exact hostname match)
+  try {
+    const h = new URL(origin).hostname;
+    return h === 'localhost' || h === '127.0.0.1';
+  } catch (e) {
+    return false;
+  }
 }
 
 function sanitizeRVCategory(category) {
@@ -203,6 +209,20 @@ export default {
         return json({ error: 'rate_limit', message: 'Too many target requests. Try again later.' }, 429, origin);
       }
       await env.ABLTY_KV.put(rateLimitKey, String(current + 1), { expirationTtl: 86400 });
+
+      // Free-tier daily limit (2/day) — premium users bypass
+      const authHeader = request.headers.get('Authorization') || '';
+      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+      const isPremium = token ? await checkPremiumTier(token, env) : false;
+      if (!isPremium) {
+        const dailyKey = 'rvdaily:' + ip + ':' + new Date().toISOString().slice(0, 10);
+        const dailyCount = parseInt(await env.ABLTY_KV.get(dailyKey) || '0', 10);
+        if (dailyCount >= 2) {
+          return json({ error: 'daily_limit', message: 'Free tier allows 2 RV sessions per day. Upgrade to Premium for unlimited sessions.' }, 429, origin);
+        }
+        await env.ABLTY_KV.put(dailyKey, String(dailyCount + 1), { expirationTtl: 86400 });
+      }
+
       return handleRVAssign(request, env, origin);
     }
 
@@ -225,6 +245,11 @@ export default {
     }
 
     if (url.pathname === '/wbtb-cancel' && request.method === 'POST') {
+      const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const rlKey = 'ratelimit:wbtbcancel:' + ip + ':' + new Date().toISOString().slice(0, 10);
+      const count = parseInt(await env.ABLTY_KV.get(rlKey) || '0', 10);
+      if (count >= 30) return json({ error: 'rate_limit' }, 429, origin);
+      await env.ABLTY_KV.put(rlKey, String(count + 1), { expirationTtl: 86400 });
       return handleWBTBCancel(request, env, origin);
     }
 
@@ -342,19 +367,17 @@ async function findSupabaseUserIdByEmail(email, env) {
     Authorization: 'Bearer ' + env.SUPABASE_SERVICE_KEY,
   };
 
-  for (let page = 1; page <= 8; page++) {
-    const u = new URL(env.SUPABASE_URL + '/auth/v1/admin/users');
-    u.searchParams.set('page', String(page));
-    u.searchParams.set('per_page', '200');
+  // Single-request lookup using Supabase admin email filter
+  const u = new URL(env.SUPABASE_URL + '/auth/v1/admin/users');
+  u.searchParams.set('filter', needle);
+  u.searchParams.set('per_page', '10');
 
-    const res = await fetch(u.toString(), { headers });
-    if (!res.ok) break;
-    const payload = await res.json().catch(() => ({}));
-    const users = payload?.users || [];
-    const match = users.find((u2) => String(u2?.email || '').toLowerCase() === needle);
-    if (match?.id) return match.id;
-    if (users.length < 200) break;
-  }
+  const res = await fetch(u.toString(), { headers });
+  if (!res.ok) return '';
+  const payload = await res.json().catch(() => ({}));
+  const users = payload?.users || [];
+  const match = users.find((u2) => String(u2?.email || '').toLowerCase() === needle);
+  if (match?.id) return match.id;
 
   return '';
 }
@@ -380,6 +403,50 @@ async function updateProfileTierByUserId(userId, tier, env) {
   if (!res.ok) {
     const txt = await res.text().catch(() => '');
     throw new Error('profiles tier update failed: ' + res.status + ' ' + txt);
+  }
+}
+
+async function checkPremiumTier(accessToken, env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) return false;
+  try {
+    // Verify token and get user ID
+    const userRes = await fetch(env.SUPABASE_URL + '/auth/v1/user', {
+      headers: {
+        apikey: env.SUPABASE_SERVICE_KEY,
+        Authorization: 'Bearer ' + accessToken,
+      },
+    });
+    if (!userRes.ok) return false;
+    const user = await userRes.json();
+    if (!user?.id) return false;
+
+    // Check KV cache first (avoids DB round-trip on repeat requests)
+    const cacheKey = 'tier:' + user.id;
+    const cached = await env.ABLTY_KV.get(cacheKey);
+    if (cached === 'premium') return true;
+    if (cached === 'free') return false;
+
+    // Look up tier in profiles table
+    const profileUrl = new URL(env.SUPABASE_URL + '/rest/v1/profiles');
+    profileUrl.searchParams.set('id', 'eq.' + user.id);
+    profileUrl.searchParams.set('select', 'tier');
+    const profileRes = await fetch(profileUrl.toString(), {
+      headers: {
+        apikey: env.SUPABASE_SERVICE_KEY,
+        Authorization: 'Bearer ' + env.SUPABASE_SERVICE_KEY,
+      },
+    });
+    if (!profileRes.ok) return false;
+    const profiles = await profileRes.json();
+    const tier = profiles?.[0]?.tier || 'free';
+
+    // Cache for 5 minutes
+    if (env.ABLTY_KV) {
+      await env.ABLTY_KV.put(cacheKey, tier, { expirationTtl: 300 });
+    }
+    return tier === 'premium';
+  } catch (e) {
+    return false;
   }
 }
 
@@ -719,42 +786,54 @@ async function handleGrade(request, env, origin = '') {
     const body = await request.json();
     const assignmentIdRaw = String(body?.assignment_id || '').trim();
     const assignmentId = assignmentIdRaw.replace(/[^a-zA-Z0-9]/g, '');
-    if (!assignmentId) return json({ error: 'Missing assignment_id' }, 400, origin);
+    const retryTargetId = String(body?.target_id || '').trim();
 
-    const assignmentRaw = await env.ABLTY_KV.get(assignmentKey(assignmentId));
-    if (!assignmentRaw) {
-      return json({ error: 'Assignment expired. Start a new RV session.' }, 410, origin);
-    }
+    let target = null;
+    let consumeAssignment = false;
 
-    let assignment;
-    try {
-      assignment = JSON.parse(assignmentRaw);
-    } catch (e) {
-      await env.ABLTY_KV.delete(assignmentKey(assignmentId));
-      return json({ error: 'Invalid assignment record' }, 500, origin);
-    }
+    if (assignmentId) {
+      // Normal flow: look up assignment from KV
+      const assignmentRaw = await env.ABLTY_KV.get(assignmentKey(assignmentId));
+      if (!assignmentRaw) {
+        return json({ error: 'Assignment expired. Start a new RV session.' }, 410, origin);
+      }
 
-    const target = RV_TARGET_POOL.find((t) => t.id === assignment?.targetId);
-    if (!target) {
-      await env.ABLTY_KV.delete(assignmentKey(assignmentId));
-      return json({ error: 'Assigned target not found' }, 500, origin);
-    }
+      let assignment;
+      try {
+        assignment = JSON.parse(assignmentRaw);
+      } catch (e) {
+        await env.ABLTY_KV.delete(assignmentKey(assignmentId));
+        return json({ error: 'Invalid assignment record' }, 500, origin);
+      }
 
-    const requestedTrn = String(body?.trn || '').trim();
-    const targetTrn = getTargetTRN(target);
-    if (requestedTrn && requestedTrn !== targetTrn) {
-      await env.ABLTY_KV.delete(assignmentKey(assignmentId));
-      return json({ error: 'TRN mismatch. Start a new RV session.' }, 400, origin);
+      target = RV_TARGET_POOL.find((t) => t.id === assignment?.targetId);
+      if (!target) {
+        await env.ABLTY_KV.delete(assignmentKey(assignmentId));
+        return json({ error: 'Assigned target not found' }, 500, origin);
+      }
+
+      const requestedTrn = String(body?.trn || '').trim();
+      const targetTrn = getTargetTRN(target);
+      if (requestedTrn && requestedTrn !== targetTrn) {
+        await env.ABLTY_KV.delete(assignmentKey(assignmentId));
+        return json({ error: 'TRN mismatch. Start a new RV session.' }, 400, origin);
+      }
+      consumeAssignment = true;
+    } else if (retryTargetId) {
+      // Retry flow: look up target directly by ID (assignment expired or consumed)
+      target = RV_TARGET_POOL.find((t) => t.id === retryTargetId);
+      if (!target) {
+        return json({ error: 'Target not found' }, 400, origin);
+      }
+    } else {
+      return json({ error: 'Missing assignment_id or target_id' }, 400, origin);
     }
 
     const sketch = String(body?.sketch || '');
-    if (!sketch || sketch.length < 100) {
+    if (!sketch || sketch.length < 100 || sketch.length > 5 * 1024 * 1024) {
       return json({ error: 'Missing or invalid sketch payload' }, 400, origin);
     }
     const notes = body?.notes;
-
-    // One-time assignment consumption prevents replay/regrade on same token.
-    await env.ABLTY_KV.delete(assignmentKey(assignmentId));
 
     const prompt = buildGradingPrompt(notes, target.label, target.descriptors);
     const parts = [];
@@ -804,6 +883,8 @@ async function handleGrade(request, env, origin = '') {
     if (!parsed || typeof parsed !== 'object') {
       return json(buildGradingFailure(target, 'Invalid grading payload'), 200, origin);
     }
+    // Only consume assignment after successful grading so retries work.
+    if (consumeAssignment) await env.ABLTY_KV.delete(assignmentKey(assignmentId));
     parsed.target = publicTarget(target);
     return json(parsed, 200, origin);
   } catch (e) {
@@ -883,7 +964,7 @@ async function handleTagDream(request, env, origin = '') {
 
     const body = await request.json().catch(() => ({}));
     const dreamText = String(body?.body || '').trim();
-    if (!dreamText) return json([], 200, origin);
+    if (!dreamText || dreamText.length > 10000) return json([], 200, origin);
 
     const prompt = [
       'You are a dream analysis assistant. Extract a list of recurring symbolic elements from the following dream description.',
@@ -941,7 +1022,7 @@ async function handleWBTBSchedule(request, env, origin = '') {
       return json({ error: 'Missing endpoint or fireAt' }, 400, origin);
     }
     const duration = Number(body.duration);
-    if (!Number.isFinite(duration) || duration <= 0) {
+    if (!Number.isFinite(duration) || duration <= 0 || duration > 12) {
       return json({ error: 'Missing or invalid duration' }, 400, origin);
     }
     if (!env.ABLTY_KV) return json({ error: 'KV not bound' }, 500, origin);
@@ -1079,6 +1160,92 @@ async function sendWebPush(subscription, payload, env, isPrimer = false) {
   });
 }
 
+// --- WEB PUSH ENCRYPTION (RFC 8291 aes128gcm) ----------
+async function encryptPushPayload(plaintext, p256dhB64, authB64) {
+  const uaPublic = base64ToBytes(p256dhB64);
+  const authSecret = base64ToBytes(authB64);
+
+  // Generate ephemeral ECDH key pair
+  const asKeyPair = await crypto.subtle.generateKey(
+    { name: 'ECDH', namedCurve: 'P-256' },
+    true,
+    ['deriveBits']
+  );
+  const asPublicRaw = new Uint8Array(
+    await crypto.subtle.exportKey('raw', asKeyPair.publicKey)
+  );
+
+  // Import subscriber's p256dh public key
+  const uaKey = await crypto.subtle.importKey(
+    'raw', uaPublic,
+    { name: 'ECDH', namedCurve: 'P-256' },
+    false, []
+  );
+
+  // ECDH shared secret
+  const ecdhSecret = new Uint8Array(
+    await crypto.subtle.deriveBits(
+      { name: 'ECDH', public: uaKey },
+      asKeyPair.privateKey,
+      256
+    )
+  );
+
+  // Derive IKM: HKDF(salt=authSecret, ikm=ecdhSecret, info="WebPush: info\0" || uaPublic || asPublic)
+  const authInfo = concatBytes(
+    new TextEncoder().encode('WebPush: info\0'),
+    uaPublic,
+    asPublicRaw
+  );
+  const ikm = await hkdfDerive(ecdhSecret, authSecret, authInfo, 32);
+
+  // Random salt for content encryption
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+
+  // Derive content encryption key (16 bytes) and nonce (12 bytes)
+  const cekInfo = new TextEncoder().encode('Content-Encoding: aes128gcm\0');
+  const nonceInfo = new TextEncoder().encode('Content-Encoding: nonce\0');
+  const cek = await hkdfDerive(ikm, salt, cekInfo, 16);
+  const nonce = await hkdfDerive(ikm, salt, nonceInfo, 12);
+
+  // Pad plaintext with 0x02 delimiter (final record)
+  const padded = concatBytes(plaintext, new Uint8Array([2]));
+
+  // Encrypt with AES-128-GCM
+  const cekKey = await crypto.subtle.importKey('raw', cek, { name: 'AES-GCM' }, false, ['encrypt']);
+  const ciphertext = new Uint8Array(
+    await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, cekKey, padded)
+  );
+
+  // Build aes128gcm payload: salt(16) + rs(4) + idlen(1) + keyid(65) + ciphertext
+  const header = new Uint8Array(86);
+  header.set(salt, 0);
+  new DataView(header.buffer).setUint32(16, 4096);
+  header[20] = 65;
+  header.set(asPublicRaw, 21);
+
+  return concatBytes(header, ciphertext);
+}
+
+async function hkdfDerive(ikm, salt, info, length) {
+  const key = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
+  return new Uint8Array(
+    await crypto.subtle.deriveBits(
+      { name: 'HKDF', hash: 'SHA-256', salt, info },
+      key,
+      length * 8
+    )
+  );
+}
+
+function concatBytes(...arrays) {
+  const total = arrays.reduce((sum, a) => sum + a.length, 0);
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const a of arrays) { result.set(a, offset); offset += a.length; }
+  return result;
+}
+
 async function sendVapidPush(subscription, env, opts = {}) {
   const endpoint = subscription.endpoint;
   const p256dh = subscription.keys?.p256dh;
@@ -1116,19 +1283,28 @@ async function sendVapidPush(subscription, env, opts = {}) {
 
   const jwt = `${signingInput}.${b64url(sig)}`;
   const bodyText = typeof opts.bodyText === 'string' ? opts.bodyText : null;
-  const pushBody = bodyText ? new TextEncoder().encode(bodyText) : null;
   const ttl = opts.ttl || '86400';
   const errorPrefix = opts.errorPrefix || 'Push failed';
 
+  let pushBody = null;
+  const pushHeaders = {
+    Authorization: `vapid t=${jwt}, k=${vapidPublic}`,
+    TTL: ttl,
+    'Content-Length': '0',
+  };
+
+  if (bodyText) {
+    const plaintext = new TextEncoder().encode(bodyText);
+    const encrypted = await encryptPushPayload(plaintext, p256dh, auth);
+    pushBody = encrypted;
+    pushHeaders['Content-Type'] = 'application/octet-stream';
+    pushHeaders['Content-Encoding'] = 'aes128gcm';
+    pushHeaders['Content-Length'] = String(encrypted.byteLength);
+  }
+
   const res = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      Authorization: `vapid t=${jwt}, k=${vapidPublic}`,
-      TTL: ttl,
-      ...(pushBody
-        ? { 'Content-Type': 'text/plain', 'Content-Length': String(pushBody.length) }
-        : { 'Content-Length': '0' }),
-    },
+    headers: pushHeaders,
     ...(pushBody ? { body: pushBody } : {}),
   });
 
