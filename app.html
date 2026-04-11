@@ -6447,16 +6447,18 @@ function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 // ─── AI GRADING ───────────────────────────────
 const WORKER_URL = 'https://abltygrader.kayvideoproductions.workers.dev';
 
-async function gradeSession(sketchB64, notes, assignmentId, trn) {
+async function gradeSession(sketchB64, notes, assignmentId, trn, targetId) {
+  const payload = {
+    sketch: sketchB64,
+    notes: notes,
+    assignment_id: assignmentId,
+    trn: trn,
+  };
+  if (targetId) payload.target_id = targetId;
   const resp = await fetch(WORKER_URL + '/grade', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      sketch: sketchB64,
-      notes: notes,
-      assignment_id: assignmentId,
-      trn: trn,
-    }),
+    body: JSON.stringify(payload),
   });
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok || data?.error) {
@@ -6478,7 +6480,7 @@ async function retryGrading(sessionId) {
 
   try {
     const sketchB64 = session.sketchData.replace(/^data:image\/\w+;base64,/, '');
-    const result = await gradeSession(sketchB64, session.notes || '', session.assignmentId || '', session.trn || '');
+    const result = await gradeSession(sketchB64, session.notes || '', session.assignmentId || '', session.trn || '', session.targetId || '');
 
     if (result?.grading_failed) throw new Error(result.grading_error || 'Grading failed');
 

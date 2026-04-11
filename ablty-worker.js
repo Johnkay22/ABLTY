@@ -786,32 +786,47 @@ async function handleGrade(request, env, origin = '') {
     const body = await request.json();
     const assignmentIdRaw = String(body?.assignment_id || '').trim();
     const assignmentId = assignmentIdRaw.replace(/[^a-zA-Z0-9]/g, '');
-    if (!assignmentId) return json({ error: 'Missing assignment_id' }, 400, origin);
+    const retryTargetId = String(body?.target_id || '').trim();
 
-    const assignmentRaw = await env.ABLTY_KV.get(assignmentKey(assignmentId));
-    if (!assignmentRaw) {
-      return json({ error: 'Assignment expired. Start a new RV session.' }, 410, origin);
-    }
+    let target = null;
+    let consumeAssignment = false;
 
-    let assignment;
-    try {
-      assignment = JSON.parse(assignmentRaw);
-    } catch (e) {
-      await env.ABLTY_KV.delete(assignmentKey(assignmentId));
-      return json({ error: 'Invalid assignment record' }, 500, origin);
-    }
+    if (assignmentId) {
+      // Normal flow: look up assignment from KV
+      const assignmentRaw = await env.ABLTY_KV.get(assignmentKey(assignmentId));
+      if (!assignmentRaw) {
+        return json({ error: 'Assignment expired. Start a new RV session.' }, 410, origin);
+      }
 
-    const target = RV_TARGET_POOL.find((t) => t.id === assignment?.targetId);
-    if (!target) {
-      await env.ABLTY_KV.delete(assignmentKey(assignmentId));
-      return json({ error: 'Assigned target not found' }, 500, origin);
-    }
+      let assignment;
+      try {
+        assignment = JSON.parse(assignmentRaw);
+      } catch (e) {
+        await env.ABLTY_KV.delete(assignmentKey(assignmentId));
+        return json({ error: 'Invalid assignment record' }, 500, origin);
+      }
 
-    const requestedTrn = String(body?.trn || '').trim();
-    const targetTrn = getTargetTRN(target);
-    if (requestedTrn && requestedTrn !== targetTrn) {
-      await env.ABLTY_KV.delete(assignmentKey(assignmentId));
-      return json({ error: 'TRN mismatch. Start a new RV session.' }, 400, origin);
+      target = RV_TARGET_POOL.find((t) => t.id === assignment?.targetId);
+      if (!target) {
+        await env.ABLTY_KV.delete(assignmentKey(assignmentId));
+        return json({ error: 'Assigned target not found' }, 500, origin);
+      }
+
+      const requestedTrn = String(body?.trn || '').trim();
+      const targetTrn = getTargetTRN(target);
+      if (requestedTrn && requestedTrn !== targetTrn) {
+        await env.ABLTY_KV.delete(assignmentKey(assignmentId));
+        return json({ error: 'TRN mismatch. Start a new RV session.' }, 400, origin);
+      }
+      consumeAssignment = true;
+    } else if (retryTargetId) {
+      // Retry flow: look up target directly by ID (assignment expired or consumed)
+      target = RV_TARGET_POOL.find((t) => t.id === retryTargetId);
+      if (!target) {
+        return json({ error: 'Target not found' }, 400, origin);
+      }
+    } else {
+      return json({ error: 'Missing assignment_id or target_id' }, 400, origin);
     }
 
     const sketch = String(body?.sketch || '');
@@ -869,7 +884,7 @@ async function handleGrade(request, env, origin = '') {
       return json(buildGradingFailure(target, 'Invalid grading payload'), 200, origin);
     }
     // Only consume assignment after successful grading so retries work.
-    await env.ABLTY_KV.delete(assignmentKey(assignmentId));
+    if (consumeAssignment) await env.ABLTY_KV.delete(assignmentKey(assignmentId));
     parsed.target = publicTarget(target);
     return json(parsed, 200, origin);
   } catch (e) {
