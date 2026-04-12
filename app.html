@@ -8875,18 +8875,22 @@ const SIGNAL_TIERS = [
 ];
 const SIGNAL_TIER_MINIMUMS = { zener: 25, presentiment: 8, photopair: 15 };
 const SIGNAL_TIER_STAGE6_EFFECTS = { zener: 30, photopair: 65, presentiment: 15 };
+const SIGNAL_TIER_STAGE5_EFFECTS = { zener: 24, photopair: 55, presentiment: 5 };
 
 function getSignalTier(protocol, stats) {
   const min = SIGNAL_TIER_MINIMUMS[protocol] || 20;
   if (stats.trials < min) return SIGNAL_TIERS[0];
   const p = stats.pValue;
   const above = stats.aboveChance;
+  const metric = protocol === 'presentiment' ? stats.timingAdvantage : stats.hitRate;
   if (p !== null && p < 0.01) {
-    const threshold = SIGNAL_TIER_STAGE6_EFFECTS[protocol];
-    const metric = protocol === 'presentiment' ? stats.timingAdvantage : stats.hitRate;
-    if (metric >= threshold) return SIGNAL_TIERS[5];
+    const threshold6 = SIGNAL_TIER_STAGE6_EFFECTS[protocol];
+    if (metric >= threshold6) return SIGNAL_TIERS[5];
   }
-  if (p !== null && p < 0.05) return SIGNAL_TIERS[4];
+  if (p !== null && p < 0.05) {
+    const threshold5 = SIGNAL_TIER_STAGE5_EFFECTS[protocol];
+    if (metric >= threshold5) return SIGNAL_TIERS[4];
+  }
   if (above && p !== null && p < 0.20 && stats.improving) return SIGNAL_TIERS[3];
   if (above) return SIGNAL_TIERS[2];
   return SIGNAL_TIERS[1];
