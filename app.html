@@ -8846,23 +8846,6 @@ function approximateBinomialPValue(successes, trials, baseline = 0.5) {
   return Math.max(0, Math.min(1, pUpper));
 }
 
-function significanceMeterWidthFromPValue(pValue) {
-  const p = Number(pValue);
-  if (!Number.isFinite(p) || p <= 0) return p === 0 ? 100 : 0;
-  // Keep bars low for weak evidence and only grow rapidly near/under p < 0.05.
-  if (p >= 0.1) {
-    const capped = Math.min(p, 0.2);
-    return Math.max(4, Math.round(((0.2 - capped) / 0.1) * 20));
-  }
-  if (p >= 0.05) {
-    return Math.round(20 + ((0.1 - p) / 0.05) * 35);
-  }
-  if (p >= 0.01) {
-    return Math.round(55 + ((0.05 - p) / 0.04) * 35);
-  }
-  return Math.min(100, Math.round(90 + ((0.01 - p) / 0.01) * 10));
-}
-
 // ── Signal Tier System ──────────────────────
 const SIGNAL_TIERS = [
   { stage: 1, name: 'Collecting Data', color: 'var(--muted)', bg: 'rgba(107,114,128,0.06)', border: 'var(--border)',
@@ -8910,7 +8893,7 @@ function checkSignalTierDrop(protocol, tier) {
   }
 }
 
-function buildSignalTierCard(tier, pValue, meterWidth) {
+function buildSignalTierCard(tier, pValue) {
   const msg = tier.messages[Math.floor(Date.now() / 86400000) % tier.messages.length];
   const pLabel = pValue === null ? 'p = --' : `p = ${pValue.toFixed(3)}`;
   const sigLabel = pValue === null ? 'Need more data'
@@ -8918,6 +8901,7 @@ function buildSignalTierCard(tier, pValue, meterWidth) {
     : pValue < 0.05 ? 'Statistically significant'
     : pValue < 0.1 ? 'Suggestive (not significant)'
     : 'Not significant';
+  const meterWidth = Math.round(((tier.stage - 1) / 5) * 100);
   return `
     <div style="background:${tier.bg};border:1px solid ${tier.border};border-radius:12px;padding:12px;margin-bottom:12px;transition:background-color 0.5s ease-in-out,border-color 0.5s ease-in-out;">
       <div style="font-family:var(--font-display);font-size:42px;line-height:1;color:${tier.color};transition:color 0.5s ease;">${tier.name}</div>
@@ -9630,7 +9614,7 @@ function buildSymbolAccuracy(zenerRuns) {
   if (!zenerRuns.length) {
     el.innerHTML = `<div class="no-data-note" style="grid-column:1/-1;">No Zener runs yet</div>`;
     if (verdictWrap) {
-      verdictWrap.innerHTML = buildSignalTierCard(SIGNAL_TIERS[0], null, 0);
+      verdictWrap.innerHTML = buildSignalTierCard(SIGNAL_TIERS[0], null);
     }
     return;
   }
@@ -9663,7 +9647,7 @@ function buildSymbolAccuracy(zenerRuns) {
     const chance = 20;
     const edge = hitRate - chance;
     const pValue = approximateBinomialPValue(totalHits, totalTrials, 0.2);
-    const sigPct = pValue === null ? 0 : significanceMeterWidthFromPValue(pValue);
+
 
     // Improving trend: compare recent half vs early half hit rate
     const sorted = [...zenerRuns].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
@@ -9682,7 +9666,7 @@ function buildSymbolAccuracy(zenerRuns) {
     checkSignalTierDrop('zener', tier);
 
     verdictWrap.innerHTML = `
-      ${buildSignalTierCard(tier, pValue, sigPct)}
+      ${buildSignalTierCard(tier, pValue)}
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
         <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;">
           <div class="mono-label">Total Trials</div>
@@ -11640,7 +11624,6 @@ function buildPresentimentStats() {
   const improving = recentTaps.length > 0 && earlyTaps.length > 0 ? recentMean < earlyMean : false;
 
   const pValue = confidence.pValue;
-  const sigPct = pValue === null ? 0 : significanceMeterWidthFromPValue(pValue);
   const tier = getSignalTier('presentiment', {
     trials: allTrials.length,
     hitRate: 0,
@@ -11664,7 +11647,7 @@ function buildPresentimentStats() {
   const strictColor = strictHitRate > 15 ? 'var(--accent)' : strictHitRate >= 10 ? 'var(--muted)' : 'var(--warn)';
 
   el.innerHTML = `
-    ${buildSignalTierCard(tier, pValue, sigPct)}
+    ${buildSignalTierCard(tier, pValue)}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
       <div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;">
         <div style="font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">Total Trials</div>
@@ -12965,7 +12948,6 @@ function renderPPAnalyticsCard(sessions, n, hits, hitPct, hitStr, aboveBelow) {
   const chance = 50;
   const edge = hitPct === null ? 0 : (hitPct - chance);
   const pValue = n > 0 ? approximateBinomialPValue(hits, n, 0.5) : null;
-  const sigPct = pValue === null ? 0 : significanceMeterWidthFromPValue(pValue);
 
   // Improving trend: compare recent half vs early half hit rate
   const sorted = [...sessions].sort((a, b) => new Date(b.date || b.timestamp || 0) - new Date(a.date || a.timestamp || 0));
@@ -12980,7 +12962,7 @@ function renderPPAnalyticsCard(sessions, n, hits, hitPct, hitStr, aboveBelow) {
   checkSignalTierDrop('photopair', tier);
 
   wrap.innerHTML = `
-    ${buildSignalTierCard(tier, pValue, sigPct)}
+    ${buildSignalTierCard(tier, pValue)}
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;">
         <div class="mono-label">Total Trials</div>
