@@ -6948,7 +6948,11 @@ async function doRCSubscribe(settings) {
   if (perm !== 'granted') {
     try { perm = await Notification.requestPermission(); } catch(e) {}
   }
-  if (perm !== 'granted') { renderRCScreen(); return; }
+  if (perm !== 'granted') {
+    showToast('Notification permission denied. Enable it in your browser settings to use Reality Check pager.', 'warn');
+    renderRCScreen();
+    return;
+  }
 
   try {
     const reg = window._swRegistration || await navigator.serviceWorker.ready;
@@ -7017,13 +7021,14 @@ function saveRCSessions(sessions) {
 }
 
 function appendRCSession(pausedForCriticalQ) {
-  const sessions = getRCSessions();
+  let sessions = getRCSessions();
   const task = RC_TASKS[rcTaskIndex] || null;
   sessions.push({
     timestamp: new Date().toISOString(),
     pausedForCriticalQ: !!pausedForCriticalQ,
     taskTag: task?.tag || '',
   });
+  if (sessions.length > 500) sessions = sessions.slice(-500);
   saveRCSessions(sessions);
 }
 
@@ -8875,18 +8880,22 @@ const SIGNAL_TIERS = [
 ];
 const SIGNAL_TIER_MINIMUMS = { zener: 25, presentiment: 8, photopair: 15 };
 const SIGNAL_TIER_STAGE6_EFFECTS = { zener: 30, photopair: 65, presentiment: 15 };
+const SIGNAL_TIER_STAGE5_EFFECTS = { zener: 24, photopair: 55, presentiment: 5 };
 
 function getSignalTier(protocol, stats) {
   const min = SIGNAL_TIER_MINIMUMS[protocol] || 20;
   if (stats.trials < min) return SIGNAL_TIERS[0];
   const p = stats.pValue;
   const above = stats.aboveChance;
+  const metric = protocol === 'presentiment' ? stats.timingAdvantage : stats.hitRate;
   if (p !== null && p < 0.01) {
-    const threshold = SIGNAL_TIER_STAGE6_EFFECTS[protocol];
-    const metric = protocol === 'presentiment' ? stats.timingAdvantage : stats.hitRate;
-    if (metric >= threshold) return SIGNAL_TIERS[5];
+    const threshold6 = SIGNAL_TIER_STAGE6_EFFECTS[protocol];
+    if (metric >= threshold6) return SIGNAL_TIERS[5];
   }
-  if (p !== null && p < 0.05) return SIGNAL_TIERS[4];
+  if (p !== null && p < 0.05) {
+    const threshold5 = SIGNAL_TIER_STAGE5_EFFECTS[protocol];
+    if (metric >= threshold5) return SIGNAL_TIERS[4];
+  }
   if (above && p !== null && p < 0.20 && stats.improving) return SIGNAL_TIERS[3];
   if (above) return SIGNAL_TIERS[2];
   return SIGNAL_TIERS[1];
@@ -9101,7 +9110,7 @@ function calcActiveDays(items) {
   (Array.isArray(items) ? items : []).forEach((s) => {
     const d = new Date(s?.timestamp);
     if (!Number.isFinite(d.getTime())) return;
-    uniqueDays.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
+    uniqueDays.add(_dateKey(d));
   });
   return uniqueDays.size;
 }
@@ -9519,15 +9528,19 @@ function setEl(id, val) {
   if (el) el.textContent = val;
 }
 
+function _dateKey(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
 function calcStreak(rvSessions, zenerRuns, tsTrials, ppSessions) {
   // Collect all unique active dates across all 4 protocols
   const dates = new Set();
   [...rvSessions, ...zenerRuns, ...(tsTrials || []), ...(ppSessions || [])].forEach(s => {
     const d = new Date(s.timestamp);
-    dates.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`);
+    dates.add(_dateKey(d));
   });
   const now = new Date();
-  const todayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+  const todayKey = _dateKey(now);
 
   // If no session today, start counting from yesterday —
   // the streak is still alive until end of today.
@@ -9537,8 +9550,7 @@ function calcStreak(rvSessions, zenerRuns, tsTrials, ppSessions) {
   for (let i = startOffset; i < 365; i++) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
-    const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-    if (dates.has(key)) streak++;
+    if (dates.has(_dateKey(d))) streak++;
     else break;
   }
   return streak;
@@ -10169,14 +10181,14 @@ function renderStreakBanner(rvSessions, zenerRuns, tsTrials, ppSessions) {
   // Check if user trained yesterday (to detect broken streak)
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
-  const yKey = `${yesterday.getFullYear()}-${yesterday.getMonth()}-${yesterday.getDate()}`;
+  const yKey = _dateKey(yesterday);
   const allDates = new Set([...rvSessions, ...zenerRuns, ...(tsTrials || []), ...(ppSessions || [])].map(s => {
     const d = new Date(s.timestamp);
-    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    return _dateKey(d);
   }));
 
   const today = new Date();
-  const todayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+  const todayKey = _dateKey(today);
   const trainedToday = allDates.has(todayKey);
   const trainedYesterday = allDates.has(yKey);
 
@@ -11848,7 +11860,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.04.07.4';
+const APP_VERSION = '2026.04.12.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
