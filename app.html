@@ -8849,18 +8849,12 @@ function approximateBinomialPValue(successes, trials, baseline = 0.5) {
 function significanceMeterWidthFromPValue(pValue) {
   const p = Number(pValue);
   if (!Number.isFinite(p) || p <= 0) return p === 0 ? 100 : 0;
-  // Keep bars low for weak evidence and only grow rapidly near/under p < 0.05.
-  if (p >= 0.1) {
-    const capped = Math.min(p, 0.2);
-    return Math.max(4, Math.round(((0.2 - capped) / 0.1) * 20));
-  }
-  if (p >= 0.05) {
-    return Math.round(20 + ((0.1 - p) / 0.05) * 35);
-  }
-  if (p >= 0.01) {
-    return Math.round(55 + ((0.05 - p) / 0.04) * 35);
-  }
-  return Math.min(100, Math.round(90 + ((0.01 - p) / 0.01) * 10));
+  // Gradual scale: p=0.5→5%, p=0.2→20%, p=0.05→50%, p=0.01→75%, p<0.01→75-100%
+  if (p >= 0.5) return 5;
+  if (p >= 0.2) return Math.round(5 + ((0.5 - p) / 0.3) * 15);
+  if (p >= 0.05) return Math.round(20 + ((0.2 - p) / 0.15) * 30);
+  if (p >= 0.01) return Math.round(50 + ((0.05 - p) / 0.04) * 25);
+  return Math.min(100, Math.round(75 + ((0.01 - p) / 0.01) * 25));
 }
 
 // ── Signal Tier System ──────────────────────
