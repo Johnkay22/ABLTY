@@ -10911,130 +10911,151 @@ async function loadAnalyticsFromCloud(userId, opts = {}) {
         .limit(500),
     ]);
 
+    if (rvRes?.error) console.warn('[SYNC] rv_sessions fetch error:', rvRes.error.message);
+    if (zeRes?.error) console.warn('[SYNC] zener_runs fetch error:', zeRes.error.message);
+    if (tsRes?.error) console.warn('[SYNC] ts_trials fetch error:', tsRes.error.message);
+    if (ppRes?.error) console.warn('[SYNC] pp_sessions fetch error:', ppRes.error.message);
+
     const rvRows = Array.isArray(rvRes?.data) ? rvRes.data : [];
     const zeRows = Array.isArray(zeRes?.data) ? zeRes.data : [];
     const tsRows = Array.isArray(tsRes?.data) ? tsRes.data : [];
     const ppRows = Array.isArray(ppRes?.data) ? ppRes.data : [];
 
-  const rvLocal = rvRows.map((r) => ({
-      id: Number(r.id) || Date.now(),
-      trn: r.trn || '',
-      targetId: r.target_id || null,
-      targetSrc: r.target_src || '',
-      targetLabel: r.target_label || '',
-      category: r.category || '',
-      score: (r.score === null || r.score === undefined || r.score === '')
-        ? null
-        : (Number.isFinite(Number(r.score)) ? Number(r.score) : null),
-      grading_failed: !!r.grading_failed || r.score === null || r.score === undefined,
-      dimension_scores: r.dimension_scores || {},
-      hits: Array.isArray(r.hits) ? r.hits : [],
-      noise: Array.isArray(r.noise) ? r.noise : [],
-      aol: Array.isArray(r.aol) ? r.aol : [],
-      summary: r.summary || '',
-      notes: r.notes || '',
-      duration: Number.isFinite(Number(r.duration)) ? Number(r.duration) : null,
-      sketchData: r.sketch_data || '',
-      timestamp: r.timestamp || new Date().toISOString(),
-      tags: Array.isArray(r.tags) ? r.tags : [],
-      sessionType: r.session_type || 'personal',
-    }));
-    const rvExisting = Array.isArray(STATE.sessions) ? STATE.sessions : [];
-    const rvMerged = mergeSessionArrays(
-      rvExisting,
-      rvLocal,
-      (r) => String(r?.id || `${r?.trn || ''}-${r?.timestamp || ''}`)
-    );
-    if (rvMerged.length) {
-      STATE.sessions = rvMerged;
-      saveState();
-      localStorage.setItem('ablty_rv_cloud_cache', JSON.stringify(rvMerged));
-    }
+    // ── RV sessions ──
+    try {
+      const rvLocal = rvRows.map((r) => ({
+        id: Number(r.id) || Date.now(),
+        trn: r.trn || '',
+        targetId: r.target_id || null,
+        targetSrc: r.target_src || '',
+        targetLabel: r.target_label || '',
+        category: r.category || '',
+        score: (r.score === null || r.score === undefined || r.score === '')
+          ? null
+          : (Number.isFinite(Number(r.score)) ? Number(r.score) : null),
+        grading_failed: !!r.grading_failed || r.score === null || r.score === undefined,
+        dimension_scores: r.dimension_scores || {},
+        hits: Array.isArray(r.hits) ? r.hits : [],
+        noise: Array.isArray(r.noise) ? r.noise : [],
+        aol: Array.isArray(r.aol) ? r.aol : [],
+        summary: r.summary || '',
+        notes: r.notes || '',
+        duration: Number.isFinite(Number(r.duration)) ? Number(r.duration) : null,
+        sketchData: r.sketch_data || '',
+        timestamp: r.timestamp || new Date().toISOString(),
+        tags: Array.isArray(r.tags) ? r.tags : [],
+        sessionType: r.session_type || 'personal',
+      }));
+      const rvExisting = Array.isArray(STATE.sessions) ? STATE.sessions : [];
+      const rvMerged = mergeSessionArrays(
+        rvExisting,
+        rvLocal,
+        (r) => String(r?.id || `${r?.trn || ''}-${r?.timestamp || ''}`)
+      );
+      if (rvMerged.length) {
+        STATE.sessions = rvMerged;
+        saveState();
+        // Write cloud cache WITHOUT sketch data to avoid blowing localStorage quota.
+        try {
+          const cacheRows = rvMerged.map(({ sketchData, ...rest }) => rest);
+          localStorage.setItem('ablty_rv_cloud_cache', JSON.stringify(cacheRows));
+        } catch(e) { console.warn('[SYNC] rv cloud cache write failed:', e.message); }
+      }
+    } catch(e) { console.warn('[SYNC] RV processing error:', e.message); }
 
-    const zeLocal = zeRows.map((r) => ({
-      id: Number(r.id) || Date.now(),
-      hits: Number.isFinite(Number(r.hits)) ? Number(r.hits) : 0,
-      hitPct: Number.isFinite(Number(r.hit_pct)) ? Number(r.hit_pct) : 0,
-      symbolStats: r.symbol_stats || {},
-      timestamp: r.timestamp || new Date().toISOString(),
-    }));
-    const zeExisting = loadZenerSessions();
-    const zeMerged = mergeSessionArrays(
-      zeExisting,
-      zeLocal,
-      (r) => String(r?.id || `${r?.timestamp || ''}-${r?.hitPct || 0}-${r?.hits || 0}`)
-    );
-    if (zeMerged.length) {
-      localStorage.setItem('ablty_zener', JSON.stringify(zeMerged));
-      localStorage.setItem('ablty_zener_cloud_cache', JSON.stringify(zeMerged));
-    }
+    // ── Zener runs ──
+    try {
+      const zeLocal = zeRows.map((r) => ({
+        id: Number(r.id) || Date.now(),
+        hits: Number.isFinite(Number(r.hits)) ? Number(r.hits) : 0,
+        hitPct: Number.isFinite(Number(r.hit_pct)) ? Number(r.hit_pct) : 0,
+        symbolStats: r.symbol_stats || {},
+        timestamp: r.timestamp || new Date().toISOString(),
+      }));
+      const zeExisting = loadZenerSessions();
+      const zeMerged = mergeSessionArrays(
+        zeExisting,
+        zeLocal,
+        (r) => String(r?.id || `${r?.timestamp || ''}-${r?.hitPct || 0}-${r?.hits || 0}`)
+      );
+      if (zeMerged.length) {
+        localStorage.setItem('ablty_zener', JSON.stringify(zeMerged));
+        localStorage.setItem('ablty_zener_cloud_cache', JSON.stringify(zeMerged));
+      }
+    } catch(e) { console.warn('[SYNC] Zener processing error:', e.message); }
 
-    const tsLocal = tsRows.map((r) => ({
-      id: Number(r.id) || Date.now(),
-      eventTime: r.event_time ?? null,
-      tapTime: r.tap_time ?? null,
-      delta: r.delta ?? null,
-      miss: !!r.miss,
-      hit: typeof r.hit === 'boolean' ? r.hit : null,
-      timestamp: r.timestamp || new Date().toISOString(),
-    }));
-    const tsExisting = loadTimestampAll();
-    const tsMerged = mergeSessionArrays(
-      tsExisting,
-      tsLocal,
-      (t) => String(t?.id || `${t?.timestamp || ''}-${t?.eventTime ?? ''}-${t?.tapTime ?? ''}`)
-    );
-    if (tsMerged.length) {
-      localStorage.setItem('ablty_timestamp_all', JSON.stringify(tsMerged));
-      localStorage.setItem('ablty_timestamp', JSON.stringify(tsMerged.filter((t) => !t.miss)));
-      localStorage.setItem('ablty_ts_cloud_cache', JSON.stringify(tsMerged));
-      // Confirm pending TS entries now present in durable cache.
-      try {
-        const pendingTs = JSON.parse(localStorage.getItem('ablty_ts_pending') || '[]');
-        if (Array.isArray(pendingTs) && pendingTs.length) {
-          const mergedTs = mergeSessionArrays(
-            tsMerged,
-            pendingTs,
-            (t) => String(t?.id || `${t?.timestamp || ''}-${t?.eventTime ?? ''}-${t?.tapTime ?? ''}`)
-          );
-          localStorage.setItem('ablty_timestamp_all', JSON.stringify(mergedTs));
-          localStorage.setItem('ablty_timestamp', JSON.stringify(mergedTs.filter((t) => !t.miss)));
-          localStorage.setItem('ablty_ts_cloud_cache', JSON.stringify(mergedTs));
-          localStorage.removeItem('ablty_ts_pending');
-        }
-      } catch(e) {}
-    }
+    // ── Presentiment trials ──
+    try {
+      const tsLocal = tsRows.map((r) => ({
+        id: Number(r.id) || Date.now(),
+        eventTime: r.event_time ?? null,
+        tapTime: r.tap_time ?? null,
+        delta: r.delta ?? null,
+        miss: !!r.miss,
+        hit: typeof r.hit === 'boolean' ? r.hit : null,
+        timestamp: r.timestamp || new Date().toISOString(),
+      }));
+      const tsExisting = loadTimestampAll();
+      const tsMerged = mergeSessionArrays(
+        tsExisting,
+        tsLocal,
+        (t) => String(t?.id || `${t?.timestamp || ''}-${t?.eventTime ?? ''}-${t?.tapTime ?? ''}`)
+      );
+      if (tsMerged.length) {
+        localStorage.setItem('ablty_timestamp_all', JSON.stringify(tsMerged));
+        localStorage.setItem('ablty_timestamp', JSON.stringify(tsMerged.filter((t) => !t.miss)));
+        localStorage.setItem('ablty_ts_cloud_cache', JSON.stringify(tsMerged));
+        // Confirm pending TS entries now present in durable cache.
+        try {
+          const pendingTs = JSON.parse(localStorage.getItem('ablty_ts_pending') || '[]');
+          if (Array.isArray(pendingTs) && pendingTs.length) {
+            const mergedTs = mergeSessionArrays(
+              tsMerged,
+              pendingTs,
+              (t) => String(t?.id || `${t?.timestamp || ''}-${t?.eventTime ?? ''}-${t?.tapTime ?? ''}`)
+            );
+            localStorage.setItem('ablty_timestamp_all', JSON.stringify(mergedTs));
+            localStorage.setItem('ablty_timestamp', JSON.stringify(mergedTs.filter((t) => !t.miss)));
+            localStorage.setItem('ablty_ts_cloud_cache', JSON.stringify(mergedTs));
+            localStorage.removeItem('ablty_ts_pending');
+          }
+        } catch(e) {}
+      }
+    } catch(e) { console.warn('[SYNC] Presentiment processing error:', e.message); }
 
-    const ppLocal = ppRows.map((r) => ({
-      id: Number(r.id) || Date.now(),
-      hit: !!r.hit,
-      timestamp: r.timestamp || new Date().toISOString(),
-    }));
-    const ppExisting = loadPPSessions();
-    const ppMerged = mergeSessionArrays(
-      ppExisting,
-      ppLocal,
-      (p) => String(p?.id || p?.timestamp || '')
-    );
-    if (ppMerged.length) {
-      localStorage.setItem('ablty_photopair', JSON.stringify(ppMerged));
-      localStorage.setItem('ablty_pp_cloud_cache', JSON.stringify(ppMerged));
-      // Confirm pending PP entries now present in durable cache.
-      try {
-        const pendingPp = JSON.parse(localStorage.getItem('ablty_pp_pending') || '[]');
-        if (Array.isArray(pendingPp) && pendingPp.length) {
-          const mergedPp = mergeSessionArrays(
-            ppMerged,
-            pendingPp,
-            (p) => String(p?.id || p?.timestamp || '')
-          );
-          localStorage.setItem('ablty_photopair', JSON.stringify(mergedPp));
-          localStorage.setItem('ablty_pp_cloud_cache', JSON.stringify(mergedPp));
-          localStorage.removeItem('ablty_pp_pending');
-        }
-      } catch(e) {}
-    }
-  } catch(e) {}
+    // ── Photo Pair sessions ──
+    try {
+      const ppLocal = ppRows.map((r) => ({
+        id: Number(r.id) || Date.now(),
+        hit: !!r.hit,
+        timestamp: r.timestamp || new Date().toISOString(),
+      }));
+      const ppExisting = loadPPSessions();
+      const ppMerged = mergeSessionArrays(
+        ppExisting,
+        ppLocal,
+        (p) => String(p?.id || p?.timestamp || '')
+      );
+      if (ppMerged.length) {
+        localStorage.setItem('ablty_photopair', JSON.stringify(ppMerged));
+        localStorage.setItem('ablty_pp_cloud_cache', JSON.stringify(ppMerged));
+        // Confirm pending PP entries now present in durable cache.
+        try {
+          const pendingPp = JSON.parse(localStorage.getItem('ablty_pp_pending') || '[]');
+          if (Array.isArray(pendingPp) && pendingPp.length) {
+            const mergedPp = mergeSessionArrays(
+              ppMerged,
+              pendingPp,
+              (p) => String(p?.id || p?.timestamp || '')
+            );
+            localStorage.setItem('ablty_photopair', JSON.stringify(mergedPp));
+            localStorage.setItem('ablty_pp_cloud_cache', JSON.stringify(mergedPp));
+            localStorage.removeItem('ablty_pp_pending');
+          }
+        } catch(e) {}
+      }
+    } catch(e) { console.warn('[SYNC] Photo Pair processing error:', e.message); }
+  } catch(e) { console.warn('[SYNC] loadAnalyticsFromCloud failed:', e.message); }
 }
 
 async function handleLogin() {
