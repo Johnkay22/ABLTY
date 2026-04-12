@@ -3824,6 +3824,42 @@ html, body {
     </div>
   </div>
 
+  <div class="modal-overlay" id="psi-info-modal" style="display:none;" onclick="closePsiInfoModal(event)">
+    <div class="modal-box">
+      <div class="section-label">PSI ANALYTICS</div>
+      <div class="modal-title" style="font-size:30px;margin-bottom:10px;">How to read your stats</div>
+      <div class="modal-body" style="margin-bottom:14px;">
+        <strong>What is a p-value?</strong><br>
+        It measures how likely your results are if you were just guessing randomly. Lower = stronger evidence that something beyond chance is happening.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">
+        <div style="display:flex;align-items:baseline;gap:8px;">
+          <span class="mono-label" style="min-width:70px;color:var(--signal-confirmed);">p &lt; 0.01</span>
+          <span class="modal-body" style="margin:0;">Strong evidence — less than 1% chance it's random</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:8px;">
+          <span class="mono-label" style="min-width:70px;color:var(--accent);">p &lt; 0.05</span>
+          <span class="modal-body" style="margin:0;">Statistically significant — less than 5% chance</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:8px;">
+          <span class="mono-label" style="min-width:70px;color:var(--warn);">p &lt; 0.20</span>
+          <span class="modal-body" style="margin:0;">Suggestive trend — not yet significant</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:8px;">
+          <span class="mono-label" style="min-width:70px;color:var(--muted);">p &gt; 0.20</span>
+          <span class="modal-body" style="margin:0;">Could be chance — keep training</span>
+        </div>
+      </div>
+      <div class="mono-label" style="margin-bottom:6px;">HOW EACH PROTOCOL IS SCORED</div>
+      <div class="modal-body" style="margin-bottom:14px;">
+        <strong>Zener</strong> — Hit rate compared to 20% chance (5 symbols, each equally likely).<br><br>
+        <strong>Photo Pair</strong> — Hit rate compared to 50% chance (2 choices per trial).<br><br>
+        <strong>Presentiment</strong> — Your tap-to-event timing gap is compared against 10,000 randomized shuffles. If your timing is closer than most random pairings, the p-value drops.
+      </div>
+      <button class="modal-close-btn" onclick="closePsiInfoModal()">Got It</button>
+    </div>
+  </div>
+
   <!-- ══════════════════════════════════
        SCREEN: RV - CANVAS
   ═══════════════════════════════════ -->
@@ -4450,6 +4486,9 @@ html, body {
 
       <!-- PSI PANEL -->
       <div class="analytics-panel" id="apanel-psi" style="margin-top:16px;">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:8px;">
+          <button class="dream-hdr-info-btn" type="button" onclick="openPsiInfoModal()" aria-label="PSI stats info" style="position:relative;">?</button>
+        </div>
         <div class="chart-card" id="zener-chart-card">
           <div class="chart-title">Zener Hit Rate</div>
           <div class="chart-svg-wrap" id="zener-chart-wrap"></div>
@@ -4844,8 +4883,9 @@ html, body {
         <button class="dream-hdr-info-btn" type="button" onclick="openDreamInfoModal()" aria-label="Dream journal info">?</button>
       </div>
 
-      <div class="fade-in-delay-1">
-        <button class="btn btn-primary" style="width:100%;" onclick="navigate('dream-new-entry')">NEW ENTRY</button>
+      <div class="fade-in-delay-1" style="display:flex;gap:10px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="navigate('dream-new-entry')">NEW ENTRY</button>
+        <button class="btn" style="flex:1;background:var(--card);border:1px solid var(--border);color:var(--text);" onclick="navigate('dream-insights')">INSIGHTS</button>
       </div>
 
       <div class="chart-card fade-in-delay-2">
@@ -4946,6 +4986,29 @@ html, body {
           <div id="dream-detail-tags" class="dream-tag-row"></div>
           <div id="dream-detail-tags-empty" class="mono-sm" style="color:var(--dim);display:none;">Analyzing...</div>
         </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: DREAM INSIGHTS
+  ═══════════════════════════════════ -->
+  <div id="screen-dream-insights" class="screen">
+    <div class="screen-inner">
+
+      <div class="screen-hdr fade-in">
+        <button class="screen-hdr-back" onclick="navigate('dream-journal')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div style="min-width:0;">
+          <div class="screen-hdr-title">DREAM INSIGHTS</div>
+          <div class="screen-hdr-sub">Patterns · Trends · Correlations</div>
+        </div>
+      </div>
+
+      <div id="dream-insights-content" class="fade-in-delay-1">
+        <div class="mono-sm" style="color:var(--dim);">Loading insights...</div>
       </div>
 
     </div>
@@ -5767,6 +5830,7 @@ const SCREENS = {
   'dream-journal':        'screen-dream-journal',
   'dream-new-entry':      'screen-dream-new-entry',
   'dream-entry-detail':   'screen-dream-entry-detail',
+  'dream-insights':       'screen-dream-insights',
   'wbtb':                 'screen-wbtb',
   'terms':                'screen-terms',
   'privacy':               'screen-privacy',
@@ -5847,6 +5911,7 @@ const BACK_MAP = {
   'dream-journal':      'dream-lab',
   'dream-new-entry':    'dream-journal',
   'dream-entry-detail': 'dream-journal',
+  'dream-insights':     'dream-journal',
   'reality-check':      'dream-lab',
   'rc-task':            'reality-check',
   analytics:            'home',
@@ -5891,7 +5956,7 @@ function navigate(name) {
   if (name === 'login')  { openAuthScreen('login');  return; }
   if (name === 'signup') { openAuthScreen('signup'); return; }
   if (name === 'forgot') { openAuthScreen('forgot'); return; }
-  if ((name === 'dream-journal' || name === 'dream-new-entry' || name === 'dream-entry-detail') && !isLoggedIn()) {
+  if ((name === 'dream-journal' || name === 'dream-new-entry' || name === 'dream-entry-detail' || name === 'dream-insights') && !isLoggedIn()) {
     showUpgradeModal('dream-journal', 'Dream Journal', 'Create a free account to log dreams and reveal recurring dream signs.');
     return;
   }
@@ -5915,6 +5980,7 @@ function navigate(name) {
   if (name === 'dream-journal') renderDreamJournal();
   if (name === 'dream-new-entry') renderDreamNewEntry();
   if (name === 'dream-entry-detail') renderDreamEntryDetail();
+  if (name === 'dream-insights') renderDreamInsights();
   if (name === 'wbtb')      { /* init wbtb */ }
   if (name === 'photopair') renderPhotoPairBrief();
   if (name === 'home')     updateHomeRCStreak();
@@ -8503,11 +8569,296 @@ function renderDreamEntryDetail() {
 
   const tags = normalizeDreamTags(selected.ai_tags);
   if (tagsWrap) {
-    tagsWrap.innerHTML = tags.map((tag) => `<span class="dream-tag-pill">${escapeHtml(tag)}</span>`).join('');
+    tagsWrap.innerHTML = tags.map((tag) =>
+      `<span class="dream-tag-pill" style="display:inline-flex;align-items:center;gap:4px;">${escapeHtml(tag)}<button onclick="removeDreamTag('${escapeHtml(tag)}')" style="background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:0 2px;line-height:1;" aria-label="Remove tag">&times;</button></span>`
+    ).join('') +
+    `<button onclick="promptAddDreamTag()" style="display:inline-flex;align-items:center;justify-content:center;background:var(--card2);border:1px dashed var(--border);border-radius:20px;color:var(--muted);font-size:16px;cursor:pointer;padding:2px 10px;line-height:1;font-family:var(--font-mono);" aria-label="Add tag">+</button>`;
   }
   if (tagsEmpty) {
     tagsEmpty.style.display = tags.length ? 'none' : 'block';
   }
+}
+
+async function removeDreamTag(tagToRemove) {
+  const entry = (DREAM_JOURNAL_STATE.entries || []).find(
+    e => String(e.id) === String(DREAM_JOURNAL_STATE.selectedEntryId)
+  );
+  if (!entry) return;
+  const tags = normalizeDreamTags(entry.ai_tags).filter(t => t !== tagToRemove);
+  entry.ai_tags = tags;
+  await updateDreamEntryTags(entry.id, tags);
+  renderDreamEntryDetail();
+}
+
+async function promptAddDreamTag() {
+  const tag = prompt('Add a dream sign:');
+  if (!tag || !tag.trim()) return;
+  const cleaned = tag.trim().toLowerCase();
+  const entry = (DREAM_JOURNAL_STATE.entries || []).find(
+    e => String(e.id) === String(DREAM_JOURNAL_STATE.selectedEntryId)
+  );
+  if (!entry) return;
+  const tags = normalizeDreamTags(entry.ai_tags);
+  if (tags.includes(cleaned)) { showToast('Tag already exists', 'info'); return; }
+  tags.push(cleaned);
+  entry.ai_tags = tags;
+  await updateDreamEntryTags(entry.id, tags);
+  renderDreamEntryDetail();
+}
+
+// ─── DREAM INSIGHTS ──────────────────────────────
+async function renderDreamInsights() {
+  const wrap = document.getElementById('dream-insights-content');
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="mono-sm" style="color:var(--dim);">Loading insights...</div>';
+
+  const entries = await loadDreamEntriesFromCloud(false);
+  if (!entries || !entries.length) {
+    wrap.innerHTML = '<div class="chart-card"><div class="mono-sm" style="color:var(--dim);">No dream entries yet. Start logging dreams to unlock insights.</div></div>';
+    return;
+  }
+
+  const sorted = [...entries].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  let html = '';
+
+  // — 1. Lucidity Rate —
+  const totalEntries = sorted.length;
+  const lucidCount = sorted.filter(e => normalizeDreamLucid(e.lucid) === 'yes').length;
+  const partialCount = sorted.filter(e => normalizeDreamLucid(e.lucid) === 'partial').length;
+  const lucidPct = totalEntries ? Math.round(((lucidCount + partialCount) / totalEntries) * 100) : 0;
+  const fullLucidPct = totalEntries ? Math.round((lucidCount / totalEntries) * 100) : 0;
+
+  // Weekly lucidity trend (last 8 weeks)
+  const now = new Date();
+  const weekBuckets = [];
+  for (let w = 7; w >= 0; w--) {
+    const weekStart = new Date(now);
+    weekStart.setDate(weekStart.getDate() - (w * 7 + 6));
+    weekStart.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(now);
+    weekEnd.setDate(weekEnd.getDate() - (w * 7) + 1);
+    weekEnd.setHours(0, 0, 0, 0);
+    const inWeek = sorted.filter(e => {
+      const d = new Date(e.created_at);
+      return d >= weekStart && d < weekEnd;
+    });
+    const wLucid = inWeek.filter(e => normalizeDreamLucid(e.lucid) === 'yes' || normalizeDreamLucid(e.lucid) === 'partial').length;
+    weekBuckets.push({ total: inWeek.length, lucid: wLucid, entries: inWeek, label: `W${8 - w}` });
+  }
+
+  const maxWeekTotal = Math.max(...weekBuckets.map(b => b.total), 1);
+  const lucidBars = weekBuckets.map(b => {
+    const h = Math.max(2, Math.round((b.total / maxWeekTotal) * 48));
+    const lucidH = b.total ? Math.round((b.lucid / b.total) * h) : 0;
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;">
+      <div style="height:48px;display:flex;flex-direction:column;justify-content:flex-end;width:100%;">
+        <div style="height:${h}px;border-radius:3px;background:rgba(255,255,255,0.08);position:relative;overflow:hidden;">
+          <div style="position:absolute;bottom:0;width:100%;height:${lucidH}px;background:var(--accent);border-radius:3px;"></div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  html += `<div class="chart-card" style="margin-bottom:12px;">
+    <div class="chart-title">LUCIDITY RATE</div>
+    <div style="display:flex;gap:16px;align-items:baseline;margin-bottom:12px;">
+      <div style="font-size:28px;font-weight:700;color:var(--text);font-family:var(--font-mono);">${lucidPct}%</div>
+      <div class="mono-sm" style="color:var(--muted);">${lucidCount} lucid · ${partialCount} partial · ${totalEntries} total</div>
+    </div>
+    <div class="mono-sm" style="color:var(--muted);margin-bottom:6px;">Weekly trend (lucid highlighted)</div>
+    <div style="display:flex;gap:4px;align-items:flex-end;">${lucidBars}</div>
+  </div>`;
+
+  // — 2. Dream Recall Trend (entries per week) —
+  const recallBars = weekBuckets.map(b => {
+    const h = Math.max(2, Math.round((b.total / maxWeekTotal) * 48));
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;">
+      <div style="height:48px;display:flex;flex-direction:column;justify-content:flex-end;width:100%;">
+        <div style="height:${h}px;border-radius:3px;background:var(--accent);"></div>
+      </div>
+      <div class="mono-sm" style="font-size:8px;color:var(--dim);">${b.total}</div>
+    </div>`;
+  }).join('');
+
+  const avgRecall = (totalEntries / Math.max(weekBuckets.filter(b => b.total > 0).length, 1)).toFixed(1);
+  html += `<div class="chart-card" style="margin-bottom:12px;">
+    <div class="chart-title">DREAM RECALL</div>
+    <div style="display:flex;gap:16px;align-items:baseline;margin-bottom:12px;">
+      <div style="font-size:28px;font-weight:700;color:var(--text);font-family:var(--font-mono);">${avgRecall}</div>
+      <div class="mono-sm" style="color:var(--muted);">avg entries/week</div>
+    </div>
+    <div style="display:flex;gap:4px;align-items:flex-end;">${recallBars}</div>
+  </div>`;
+
+  // — 3. Journaling Streak —
+  const entryDates = new Set(sorted.map(e => _dateKey(new Date(e.created_at))));
+  let streak = 0;
+  const today = new Date();
+  for (let i = 0; i < 365; i++) {
+    const check = new Date(today);
+    check.setDate(check.getDate() - i);
+    if (entryDates.has(_dateKey(check))) {
+      streak++;
+    } else if (i > 0) {
+      break;
+    }
+  }
+  const longestStreak = (() => {
+    const dayList = [...entryDates].sort();
+    let best = 0, run = 1;
+    for (let i = 1; i < dayList.length; i++) {
+      const prev = new Date(dayList[i - 1]);
+      const curr = new Date(dayList[i]);
+      const diff = Math.round((curr - prev) / 86400000);
+      if (diff === 1) { run++; } else { run = 1; }
+      if (run > best) best = run;
+    }
+    return Math.max(best, dayList.length ? 1 : 0);
+  })();
+
+  html += `<div class="chart-card" style="margin-bottom:12px;">
+    <div class="chart-title">JOURNALING STREAK</div>
+    <div style="display:flex;gap:24px;">
+      <div>
+        <div style="font-size:28px;font-weight:700;color:var(--text);font-family:var(--font-mono);">${streak}</div>
+        <div class="mono-sm" style="color:var(--muted);">current days</div>
+      </div>
+      <div>
+        <div style="font-size:28px;font-weight:700;color:var(--text);font-family:var(--font-mono);">${longestStreak}</div>
+        <div class="mono-sm" style="color:var(--muted);">longest streak</div>
+      </div>
+      <div>
+        <div style="font-size:28px;font-weight:700;color:var(--text);font-family:var(--font-mono);">${entryDates.size}</div>
+        <div class="mono-sm" style="color:var(--muted);">total days</div>
+      </div>
+    </div>
+  </div>`;
+
+  // — 4. Vividness/Clarity Trend —
+  const clarityBuckets = weekBuckets.map(b => {
+    if (!b.entries.length) return 0;
+    const sum = b.entries.reduce((s, e) => s + clampDreamClarity(e.clarity), 0);
+    return +(sum / b.entries.length).toFixed(1);
+  });
+
+  const overallClarity = totalEntries
+    ? (sorted.reduce((s, e) => s + clampDreamClarity(e.clarity), 0) / totalEntries).toFixed(1)
+    : '0';
+
+  const clarityBarsHtml = clarityBuckets.map(avg => {
+    const h = Math.max(2, Math.round((avg / 5) * 48));
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex:1;">
+      <div style="height:48px;display:flex;flex-direction:column;justify-content:flex-end;width:100%;">
+        <div style="height:${h}px;border-radius:3px;background:var(--accent);"></div>
+      </div>
+      <div class="mono-sm" style="font-size:8px;color:var(--dim);">${avg || '-'}</div>
+    </div>`;
+  }).join('');
+
+  html += `<div class="chart-card" style="margin-bottom:12px;">
+    <div class="chart-title">VIVIDNESS TREND</div>
+    <div style="display:flex;gap:16px;align-items:baseline;margin-bottom:12px;">
+      <div style="font-size:28px;font-weight:700;color:var(--text);font-family:var(--font-mono);">${overallClarity}</div>
+      <div class="mono-sm" style="color:var(--muted);">avg clarity (1–5)</div>
+    </div>
+    <div style="display:flex;gap:4px;align-items:flex-end;">${clarityBarsHtml}</div>
+  </div>`;
+
+  // — 5. Emotion Breakdown —
+  const emotionCounts = Object.create(null);
+  sorted.forEach(e => {
+    const em = String(e.emotion || 'Neutral');
+    emotionCounts[em] = (emotionCounts[em] || 0) + 1;
+  });
+  const emotionSorted = Object.entries(emotionCounts).sort((a, b) => b[1] - a[1]);
+  const maxEmotion = emotionSorted.length ? emotionSorted[0][1] : 1;
+
+  const emotionColors = {
+    'Calm': '#5b8fb9', 'Anxious': '#c97b2a', 'Euphoric': '#d4a843',
+    'Fearful': '#b94a4a', 'Curious': '#7b9e5b', 'Confused': '#9b7bb9',
+    'Sad': '#6b7b9b', 'Neutral': '#888'
+  };
+
+  const emotionRows = emotionSorted.map(([em, count]) => {
+    const pct = Math.max(8, Math.round((count / maxEmotion) * 100));
+    const color = emotionColors[em] || 'var(--accent)';
+    return `<div style="display:grid;grid-template-columns:72px 1fr auto;gap:8px;align-items:center;margin-top:8px;">
+      <div class="mono-sm" style="color:var(--text);">${escapeHtml(em)}</div>
+      <div style="height:7px;border-radius:999px;background:rgba(255,255,255,0.06);overflow:hidden;">
+        <div style="height:100%;width:${pct}%;background:${color};border-radius:999px;"></div>
+      </div>
+      <div class="mono-sm" style="color:var(--muted);min-width:18px;text-align:right;">${count}</div>
+    </div>`;
+  }).join('');
+
+  html += `<div class="chart-card" style="margin-bottom:12px;">
+    <div class="chart-title">EMOTION BREAKDOWN</div>
+    ${emotionRows}
+    <div class="mono-sm dream-chart-meta">Based on ${totalEntries} entries</div>
+  </div>`;
+
+  // — 6. Dream Sign → Lucidity Correlations —
+  const tagData = Object.create(null);
+  sorted.forEach(e => {
+    const isLucid = normalizeDreamLucid(e.lucid) === 'yes' || normalizeDreamLucid(e.lucid) === 'partial';
+    const tags = Array.isArray(e.ai_tags) ? e.ai_tags : [];
+    tags.forEach(t => {
+      const key = String(t || '').trim().toLowerCase();
+      if (!key) return;
+      if (!tagData[key]) tagData[key] = { total: 0, lucid: 0 };
+      tagData[key].total++;
+      if (isLucid) tagData[key].lucid++;
+    });
+  });
+
+  // Only show tags that appear in at least 3 entries
+  const tagCorrelations = Object.entries(tagData)
+    .filter(([, d]) => d.total >= 3)
+    .map(([tag, d]) => ({ tag, total: d.total, lucid: d.lucid, rate: Math.round((d.lucid / d.total) * 100) }))
+    .sort((a, b) => b.rate - a.rate || b.total - a.total)
+    .slice(0, 10);
+
+  if (tagCorrelations.length) {
+    const corrRows = tagCorrelations.map(item => {
+      const barPct = Math.max(4, item.rate);
+      const barColor = item.rate >= 50 ? 'var(--accent)' : item.rate >= 25 ? 'var(--warn)' : 'rgba(255,255,255,0.15)';
+      return `<div style="display:grid;grid-template-columns:minmax(72px,1fr) 1fr auto;gap:8px;align-items:center;margin-top:8px;">
+        <div class="mono-sm" style="color:var(--text);text-transform:lowercase;">${escapeHtml(item.tag)}</div>
+        <div style="height:7px;border-radius:999px;background:rgba(255,255,255,0.06);overflow:hidden;">
+          <div style="height:100%;width:${barPct}%;background:${barColor};border-radius:999px;"></div>
+        </div>
+        <div class="mono-sm" style="color:var(--muted);min-width:36px;text-align:right;">${item.rate}%</div>
+      </div>`;
+    }).join('');
+
+    html += `<div class="chart-card" style="margin-bottom:12px;">
+      <div class="chart-title">DREAM SIGNS &amp; LUCIDITY</div>
+      <div class="mono-sm" style="color:var(--muted);margin-bottom:8px;">How often each dream sign appears in lucid dreams</div>
+      ${corrRows}
+      <div class="mono-sm dream-chart-meta">Signs appearing in 3+ entries</div>
+    </div>`;
+  } else if (totalEntries >= 10) {
+    html += `<div class="chart-card" style="margin-bottom:12px;">
+      <div class="chart-title">DREAM SIGNS &amp; LUCIDITY</div>
+      <div class="mono-sm" style="color:var(--dim);">Not enough recurring dream signs yet. Keep logging to reveal correlations.</div>
+    </div>`;
+  }
+
+  // — Tip card —
+  const tips = [
+    'Consistent journaling is the #1 predictor of lucid dream frequency.',
+    'Dream signs that repeat across entries are your best MILD anchors.',
+    'Higher clarity ratings correlate with better dream recall over time.',
+    'Review your top dream signs before sleep to prime recognition.',
+    'Emotional dreams are easier to recall — use them as entry points.',
+  ];
+  const tip = tips[Math.floor(Date.now() / 86400000) % tips.length];
+  html += `<div class="chart-card" style="margin-bottom:12px;border-color:var(--accent);border-style:dashed;">
+    <div class="chart-title">INSIGHT TIP</div>
+    <div class="mono-sm" style="color:var(--text);line-height:1.5;">${tip}</div>
+  </div>`;
+
+  wrap.innerHTML = html;
 }
 
 function renderPSIHub() {
@@ -10410,6 +10761,16 @@ function closeProtocolModal(e) {
   if (m) m.style.display = 'none';
 }
 
+function openPsiInfoModal() {
+  const m = document.getElementById('psi-info-modal');
+  if (m) m.style.display = 'flex';
+}
+function closePsiInfoModal(e) {
+  if (e && e.target !== document.getElementById('psi-info-modal') && !e.target.classList.contains('modal-close-btn')) return;
+  const m = document.getElementById('psi-info-modal');
+  if (m) m.style.display = 'none';
+}
+
 function openDreamInfoModal() {
   const m = document.getElementById('dream-info-modal');
   if (m) m.style.display = 'flex';
@@ -11843,7 +12204,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.04.12.1';
+const APP_VERSION = '2026.04.12.2';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
