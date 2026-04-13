@@ -1,8 +1,8 @@
-// ABLTY Service Worker v17
+// ABLTY Service Worker v18
 // Strategy: network-first for HTML, cache-first for static assets
 // Includes update detection to notify users of new versions
 
-const CACHE_NAME = 'ablty-v17';
+const CACHE_NAME = 'ablty-v18';
 const STATIC_ASSETS = [
   '/',
   '/app.html',
@@ -126,12 +126,15 @@ self.addEventListener('push', event => {
   }
 
   // Detect WBTB notification types by body content
+  let requireInteraction = false;
   if (body && body.includes('WBTB return')) {
     url  = '/app.html?wbtb=return';
     tag  = 'ablty-wbtb-return';
+    requireInteraction = true;
   } else if (body && body.includes('WBTB wake')) {
     url  = '/app.html?wbtb=1';
     tag  = 'ablty-wbtb';
+    requireInteraction = true;
   } else if (!body) {
     body = REALITY_CHECKS[Math.floor(Math.random() * REALITY_CHECKS.length)];
   }
@@ -143,6 +146,7 @@ self.addEventListener('push', event => {
       badge:    '/badge-72.png',
       tag,
       renotify: true,
+      requireInteraction,
       silent,
       data: { url },
     })
