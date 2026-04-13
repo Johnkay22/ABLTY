@@ -4888,12 +4888,7 @@ html, body {
         <button class="btn" style="flex:1;background:var(--card);border:1px solid var(--border);color:var(--text);" onclick="navigate('dream-insights')">INSIGHTS</button>
       </div>
 
-      <div class="chart-card fade-in-delay-2">
-        <div class="chart-title">DREAM SIGNS</div>
-        <div id="dream-signs-wrap" class="mono-sm" style="color:var(--dim);">Loading...</div>
-      </div>
-
-      <div id="dream-entry-list" class="dream-entry-list fade-in-delay-3"></div>
+      <div id="dream-entry-list" class="dream-entry-list fade-in-delay-2"></div>
 
     </div>
   </div>
@@ -8333,13 +8328,10 @@ function renderDreamEntryList(entries) {
 
 async function renderDreamJournal() {
   if (!isLoggedIn()) return;
-  const signsWrap = document.getElementById('dream-signs-wrap');
   const list = document.getElementById('dream-entry-list');
-  if (signsWrap) signsWrap.textContent = 'Loading...';
   if (list) list.innerHTML = '<div class="dream-empty mono-sm">Loading entries...</div>';
 
   const entries = await loadDreamEntriesFromCloud(false);
-  renderDreamSignsCard(entries);
   renderDreamEntryList(entries);
 }
 
