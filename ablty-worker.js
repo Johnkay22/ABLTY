@@ -693,7 +693,7 @@ async function shouldSendNow(sub, subKey, nowUtcMs, env) {
   const lastSent = parseInt(await env.ABLTY_KV.get(lastKey) || '0', 10);
   const minutesSinceLast = lastSent ? (nowUtcMs - lastSent) / 60000 : 999;
 
-  const minGap = Math.max(20, idealIntervalMinutes * 0.5);
+  const minGap = Math.max(30, idealIntervalMinutes * 0.5);
   if (minutesSinceLast < minGap) return false;
 
   const slotsLeft = Math.max(1, minutesLeft / 30);
