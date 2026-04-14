@@ -10249,6 +10249,10 @@ function renderPPDetail(s) {
   if (imagesRow) imagesRow.style.display = 'none';
   const dimWrap = document.getElementById('detail-dimensions-wrap');
   if (dimWrap) dimWrap.style.display = 'none';
+  // Hide RV-only dynamic cards
+  const nc = document.getElementById('detail-notes-card');    if (nc) nc.style.display = 'none';
+  const rc = document.getElementById('detail-retry-card');    if (rc) rc.style.display = 'none';
+  const rsc = document.getElementById('detail-reasoning-card'); if (rsc) rsc.style.display = 'none';
   const summaryCard = document.getElementById('detail-summary-card');
   if (summaryCard) {
     summaryCard.style.display = 'block';
@@ -10291,6 +10295,12 @@ function renderTSDetail(s) {
   if (imagesRow) imagesRow.style.display = 'none';
   const dimWrap = document.getElementById('detail-dimensions-wrap');
   if (dimWrap) dimWrap.style.display = 'none';
+  // Hide RV-only dynamic cards
+  const nc = document.getElementById('detail-notes-card');    if (nc) nc.style.display = 'none';
+  const rc = document.getElementById('detail-retry-card');    if (rc) rc.style.display = 'none';
+  const rsc = document.getElementById('detail-reasoning-card'); if (rsc) rsc.style.display = 'none';
+
+  const elapsed = getTSElapsedSeconds(s);
   const summaryCard = document.getElementById('detail-summary-card');
   if (summaryCard) {
     summaryCard.style.display = 'block';
@@ -10305,7 +10315,14 @@ function renderTSDetail(s) {
 
   const hitList = document.getElementById('detail-hit-list');
   if (hitList) {
-    hitList.innerHTML = `
+    let timingHtml = '';
+    if (elapsed !== null) {
+      timingHtml = `<div class="hit-item">
+        <div class="hit-badge hit" style="background:var(--card2);color:var(--text);">Timing</div>
+        <div class="hit-text">${elapsed.toFixed(1)}s between tap and event</div>
+      </div>`;
+    }
+    hitList.innerHTML = `${timingHtml}
       <div class="hit-item">
         <div class="hit-badge ${tsHit ? 'hit' : 'noise'}">${tsHit ? 'Hit' : 'Miss'}</div>
         <div class="hit-text">Chance baseline is 50%. Measures unconscious precognitive timing.</div>
@@ -10468,6 +10485,10 @@ function renderZenerDetail(run) {
   if (dimWrap) dimWrap.style.display = 'none';
   const summaryCard = document.getElementById('detail-summary-card');
   if (summaryCard) summaryCard.style.display = 'none';
+  // Hide RV-only dynamic cards
+  const nc = document.getElementById('detail-notes-card');    if (nc) nc.style.display = 'none';
+  const rc = document.getElementById('detail-retry-card');    if (rc) rc.style.display = 'none';
+  const rsc = document.getElementById('detail-reasoning-card'); if (rsc) rsc.style.display = 'none';
 
   // Hit list: per-trial summary
   const hitList = document.getElementById('detail-hit-list');
