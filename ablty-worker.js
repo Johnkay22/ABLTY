@@ -1085,10 +1085,12 @@ async function runWBTBCron(env) {
 
           if (now < alarm.fireAt) continue;
           if (now > alarm.fireAt + 30 * 60 * 1000) {
+            console.log('[WBTB] expired alarm, deleting:', kv.name);
             await env.ABLTY_KV.delete(kv.name);
             continue;
           }
 
+          console.log('[WBTB] firing alarm:', kv.name, 'type:', alarm.type || 'wake');
           const sub = { endpoint: alarm.endpoint, keys: alarm.keys };
           if (alarm.type === 'return') {
             await sendWBTBReturnPush(sub, env);
@@ -1096,12 +1098,13 @@ async function runWBTBCron(env) {
             await sendWBTBPush(sub, alarm.duration, env);
           }
           await env.ABLTY_KV.delete(kv.name);
+          console.log('[WBTB] alarm sent and deleted:', kv.name);
         } catch (e) {
-          // skip bad entries
+          console.error('[WBTB] alarm error for', kv.name, ':', e.message);
         }
       }
     } catch (e) {
-      // ignore list errors
+      console.error('[WBTB] list error for prefix', prefix, ':', e.message);
     }
   }
 }
