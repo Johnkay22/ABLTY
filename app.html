@@ -7780,7 +7780,7 @@ async function startWBTB() {
     return;
   }
 
-  const fireAt = Date.now() + 60 * 1000; // TEST: 1 minute (revert to: wbtbDuration * 3600 * 1000)
+  const fireAt = Date.now() + Math.round(wbtbDuration * 3600 * 1000);
 
   try {
     const resp = await fetch(WORKER_URL + '/wbtb-schedule', {
