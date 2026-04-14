@@ -3115,11 +3115,11 @@ html, body {
 .wbtb-ring-text { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .wbtb-time-display { font-family: var(--font-display); font-size: 64px; letter-spacing: 2px; color: var(--accent); line-height: 1; }
 .wbtb-time-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
-.wbtb-cycle-dots { display: flex; gap: 10px; justify-content: center; padding: 10px 0 20px; }
+.wbtb-cycle-dots { display: flex; gap: 10px; justify-content: center; padding: 10px 0 8px; }
 .wbtb-cycle-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border2); transition: background 0.3s; }
 .wbtb-cycle-dot.done    { background: var(--accent); }
 .wbtb-cycle-dot.current { background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
-.wbtb-btn-row { display: flex; gap: 10px; padding: 16px 24px calc(20px + var(--safe-bottom)); flex-shrink: 0; border-top: 1px solid var(--border); }
+.wbtb-btn-row { display: flex; gap: 10px; padding: 16px 24px calc(20px + var(--safe-bottom)); flex-shrink: 0; }
 .wbtb-btn { flex: 1; padding: 18px; border-radius: 14px; font-family: var(--font-display); font-size: 22px; letter-spacing: 2px; cursor: pointer; border: none; -webkit-tap-highlight-color: transparent; }
 .wbtb-btn-start { background: var(--accent); color: #000; }
 .wbtb-btn-stop  { background: var(--card); border: 1px solid var(--border); color: var(--muted); }
@@ -10249,6 +10249,10 @@ function renderPPDetail(s) {
   if (imagesRow) imagesRow.style.display = 'none';
   const dimWrap = document.getElementById('detail-dimensions-wrap');
   if (dimWrap) dimWrap.style.display = 'none';
+  // Hide RV-only dynamic cards
+  const nc = document.getElementById('detail-notes-card');    if (nc) nc.style.display = 'none';
+  const rc = document.getElementById('detail-retry-card');    if (rc) rc.style.display = 'none';
+  const rsc = document.getElementById('detail-reasoning-card'); if (rsc) rsc.style.display = 'none';
   const summaryCard = document.getElementById('detail-summary-card');
   if (summaryCard) {
     summaryCard.style.display = 'block';
@@ -10291,6 +10295,12 @@ function renderTSDetail(s) {
   if (imagesRow) imagesRow.style.display = 'none';
   const dimWrap = document.getElementById('detail-dimensions-wrap');
   if (dimWrap) dimWrap.style.display = 'none';
+  // Hide RV-only dynamic cards
+  const nc = document.getElementById('detail-notes-card');    if (nc) nc.style.display = 'none';
+  const rc = document.getElementById('detail-retry-card');    if (rc) rc.style.display = 'none';
+  const rsc = document.getElementById('detail-reasoning-card'); if (rsc) rsc.style.display = 'none';
+
+  const elapsed = getTSElapsedSeconds(s);
   const summaryCard = document.getElementById('detail-summary-card');
   if (summaryCard) {
     summaryCard.style.display = 'block';
@@ -10305,7 +10315,14 @@ function renderTSDetail(s) {
 
   const hitList = document.getElementById('detail-hit-list');
   if (hitList) {
-    hitList.innerHTML = `
+    let timingHtml = '';
+    if (elapsed !== null) {
+      timingHtml = `<div class="hit-item">
+        <div class="hit-badge hit" style="background:var(--card2);color:var(--text);">Timing</div>
+        <div class="hit-text">${elapsed.toFixed(1)}s between tap and event</div>
+      </div>`;
+    }
+    hitList.innerHTML = `${timingHtml}
       <div class="hit-item">
         <div class="hit-badge ${tsHit ? 'hit' : 'noise'}">${tsHit ? 'Hit' : 'Miss'}</div>
         <div class="hit-text">Chance baseline is 50%. Measures unconscious precognitive timing.</div>
@@ -10468,6 +10485,10 @@ function renderZenerDetail(run) {
   if (dimWrap) dimWrap.style.display = 'none';
   const summaryCard = document.getElementById('detail-summary-card');
   if (summaryCard) summaryCard.style.display = 'none';
+  // Hide RV-only dynamic cards
+  const nc = document.getElementById('detail-notes-card');    if (nc) nc.style.display = 'none';
+  const rc = document.getElementById('detail-retry-card');    if (rc) rc.style.display = 'none';
+  const rsc = document.getElementById('detail-reasoning-card'); if (rsc) rsc.style.display = 'none';
 
   // Hit list: per-trial summary
   const hitList = document.getElementById('detail-hit-list');
@@ -13929,8 +13950,8 @@ window.addEventListener('error', (e) => {
   <!-- ══════════════════════════════════
        SCREEN: WBTB TIMER
   ═══════════════════════════════════ -->
-  <div id="screen-wbtb" class="screen" style="display:flex;flex-direction:column;">
-    <div class="screen-inner" style="flex:1;overflow-y:auto;padding-bottom:8px;">
+  <div id="screen-wbtb" class="screen">
+    <div class="screen-inner">
 
       <div class="screen-hdr">
         <button class="screen-hdr-back" onclick="navigate('dream-lab')">
@@ -13980,11 +14001,11 @@ window.addEventListener('error', (e) => {
         <div class="wbtb-cycle-dot" title="Cycle 6"></div>
       </div>
 
-    </div>
+      <div style="display:flex;gap:10px;padding:8px 0 24px;">
+        <button class="wbtb-btn wbtb-btn-stop" id="wbtb-stop-btn" onclick="stopWBTB()" style="display:none;">STOP</button>
+        <button class="wbtb-btn wbtb-btn-start" id="wbtb-start-btn" onclick="startWBTB()">START TIMER</button>
+      </div>
 
-    <div class="wbtb-btn-row">
-      <button class="wbtb-btn wbtb-btn-stop" id="wbtb-stop-btn" onclick="stopWBTB()" style="display:none;">STOP</button>
-      <button class="wbtb-btn wbtb-btn-start" id="wbtb-start-btn" onclick="startWBTB()">START TIMER</button>
     </div>
   </div>
 
