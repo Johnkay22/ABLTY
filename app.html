@@ -3111,7 +3111,7 @@ html, body {
 .wbtb-ring-svg { transform: rotate(-90deg); display: block; }
 .wbtb-ring-bg  { fill: none; stroke: var(--border2); }
 .wbtb-ring-fill { fill: none; stroke: var(--accent); stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
-.wbtb-ring-wrap { display: flex; align-items: center; justify-content: center; padding: 20px 0 4px; position: relative; }
+.wbtb-ring-wrap { display: flex; align-items: center; justify-content: center; padding: 10px 0 4px; position: relative; }
 .wbtb-ring-text { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .wbtb-time-display { font-family: var(--font-display); font-size: 64px; letter-spacing: 2px; color: var(--accent); line-height: 1; }
 .wbtb-time-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
@@ -7848,19 +7848,7 @@ async function stopWBTB() {
   if (wbtbTimer) { clearInterval(wbtbTimer); wbtbTimer = null; }
   localStorage.removeItem('ablty_wbtb');
 
-  // Cancel server-side alarm if still pending
-  try {
-    const reg = window._swRegistration || await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    if (sub) {
-      await fetch(WORKER_URL + '/wbtb-cancel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ endpoint: sub.endpoint }),
-      });
-    }
-  } catch(e) { /* ignore cancel errors */ }
-
+  // Reset UI immediately
   const startBtn = document.getElementById('wbtb-start-btn');
   const stopBtn  = document.getElementById('wbtb-stop-btn');
   if (startBtn) startBtn.style.display = 'block';
@@ -7869,6 +7857,21 @@ async function stopWBTB() {
   setWBTBDuration(null, wbtbDuration);
   const label = document.getElementById('wbtb-time-label');
   if (label) label.textContent = 'hours';
+
+  // Cancel server-side alarm in background (don't block UI)
+  (async () => {
+    try {
+      const reg = window._swRegistration || await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await fetch(WORKER_URL + '/wbtb-cancel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        });
+      }
+    } catch(e) { /* ignore cancel errors */ }
+  })();
 }
 
 // Restore WBTB timer if app reopens during active session
@@ -13939,13 +13942,13 @@ window.addEventListener('error', (e) => {
         </div>
       </div>
 
-      <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.65;margin-bottom:24px;">
+      <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:14px;">
         Set your sleep duration. The timer wakes you after 5-6 sleep cycles, then tracks your 20-30 min waking period before returning to sleep for REM-rich lucid dreaming.
       </div>
 
       <!-- Sleep duration selector -->
       <div class="section-label">Sleep Duration</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;">
         <button class="wbtb-dur-btn active" data-hours="4.5" onclick="setWBTBDuration(this, 4.5)">4.5h</button>
         <button class="wbtb-dur-btn" data-hours="5" onclick="setWBTBDuration(this, 5)">5h</button>
         <button class="wbtb-dur-btn" data-hours="6" onclick="setWBTBDuration(this, 6)">6h</button>
@@ -13954,7 +13957,7 @@ window.addEventListener('error', (e) => {
 
       <!-- Ring timer -->
       <div class="wbtb-ring-wrap" id="wbtb-ring-wrap">
-        <svg class="wbtb-ring-svg" width="200" height="200" viewBox="0 0 200 200">
+        <svg class="wbtb-ring-svg" width="170" height="170" viewBox="0 0 200 200">
           <circle class="wbtb-ring-bg"   cx="100" cy="100" r="88" stroke-width="6"/>
           <circle class="wbtb-ring-fill" cx="100" cy="100" r="88" stroke-width="6"
             id="wbtb-ring-fill"

@@ -127,14 +127,17 @@ self.addEventListener('push', event => {
 
   // Detect WBTB notification types by body content
   let requireInteraction = false;
+  let vibrate = [200];
   if (body && body.includes('WBTB return')) {
     url  = '/app.html?wbtb=return';
     tag  = 'ablty-wbtb-return';
     requireInteraction = true;
+    vibrate = [300, 100, 300, 100, 300];
   } else if (body && body.includes('WBTB wake')) {
     url  = '/app.html?wbtb=1';
     tag  = 'ablty-wbtb';
     requireInteraction = true;
+    vibrate = [500, 200, 500, 200, 500, 200, 500];
   } else if (!body) {
     body = REALITY_CHECKS[Math.floor(Math.random() * REALITY_CHECKS.length)];
   }
@@ -147,6 +150,7 @@ self.addEventListener('push', event => {
       tag,
       renotify: true,
       requireInteraction,
+      vibrate,
       silent,
       data: { url },
     })
