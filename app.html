@@ -5228,18 +5228,18 @@ html, body {
         </div>
       </div>
 
-      <!-- Nose check prompt  -  always shown -->
       <div>
-        <div class="rc-nose-prompt">
-          <strong>Pinch your nose.</strong> Can you breathe through it?<br>
-          <span style="color:var(--dim);font-size:9px;">In dreams, you usually can.</span>
-        </div>
-        <button class="btn btn-primary" style="margin-top:14px;" id="rc-task-done-btn" onclick="beginRCCriticalPause()">Done</button>
-        <div id="rc-critical-wrap" class="rc-critical-wrap" style="display:none;">
-          <div class="rc-critical-label">CRITICAL QUESTION</div>
-          <div class="rc-critical-question">Could this actually be a dream right now?</div>
-          <div class="rc-critical-hint">Don't answer immediately. Look around. Try to trace how you got here.</div>
-          <button class="btn btn-primary rc-critical-btn-disabled" style="margin-top:12px;" id="rc-critical-confirm-btn" onclick="finishRCCriticalPause()">I CHECKED</button>
+        <button class="btn btn-primary" style="margin-top:14px;" id="rc-task-done-btn" onclick="submitRCAnswer()">Done</button>
+
+        <!-- Physical check — hidden until answer submitted, cycles through 3 types -->
+        <div id="rc-physical-wrap" style="display:none;">
+          <div class="rc-nose-prompt" id="rc-physical-prompt"></div>
+          <div id="rc-critical-wrap" class="rc-critical-wrap" style="margin-top:14px;">
+            <div class="rc-critical-label">CRITICAL QUESTION</div>
+            <div class="rc-critical-question">Look around you. Could you be dreaming right now?</div>
+            <div class="rc-critical-hint">Don't answer immediately. Try to trace how you got here.</div>
+            <button class="btn btn-primary rc-critical-btn-disabled" style="margin-top:12px;" id="rc-critical-confirm-btn" onclick="finishRCCriticalPause()">I CHECKED</button>
+          </div>
         </div>
       </div>
 
@@ -6782,7 +6782,7 @@ function initRCCarousel() {
 
   wrap.addEventListener('touchend', () => {
     isDragging = false;
-    const threshold = wrap.offsetWidth * 0.25;
+    const threshold = wrap.offsetWidth * 0.35;
     if (dragDelta < -threshold) goTo(rcCarouselIndex + 1);
     else if (dragDelta > threshold) goTo(rcCarouselIndex - 1);
     else goTo(rcCarouselIndex);
@@ -6806,7 +6806,7 @@ function initRCCarousel() {
   wrap.addEventListener('mouseup', () => {
     if (!isDragging) return;
     isDragging = false;
-    const threshold = wrap.offsetWidth * 0.2;
+    const threshold = wrap.offsetWidth * 0.35;
     if (dragDelta < -threshold) goTo(rcCarouselIndex + 1);
     else if (dragDelta > threshold) goTo(rcCarouselIndex - 1);
     else goTo(rcCarouselIndex);
@@ -7065,7 +7065,20 @@ const RC_TASKS = [
   }
 ];
 
+const RC_PHYSICAL_CHECKS = [
+  {
+    html: '<strong>Pinch your nose.</strong> Can you breathe through it?<br><span style="color:var(--dim);font-size:9px;">In dreams, you usually can.</span>'
+  },
+  {
+    html: '<strong>Look at your hands.</strong> Count your fingers slowly.<br><span style="color:var(--dim);font-size:9px;">In dreams, hands often look distorted — extra fingers, fused, shifting.</span>'
+  },
+  {
+    html: '<strong>Read something nearby.</strong> Look away, then read it again.<br><span style="color:var(--dim);font-size:9px;">In dreams, text almost always changes the second time.</span>'
+  }
+];
+
 let rcTaskIndex = 0;
+let rcPhysicalIndex = 0;
 let rcCriticalEnableTimer = null;
 
 function getRCSessions() {
@@ -7098,9 +7111,9 @@ function resetRCCriticalPauseUI() {
     clearTimeout(rcCriticalEnableTimer);
     rcCriticalEnableTimer = null;
   }
-  const criticalWrap = document.getElementById('rc-critical-wrap');
+  const physicalWrap = document.getElementById('rc-physical-wrap');
   const criticalBtn = document.getElementById('rc-critical-confirm-btn');
-  if (criticalWrap) criticalWrap.style.display = 'none';
+  if (physicalWrap) physicalWrap.style.display = 'none';
   if (criticalBtn) {
     criticalBtn.disabled = true;
     criticalBtn.classList.add('rc-critical-btn-disabled');
@@ -7108,9 +7121,10 @@ function resetRCCriticalPauseUI() {
 }
 
 function openRCTask() {
-  // Rotate through tasks
+  // Rotate through tasks and physical checks
   const rc_count = parseInt(localStorage.getItem('ablty_rc_task_count') || '0');
   rcTaskIndex = rc_count % RC_TASKS.length;
+  rcPhysicalIndex = rc_count % RC_PHYSICAL_CHECKS.length;
   localStorage.setItem('ablty_rc_task_count', rc_count + 1);
 
   const task = RC_TASKS[rcTaskIndex];
@@ -7135,9 +7149,13 @@ function openRCTask() {
 
   const doneBtn = document.getElementById('rc-task-done-btn');
   if (doneBtn) {
-    doneBtn.disabled = task.type === 'rating'; // require selection for rating
+    doneBtn.disabled = task.type === 'rating';
     doneBtn.style.display = 'block';
   }
+
+  // Hide physical check section until answer is submitted
+  const physicalWrap = document.getElementById('rc-physical-wrap');
+  if (physicalWrap) physicalWrap.style.display = 'none';
   resetRCCriticalPauseUI();
 }
 
@@ -7148,24 +7166,32 @@ function selectRating(btn) {
   if (doneBtn) doneBtn.disabled = false;
 }
 
-function beginRCCriticalPause() {
+function submitRCAnswer() {
   const doneBtn = document.getElementById('rc-task-done-btn');
-  const criticalWrap = document.getElementById('rc-critical-wrap');
+  const physicalWrap = document.getElementById('rc-physical-wrap');
+  const physicalPrompt = document.getElementById('rc-physical-prompt');
   const criticalBtn = document.getElementById('rc-critical-confirm-btn');
-  if (!criticalWrap || !criticalBtn) {
-    completeRCTask(false);
-    return;
-  }
+
   if (doneBtn && doneBtn.disabled) return;
   if (doneBtn) doneBtn.style.display = 'none';
 
-  criticalWrap.style.display = 'block';
-  criticalBtn.disabled = true;
-  criticalBtn.classList.add('rc-critical-btn-disabled');
+  // Show physical check (cycled) + critical question
+  if (physicalPrompt) {
+    physicalPrompt.innerHTML = RC_PHYSICAL_CHECKS[rcPhysicalIndex].html;
+  }
+  if (physicalWrap) physicalWrap.style.display = 'block';
+
+  // Enable "I CHECKED" button after 4 second delay
+  if (criticalBtn) {
+    criticalBtn.disabled = true;
+    criticalBtn.classList.add('rc-critical-btn-disabled');
+  }
   if (rcCriticalEnableTimer) clearTimeout(rcCriticalEnableTimer);
   rcCriticalEnableTimer = setTimeout(() => {
-    criticalBtn.disabled = false;
-    criticalBtn.classList.remove('rc-critical-btn-disabled');
+    if (criticalBtn) {
+      criticalBtn.disabled = false;
+      criticalBtn.classList.remove('rc-critical-btn-disabled');
+    }
     rcCriticalEnableTimer = null;
   }, 4000);
 }
