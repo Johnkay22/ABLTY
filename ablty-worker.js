@@ -693,7 +693,7 @@ async function shouldSendNow(sub, subKey, nowUtcMs, env) {
   const lastSent = parseInt(await env.ABLTY_KV.get(lastKey) || '0', 10);
   const minutesSinceLast = lastSent ? (nowUtcMs - lastSent) / 60000 : 999;
 
-  const minGap = Math.max(20, idealIntervalMinutes * 0.5);
+  const minGap = Math.max(30, idealIntervalMinutes * 0.5);
   if (minutesSinceLast < minGap) return false;
 
   const slotsLeft = Math.max(1, minutesLeft / 30);
@@ -1027,27 +1027,28 @@ async function handleWBTBSchedule(request, env, origin = '') {
     }
     if (!env.ABLTY_KV) return json({ error: 'KV not bound' }, 500, origin);
 
-    const key = 'wbtb:' + btoa(body.endpoint).slice(0, 40).replace(/[^a-zA-Z0-9]/g, '');
-    const alarm = {
+    const id = btoa(body.endpoint).slice(0, 40).replace(/[^a-zA-Z0-9]/g, '');
+    const returnFireAt = body.fireAt + 25 * 60 * 1000;
+
+    const raw = await env.ABLTY_KV.get('wbtb-alarms');
+    const alarms = raw ? JSON.parse(raw) : {};
+
+    alarms[id] = {
       endpoint: body.endpoint,
       keys: body.keys,
       fireAt: body.fireAt,
       duration,
       scheduled: Date.now(),
     };
-
-    const ttlSeconds = Math.ceil(duration * 3600) + 7200;
-    await env.ABLTY_KV.put(key, JSON.stringify(alarm), { expirationTtl: ttlSeconds });
-
-    const returnFireAt = body.fireAt + 25 * 60 * 1000;
-    const returnKey = 'wbtb-return:' + btoa(body.endpoint).slice(0, 40).replace(/[^a-zA-Z0-9]/g, '');
-    const returnAlarm = {
+    alarms[id + '-return'] = {
       endpoint: body.endpoint,
       keys: body.keys,
       fireAt: returnFireAt,
       type: 'return',
     };
-    await env.ABLTY_KV.put(returnKey, JSON.stringify(returnAlarm), { expirationTtl: ttlSeconds + 2000 });
+
+    const ttlSeconds = Math.ceil(duration * 3600) + 7200;
+    await env.ABLTY_KV.put('wbtb-alarms', JSON.stringify(alarms), { expirationTtl: ttlSeconds });
 
     return json({ status: 'scheduled', fireAt: body.fireAt, returnFireAt }, 200, origin);
   } catch (e) {
@@ -1060,10 +1061,20 @@ async function handleWBTBCancel(request, env, origin = '') {
     const body = await request.json();
     if (!body || !body.endpoint) return json({ error: 'Missing endpoint' }, 400, origin);
     if (!env.ABLTY_KV) return json({ error: 'KV not bound' }, 500, origin);
-    const key = 'wbtb:' + btoa(body.endpoint).slice(0, 40).replace(/[^a-zA-Z0-9]/g, '');
-    const returnKey = 'wbtb-return:' + btoa(body.endpoint).slice(0, 40).replace(/[^a-zA-Z0-9]/g, '');
-    await env.ABLTY_KV.delete(key);
-    await env.ABLTY_KV.delete(returnKey);
+
+    const id = btoa(body.endpoint).slice(0, 40).replace(/[^a-zA-Z0-9]/g, '');
+    const raw = await env.ABLTY_KV.get('wbtb-alarms');
+    if (!raw) return json({ status: 'cancelled' }, 200, origin);
+
+    const alarms = JSON.parse(raw);
+    delete alarms[id];
+    delete alarms[id + '-return'];
+
+    if (Object.keys(alarms).length === 0) {
+      await env.ABLTY_KV.delete('wbtb-alarms');
+    } else {
+      await env.ABLTY_KV.put('wbtb-alarms', JSON.stringify(alarms));
+    }
     return json({ status: 'cancelled' }, 200, origin);
   } catch (e) {
     return json({ error: e.message }, 500, origin);
@@ -1074,37 +1085,44 @@ async function runWBTBCron(env) {
   if (!env.ABLTY_KV) return;
   const now = Date.now();
 
-  for (const prefix of ['wbtb:', 'wbtb-return:']) {
+  const raw = await env.ABLTY_KV.get('wbtb-alarms');
+  if (!raw) return;
+
+  let alarms;
+  try { alarms = JSON.parse(raw); } catch (e) { return; }
+
+  let changed = false;
+  for (const [id, alarm] of Object.entries(alarms)) {
+    if (now < alarm.fireAt) continue;
+
+    if (now > alarm.fireAt + 30 * 60 * 1000) {
+      console.log('[WBTB] expired alarm, deleting:', id);
+      delete alarms[id];
+      changed = true;
+      continue;
+    }
+
     try {
-      const list = await env.ABLTY_KV.list({ prefix });
-      for (const kv of list.keys) {
-        try {
-          const raw = await env.ABLTY_KV.get(kv.name);
-          if (!raw) continue;
-          const alarm = JSON.parse(raw);
-
-          if (now < alarm.fireAt) continue;
-          if (now > alarm.fireAt + 30 * 60 * 1000) {
-            console.log('[WBTB] expired alarm, deleting:', kv.name);
-            await env.ABLTY_KV.delete(kv.name);
-            continue;
-          }
-
-          console.log('[WBTB] firing alarm:', kv.name, 'type:', alarm.type || 'wake');
-          const sub = { endpoint: alarm.endpoint, keys: alarm.keys };
-          if (alarm.type === 'return') {
-            await sendWBTBReturnPush(sub, env);
-          } else {
-            await sendWBTBPush(sub, alarm.duration, env);
-          }
-          await env.ABLTY_KV.delete(kv.name);
-          console.log('[WBTB] alarm sent and deleted:', kv.name);
-        } catch (e) {
-          console.error('[WBTB] alarm error for', kv.name, ':', e.message);
-        }
+      console.log('[WBTB] firing alarm:', id, 'type:', alarm.type || 'wake');
+      const sub = { endpoint: alarm.endpoint, keys: alarm.keys };
+      if (alarm.type === 'return') {
+        await sendWBTBReturnPush(sub, env);
+      } else {
+        await sendWBTBPush(sub, alarm.duration, env);
       }
+      console.log('[WBTB] alarm sent and deleted:', id);
     } catch (e) {
-      console.error('[WBTB] list error for prefix', prefix, ':', e.message);
+      console.error('[WBTB] alarm error for', id, ':', e.message);
+    }
+    delete alarms[id];
+    changed = true;
+  }
+
+  if (changed) {
+    if (Object.keys(alarms).length === 0) {
+      await env.ABLTY_KV.delete('wbtb-alarms');
+    } else {
+      await env.ABLTY_KV.put('wbtb-alarms', JSON.stringify(alarms));
     }
   }
 }
