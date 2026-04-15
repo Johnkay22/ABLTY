@@ -512,8 +512,7 @@ function timingSafeEqualHex(a, b) {
 async function handleDebug(env) {
   if (!env.ABLTY_KV) return json({ error: 'KV not bound' });
 
-  const list = await env.ABLTY_KV.list({ prefix: 'sub:' });
-  const keys = list.keys.map((k) => k.name);
+  const keys = await getSubscriberKeys(env);
   const nowUtc = Date.now();
 
   const results = await Promise.all(keys.map(async (key) => {
@@ -567,17 +566,68 @@ async function handleDebug(env) {
   return json({ now_utc: new Date(nowUtc).toISOString(), subscribers: results });
 }
 
+// --- SUBSCRIBER INDEX ---------------------------------
+// Stores subscriber keys in a single 'sub-index' GET key instead of using
+// KV list() ops (quota: 1,000/day free tier vs 100,000/day for reads).
+async function getSubscriberKeys(env) {
+  const indexRaw = await env.ABLTY_KV.get('sub-index');
+  if (indexRaw) {
+    try {
+      return JSON.parse(indexRaw);
+    } catch (e) {
+      console.error('[RC] sub-index corrupted, rebuilding via list');
+    }
+  }
+  // First run or corrupted: bootstrap from KV list (one-time cost).
+  const list = await env.ABLTY_KV.list({ prefix: 'sub:' });
+  const keys = list.keys.map((k) => k.name);
+  console.log('[RC] bootstrapped sub-index with', keys.length, 'key(s)');
+  if (keys.length > 0) {
+    await env.ABLTY_KV.put('sub-index', JSON.stringify(keys));
+  }
+  return keys;
+}
+
+async function addToSubscriberIndex(env, key) {
+  const indexRaw = await env.ABLTY_KV.get('sub-index');
+  let keys = [];
+  if (indexRaw) {
+    try { keys = JSON.parse(indexRaw); } catch (e) {}
+  }
+  if (!keys.includes(key)) {
+    keys.push(key);
+    await env.ABLTY_KV.put('sub-index', JSON.stringify(keys));
+  }
+}
+
+async function removeFromSubscriberIndex(env, key) {
+  const indexRaw = await env.ABLTY_KV.get('sub-index');
+  if (!indexRaw) return;
+  try {
+    const keys = JSON.parse(indexRaw);
+    const filtered = keys.filter((k) => k !== key);
+    if (filtered.length !== keys.length) {
+      await env.ABLTY_KV.put('sub-index', JSON.stringify(filtered));
+    }
+  } catch (e) {}
+}
+
 // --- CRON ---------------------------------------------
 async function runRealityCheckCron(env) {
-  await sendToAll(env, null);
+  try {
+    const result = await sendToAll(env, null);
+    console.log('[RC] cron result:', JSON.stringify(result));
+  } catch (e) {
+    console.error('[RC] cron error:', e.message);
+  }
 }
 
 async function sendToAll(env, forcePayload) {
   if (!env.ABLTY_KV) return { error: 'KV not bound' };
   if (!env.VAPID_PRIVATE_KEY || !env.VAPID_PUBLIC_KEY) return { error: 'VAPID keys missing' };
 
-  const list = await env.ABLTY_KV.list({ prefix: 'sub:' });
-  const keys = list.keys.map((k) => k.name);
+  const keys = await getSubscriberKeys(env);
+  console.log('[RC] sendToAll:', keys.length, 'subscriber(s)');
   if (!keys.length) return { sent: 0, skipped: 0, total: 0 };
 
   const nowUtc = Date.now();
@@ -595,7 +645,10 @@ async function sendToAll(env, forcePayload) {
       try {
         await sendWebPush(sub, null, env);
       } catch (e) {
-        if (e.message && e.message.includes('410')) await env.ABLTY_KV.delete(key);
+        if (e.message && e.message.includes('410')) {
+          await env.ABLTY_KV.delete(key);
+          await removeFromSubscriberIndex(env, key);
+        }
         errors.push(e.message);
       }
       continue;
@@ -612,7 +665,10 @@ async function sendToAll(env, forcePayload) {
         await env.ABLTY_KV.put(primerKey, '1', { expirationTtl: 86400 });
         sent++;
       } catch (e) {
-        if (e.message && e.message.includes('410')) await env.ABLTY_KV.delete(key);
+        if (e.message && e.message.includes('410')) {
+          await env.ABLTY_KV.delete(key);
+          await removeFromSubscriberIndex(env, key);
+        }
         errors.push(e.message);
       }
       continue;
@@ -634,7 +690,10 @@ async function sendToAll(env, forcePayload) {
 
       sent++;
     } catch (e) {
-      if (e.message && e.message.includes('410')) await env.ABLTY_KV.delete(key);
+      if (e.message && e.message.includes('410')) {
+        await env.ABLTY_KV.delete(key);
+        await removeFromSubscriberIndex(env, key);
+      }
       errors.push(e.message);
     }
   }
@@ -1157,6 +1216,7 @@ async function handleSubscribe(request, env, origin = '') {
 
     const key = 'sub:' + btoa(sub.endpoint).slice(0, 40).replace(/[^a-zA-Z0-9]/g, '');
     await env.ABLTY_KV.put(key, JSON.stringify(sub), { expirationTtl: 60 * 60 * 24 * 90 });
+    await addToSubscriberIndex(env, key);
     return json({ status: 'subscribed' }, 200, origin);
   } catch (e) {
     return json({ error: e.message }, 500, origin);
