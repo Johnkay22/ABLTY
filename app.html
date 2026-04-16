@@ -3392,13 +3392,48 @@ html, body {
 .ob-cta-create {
   width: 100%; padding: 16px; background: var(--accent); color: #000;
   border: none; border-radius: 14px; font-family: var(--font-display);
-  font-size: 22px; letter-spacing: 2px; cursor: pointer; margin-bottom: 10px;
+  font-size: 22px; letter-spacing: 2px; cursor: pointer;
 }
+.ob-cta-google {
+  width: 100%; padding: 15px 16px; background: #fff; color: #3c4043;
+  border: 1px solid #dadce0; border-radius: 14px;
+  font-family: var(--font-body); font-size: 15px; font-weight: 500;
+  letter-spacing: 0.25px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+.ob-cta-google:active { background: #f1f3f4; }
+.ob-cta-google:disabled { opacity: 0.5; cursor: not-allowed; }
+.ob-cta-google svg { flex-shrink: 0; }
 .ob-cta-guest {
   width: 100%; padding: 14px; background: transparent; color: var(--muted);
-  border: 1px solid var(--border); border-radius: 14px;
+  border: none; border-radius: 14px;
   font-family: var(--font-mono); font-size: 11px;
   letter-spacing: 2px; text-transform: uppercase; cursor: pointer;
+}
+.ob-cta-guest:active { color: var(--text); }
+.ob-login-link {
+  text-align: center; margin-top: 4px;
+}
+.ob-login-link span {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--muted); letter-spacing: 0.5px;
+}
+.ob-login-link button {
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.5px; color: var(--accent); cursor: pointer;
+  text-decoration: underline; text-underline-offset: 3px;
+  background: none; border: none; padding: 0;
+}
+.ob-auth-divider {
+  display: flex; align-items: center; gap: 12px; margin: 4px 0;
+}
+.ob-auth-divider-line {
+  flex: 1; height: 1px; background: var(--border);
+}
+.ob-auth-divider-text {
+  font-family: var(--font-mono); font-size: 9px;
+  letter-spacing: 2px; color: var(--dim); text-transform: uppercase;
 }
 
 /* ── WBTB WAKE SCREEN ─────────────────────────────── */
@@ -3472,6 +3507,7 @@ html, body {
 
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 <div id="browser-guard" aria-live="polite">
@@ -5671,6 +5707,7 @@ Privacy questions and data requests: <a href="mailto:abltyapp@gmail.com">abltyap
 const SUPABASE_URL  = 'https://ghjajyxcjfqidcmqdzdp.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdoamFqeXhjamZxaWRjbXFkemRwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNDk0MDcsImV4cCI6MjA4OTcyNTQwN30.uk7t-h7NR0i4Roejg8CI13RVggmKa5Zxs-dnCrxv_vE';
 // UMD bundle exposes `var supabase` globally; do not redeclare that name.
+const GOOGLE_CLIENT_ID = '940455050886-9kphg365ttgllcmrv5bq4cjh379ibrou.apps.googleusercontent.com';
 const _supabaseSdk = window.supabase;
 const sb = _supabaseSdk && typeof _supabaseSdk.createClient === 'function'
   ? _supabaseSdk.createClient(SUPABASE_URL, SUPABASE_ANON)
@@ -10943,13 +10980,36 @@ function skipSplash() {
   }
 }
 
+let obCurrentSlide = 1;
+
 function obNext(slide) {
   const n = Number(slide);
   if (!Number.isFinite(n) || n < 1 || n > 3) return;
+  obCurrentSlide = n;
   document.querySelectorAll('.ob-slide').forEach(s => s.classList.remove('active'));
   const target = document.getElementById('ob-slide-' + n);
   if (target) target.classList.add('active');
+  if (n === 3) renderGoogleButton('ob-google-btn-wrap', 'signup_with');
 }
+
+// Touch swipe for onboarding carousel
+(function initObSwipe() {
+  let startX = 0;
+  let startY = 0;
+  const ob = document.getElementById('onboarding-screen');
+  if (!ob) return;
+  ob.addEventListener('touchstart', (e) => {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }, { passive: true });
+  ob.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].clientX - startX;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) < 50 || Math.abs(dy) > Math.abs(dx)) return;
+    if (dx < 0 && obCurrentSlide < 3) obNext(obCurrentSlide + 1);
+    else if (dx > 0 && obCurrentSlide > 1) obNext(obCurrentSlide - 1);
+  }, { passive: true });
+})();
 
 function skipOnboarding() {
   localStorage.setItem('ablty_onboarded', '1');
@@ -10976,6 +11036,8 @@ function openAuthScreen(screen) {
   });
   const el = document.getElementById('screen-' + screen);
   if (el) el.classList.add('active');
+  if (screen === 'login') renderGoogleButton('login-google-btn-wrap', 'signin_with');
+  if (screen === 'signup') renderGoogleButton('signup-google-btn-wrap', 'signup_with');
 }
 
 function closeAuthScreen(screen) {
@@ -11608,6 +11670,72 @@ async function handleForgotPassword() {
 function obGoToSignup() {
   skipOnboarding();
   openAuthScreen('signup');
+}
+
+function obGoToLogin() {
+  skipOnboarding();
+  openAuthScreen('login');
+}
+
+let googleSignInInitialized = false;
+
+function initGoogleSignIn() {
+  if (googleSignInInitialized) return;
+  if (typeof google === 'undefined' || !google.accounts) return;
+
+  google.accounts.id.initialize({
+    client_id: GOOGLE_CLIENT_ID,
+    callback: async (response) => {
+      if (!response.credential) {
+        showToast('Google sign-in failed.', 'error');
+        return;
+      }
+      if (!sb) {
+        showToast('Auth is not configured.', 'error');
+        return;
+      }
+
+      const { data, error } = await sb.auth.signInWithIdToken({
+        provider: 'google',
+        token: response.credential,
+      });
+
+      if (error) {
+        showToast(error.message, 'error');
+        return;
+      }
+
+      localStorage.removeItem('ablty_guest_mode');
+      if (data?.user) await onSignedIn(data.user);
+      // Close any open auth or onboarding screens
+      ['login','signup','forgot'].forEach(s => closeAuthScreen(s));
+      skipOnboarding();
+      showToast('Signed in with Google.', 'success');
+    },
+    auto_select: false,
+  });
+
+  googleSignInInitialized = true;
+}
+
+function renderGoogleButton(containerId, textMode) {
+  const wrap = document.getElementById(containerId || 'ob-google-btn-wrap');
+  if (!wrap) return;
+  if (typeof google === 'undefined' || !google.accounts) {
+    setTimeout(() => renderGoogleButton(containerId, textMode), 500);
+    return;
+  }
+  initGoogleSignIn();
+  wrap.innerHTML = '';
+  google.accounts.id.renderButton(wrap, {
+    type: 'standard',
+    theme: 'outline',
+    size: 'large',
+    text: textMode || 'signup_with',
+    shape: 'pill',
+    width: wrap.offsetWidth || 300,
+    logo_alignment: 'left',
+  });
 }
 
 function obGuestMode() {
@@ -13742,59 +13870,15 @@ window.addEventListener('error', (e) => {
 
     </div>
 
-    <!-- Slide 3: Account -->
+    <!-- Slide 3: Sign Up / Login -->
     <div class="ob-slide" id="ob-slide-3">
 
       <div class="ob-header">
         <div class="ob-logo">ABL<span class="ob-logo-accent">T</span>Y</div>
-        <div class="ob-headline">Save Your Progress</div>
+        <div class="ob-headline">Get Started</div>
       </div>
 
-      <div class="ob-content" style="padding-top:8px;">
-
-        <div class="ob-account-visual">
-          <div class="ob-account-icon-wrap">
-            <div class="ob-account-ring"></div>
-            <div class="ob-account-ring"></div>
-            <div class="ob-account-center">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#4af0c8" stroke-width="1.5" stroke-linecap="round">
-                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
-                <circle cx="12" cy="7" r="4"/>
-              </svg>
-            </div>
-          </div>
-        </div>
-
-        <div class="ob-benefit-row">
-          <div class="ob-benefit-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4af0c8" stroke-width="2" stroke-linecap="round"><path d="M3 15v4c0 1.1.9 2 2 2h14a2 2 0 002-2v-4M17 9l-5 5-5-5M12 12.8V2.5"/></svg>
-          </div>
-          <div>
-            <div class="ob-benefit-title">Cloud Sync</div>
-            <div class="ob-benefit-sub">Your sessions, scores, and progress sync across devices automatically.</div>
-          </div>
-        </div>
-
-        <div class="ob-benefit-row">
-          <div class="ob-benefit-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4af0c8" stroke-width="2" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-          </div>
-          <div>
-            <div class="ob-benefit-title">Full Analytics</div>
-            <div class="ob-benefit-sub">Track score trends, calibration, and session history over time.</div>
-          </div>
-        </div>
-
-        <div class="ob-benefit-row">
-          <div class="ob-benefit-icon">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4af0c8" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-          </div>
-          <div>
-            <div class="ob-benefit-title">Reality Check Pager</div>
-            <div class="ob-benefit-sub">Scheduled notifications and streak tracking require a free account.</div>
-          </div>
-        </div>
-
+      <div class="ob-content" style="padding-top:8px; justify-content: center;">
       </div>
 
       <div class="ob-footer">
@@ -13803,9 +13887,19 @@ window.addEventListener('error', (e) => {
           <div class="ob-prog-seg active"></div>
           <div class="ob-prog-seg active"></div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
-          <button class="ob-cta-create" onclick="obGoToSignup()">CREATE FREE ACCOUNT</button>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:12px;">
+          <button class="ob-cta-create" onclick="obGoToSignup()">SIGN UP WITH EMAIL</button>
+          <div id="ob-google-btn-wrap" style="display:flex;justify-content:center;width:100%;min-height:44px;"></div>
+          <div class="ob-auth-divider">
+            <div class="ob-auth-divider-line"></div>
+            <div class="ob-auth-divider-text">or</div>
+            <div class="ob-auth-divider-line"></div>
+          </div>
           <button class="ob-cta-guest" onclick="obGuestMode()">Continue as Guest</button>
+          <div class="ob-login-link">
+            <span>Already have an account? </span>
+            <button onclick="obGoToLogin()">Sign in</button>
+          </div>
         </div>
       </div>
 
@@ -13844,6 +13938,7 @@ window.addEventListener('error', (e) => {
         <div class="auth-divider-text">or</div>
         <div class="auth-divider-line"></div>
       </div>
+      <div id="login-google-btn-wrap" style="display:flex;justify-content:center;width:100%;min-height:44px;"></div>
       <div class="auth-link-row">
         <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">No account? </span>
         <button class="auth-link" onclick="openAuthScreen('signup')">Create one free</button>
@@ -13894,6 +13989,7 @@ window.addEventListener('error', (e) => {
         <div class="auth-divider-text">or</div>
         <div class="auth-divider-line"></div>
       </div>
+      <div id="signup-google-btn-wrap" style="display:flex;justify-content:center;width:100%;min-height:44px;"></div>
       <div class="auth-link-row">
         <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">Already have an account? </span>
         <button class="auth-link" onclick="openAuthScreen('login')">Sign in</button>
