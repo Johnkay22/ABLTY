@@ -7443,14 +7443,13 @@ const TIER_ACCESS = {
   photopair:    ['free','premium'],
   'dream-lab':  ['free','premium'],
   'dream-journal': ['free','premium'],
-  'dream-new-entry': ['free','premium'],
-  'dream-entry-detail': ['free','premium'],
   'reality-check': ['free','premium'],
   analytics:    ['free','premium'],
   wbtb:         ['free','premium'],
   mild:         ['free','premium'],
   community_rv: ['premium'],
   leaderboards: ['premium'],
+  ability_profile: ['premium'],
 };
 
 function canAccess(feature) {
@@ -14047,17 +14046,17 @@ window.addEventListener('error', (e) => {
       <div class="upgrade-tier-row">
         <div class="upgrade-tier-cell">
           <div class="upgrade-tier-name">Guest</div>
-          <div class="upgrade-tier-features">1 RV/day<br>2 Zener/day<br>Local only</div>
+          <div class="upgrade-tier-features">1 RV/day<br>1 Zener session/day<br>Local only</div>
           <div class="upgrade-tier-price" style="font-size:14px;color:var(--muted);">Free</div>
         </div>
         <div class="upgrade-tier-cell">
           <div class="upgrade-tier-name">Free</div>
-          <div class="upgrade-tier-features">2 RV/day<br>All PSI protocols<br>Dream Lab<br>Cloud sync</div>
+          <div class="upgrade-tier-features">2 RV/day<br>Unlimited Zener, Presentiment, Photo Pair<br>Dream Lab (7-day history)<br>Basic analytics (7-day)<br>Cloud sync</div>
           <div class="upgrade-tier-price" style="font-size:14px;color:var(--accent2);">Free</div>
         </div>
         <div class="upgrade-tier-cell highlighted">
           <div class="upgrade-tier-name">Premium</div>
-          <div class="upgrade-tier-features">Unlimited RV<br>All modules<br>Leaderboards<br>Community RV</div>
+          <div class="upgrade-tier-features">Unlimited RV<br>Full history & insights<br>Ability Profile<br>All upcoming protocols</div>
           <div class="upgrade-tier-price">$4.99</div>
           <div class="upgrade-tier-price-sub">/month</div>
         </div>
