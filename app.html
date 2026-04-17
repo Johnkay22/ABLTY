@@ -6080,9 +6080,15 @@ function isPremiumTier() {
 }
 
 function startRVSession() {
-  // Check daily limit (skip for premium users; server enforces this too)
-  if (!isPremiumTier() && getDailyCount() >= RV_DAILY_LIMIT) {
-    document.getElementById('limit-modal').style.display = 'flex';
+  const todayDate = getTodayKey();
+  const rvCount = parseInt(localStorage.getItem('ablty_rv_daily_' + todayDate) || '0', 10);
+  const tier = getCurrentTier();
+  if (tier === 'guest' && rvCount >= 1) {
+    showUpgradeModal('rv', 'Remote Viewing', 'Guests get 1 session per day. Free accounts unlock 2 per day.');
+    return;
+  }
+  if (tier === 'free' && rvCount >= 2) {
+    showUpgradeModal('rv', 'Remote Viewing', 'Free accounts get 2 sessions per day. Premium is unlimited.');
     return;
   }
 
@@ -6424,7 +6430,8 @@ async function submitSession() {
   STATE.currentAssignmentId = null;
   STATE.sessions.unshift(session);
   saveState();
-  incrementDailyCount();
+  const rvToday = getTodayKey();
+  localStorage.setItem('ablty_rv_daily_' + rvToday, String(parseInt(localStorage.getItem('ablty_rv_daily_' + rvToday) || '0', 10) + 1));
   syncSessionToSupabase('rv_sessions', mapRVSessionRow(session, 'personal'));
 }
 
@@ -8947,6 +8954,13 @@ function renderZenerBrief() {
 }
 
 function openZenerSession() {
+  const todayDate = getTodayKey();
+  const zenerCount = parseInt(localStorage.getItem('ablty_zener_daily_' + todayDate) || '0', 10);
+  if (getCurrentTier() === 'guest' && zenerCount >= 1) {
+    showUpgradeModal('zener', 'Zener Test', 'Guests get 1 session per day. Free accounts are unlimited.');
+    return;
+  }
+
   // Reset state
   ZENER_STATE.deck    = generateDeck();
   ZENER_STATE.trial   = 0;
@@ -9061,6 +9075,8 @@ function finishZenerRun() {
     timestamp: new Date().toISOString(),
   };
   saveZenerSession(run);
+  const zToday = getTodayKey();
+  localStorage.setItem('ablty_zener_daily_' + zToday, String(parseInt(localStorage.getItem('ablty_zener_daily_' + zToday) || '0', 10) + 1));
 
   // Show results
   showScreen('zener-results', false);
