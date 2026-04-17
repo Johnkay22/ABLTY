@@ -6058,6 +6058,12 @@ const BACK_MAP = {
 let _suppressHistoryPush = false;
 
 window.addEventListener('popstate', (e) => {
+  if (isUpgradeModalOpen()) {
+    closeUpgradeModal();
+    history.pushState({ screen: currentScreen }, '', '');
+    return;
+  }
+
   const dest = BACK_MAP[currentScreen];
   if (!dest) return;
 
@@ -7624,6 +7630,51 @@ function closeUpgradeModal() {
   const modal = document.getElementById('upgrade-modal');
   if (modal) modal.classList.remove('visible');
 }
+
+function isUpgradeModalOpen() {
+  const modal = document.getElementById('upgrade-modal');
+  return modal && modal.classList.contains('visible');
+}
+
+// Swipe-down to dismiss upgrade modal
+(function initUpgradeSwipe() {
+  let startY = 0;
+  let currentY = 0;
+  let dragging = false;
+  const getBox = () => document.querySelector('.upgrade-modal-box');
+
+  document.addEventListener('touchstart', (e) => {
+    if (!isUpgradeModalOpen()) return;
+    const box = getBox();
+    if (!box || !box.contains(e.target)) return;
+    startY = e.touches[0].clientY;
+    currentY = startY;
+    dragging = true;
+    box.style.transition = 'none';
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!dragging) return;
+    currentY = e.touches[0].clientY;
+    const dy = Math.max(0, currentY - startY);
+    const box = getBox();
+    if (box) box.style.transform = 'translateY(' + dy + 'px)';
+  }, { passive: true });
+
+  document.addEventListener('touchend', () => {
+    if (!dragging) return;
+    dragging = false;
+    const dy = currentY - startY;
+    const box = getBox();
+    if (box) box.style.transition = '';
+    if (dy > 80) {
+      closeUpgradeModal();
+      if (box) box.style.transform = '';
+    } else {
+      if (box) box.style.transform = '';
+    }
+  }, { passive: true });
+})();
 
 function openCheckoutUrl(checkoutUrl) {
   if (!checkoutUrl) return false;
