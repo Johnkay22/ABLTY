@@ -3413,6 +3413,73 @@ html, body {
   font-family: var(--font-body); font-size: 12px;
   color: var(--muted); line-height: 1.5;
 }
+.guest-analytics-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(13,14,16,0.4) 0%, rgba(13,14,16,0.85) 60%, rgba(13,14,16,0.96) 100%);
+  backdrop-filter: blur(2px);
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 40px 20px;
+  z-index: 10;
+  pointer-events: auto;
+}
+.screen.is-guest .guest-analytics-overlay { display: flex; }
+.guest-analytics-overlay-inner {
+  text-align: center;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.guest-analytics-overlay-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.guest-analytics-overlay-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  letter-spacing: 1px;
+  color: var(--text);
+}
+.guest-analytics-overlay-desc {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.55;
+  margin-bottom: 8px;
+}
+.guest-analytics-overlay-cta {
+  width: 100%;
+  padding: 14px;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 12px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  letter-spacing: 2px;
+  cursor: pointer;
+}
+.guest-analytics-overlay-secondary {
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
 .ob-cta-create {
   width: 100%; padding: 16px; background: var(--accent); color: #000;
   border: none; border-radius: 14px; font-family: var(--font-display);
@@ -3624,7 +3691,7 @@ html, body {
       </div>
 
       <!-- DREAM LAB CARD -->
-      <div class="module-card fade-in-delay-3" data-feature="dream-lab" onclick="navigate('dream-lab')">
+      <div class="module-card fade-in-delay-3" data-feature="dream-lab" onclick="gatedNavigate('dream-lab', 'Dream Lab', 'Journal dreams, run WBTB timers, train lucid dreaming. Create a free account to unlock.')">
         <div class="card-visual dream-bg">
           <div class="dream-particles" id="dream-particles"></div>
           <!-- Moon phase + wave graphic -->
@@ -4226,7 +4293,7 @@ html, body {
       </div>
 
       <!-- Presentiment card -->
-      <div class="module-card fade-in-delay-2" data-feature="timestamp" onclick="navigate('timestamp')" style="flex-shrink:0;">
+      <div class="module-card fade-in-delay-2" data-feature="timestamp" onclick="gatedNavigate('timestamp', 'Presentiment', 'Test your precognitive response to random timed events. Create a free account to unlock.')" style="flex-shrink:0;">
         <div class="card-visual ts-bg">
           <div class="ts-waveform" id="psi-ts-waveform"></div>
         </div>
@@ -4238,7 +4305,7 @@ html, body {
       </div>
 
       <!-- Photo Pair Intuition card -->
-      <div class="module-card fade-in-delay-3" data-feature="photopair" onclick="navigate('photopair')" style="flex-shrink:0;">
+      <div class="module-card fade-in-delay-3" data-feature="photopair" onclick="gatedNavigate('photopair', 'Photo Pair', 'Choose the real target between two images. Create a free account to unlock.')" style="flex-shrink:0;">
         <div class="card-visual" style="background:linear-gradient(135deg,#06090f 0%,#0a1220 100%);overflow:hidden;">
           <!-- Warm card / Cold card illustration -->
           <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:16px;">
@@ -4456,6 +4523,15 @@ html, body {
        SCREEN: ANALYTICS
   ═══════════════════════════════════ -->
   <div id="screen-analytics" class="screen">
+    <div class="guest-analytics-overlay" id="guest-analytics-overlay">
+      <div class="guest-analytics-overlay-inner">
+        <div class="guest-analytics-overlay-eyebrow">PREVIEW MODE</div>
+        <div class="guest-analytics-overlay-title">Your Data Goes Here</div>
+        <div class="guest-analytics-overlay-desc">Sample data shown. Create a free account to track your real sessions across every protocol.</div>
+        <button class="guest-analytics-overlay-cta" onclick="handleFreeAccountCTA()">CREATE FREE ACCOUNT</button>
+        <button class="guest-analytics-overlay-secondary" onclick="handleUpgradeCTA()">UPGRADE TO PREMIUM</button>
+      </div>
+    </div>
     <div class="screen-inner" style="gap:0;">
 
       <div class="display-lg fade-in" style="margin-bottom:12px;">ANALYTICS</div>
@@ -4859,7 +4935,7 @@ html, body {
       </div>
 
       <!-- Reality Check Pager card -->
-      <div class="module-card fade-in-delay-1" data-feature="reality-check" onclick="navigate('reality-check')" style="flex-shrink:0;">
+      <div class="module-card fade-in-delay-1" data-feature="reality-check" onclick="gatedNavigate('reality-check', 'Reality Check Pager', 'Passive reality check reminders throughout the day. Create a free account to unlock.')" style="flex-shrink:0;">
         <div class="card-visual dream-bg">
           <div class="dream-particles" id="dl-dream-particles"></div>
           <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
@@ -4882,7 +4958,7 @@ html, body {
       </div>
 
       <!-- WBTB Timer -->
-      <div class="module-card fade-in-delay-2" data-feature="wbtb" onclick="navigate('wbtb')" style="flex-shrink:0;">
+      <div class="module-card fade-in-delay-2" data-feature="wbtb" onclick="gatedNavigate('wbtb', 'WBTB Timer', 'Wake-back-to-bed timer for lucid dreaming. Create a free account to unlock.')" style="flex-shrink:0;">
         <div class="card-visual" style="background:linear-gradient(135deg,#0a0f1a,#0d1525);overflow:hidden;">
           <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
             <svg width="60" height="60" viewBox="0 0 60 60" fill="none">
@@ -4901,7 +4977,7 @@ html, body {
       </div>
 
       <!-- Dream Journal -->
-      <div class="module-card fade-in-delay-3" data-feature="dream-journal" onclick="gatedNavigate('dream-journal','Dream Journal','Create a free account to log dreams and reveal recurring dream signs.')" style="flex-shrink:0;">
+      <div class="module-card fade-in-delay-3" data-feature="dream-journal" onclick="gatedNavigate('dream-journal', 'Dream Journal', 'Log dreams and detect recurring dream signs. Create a free account to unlock.')" style="flex-shrink:0;">
         <div class="card-visual dream-bg">
           <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
             <svg width="60" height="60" viewBox="0 0 64 64" fill="none">
@@ -9234,6 +9310,16 @@ function switchAnalyticsTab(tab) {
 }
 
 function renderAnalytics() {
+  const screenEl = document.getElementById('screen-analytics');
+
+  if (getCurrentTier() === 'guest') {
+    if (screenEl) screenEl.classList.add('is-guest');
+    renderGuestAnalyticsPlaceholder();
+    return;
+  }
+
+  if (screenEl) screenEl.classList.remove('is-guest');
+
   const rvSessions = (STATE.sessions || []).filter(s => !isRVGradingFailed(s));
   const zenerRuns  = loadZenerSessions();
   const tsTrials = loadTimestampAll();
@@ -9275,6 +9361,96 @@ function renderAnalytics() {
   if (logBestEl)  logBestEl.textContent  = rvBest !== null ? rvBest + '%' : '-';
 
   buildCombinedLog(rvSessions, zenerRuns);
+}
+
+function renderGuestAnalyticsPlaceholder() {
+  setEl('kpi-total-sessions', 47);
+  setEl('kpi-total-sessions-sub', 'Tap for session log');
+  setEl('kpi-active-days', 12);
+  setEl('kpi-active-days-sub', 'Tap for detailed trends');
+  setEl('log-total', 47);
+  setEl('log-best', '68%');
+
+  // Placeholder sparklines
+  const wrap = document.getElementById('overview-signal-trend');
+  if (wrap) {
+    const fakeCards = [
+      { label: 'RV', values: [42,48,51,45,54,58,53,60,55,54], baselinePct: 50, avg: '54%', color: 'var(--accent)' },
+      { label: 'ZENER', values: [18,22,20,24,19,26,23,25,22,24], baselinePct: 20, avg: '24%', color: 'var(--accent)' },
+      { label: 'PRESENTIMENT', values: [55,60,58,65,62,68,64,70,66,72], baselinePct: 67, avg: '3.2s', color: 'var(--accent)' },
+      { label: 'PHOTO PAIR', values: [45,50,55,52,60,58,62,55,60,58], baselinePct: 50, avg: '58%', color: 'var(--accent)' },
+    ];
+    wrap.innerHTML = fakeCards.map(card => `
+      <div class="module-card overview-spark-card">
+        <div class="card-visual overview-spark-visual">
+          ${buildSparklineSVG(card.values, { baselinePct: card.baselinePct })}
+        </div>
+        <div class="card-overlay overview-spark-overlay">
+          <span class="mono-label">${card.label}</span>
+          <span class="mono-label" style="color:${card.color};">${card.avg}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Placeholder calibration
+  const calScore = document.getElementById('cal-score');
+  const calLabel = document.getElementById('cal-label');
+  const calArrow = document.getElementById('cal-arrow');
+  const calDesc = document.getElementById('cal-desc');
+  const calBars = document.getElementById('cal-bars');
+  if (calScore) calScore.textContent = '54%';
+  if (calLabel) calLabel.textContent = 'Slight upward trend';
+  if (calArrow) calArrow.textContent = '↗';
+  if (calDesc) calDesc.textContent = 'Based on 22 scored RV sessions';
+  if (calBars) calBars.innerHTML = [38,45,42,50,48,55,52,58,54,60].map(v =>
+    `<div style="flex:1;height:${v}%;background:var(--accent);border-radius:3px 3px 0 0;opacity:0.7;"></div>`
+  ).join('');
+
+  // Placeholder bar charts
+  const rvChartWrap = document.getElementById('rv-chart-wrap');
+  if (rvChartWrap) rvChartWrap.innerHTML = buildSparklineSVG([42,48,55,50,58,62,54,60,65,68], { baselinePct: 50 });
+
+  const zenerChartWrap = document.getElementById('zener-chart-wrap');
+  if (zenerChartWrap) zenerChartWrap.innerHTML = buildSparklineSVG([18,22,20,24,19,26,23,25,22,24], { baselinePct: 20 });
+
+  // Placeholder protocol activity
+  const protocolWrap = document.getElementById('protocol-activity-wrap');
+  if (protocolWrap) {
+    protocolWrap.innerHTML = ['RV','Zener','Presentiment','Photo Pair'].map((name, i) => {
+      const counts = [22, 12, 8, 5];
+      const pct = Math.round((counts[i] / 47) * 100);
+      return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <span class="mono-label" style="width:90px;">${name}</span>
+        <div style="flex:1;height:6px;background:var(--card);border-radius:3px;overflow:hidden;">
+          <div style="width:${pct}%;height:100%;background:var(--accent);border-radius:3px;opacity:0.7;"></div>
+        </div>
+        <span class="mono-label" style="width:30px;text-align:right;">${counts[i]}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // Clear TOD, streak, other panels
+  const todWrap = document.getElementById('tod-wrap');
+  if (todWrap) todWrap.innerHTML = '';
+  const streakWrap = document.getElementById('streak-banner-wrap');
+  if (streakWrap) streakWrap.innerHTML = '';
+  const combinedLog = document.getElementById('combined-log-list');
+  if (combinedLog) combinedLog.innerHTML = '<div class="mono-sm" style="text-align:center;color:var(--dim);padding:20px 0;">Sample data — create an account to see your real sessions</div>';
+
+  // Clear PSI panel detail sections
+  const symbolGrid = document.getElementById('symbol-acc-grid');
+  if (symbolGrid) symbolGrid.innerHTML = '';
+  const presWrap = document.getElementById('presentiment-stats-wrap');
+  if (presWrap) presWrap.innerHTML = '';
+  const ppWrap = document.getElementById('pp-analytics-wrap');
+  if (ppWrap) ppWrap.innerHTML = '';
+  const catBreakdown = document.getElementById('cat-breakdown');
+  if (catBreakdown) catBreakdown.innerHTML = '';
+  const dimWrap = document.getElementById('dim-strength-wrap');
+  if (dimWrap) dimWrap.innerHTML = '';
+  const zenerSignal = document.getElementById('zener-signal-wrap');
+  if (zenerSignal) zenerSignal.innerHTML = '';
 }
 
 function clampPct(value) {
