@@ -12663,7 +12663,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.04.18.1';
+const APP_VERSION = '2026.04.18.2';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -12690,11 +12690,14 @@ async function checkVersionManifestUpdate() {
     if (remoteVersion !== APP_VERSION) {
       window._pendingManifestVersion = remoteVersion;
       showUpdateBanner();
+    } else {
+      window._manifestVersionMatches = true;
     }
   } catch (e) {}
 }
 
 async function checkHtmlUpdateFallback() {
+  if (window._manifestVersionMatches) return;
   try {
     const resp = await fetch('/app.html?update_check=' + Date.now(), {
       method: 'HEAD',
