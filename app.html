@@ -7655,29 +7655,66 @@ function canAccess(feature) {
 // ═══════════════════════════════════════════════════════
 
 function showUpgradeModal(featureKey, featureName, featureDesc) {
-  const modal    = document.getElementById('upgrade-modal');
-  const nameEl   = document.getElementById('upgrade-feature-name');
-  const titleEl  = document.getElementById('upgrade-modal-title');
-  const descEl   = document.getElementById('upgrade-modal-desc');
-  const ctaBtn   = document.getElementById('upgrade-cta-btn');
-  const freeBtn  = document.getElementById('upgrade-free-btn');
-  if (!modal) return;
+  const modal = document.getElementById('upgrade-modal');
+  const body  = document.getElementById('upgrade-modal-body');
+  if (!modal || !body) return;
 
   const tier = getCurrentTier();
+  if (tier === 'premium') { return; }
 
-  if (nameEl)  nameEl.textContent  = featureName || 'Premium Feature';
-  if (titleEl) titleEl.textContent = 'Unlock ' + (featureName || 'This Feature');
-  if (descEl)  descEl.textContent  = featureDesc || 'This feature requires a free account or Premium subscription.';
+  const featureAccess = TIER_ACCESS[featureKey] || [];
+  const unlocksAtFree = featureAccess.includes('free');
+  const name = featureName || 'This Feature';
+  let html = '';
 
-  // If already logged in (free tier), show upgrade CTA only
-  if (tier === 'free') {
-    if (freeBtn) freeBtn.style.display = 'none';
-    if (ctaBtn)  ctaBtn.textContent = 'UPGRADE TO PREMIUM';
+  if (tier === 'guest' && unlocksAtFree) {
+    // State A: guest + free-tier feature
+    html = `
+      <div class="upgrade-feature-name">${escapeHtml(name)}</div>
+      <div class="upgrade-modal-desc">Create a free account to unlock this and most other features.</div>
+      <button class="upgrade-cta-premium" onclick="handleFreeAccountCTA()">CREATE FREE ACCOUNT</button>
+      <div class="upgrade-modal-sub" style="font-family:var(--font-body);font-size:11px;color:var(--dim);line-height:1.5;text-align:center;margin-top:12px;">Free includes RV, Zener, Presentiment, Photo Pair, Dream Lab, cloud sync, and more.</div>
+      <div class="upgrade-modal-link" style="text-align:center;margin-top:16px;">
+        <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--muted);cursor:pointer;text-decoration:underline;" onclick="closeUpgradeModal();openAuthScreen('login')">Already have an account? Sign in</span>
+      </div>`;
+  } else if (tier === 'guest') {
+    // State B: guest + premium-only feature
+    html = `
+      <div class="upgrade-feature-name">${escapeHtml(name)}</div>
+      <div class="upgrade-modal-desc">This feature is Premium. Create a free account first to get started.</div>
+      <button class="upgrade-cta-premium" onclick="handleFreeAccountCTA()">CREATE FREE ACCOUNT</button>
+      <div class="upgrade-modal-sub" style="font-family:var(--font-body);font-size:11px;color:var(--dim);line-height:1.5;text-align:center;margin-top:12px;">Premium unlocks after signup for $4.99/month.</div>
+      <div class="upgrade-modal-link" style="text-align:center;margin-top:16px;">
+        <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--muted);cursor:pointer;text-decoration:underline;" onclick="closeUpgradeModal();openAuthScreen('login')">Already have an account? Sign in</span>
+      </div>`;
   } else {
-    if (freeBtn) freeBtn.style.display = 'block';
-    if (ctaBtn)  ctaBtn.textContent = 'UPGRADE TO PREMIUM';
+    // State C: free user + premium-only feature
+    html = `
+      <div class="upgrade-feature-name">${escapeHtml(name)}</div>
+      <div class="upgrade-modal-desc">${escapeHtml(featureDesc || 'This feature requires Premium.')}</div>
+      <div class="upgrade-tier-row">
+        <div class="upgrade-tier-cell">
+          <div class="upgrade-tier-name">Guest</div>
+          <div class="upgrade-tier-features">1 RV/day<br>1 Zener session/day<br>Local only</div>
+          <div class="upgrade-tier-price" style="font-size:14px;color:var(--muted);">Free</div>
+        </div>
+        <div class="upgrade-tier-cell">
+          <div class="upgrade-tier-name">Free</div>
+          <div class="upgrade-tier-features">2 RV/day<br>Unlimited Zener, Presentiment, Photo Pair<br>Dream Lab (7-day history)<br>Basic analytics (7-day)<br>Cloud sync</div>
+          <div class="upgrade-tier-price" style="font-size:14px;color:var(--accent2);">Free</div>
+        </div>
+        <div class="upgrade-tier-cell highlighted">
+          <div class="upgrade-tier-name">Premium</div>
+          <div class="upgrade-tier-features">Unlimited RV<br>Full history & insights<br>Ability Profile<br>All upcoming protocols</div>
+          <div class="upgrade-tier-price">$4.99</div>
+          <div class="upgrade-tier-price-sub">/month</div>
+        </div>
+      </div>
+      <button class="upgrade-cta-premium" onclick="handleUpgradeCTA()">UPGRADE TO PREMIUM</button>
+      <div class="upgrade-modal-sub" style="font-family:var(--font-mono);font-size:10px;color:var(--dim);letter-spacing:1px;text-align:center;margin-top:10px;">$4.99/month, cancel anytime</div>`;
   }
 
+  body.innerHTML = html;
   modal.classList.add('visible');
   history.pushState({ screen: currentScreen, upgradeModal: true }, '', '');
 }
@@ -12788,7 +12825,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.04.18.3';
+const APP_VERSION = '2026.04.18.4';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -14457,31 +14494,7 @@ window.addEventListener('error', (e) => {
   <div class="upgrade-modal-overlay" id="upgrade-modal" onclick="handleUpgradeOverlayClick(event)">
     <div class="upgrade-modal-box">
       <div class="upgrade-modal-handle"></div>
-      <div class="upgrade-feature-name" id="upgrade-feature-name">Premium Feature</div>
-      <div class="upgrade-modal-title" id="upgrade-modal-title">Unlock ABLTY</div>
-      <div class="upgrade-modal-desc" id="upgrade-modal-desc">Create a free account or upgrade to Premium to access this feature.</div>
-
-      <div class="upgrade-tier-row">
-        <div class="upgrade-tier-cell">
-          <div class="upgrade-tier-name">Guest</div>
-          <div class="upgrade-tier-features">1 RV/day<br>1 Zener session/day<br>Local only</div>
-          <div class="upgrade-tier-price" style="font-size:14px;color:var(--muted);">Free</div>
-        </div>
-        <div class="upgrade-tier-cell">
-          <div class="upgrade-tier-name">Free</div>
-          <div class="upgrade-tier-features">2 RV/day<br>Unlimited Zener, Presentiment, Photo Pair<br>Dream Lab (7-day history)<br>Basic analytics (7-day)<br>Cloud sync</div>
-          <div class="upgrade-tier-price" style="font-size:14px;color:var(--accent2);">Free</div>
-        </div>
-        <div class="upgrade-tier-cell highlighted">
-          <div class="upgrade-tier-name">Premium</div>
-          <div class="upgrade-tier-features">Unlimited RV<br>Full history & insights<br>Ability Profile<br>All upcoming protocols</div>
-          <div class="upgrade-tier-price">$4.99</div>
-          <div class="upgrade-tier-price-sub">/month</div>
-        </div>
-      </div>
-
-      <button class="upgrade-cta-premium" id="upgrade-cta-btn" onclick="handleUpgradeCTA()">UPGRADE TO PREMIUM</button>
-      <button class="upgrade-cta-free" id="upgrade-free-btn" onclick="handleFreeAccountCTA()">CREATE FREE ACCOUNT</button>
+      <div id="upgrade-modal-body"></div>
     </div>
   </div>
 
