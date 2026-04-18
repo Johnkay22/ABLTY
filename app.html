@@ -7698,7 +7698,7 @@ function checkMilestones(sessionData) {
   if (totalSessions >= 10 && !localStorage.getItem('ablty_milestone_session10')) {
     localStorage.setItem('ablty_milestone_session10', '1');
     if (!isPremium) {
-      showUpgradeModal('ability_profile', 'Ability Profile Ready', 'You have enough sessions to generate your first Ability Profile. Premium reveals your overall Z-score, strongest protocol, strongest dimension, and percentile rank among all ABLTY practitioners.');
+      showUpgradeModal('analytics', '10 Session Milestone', 'You\u2019ve completed 10 sessions. Premium unlocks your full session history, Z-score trends, cumulative deviation charts, and every new protocol we release.');
       return;
     }
   }
@@ -12918,7 +12918,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.04.18.6';
+const APP_VERSION = '2026.04.18.7';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
