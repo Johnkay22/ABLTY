@@ -6060,7 +6060,6 @@ let _suppressHistoryPush = false;
 window.addEventListener('popstate', (e) => {
   if (isUpgradeModalOpen()) {
     closeUpgradeModal();
-    history.pushState({ screen: currentScreen }, '', '');
     return;
   }
 
@@ -7620,6 +7619,7 @@ function showUpgradeModal(featureKey, featureName, featureDesc) {
   }
 
   modal.classList.add('visible');
+  history.pushState({ screen: currentScreen, upgradeModal: true }, '', '');
 }
 
 function handleUpgradeOverlayClick(e) {
@@ -7641,13 +7641,17 @@ function isUpgradeModalOpen() {
   let startY = 0;
   let currentY = 0;
   let dragging = false;
-  const getBox = () => document.querySelector('.upgrade-modal-box');
 
   document.addEventListener('touchstart', (e) => {
     if (!isUpgradeModalOpen()) return;
-    const box = getBox();
-    if (!box || !box.contains(e.target)) return;
-    startY = e.touches[0].clientY;
+    const box = document.querySelector('.upgrade-modal-box');
+    if (!box) return;
+    // Allow drag to start from the handle area (top 60px of the modal) or anywhere on the box
+    const boxRect = box.getBoundingClientRect();
+    const touchY = e.touches[0].clientY;
+    if (touchY < boxRect.top || touchY > boxRect.bottom) return;
+    if (touchY > boxRect.top + 60) return;
+    startY = touchY;
     currentY = startY;
     dragging = true;
     box.style.transition = 'none';
@@ -7657,7 +7661,7 @@ function isUpgradeModalOpen() {
     if (!dragging) return;
     currentY = e.touches[0].clientY;
     const dy = Math.max(0, currentY - startY);
-    const box = getBox();
+    const box = document.querySelector('.upgrade-modal-box');
     if (box) box.style.transform = 'translateY(' + dy + 'px)';
   }, { passive: true });
 
@@ -7665,14 +7669,12 @@ function isUpgradeModalOpen() {
     if (!dragging) return;
     dragging = false;
     const dy = currentY - startY;
-    const box = getBox();
-    if (box) box.style.transition = '';
-    if (dy > 80) {
-      closeUpgradeModal();
-      if (box) box.style.transform = '';
-    } else {
-      if (box) box.style.transform = '';
+    const box = document.querySelector('.upgrade-modal-box');
+    if (box) {
+      box.style.transition = '';
+      box.style.transform = '';
     }
+    if (dy > 60) closeUpgradeModal();
   }, { passive: true });
 })();
 
@@ -12661,7 +12663,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.04.13.1';
+const APP_VERSION = '2026.04.18.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
