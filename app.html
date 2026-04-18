@@ -6598,6 +6598,7 @@ async function submitSession() {
   const rvToday = getTodayKey();
   localStorage.setItem('ablty_rv_daily_' + rvToday, String(parseInt(localStorage.getItem('ablty_rv_daily_' + rvToday) || '0', 10) + 1));
   syncSessionToSupabase('rv_sessions', mapRVSessionRow(session, 'personal'));
+  checkMilestones({ protocol: 'rv', score: session.score });
 }
 
 function updateGradingStatus(msg) {
@@ -7648,6 +7649,77 @@ const TIER_ACCESS = {
 function canAccess(feature) {
   const tier = getCurrentTier();
   return (TIER_ACCESS[feature] || ['premium']).includes(tier);
+}
+
+// ═══════════════════════════════════════════════════════
+//  MILESTONE TRIGGERS
+// ═══════════════════════════════════════════════════════
+
+function checkMilestones(sessionData) {
+  const today = getTodayKey();
+
+  // Update lifetime session counter
+  const totalSessions = parseInt(localStorage.getItem('ablty_total_sessions') || '0', 10) + 1;
+  localStorage.setItem('ablty_total_sessions', String(totalSessions));
+
+  // Update practice streak
+  let streakData;
+  try { streakData = JSON.parse(localStorage.getItem('ablty_streak_data')); } catch(e) {}
+  if (!streakData || !streakData.lastSessionDate) {
+    streakData = { lastSessionDate: today, currentStreak: 1 };
+  } else if (streakData.lastSessionDate === today) {
+    // Same day — don't increment
+  } else {
+    const last = new Date(streakData.lastSessionDate + 'T00:00:00');
+    const now  = new Date(today + 'T00:00:00');
+    const diffDays = Math.round((now - last) / 86400000);
+    if (diffDays === 1) {
+      streakData.currentStreak = (streakData.currentStreak || 0) + 1;
+    } else {
+      streakData.currentStreak = 1;
+    }
+    streakData.lastSessionDate = today;
+  }
+  localStorage.setItem('ablty_streak_data', JSON.stringify(streakData));
+
+  const isPremium = getCurrentTier() === 'premium';
+
+  // Milestone A — First Statistical Significance
+  const zScore = sessionData && sessionData.zScore;
+  if (Number.isFinite(zScore) && zScore >= 1.64 && !localStorage.getItem('ablty_milestone_first_sig')) {
+    localStorage.setItem('ablty_milestone_first_sig', '1');
+    if (!isPremium) {
+      showUpgradeModal('analytics', 'Statistical Significance', 'You just scored above the 95% chance threshold \u2014 a statistically significant hit. Premium tracks your significance over time and shows exactly how often you beat chance.');
+      return;
+    }
+  }
+
+  // Milestone B — Session 10
+  if (totalSessions >= 10 && !localStorage.getItem('ablty_milestone_session10')) {
+    localStorage.setItem('ablty_milestone_session10', '1');
+    if (!isPremium) {
+      showUpgradeModal('ability_profile', 'Ability Profile Ready', 'You have enough sessions to generate your first Ability Profile. Premium reveals your overall Z-score, strongest protocol, strongest dimension, and percentile rank among all ABLTY practitioners.');
+      return;
+    }
+  }
+
+  // Milestone C — 7-Day Practice Streak
+  if (streakData.currentStreak >= 7 && !localStorage.getItem('ablty_milestone_streak7')) {
+    localStorage.setItem('ablty_milestone_streak7', '1');
+    if (!isPremium) {
+      showUpgradeModal('analytics', '7-Day Practice Streak', 'Seven days in a row. Premium shows your long-term development curve so you can watch your ability grow over months of practice.');
+    }
+  }
+}
+
+if (isDevMode()) {
+  console.log('[ABLTY Milestones]', {
+    totalSessions: localStorage.getItem('ablty_total_sessions'),
+    streakData: localStorage.getItem('ablty_streak_data'),
+    firstSig: localStorage.getItem('ablty_milestone_first_sig'),
+    session10: localStorage.getItem('ablty_milestone_session10'),
+    streak7: localStorage.getItem('ablty_milestone_streak7'),
+  });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -9402,6 +9474,7 @@ function finishZenerRun() {
   // Show results
   showScreen('zener-results', false);
   renderZenerResults(run);
+  checkMilestones({ protocol: 'zener', score: hitPct, zScore: (hits - 5) / 2 });
 }
 
 function renderZenerResults(run) {
@@ -12845,7 +12918,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.04.18.5';
+const APP_VERSION = '2026.04.18.6';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -13555,6 +13628,7 @@ function endTimestampBatch() {
 function viewTimestampResults() {
   showScreen('timestamp-results', false);
   renderTimestampResults();
+  checkMilestones({ protocol: 'presentiment', score: null });
 }
 
 function renderTimestampResults() {
@@ -14077,6 +14151,7 @@ function handlePPTap(side) {
       setEl('pp-tap-hint', '');
       const post = document.getElementById('pp-post-reveal');
       if (post) { post.style.display = 'flex'; post.style.flexDirection = 'column'; }
+      checkMilestones({ protocol: 'photopair', score: isHit ? 100 : 0 });
     }, 700);
   }, 80);
 }
