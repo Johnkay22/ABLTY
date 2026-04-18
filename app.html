@@ -893,6 +893,66 @@ html, body {
 }
 .empty-icon { font-size: 40px; opacity: 0.3; }
 
+.premium-history-teaser {
+  position: relative;
+  margin-top: 20px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(74,240,200,0.04) 0%, rgba(13,14,16,0.9) 100%);
+  border: 1px solid rgba(74,240,200,0.18);
+  padding: 28px 20px;
+  min-height: 180px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.premium-teaser-blur-layer {
+  position: absolute;
+  inset: 0;
+  backdrop-filter: blur(6px);
+  pointer-events: none;
+}
+.premium-teaser-content {
+  position: relative;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  max-width: 320px;
+}
+.premium-teaser-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+.premium-teaser-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 1.5px;
+  color: var(--text);
+}
+.premium-teaser-desc {
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.55;
+  margin-bottom: 8px;
+}
+.premium-teaser-btn {
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 28px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: 1.5px;
+  cursor: pointer;
+}
+
 /* ═══════════════════════════════════════════
    PROFILE / SETTINGS SCREEN
 ═══════════════════════════════════════════ */
@@ -8856,8 +8916,26 @@ async function renderDreamInsights() {
     return;
   }
 
-  const sorted = [...entries].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const allSorted = [...entries].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  let sorted = allSorted;
+  let hasOlderDreams = false;
+  const dreamTier = getCurrentTier();
+  if (dreamTier !== 'premium') {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 7);
+    cutoff.setHours(0, 0, 0, 0);
+    const cutoffMs = cutoff.getTime();
+    sorted = allSorted.filter(e => new Date(e.created_at).getTime() >= cutoffMs);
+    hasOlderDreams = allSorted.length > sorted.length;
+  }
+  const fewRecentDreams = sorted.length < 3 && dreamTier !== 'premium';
   let html = '';
+
+  if (fewRecentDreams) {
+    html += `<div class="chart-card" style="margin-bottom:12px;border-color:var(--warn);border-style:dashed;padding:14px 18px;">
+      <div class="mono-sm" style="color:var(--warn);line-height:1.5;">Keep journaling to see your patterns — insights are based on the last 7 days.</div>
+    </div>`;
+  }
 
   // — 1. Lucidity Rate —
   const totalEntries = sorted.length;
@@ -9079,6 +9157,18 @@ async function renderDreamInsights() {
     html += `<div class="chart-card" style="margin-bottom:12px;">
       <div class="chart-title">DREAM SIGNS &amp; LUCIDITY</div>
       <div class="mono-sm" style="color:var(--dim);">Not enough recurring dream signs yet. Keep logging to reveal correlations.</div>
+    </div>`;
+  }
+
+  if (hasOlderDreams) {
+    html += `<div class="premium-history-teaser">
+      <div class="premium-teaser-blur-layer"></div>
+      <div class="premium-teaser-content">
+        <div class="premium-teaser-eyebrow">PREMIUM</div>
+        <div class="premium-teaser-title">UNLOCK YOUR FULL DREAM HISTORY</div>
+        <div class="premium-teaser-desc">Analyze dream signs across months of entries, surface recurring patterns, and unlock unlimited AI-tagged dream insights.</div>
+        <button class="premium-teaser-btn" onclick="showUpgradeModal('dream-lab','Full Dream Insights','Unlock your complete dream history, AI pattern analysis, and unlimited dream sign tracking.')">UPGRADE TO PREMIUM</button>
+      </div>
     </div>`;
   }
 
@@ -10467,8 +10557,31 @@ function buildCombinedLog(rvSessions, zenerRuns) {
     all.sort((a, b) => toEpoch(b.timestamp) - toEpoch(a.timestamp));
   }
 
+  let hasOlderSessions = false;
+  const tier = getCurrentTier();
+  if (tier !== 'premium') {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 7);
+    cutoff.setHours(0, 0, 0, 0);
+    const cutoffMs = cutoff.getTime();
+    const before = all.length;
+    all = all.filter(s => toEpoch(s.timestamp) >= cutoffMs);
+    hasOlderSessions = before > all.length;
+  }
+
   if (!all.length) {
     el.innerHTML = `<div class="empty-state"><div class="empty-icon">&#9678;</div><div class="mono-label">No sessions yet</div><div class="body-sm" style="margin-top:6px;">Complete your first session to begin building your log.</div></div>`;
+    if (hasOlderSessions) {
+      el.innerHTML += `<div class="premium-history-teaser">
+        <div class="premium-teaser-blur-layer"></div>
+        <div class="premium-teaser-content">
+          <div class="premium-teaser-eyebrow">PREMIUM</div>
+          <div class="premium-teaser-title">UNLOCK YOUR FULL HISTORY</div>
+          <div class="premium-teaser-desc">See patterns over months of practice. Track cumulative deviation, Z-score trends, and long-term development curves.</div>
+          <button class="premium-teaser-btn" onclick="showUpgradeModal('analytics','Full Analytics','Unlock complete history, rolling averages, Z-score gauge, and cumulative deviation charts.')">UPGRADE TO PREMIUM</button>
+        </div>
+      </div>`;
+    }
     return;
   }
 
@@ -10536,6 +10649,18 @@ function buildCombinedLog(rvSessions, zenerRuns) {
       <div class="session-score ${cls}${(s.type === 'rv' && isRVGradingFailed(s)) ? ' na' : ''}">${scoreDisplay}</div>
     </div>`;
   }).join('');
+
+  if (hasOlderSessions) {
+    el.innerHTML += `<div class="premium-history-teaser">
+      <div class="premium-teaser-blur-layer"></div>
+      <div class="premium-teaser-content">
+        <div class="premium-teaser-eyebrow">PREMIUM</div>
+        <div class="premium-teaser-title">UNLOCK YOUR FULL HISTORY</div>
+        <div class="premium-teaser-desc">See patterns over months of practice. Track cumulative deviation, Z-score trends, and long-term development curves.</div>
+        <button class="premium-teaser-btn" onclick="showUpgradeModal('analytics','Full Analytics','Unlock complete history, rolling averages, Z-score gauge, and cumulative deviation charts.')">UPGRADE TO PREMIUM</button>
+      </div>
+    </div>`;
+  }
 }
 
 
@@ -12663,7 +12788,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.04.18.2';
+const APP_VERSION = '2026.04.18.3';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
