@@ -6249,11 +6249,11 @@ function startRVSession() {
   const rvCount = parseInt(localStorage.getItem('ablty_rv_daily_' + todayDate) || '0', 10);
   const tier = getCurrentTier();
   if (tier === 'guest' && rvCount >= 1) {
-    showUpgradeModal('rv', 'Remote Viewing', 'Guests get 1 session per day. Free accounts unlock 2 per day.');
+    showUpgradeModal('rv', 'Remote Viewing', 'Guests get 1 session per day. Free accounts unlock 2 per day.', { dailyLimit: true });
     return;
   }
   if (tier === 'free' && rvCount >= 2) {
-    showUpgradeModal('rv', 'Remote Viewing', 'Free accounts get 2 sessions per day. Premium is unlimited.');
+    showUpgradeModal('rv', 'Remote Viewing', 'Free accounts get 2 sessions per day. Premium is unlimited.', { dailyLimit: true });
     return;
   }
 
@@ -7654,7 +7654,7 @@ function canAccess(feature) {
 //  UPGRADE MODAL
 // ═══════════════════════════════════════════════════════
 
-function showUpgradeModal(featureKey, featureName, featureDesc) {
+function showUpgradeModal(featureKey, featureName, featureDesc, opts) {
   const modal = document.getElementById('upgrade-modal');
   const body  = document.getElementById('upgrade-modal-body');
   if (!modal || !body) return;
@@ -7665,9 +7665,29 @@ function showUpgradeModal(featureKey, featureName, featureDesc) {
   const featureAccess = TIER_ACCESS[featureKey] || [];
   const unlocksAtFree = featureAccess.includes('free');
   const name = featureName || 'This Feature';
+  const dailyLimit = opts && opts.dailyLimit;
   let html = '';
 
-  if (tier === 'guest' && unlocksAtFree) {
+  if (dailyLimit && tier === 'guest') {
+    // Daily limit hit — guest
+    html = `
+      <div class="upgrade-feature-name">${escapeHtml(name)}</div>
+      <div class="upgrade-modal-title">Daily Limit Reached</div>
+      <div class="upgrade-modal-desc">${escapeHtml(featureDesc || '')}</div>
+      <button class="upgrade-cta-premium" onclick="handleFreeAccountCTA()">CREATE FREE ACCOUNT</button>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:1px;text-align:center;margin-top:10px;">Resets at midnight.</div>
+      <div class="upgrade-modal-link" style="text-align:center;margin-top:16px;">
+        <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--muted);cursor:pointer;text-decoration:underline;" onclick="closeUpgradeModal();openAuthScreen('login')">Already have an account? Sign in</span>
+      </div>`;
+  } else if (dailyLimit) {
+    // Daily limit hit — free user
+    html = `
+      <div class="upgrade-feature-name">${escapeHtml(name)}</div>
+      <div class="upgrade-modal-title">Daily Limit Reached</div>
+      <div class="upgrade-modal-desc">${escapeHtml(featureDesc || '')}</div>
+      <button class="upgrade-cta-premium" onclick="handleUpgradeCTA()">UPGRADE TO PREMIUM</button>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:1px;text-align:center;margin-top:10px;">Resets at midnight.</div>`;
+  } else if (tier === 'guest' && unlocksAtFree) {
     // State A: guest + free-tier feature
     html = `
       <div class="upgrade-feature-name">${escapeHtml(name)}</div>
@@ -9258,7 +9278,7 @@ function openZenerSession() {
   const todayDate = getTodayKey();
   const zenerCount = parseInt(localStorage.getItem('ablty_zener_daily_' + todayDate) || '0', 10);
   if (getCurrentTier() === 'guest' && zenerCount >= 1) {
-    showUpgradeModal('zener', 'Zener Test', 'Guests get 1 session per day. Free accounts are unlimited.');
+    showUpgradeModal('zener', 'Zener Test', 'Guests get 1 session per day. Free accounts are unlimited.', { dailyLimit: true });
     return;
   }
 
@@ -12825,7 +12845,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.04.18.4';
+const APP_VERSION = '2026.04.18.5';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
