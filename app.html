@@ -3477,7 +3477,7 @@ html, body {
   position: absolute;
   inset: 0;
   background: linear-gradient(180deg, rgba(13,14,16,0.4) 0%, rgba(13,14,16,0.85) 60%, rgba(13,14,16,0.96) 100%);
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(6px);
   display: none;
   align-items: flex-end;
   justify-content: center;
@@ -4585,11 +4585,10 @@ html, body {
   <div id="screen-analytics" class="screen">
     <div class="guest-analytics-overlay" id="guest-analytics-overlay">
       <div class="guest-analytics-overlay-inner">
-        <div class="guest-analytics-overlay-eyebrow">PREVIEW MODE</div>
-        <div class="guest-analytics-overlay-title">Your Data Goes Here</div>
-        <div class="guest-analytics-overlay-desc">Sample data shown. Create a free account to track your real sessions across every protocol.</div>
-        <button class="guest-analytics-overlay-cta" onclick="handleFreeAccountCTA()">CREATE FREE ACCOUNT</button>
-        <button class="guest-analytics-overlay-secondary" onclick="handleUpgradeCTA()">UPGRADE TO PREMIUM</button>
+        <div class="guest-analytics-overlay-eyebrow">EXAMPLE ANALYTICS</div>
+        <div class="guest-analytics-overlay-title">Track Your Progress</div>
+        <div class="guest-analytics-overlay-desc">The numbers shown are examples only — not your data. Create a free account to start tracking your real sessions.</div>
+        <button class="guest-analytics-overlay-cta" onclick="handleFreeAccountCTA()">CREATE FREE ACCOUNT TO START TRACKING</button>
       </div>
     </div>
     <div class="screen-inner" style="gap:0;">
@@ -9638,11 +9637,11 @@ function renderAnalytics() {
 
 function renderGuestAnalyticsPlaceholder() {
   setEl('kpi-total-sessions', 47);
-  setEl('kpi-total-sessions-sub', 'Tap for session log');
+  setEl('kpi-total-sessions-sub', 'Example data');
   setEl('kpi-active-days', 12);
-  setEl('kpi-active-days-sub', 'Tap for detailed trends');
-  setEl('log-total', 47);
-  setEl('log-best', '68%');
+  setEl('kpi-active-days-sub', 'Example data');
+  setEl('log-total', '—');
+  setEl('log-best', '—');
 
   // Placeholder sparklines
   const wrap = document.getElementById('overview-signal-trend');
@@ -9660,7 +9659,7 @@ function renderGuestAnalyticsPlaceholder() {
         </div>
         <div class="card-overlay overview-spark-overlay">
           <span class="mono-label">${card.label}</span>
-          <span class="mono-label" style="color:${card.color};">${card.avg}</span>
+          <span class="mono-label" style="color:var(--dim);font-size:8px;letter-spacing:1px;">EXAMPLE</span>
         </div>
       </div>
     `).join('');
@@ -9673,9 +9672,9 @@ function renderGuestAnalyticsPlaceholder() {
   const calDesc = document.getElementById('cal-desc');
   const calBars = document.getElementById('cal-bars');
   if (calScore) calScore.textContent = '54%';
-  if (calLabel) calLabel.textContent = 'Slight upward trend';
+  if (calLabel) calLabel.textContent = 'Example trend';
   if (calArrow) calArrow.textContent = '↗';
-  if (calDesc) calDesc.textContent = 'Based on 22 scored RV sessions';
+  if (calDesc) calDesc.textContent = 'Example — create an account to see your real calibration';
   if (calBars) calBars.innerHTML = [38,45,42,50,48,55,52,58,54,60].map(v =>
     `<div style="flex:1;height:${v}%;background:var(--accent);border-radius:3px 3px 0 0;opacity:0.7;"></div>`
   ).join('');
@@ -12918,7 +12917,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.04.18.6';
+const APP_VERSION = '2026.04.25.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
