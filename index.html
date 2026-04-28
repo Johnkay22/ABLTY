@@ -692,52 +692,60 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  const SUPABASE_URL = 'https://ghjajyxcjfqidcmqdzdp.supabase.co';
-  const SUPABASE_ANON_KEY = 'sb_publishable_DRu8Zv7QgjoOrRngN8iFUw_vKffPnSf';
+  // Supabase init — store on window so other scripts can access it safely
+  window._sb = null;
+  try {
+    var _url = 'https://ghjajyxcjfqidcmqdzdp.supabase.co';
+    var _key = 'sb_publishable_DRu8Zv7QgjoOrRngN8iFUw_vKffPnSf';
+    if (window.supabase && _url && _key) {
+      window._sb = window.supabase.createClient(_url, _key);
+    }
+  } catch(e) { console.error('Supabase init failed:', e); }
+</script>
 
-  const hasKeys = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 20;
-  let supabase = null;
-  try { supabase = (hasKeys && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null; }
-  catch(e){ console.error('Supabase init failed:', e); }
+<script>
+  // Waitlist form — isolated from Supabase init
+  function _validEmail(s){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s); }
+  function _setMsg(el, text, type){ el.textContent = text; el.className = 'form-message ' + (type || ''); }
 
-  function validEmail(str){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str)}
-  function setMessage(el, text, type){el.textContent = text;el.className = 'form-message ' + (type || '')}
+  function _submit(which) {
+    var input = document.getElementById('email-' + which);
+    var msg   = document.getElementById('msg-' + which);
+    var formEl  = document.getElementById(which + '-form');
+    var thanksEl = document.getElementById('thanks-' + which);
+    var btn = document.querySelector('button[data-form="' + which + '"]');
+    var originalText = btn.textContent;
 
-  async function handleSubmit(which){
-    const input = document.getElementById('email-' + which);
-    const msg = document.getElementById('msg-' + which);
-    const formEl = document.getElementById(which + '-form');
-    const thanksEl = document.getElementById('thanks-' + which);
-    const btn = document.querySelector('button[data-form="' + which + '"]');
-    const originalText = btn.textContent;
+    var email = input.value.trim().toLowerCase();
+    if (!email) { _setMsg(msg, 'Email required.', 'error'); return; }
+    if (!_validEmail(email)) { _setMsg(msg, "That email doesn't look right.", 'error'); return; }
+    if (!window._sb) { _setMsg(msg, 'Service unavailable. Try again later.', 'error'); return; }
 
-    const email = input.value.trim().toLowerCase();
-    if(!email){ setMessage(msg, 'Email required.', 'error'); return; }
-    if(!validEmail(email)){ setMessage(msg, "That email doesn't look right.", 'error'); return; }
-    if(!supabase){ setMessage(msg, 'Supabase keys not configured yet.', 'error'); return; }
-
-    btn.disabled = true; btn.textContent = 'TRANSMITTING...'; setMessage(msg, '', '');
-    try{
-      const { error } = await supabase.from('waitlist').insert([{ email: email }]);
-      if(error){
-        if(error.code === '23505'){formEl.style.display = 'none';thanksEl.classList.add('show')}
-        else {console.error(error);setMessage(msg, 'Transmission failed. Try again.', 'error');btn.disabled = false;btn.textContent = originalText}
+    btn.disabled = true; btn.textContent = 'TRANSMITTING...'; _setMsg(msg, '', '');
+    window._sb.from('waitlist').insert([{ email: email }]).then(function(res) {
+      var error = res.error;
+      if (error) {
+        if (error.code === '23505') { formEl.style.display = 'none'; thanksEl.classList.add('show'); }
+        else { console.error(error); _setMsg(msg, 'Transmission failed. Try again.', 'error'); btn.disabled = false; btn.textContent = originalText; }
         return;
       }
-      formEl.style.display = 'none';thanksEl.classList.add('show');
-      const otherWhich = which === 'hero' ? 'bottom' : 'hero';
-      document.getElementById(otherWhich + '-form').style.display = 'none';
-      document.getElementById('thanks-' + otherWhich).classList.add('show');
-    } catch(err){console.error(err);setMessage(msg, 'Network error. Try again.', 'error');btn.disabled = false;btn.textContent = originalText}
+      formEl.style.display = 'none'; thanksEl.classList.add('show');
+      var other = which === 'hero' ? 'bottom' : 'hero';
+      document.getElementById(other + '-form').style.display = 'none';
+      document.getElementById('thanks-' + other).classList.add('show');
+    }).catch(function(err) {
+      console.error(err); _setMsg(msg, 'Network error. Try again.', 'error'); btn.disabled = false; btn.textContent = originalText;
+    });
   }
 
-  document.querySelectorAll('button[data-form]').forEach(btn => btn.addEventListener('click', () => handleSubmit(btn.dataset.form)));
-  document.querySelectorAll('.email-input').forEach(inp => {
-    inp.addEventListener('keydown', e => {
-      if(e.key === 'Enter'){const which = inp.id === 'email-hero' ? 'hero' : 'bottom';handleSubmit(which)}
+  document.querySelectorAll('button[data-form]').forEach(function(btn) {
+    btn.addEventListener('click', function() { _submit(btn.dataset.form); });
+  });
+  document.querySelectorAll('.email-input').forEach(function(inp) {
+    inp.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') { _submit(inp.id === 'email-hero' ? 'hero' : 'bottom'); }
     });
   });
-
 </script>
 
 <script>
