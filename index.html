@@ -738,17 +738,18 @@
     });
   });
 
-  // Mode panel switching
-  document.querySelectorAll('.mode').forEach(modeEl => {
-    modeEl.addEventListener('click', () => {
-      const target = modeEl.dataset.panel;
+</script>
+
+<script>
+  // Mode panel switching — isolated from Supabase
+  document.querySelectorAll('.mode').forEach(function(modeEl) {
+    modeEl.addEventListener('click', function() {
+      var target = modeEl.dataset.panel;
       if(!target) return;
-
-      document.querySelectorAll('.mode').forEach(m => m.classList.remove('active'));
+      document.querySelectorAll('.mode').forEach(function(m){ m.classList.remove('active'); });
       modeEl.classList.add('active');
-
-      document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
-      const panel = document.getElementById('panel-' + target);
+      document.querySelectorAll('.mode-panel').forEach(function(p){ p.classList.remove('active'); });
+      var panel = document.getElementById('panel-' + target);
       if(panel){
         panel.classList.add('active');
         panel.style.animation = 'none';
