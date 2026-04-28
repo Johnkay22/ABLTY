@@ -133,6 +133,10 @@
   .submit-btn:hover{opacity:0.92}
   .submit-btn:active{transform:scale(0.97)}
   .submit-btn:disabled{opacity:0.5;cursor:not-allowed}
+  @media (max-width:479px){
+    .form-row{flex-direction:column}
+    .submit-btn{width:100%;padding:14px 20px}
+  }
 
   .form-incentive{
     font-family:var(--mono);font-size:10.5px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;
