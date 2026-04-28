@@ -696,7 +696,7 @@
   const SUPABASE_ANON_KEY = 'sb_publishable_DRu8Zv7QgjoOrRngN8iFUw_vKffPnSf';
 
   const hasKeys = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 20;
-  const supabase = hasKeys ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+  const supabase = (hasKeys && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
   function validEmail(str){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str)}
   function setMessage(el, text, type){el.textContent = text;el.className = 'form-message ' + (type || '')}
@@ -737,31 +737,21 @@
   });
 
   // Mode panel switching
-  console.log('[ABLTY] Script running. Looking for .mode elements...');
-  const modeElements = document.querySelectorAll('.mode');
-  console.log('[ABLTY] Found ' + modeElements.length + ' .mode elements');
-
-  modeElements.forEach((modeEl, index) => {
-    console.log('[ABLTY] Mode ' + index + ' has data-panel =', modeEl.dataset.panel);
+  document.querySelectorAll('.mode').forEach(modeEl => {
     modeEl.addEventListener('click', () => {
       const target = modeEl.dataset.panel;
-      console.log('[ABLTY] Clicked mode. Target panel:', target);
-      if(!target){ console.log('[ABLTY] No data-panel attribute, bailing'); return; }
+      if(!target) return;
 
       document.querySelectorAll('.mode').forEach(m => m.classList.remove('active'));
       modeEl.classList.add('active');
 
       document.querySelectorAll('.mode-panel').forEach(p => p.classList.remove('active'));
       const panel = document.getElementById('panel-' + target);
-      console.log('[ABLTY] Target panel element:', panel);
       if(panel){
         panel.classList.add('active');
         panel.style.animation = 'none';
         panel.offsetHeight;
         panel.style.animation = '';
-        console.log('[ABLTY] Panel activated');
-      } else {
-        console.log('[ABLTY] Panel element NOT FOUND for id panel-' + target);
       }
     });
   });
