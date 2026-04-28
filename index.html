@@ -696,7 +696,9 @@
   const SUPABASE_ANON_KEY = 'sb_publishable_DRu8Zv7QgjoOrRngN8iFUw_vKffPnSf';
 
   const hasKeys = SUPABASE_URL.startsWith('http') && SUPABASE_ANON_KEY.length > 20;
-  const supabase = (hasKeys && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+  let supabase = null;
+  try { supabase = (hasKeys && window.supabase) ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null; }
+  catch(e){ console.error('Supabase init failed:', e); }
 
   function validEmail(str){return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str)}
   function setMessage(el, text, type){el.textContent = text;el.className = 'form-message ' + (type || '')}
