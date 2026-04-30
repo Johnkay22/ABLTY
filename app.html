@@ -11621,6 +11621,21 @@ function obStartZener() {
 
 
 // ── AUTH SCREENS ──────────────────────────────────────
+function onSignupTosChange(cb) {
+  const checked = cb.checked;
+  const btn = document.getElementById('signup-btn');
+  const gate = document.getElementById('signup-google-gate');
+  const overlay = document.getElementById('signup-google-overlay');
+  if (btn) btn.disabled = !checked;
+  if (gate) gate.style.opacity = checked ? '' : '0.4';
+  if (overlay) overlay.style.display = checked ? 'none' : '';
+  if (checked) {
+    localStorage.setItem('ablty_pending_legal_acceptance', JSON.stringify({ at: new Date().toISOString(), version: '2026-04-30' }));
+  } else {
+    localStorage.removeItem('ablty_pending_legal_acceptance');
+  }
+}
+
 function openAuthScreen(screen) {
   // Close any open auth screen first
   ['login','signup','forgot'].forEach(s => {
@@ -11630,7 +11645,18 @@ function openAuthScreen(screen) {
   const el = document.getElementById('screen-' + screen);
   if (el) el.classList.add('active');
   if (screen === 'login') renderGoogleButton('login-google-btn-wrap', 'signin_with');
-  if (screen === 'signup') renderGoogleButton('signup-google-btn-wrap', 'signup_with');
+  if (screen === 'signup') {
+    renderGoogleButton('signup-google-btn-wrap', 'signup_with');
+    const cb = document.getElementById('signup-tos-check');
+    const btn = document.getElementById('signup-btn');
+    const gate = document.getElementById('signup-google-gate');
+    const overlay = document.getElementById('signup-google-overlay');
+    if (cb) cb.checked = false;
+    if (btn) btn.disabled = true;
+    if (gate) gate.style.opacity = '0.4';
+    if (overlay) overlay.style.display = '';
+    localStorage.removeItem('ablty_pending_legal_acceptance');
+  }
 }
 
 function closeAuthScreen(screen) {
@@ -11687,16 +11713,19 @@ async function onSignedIn(user) {
     profile = existingProfile || null;
 
     if (!profile) {
+      const _legalRaw = localStorage.getItem('ablty_pending_legal_acceptance');
+      const _legalFields = _legalRaw ? (() => { const d = JSON.parse(_legalRaw); return { terms_accepted_at: d.at, terms_version: d.version, privacy_accepted_at: d.at, privacy_version: d.version }; })() : {};
+
       let chosen = desiredUsername;
       let { error: createErr } = await sb
         .from('profiles')
-        .upsert({ id: user.id, username: chosen, tier: 'free' }, { onConflict: 'id' });
+        .upsert({ id: user.id, username: chosen, tier: 'free', ..._legalFields }, { onConflict: 'id' });
 
       if (createErr && createErr.code === '23505' && chosen !== fallbackUsername) {
         chosen = fallbackUsername;
         const retry = await sb
           .from('profiles')
-          .upsert({ id: user.id, username: chosen, tier: 'free' }, { onConflict: 'id' });
+          .upsert({ id: user.id, username: chosen, tier: 'free', ..._legalFields }, { onConflict: 'id' });
         createErr = retry.error || null;
       }
 
@@ -11718,6 +11747,7 @@ async function onSignedIn(user) {
       changedAt = profile.username_changed_at || '';
     }
     localStorage.removeItem('ablty_pending_username');
+    localStorage.removeItem('ablty_pending_legal_acceptance');
   } catch(e) {}
 
   localStorage.setItem('ablty_logged_in', '1');
@@ -12150,6 +12180,8 @@ async function handleLogin() {
 }
 
 async function handleSignup() {
+  if (!document.getElementById('signup-tos-check')?.checked) return;
+
   const username = (document.getElementById('signup-username')?.value || '').trim();
   const email    = (document.getElementById('signup-email')?.value || '').trim();
   const password = document.getElementById('signup-password')?.value || '';
@@ -12209,6 +12241,7 @@ async function handleSignup() {
   if (data?.user?.id) {
     // Persist desired username for first confirmed sign-in profile provisioning.
     localStorage.setItem('ablty_pending_username', username);
+    localStorage.setItem('ablty_pending_legal_acceptance', JSON.stringify({ at: new Date().toISOString(), version: '2026-04-30' }));
   }
 
   if (data?.session?.user && typeof onSignedIn === 'function') {
@@ -12967,7 +13000,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.04.30.1';
+const APP_VERSION = '2026.04.30.2';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -14575,19 +14608,20 @@ window.addEventListener('error', (e) => {
         <input class="auth-input" id="signup-confirm" type="password" placeholder="Repeat password" autocomplete="new-password">
         <div class="auth-field-error" id="signup-confirm-err"></div>
       </div>
-      <button class="auth-submit-btn" id="signup-btn" onclick="handleSignup()">CREATE ACCOUNT</button>
-      <div class="auth-legal">
-        By creating an account you agree to our
-        <button onclick="navigate('terms')">Terms of Service</button>
-        and
-        <button onclick="navigate('privacy')">Privacy Policy</button>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <input type="checkbox" id="signup-tos-check" style="accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;cursor:pointer;" onchange="onSignupTosChange(this)">
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);line-height:1.5;">I agree to the <button class="auth-link" type="button" onclick="navigate('terms')">Terms of Service</button> and <button class="auth-link" type="button" onclick="navigate('privacy')">Privacy Policy</button></span>
       </div>
+      <button class="auth-submit-btn" id="signup-btn" onclick="handleSignup()" disabled>CREATE ACCOUNT</button>
       <div class="auth-divider-row">
         <div class="auth-divider-line"></div>
         <div class="auth-divider-text">or</div>
         <div class="auth-divider-line"></div>
       </div>
-      <div id="signup-google-btn-wrap" style="display:flex;justify-content:center;width:100%;min-height:44px;"></div>
+      <div id="signup-google-gate" style="position:relative;opacity:0.4;">
+        <div id="signup-google-btn-wrap" style="display:flex;justify-content:center;width:100%;min-height:44px;"></div>
+        <div id="signup-google-overlay" style="position:absolute;top:0;left:0;right:0;bottom:0;z-index:2;cursor:not-allowed;"></div>
+      </div>
       <div class="auth-link-row">
         <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">Already have an account? </span>
         <button class="auth-link" onclick="openAuthScreen('login')">Sign in</button>
