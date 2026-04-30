@@ -3307,6 +3307,30 @@ html, body {
   font-family: var(--font-body); font-size: 14px;
   color: var(--muted); line-height: 1.65; max-width: 280px;
 }
+.legal-modal-overlay {
+  position: fixed; inset: 0; z-index: 9995;
+  background: var(--bg);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+.legal-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 52px 20px 16px; border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.legal-modal-title {
+  font-family: var(--font-display); font-size: 22px;
+  letter-spacing: 2px; color: var(--text);
+}
+.legal-modal-close {
+  font-size: 20px; color: var(--muted); cursor: pointer;
+  padding: 4px 8px; line-height: 1;
+}
+.legal-modal-body {
+  flex: 1; overflow-y: auto; padding: 20px 20px 40px;
+  font-family: var(--font-body); font-size: 13px;
+  color: var(--muted); line-height: 1.75; white-space: pre-wrap;
+}
 
 /* ── UPGRADE MODAL ─────────────────────────────────── */
 .upgrade-modal-overlay {
@@ -13000,7 +13024,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.04.30.2';
+const APP_VERSION = '2026.04.30.3';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -14610,7 +14634,7 @@ window.addEventListener('error', (e) => {
       </div>
       <div style="display:flex;align-items:center;gap:10px;">
         <input type="checkbox" id="signup-tos-check" style="accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;cursor:pointer;" onchange="onSignupTosChange(this)">
-        <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);line-height:1.5;">I agree to the <button class="auth-link" type="button" onclick="navigate('terms')">Terms of Service</button> and <button class="auth-link" type="button" onclick="navigate('privacy')">Privacy Policy</button></span>
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);line-height:1.5;">I agree to ABLTY&#x27;s <button class="auth-link" type="button" onclick="openLegal('terms')">Terms of Service</button> and acknowledge the <button class="auth-link" type="button" onclick="openLegal('privacy')">Privacy Policy</button>.</span>
       </div>
       <button class="auth-submit-btn" id="signup-btn" onclick="handleSignup()" disabled>CREATE ACCOUNT</button>
       <div class="auth-divider-row">
