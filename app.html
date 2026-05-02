@@ -6062,8 +6062,9 @@ function saveState() {
 function loadState() {
   try {
     const sessions = store.get('ablty_sessions');
-    if (sessions) STATE.sessions = JSON.parse(sessions);
+    if (sessions) STATE.sessions = safeParseArray(sessions);
   } catch(e) { STATE.sessions = []; }
+  if (!Array.isArray(STATE.sessions)) STATE.sessions = [];
 
   try {
     const settings = store.get('ablty_settings');
