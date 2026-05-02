@@ -8549,6 +8549,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }).catch(() => {});
       }
       if (event === 'SIGNED_OUT') {
+        _guestSyncHandled = false;
         clearLocalAuthCache();
         if (currentScreen === 'dream-journal' || currentScreen === 'dream-new-entry' || currentScreen === 'dream-entry-detail') {
           navigate('dream-lab');
@@ -11857,9 +11858,13 @@ async function onSignedIn(user) {
   updateSyncStatus('syncing');
 
   try {
-    const guestDataExists = typeof hasLocalGuestData === 'function' && hasLocalGuestData();
+    const alreadyHandled = _guestSyncHandled || !!localStorage.getItem('ablty_guest_sync_done_' + user.id);
+    const guestDataExists = !alreadyHandled && typeof hasLocalGuestData === 'function' && hasLocalGuestData();
     if (guestDataExists) {
       const choice = await showGuestDataModal(user.id);
+      // Mark handled so this never fires again on this device for this user
+      _guestSyncHandled = true;
+      try { localStorage.setItem('ablty_guest_sync_done_' + user.id, '1'); } catch(e) {}
       if (choice === 'fresh') {
         if (typeof clearLocalGuestData === 'function') clearLocalGuestData();
       } else {
@@ -11867,11 +11872,14 @@ async function onSignedIn(user) {
           await syncLocalDataToSupabase(user.id);
         }
       }
+    } else {
+      _guestSyncHandled = true;
     }
     if (typeof loadAnalyticsFromCloud === 'function') {
       await loadAnalyticsFromCloud(user.id);
     }
     updateSyncStatus('synced');
+    if (typeof renderAnalytics === 'function') renderAnalytics();
     if (currentScreen === 'dream-journal') renderDreamJournal();
     if (currentScreen === 'dream-entry-detail') renderDreamEntryDetail();
   } catch(e) {
@@ -11983,6 +11991,8 @@ function clearPpPendingByKeys(keys) {
     localStorage.setItem('ablty_pp_pending', JSON.stringify(filtered));
   } catch(e) {}
 }
+
+let _guestSyncHandled = false;
 
 function hasLocalGuestData() {
   const rv = Array.isArray(STATE.sessions) ? STATE.sessions : [];
@@ -13179,7 +13189,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.05.02.2';
+const APP_VERSION = '2026.05.02.3';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
