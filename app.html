@@ -3307,6 +3307,45 @@ html, body {
   font-family: var(--font-body); font-size: 14px;
   color: var(--muted); line-height: 1.65; max-width: 280px;
 }
+/* Guest data modal */
+.guest-data-modal-overlay {
+  position: fixed; inset: 0; z-index: 9996;
+  background: rgba(0,0,0,0.75);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.guest-data-modal-overlay.visible { opacity: 1; pointer-events: all; }
+.guest-data-modal-box {
+  background: var(--card); border: 1px solid var(--border2);
+  border-radius: 20px; padding: 32px 24px 24px; width: 100%; max-width: 340px;
+  transform: translateY(12px);
+  transition: transform 0.2s ease;
+}
+.guest-data-modal-overlay.visible .guest-data-modal-box { transform: translateY(0); }
+.guest-data-modal-title {
+  font-family: var(--font-display); font-size: 22px;
+  color: var(--text); margin-bottom: 10px; letter-spacing: 0.5px;
+}
+.guest-data-modal-body {
+  font-family: var(--font-body); font-size: 14px;
+  color: var(--muted); line-height: 1.6; margin-bottom: 24px;
+}
+.guest-data-modal-btn {
+  display: block; width: 100%; padding: 13px 0;
+  border-radius: 10px; border: 1px solid var(--border2);
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 2px;
+  text-transform: uppercase; cursor: pointer;
+  transition: opacity 0.15s; background: transparent; color: var(--text);
+  margin-bottom: 10px;
+}
+.guest-data-modal-btn:last-child { margin-bottom: 0; }
+.guest-data-modal-btn.primary {
+  background: var(--accent); border-color: var(--accent); color: #000;
+}
+.guest-data-modal-btn:hover { opacity: 0.8; }
+
 .legal-modal-overlay {
   position: fixed; inset: 0; z-index: 9995;
   background: var(--bg);
@@ -8465,7 +8504,26 @@ function showComingSoon(name) {
 
 // ─── INIT ─────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  if (enforcePwaOnlyMode()) return;
+  if (enforcePwaOnlyMode()) {
+    // Even in browser mode, process email verification tokens so the session is
+    // stored and the user is already signed in when they open the installed app.
+    const _hp = new URLSearchParams(window.location.hash.slice(1));
+    if (_hp.get('access_token') && _hp.get('refresh_token')) {
+      checkAuthCallback();
+      const _g = document.getElementById('browser-guard');
+      if (_g) {
+        const _t = _g.querySelector('.browser-guard-title');
+        const _s = _g.querySelector('.browser-guard-sub');
+        const _x = _g.querySelector('.browser-guard-text');
+        const _b = _g.querySelector('.browser-guard-btn');
+        if (_t) _t.textContent = 'EMAIL VERIFIED';
+        if (_s) _s.textContent = 'Your account is confirmed';
+        if (_x) _x.textContent = 'Open ABLTY from your home-screen icon to get started.';
+        if (_b) _b.style.display = 'none';
+      }
+    }
+    return;
+  }
 
   try { loadState(); } catch(e) {}
   try { localStorage.removeItem('ablty_seeker'); } catch(e) {}
@@ -11799,8 +11857,16 @@ async function onSignedIn(user) {
   updateSyncStatus('syncing');
 
   try {
-    if (typeof syncLocalDataToSupabase === 'function') {
-      await syncLocalDataToSupabase(user.id);
+    const guestDataExists = typeof hasLocalGuestData === 'function' && hasLocalGuestData();
+    if (guestDataExists) {
+      const choice = await showGuestDataModal(user.id);
+      if (choice === 'fresh') {
+        if (typeof clearLocalGuestData === 'function') clearLocalGuestData();
+      } else {
+        if (typeof syncLocalDataToSupabase === 'function') {
+          await syncLocalDataToSupabase(user.id);
+        }
+      }
     }
     if (typeof loadAnalyticsFromCloud === 'function') {
       await loadAnalyticsFromCloud(user.id);
@@ -11916,6 +11982,69 @@ function clearPpPendingByKeys(keys) {
     });
     localStorage.setItem('ablty_pp_pending', JSON.stringify(filtered));
   } catch(e) {}
+}
+
+function hasLocalGuestData() {
+  const rv = Array.isArray(STATE.sessions) ? STATE.sessions : [];
+  if (rv.length) return true;
+  if ((JSON.parse(localStorage.getItem('ablty_zener') || '[]')).length) return true;
+  if ((JSON.parse(localStorage.getItem('ablty_timestamp_all') || '[]')).length) return true;
+  if ((JSON.parse(localStorage.getItem('ablty_photopair') || '[]')).length) return true;
+  return false;
+}
+
+function clearLocalGuestData() {
+  // Clear training session arrays in memory and localStorage
+  STATE.sessions = [];
+  saveState();
+  const sessionKeys = [
+    'ablty_zener', 'ablty_timestamp', 'ablty_timestamp_all', 'ablty_photopair',
+    'ablty_zener_cloud_cache', 'ablty_rv_cloud_cache', 'ablty_zener_cloud_cache',
+    'ablty_ts_cloud_cache', 'ablty_pp_cloud_cache',
+    'ablty_ts_pending', 'ablty_pp_pending',
+  ];
+  sessionKeys.forEach((k) => { try { localStorage.removeItem(k); } catch(e) {} });
+
+  // Clear derived stats
+  const statKeys = [
+    'ablty_total_sessions', 'ablty_streak_data', 'ablty_daily',
+    'ablty_milestone_first_sig', 'ablty_milestone_session10', 'ablty_milestone_streak7',
+  ];
+  statKeys.forEach((k) => { try { localStorage.removeItem(k); } catch(e) {} });
+
+  // Clear dynamic date-keyed daily counters
+  try {
+    const toRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith('ablty_rv_daily_') || k.startsWith('ablty_zener_daily_'))) {
+        toRemove.push(k);
+      }
+    }
+    toRemove.forEach((k) => localStorage.removeItem(k));
+  } catch(e) {}
+}
+
+function showGuestDataModal(userId) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('guest-data-modal');
+    const saveBtn = document.getElementById('guest-data-save-btn');
+    const freshBtn = document.getElementById('guest-data-fresh-btn');
+    if (!overlay || !saveBtn || !freshBtn) { resolve('save'); return; }
+
+    overlay.classList.add('visible');
+
+    const cleanup = (choice) => {
+      overlay.classList.remove('visible');
+      saveBtn.removeEventListener('click', onSave);
+      freshBtn.removeEventListener('click', onFresh);
+      resolve(choice);
+    };
+    const onSave  = () => cleanup('save');
+    const onFresh = () => cleanup('fresh');
+    saveBtn.addEventListener('click', onSave);
+    freshBtn.addEventListener('click', onFresh);
+  });
 }
 
 async function migrateGuestData(userId) {
@@ -12271,6 +12400,19 @@ async function handleSignup() {
 
   if (error) {
     setAuthError('signup-email','signup-email-err', error.message);
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  // DEV: log signUp return shape (no tokens/passwords) to verify identities pattern
+  console.log('[DEV][signUp] user.id:', data?.user?.id,
+    '| email_confirmed_at:', data?.user?.email_confirmed_at,
+    '| identities.length:', data?.user?.identities?.length ?? 'undefined');
+
+  // Supabase returns identities:[] (empty) when the email is already registered
+  // and email confirmation is enabled — no error is thrown in that case.
+  if (data?.user && (!data.user.identities || data.user.identities.length === 0)) {
+    setAuthError('signup-email', 'signup-email-err', 'An account already exists with this email. Sign in instead.');
     if (btn) btn.disabled = false;
     return;
   }
@@ -13037,7 +13179,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.05.02.1';
+const APP_VERSION = '2026.05.02.2';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -14877,6 +15019,16 @@ window.addEventListener('unhandledrejection', (e) => {
 
 
 
+
+<!-- GUEST DATA MODAL -->
+<div class="guest-data-modal-overlay" id="guest-data-modal" aria-modal="true" role="dialog">
+  <div class="guest-data-modal-box">
+    <div class="guest-data-modal-title">Save your progress?</div>
+    <div class="guest-data-modal-body">This device has training data from before you signed in. Do you want to save it to your account or start fresh?</div>
+    <button class="guest-data-modal-btn primary" id="guest-data-save-btn">Save Progress</button>
+    <button class="guest-data-modal-btn" id="guest-data-fresh-btn">Start Fresh</button>
+  </div>
+</div>
 
 <!-- LEGAL MODALS -->
 <div class="legal-modal-overlay" id="legal-modal" style="display:none;">
