@@ -7317,11 +7317,14 @@ async function doRCSubscribe(settings) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
+    }).then(resp => {
+      if (!resp.ok) throw new Error('server responded ' + resp.status);
     });
     setPushEnabled(true);
     console.log('[ABLTY RC] subscribed, freq:', settings.freq, 'bedtime:', settings.bedtimeHour, settings.bedtimeAmpm);
   } catch(e) {
     console.warn('[ABLTY RC] subscribe error:', e.message);
+    showToast('Couldn’t enable Reality Check pings. Please try again.', 'warn');
   }
   renderRCScreen();
   refreshPushUI();
