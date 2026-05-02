@@ -4327,20 +4327,12 @@ html, body {
 
       <!-- App Preferences -->
       <div class="settings-section fade-in-delay-2">
-        <div class="settings-section-header">App Preferences</div>
-        <div class="setting-row" onclick="navigate('reality-check')" style="cursor:pointer;">
+        <div class="setting-row" onclick="navigate('app-preferences')" style="cursor:pointer;">
           <div>
-            <div class="setting-label">Reality Check Pager</div>
-            <div class="setting-desc" id="push-status-desc">Randomized waking notifications</div>
+            <div class="setting-label">App Preferences</div>
+            <div class="setting-desc">Notifications and data</div>
           </div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
-        </div>
-        <div class="setting-row" onclick="clearAllData()" style="cursor:pointer;">
-          <div>
-            <div class="setting-label" style="color:var(--danger);">Clear All Session Data</div>
-            <div class="setting-desc">Cannot be undone</div>
-          </div>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
         </div>
       </div>
 
@@ -4375,6 +4367,41 @@ html, body {
         <button class="admin-btn" onclick="runRCDebug()" id="rc-debug-btn">◈ RC Pager Diagnostics</button>
         <div id="rc-debug-output" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:0.5px;line-height:1.8;white-space:pre-wrap;word-break:break-all;"></div>
         <button class="admin-btn" style="color:var(--danger);border-color:var(--danger);" onclick="exitDevMode()">Exit Dev Mode</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: APP PREFERENCES
+  ═══════════════════════════════════ -->
+  <div id="screen-app-preferences" class="screen">
+    <div class="screen-inner">
+
+      <div class="screen-hdr">
+        <button class="screen-hdr-back" onclick="navigate('profile')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div>
+          <div class="screen-hdr-title">APP PREFERENCES</div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div class="setting-row" onclick="navigate('reality-check')" style="cursor:pointer;">
+          <div>
+            <div class="setting-label">Reality Check Pager</div>
+            <div class="setting-desc" id="push-status-desc">Randomized waking notifications</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
+        <div class="setting-row" onclick="clearAllData()" style="cursor:pointer;">
+          <div>
+            <div class="setting-label" style="color:var(--danger);">Clear All Session Data</div>
+            <div class="setting-desc">Cannot be undone</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
       </div>
 
     </div>
@@ -6139,6 +6166,7 @@ const SCREENS = {
   'wbtb':                 'screen-wbtb',
   'terms':                'screen-terms',
   'privacy':               'screen-privacy',
+  'app-preferences':       'screen-app-preferences',
 };
 let currentScreen = 'home';
 
@@ -6187,6 +6215,7 @@ function showScreen(name, hideNav = false) {
     terms:                  'nav-home',
     privacy:                'nav-home',
     photopair:              'nav-psi',
+    'app-preferences':      'nav-home',
   };
   const activeNav = document.getElementById(navMap[name]);
   if (activeNav) activeNav.classList.add('active');
@@ -13189,7 +13218,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.05.02.3';
+const APP_VERSION = '2026.05.02.4';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
