@@ -13254,7 +13254,18 @@ async function validatePushSubscription(reg) {
     if (existing) {
       // Subscription still alive  -  re-send to server in case KV entry expired
       const s = getRCSettings();
-      const payload = Object.assign({}, existing.toJSON ? existing.toJSON() : JSON.parse(JSON.stringify(existing)));
+      let subJson = null;
+      try {
+        if (typeof existing.toJSON === 'function') {
+          const j = existing.toJSON();
+          if (j && j.endpoint) subJson = j;
+        }
+      } catch (_) {}
+      if (!subJson) {
+        console.warn('[ABLTY RC] Could not serialize existing push subscription; skipping server refresh.');
+        return;
+      }
+      const payload = Object.assign({}, subJson);
       payload.frequency   = s.freq || 9;
       payload.bedtimeHour = s.bedtimeHour || 11;
       payload.bedtimeMin  = s.bedtimeMin  || 0;
