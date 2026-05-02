@@ -4402,8 +4402,32 @@ html, body {
           </div>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
         </div>
+        <div class="setting-row" id="delete-account-row" onclick="openDeleteAccountModal()" style="cursor:pointer;display:none;">
+          <div>
+            <div class="setting-label" style="color:var(--danger);">Delete Account</div>
+            <div class="setting-desc">Permanently remove your account and all data</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--danger)" stroke-width="1.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+        </div>
       </div>
 
+    </div>
+  </div>
+
+  <!-- DELETE ACCOUNT CONFIRMATION MODAL -->
+  <div class="modal-overlay" id="delete-account-modal" style="display:none;" onclick="closeDeleteAccountModal(event)">
+    <div class="modal-box" onclick="event.stopPropagation();">
+      <div class="modal-tag" style="color:var(--danger);">Permanent action</div>
+      <div class="modal-title">Delete Account</div>
+      <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.6;margin-top:14px;">
+        This will permanently delete your account, all session data, dream entries, and settings. This cannot be undone.
+      </div>
+      <div style="margin-top:18px;font-family:var(--font-mono);font-size:10px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;">Type DELETE to confirm</div>
+      <input id="delete-account-confirm" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" oninput="onDeleteAccountConfirmInput(this)" style="width:100%;margin-top:8px;padding:12px 14px;background:var(--card);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:var(--font-mono);font-size:14px;letter-spacing:2px;outline:none;" />
+      <div style="display:flex;gap:8px;margin-top:16px;">
+        <button class="btn btn-ghost" style="flex:1;" onclick="closeDeleteAccountModal()">Cancel</button>
+        <button id="delete-account-confirm-btn" class="btn" disabled onclick="confirmDeleteAccount()" style="flex:1;background:var(--danger);color:#fff;opacity:1;">Delete Forever</button>
+      </div>
     </div>
   </div>
 
@@ -8079,6 +8103,8 @@ async function renderSettingsState() {
     if (loggedIn) { loggedInEl.style.display = 'flex'; loggedInEl.style.flexDirection = 'column'; loggedInEl.style.gap = '8px'; }
     else { loggedInEl.style.display = 'none'; }
   }
+  const deleteRow = document.getElementById('delete-account-row');
+  if (deleteRow) deleteRow.style.display = loggedIn ? '' : 'none';
 
   if (loggedIn && sb) {
     try {
@@ -8140,6 +8166,77 @@ async function handleSignOut() {
   renderSettingsState();
   renderProfile();
   showToast('Signed out.', 'success');
+}
+
+// ── DELETE ACCOUNT ─────────────────────────────────────
+function openDeleteAccountModal() {
+  const m = document.getElementById('delete-account-modal');
+  if (!m) return;
+  const input = document.getElementById('delete-account-confirm');
+  if (input) input.value = '';
+  const btn = document.getElementById('delete-account-confirm-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Delete Forever'; }
+  m.style.display = 'flex';
+}
+
+function closeDeleteAccountModal(e) {
+  const m = document.getElementById('delete-account-modal');
+  if (!m) return;
+  if (!e || e.target === m) m.style.display = 'none';
+}
+
+function onDeleteAccountConfirmInput(input) {
+  const btn = document.getElementById('delete-account-confirm-btn');
+  if (btn) btn.disabled = (String(input.value || '').trim() !== 'DELETE');
+}
+
+async function confirmDeleteAccount() {
+  const btn = document.getElementById('delete-account-confirm-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'DELETING…'; }
+  try {
+    if (!sb) throw new Error('Not signed in.');
+    const { data: authData } = await sb.auth.getSession();
+    const session = authData?.session;
+    const token = session?.access_token;
+    if (!token) throw new Error('Not signed in.');
+
+    let pushEndpoint = null;
+    try {
+      const reg = window._swRegistration || await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub && sub.endpoint) pushEndpoint = sub.endpoint;
+      if (sub) { try { await sub.unsubscribe(); } catch (_) {} }
+    } catch (_) {}
+
+    const resp = await fetch(WORKER_URL + '/delete-account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ pushEndpoint }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.message || err.error || ('server ' + resp.status));
+    }
+
+    try { await sb.auth.signOut(); } catch (_) {}
+
+    const localKeys = [
+      'ablty_logged_in','ablty_username','ablty_tier','ablty_username_changed_at','ablty_user_email',
+      'ablty_sessions','ablty_zener','ablty_zener_cloud_cache',
+      'ablty_timestamp','ablty_timestamp_all','ablty_ts_cloud_cache','ablty_ts_pending',
+      'ablty_photopair','ablty_pp_cloud_cache','ablty_pp_pending','ablty_rv_cloud_cache',
+      'ablty_pending_username','ablty_pending_legal_acceptance',
+      'ablty_push_enabled','ablty_rc_settings'
+    ];
+    localKeys.forEach((k) => { try { localStorage.removeItem(k); } catch(_) {} });
+
+    closeDeleteAccountModal();
+    showToast('Account deleted.', 'success');
+    setTimeout(() => location.reload(), 600);
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Delete Forever'; }
+    showToast(e.message || 'Could not delete account. Please try again.', 'error');
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -13218,7 +13315,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.05.02.4';
+const APP_VERSION = '2026.05.02.5';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
