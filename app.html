@@ -11738,7 +11738,16 @@ async function onSignedIn(user) {
 
     if (!profile) {
       const _legalRaw = localStorage.getItem('ablty_pending_legal_acceptance');
-      const _legalFields = _legalRaw ? (() => { const d = JSON.parse(_legalRaw); return { terms_accepted_at: d.at, terms_version: d.version, privacy_accepted_at: d.at, privacy_version: d.version }; })() : {};
+      let _legalFields = {};
+      if (_legalRaw) {
+        try {
+          const d = JSON.parse(_legalRaw);
+          _legalFields = { terms_accepted_at: d.at, terms_version: d.version, privacy_accepted_at: d.at, privacy_version: d.version };
+        } catch (e) {
+          console.warn('[ABLTY] Corrupt ablty_pending_legal_acceptance, clearing.', e);
+          localStorage.removeItem('ablty_pending_legal_acceptance');
+        }
+      }
 
       let chosen = desiredUsername;
       let { error: createErr } = await sb
