@@ -14330,6 +14330,17 @@ function savePPSession(s)  {
 window.addEventListener('error', (e) => {
   console.error('[ABLTY ERROR]', e.message, e.filename, e.lineno);
 });
+let _lastRejectionToastAt = 0;
+window.addEventListener('unhandledrejection', (e) => {
+  const reason = e.reason;
+  const msg = (reason && reason.message) ? reason.message : String(reason);
+  console.error('[ABLTY ERROR] unhandledrejection:', msg, reason);
+  const now = Date.now();
+  if (now - _lastRejectionToastAt > 5000 && typeof showToast === 'function') {
+    _lastRejectionToastAt = now;
+    showToast('Something went wrong. Please try again.', 'warn');
+  }
+});
 </script>
 
   <!-- RC ONBOARDING MODAL  -  Step 1: Frequency -->
