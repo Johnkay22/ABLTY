@@ -253,6 +253,15 @@ export default {
       return handleWBTBCancel(request, env, origin);
     }
 
+    if (url.pathname === '/delete-account' && request.method === 'POST') {
+      const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const rlKey = 'ratelimit:delete:' + ip + ':' + new Date().toISOString().slice(0, 10);
+      const count = parseInt(await env.ABLTY_KV.get(rlKey) || '0', 10);
+      if (count >= 5) return json({ error: 'rate_limit' }, 429, origin);
+      await env.ABLTY_KV.put(rlKey, String(count + 1), { expirationTtl: 86400 });
+      return handleDeleteAccount(request, env, origin);
+    }
+
     return json({ error: 'Not found' }, 404, origin);
   },
 };
@@ -1221,6 +1230,128 @@ async function handleSubscribe(request, env, origin = '') {
   } catch (e) {
     return json({ error: e.message }, 500, origin);
   }
+}
+
+// --- DELETE ACCOUNT -----------------------------------
+// Hard-deletes the calling user's auth row, all user-scoped Supabase rows,
+// and any KV state (tier cache, push subscription, WBTB alarms).
+// Authentication: caller's Supabase access token in Authorization: Bearer.
+// The token's user.id is the only id we ever delete - users cannot delete others.
+async function handleDeleteAccount(request, env, origin = '') {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) {
+    return json({ error: 'server_misconfigured', message: 'Supabase service credentials not set' }, 500, origin);
+  }
+
+  const authHeader = request.headers.get('Authorization') || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (!token) return json({ error: 'unauthenticated' }, 401, origin);
+
+  // Resolve user id from the bearer token. Anything else returned here means
+  // the token is invalid - bail out before touching any data.
+  let userId;
+  try {
+    const userRes = await fetch(env.SUPABASE_URL + '/auth/v1/user', {
+      headers: {
+        apikey: env.SUPABASE_SERVICE_KEY,
+        Authorization: 'Bearer ' + token,
+      },
+    });
+    if (!userRes.ok) return json({ error: 'unauthenticated' }, 401, origin);
+    const user = await userRes.json();
+    userId = user?.id;
+    if (!userId) return json({ error: 'unauthenticated' }, 401, origin);
+  } catch (e) {
+    return json({ error: 'auth_check_failed', message: e.message }, 500, origin);
+  }
+
+  let pushEndpoint = null;
+  try {
+    const body = await request.json().catch(() => ({}));
+    pushEndpoint = body && typeof body.pushEndpoint === 'string' ? body.pushEndpoint : null;
+  } catch (_) {}
+
+  // Tables keyed by user_id
+  const userIdTables = ['user_settings', 'dream_entries', 'rv_sessions', 'zener_runs', 'ts_trials', 'pp_sessions'];
+  for (const table of userIdTables) {
+    try {
+      await fetch(env.SUPABASE_URL + '/rest/v1/' + table + '?user_id=eq.' + encodeURIComponent(userId), {
+        method: 'DELETE',
+        headers: {
+          apikey: env.SUPABASE_SERVICE_KEY,
+          Authorization: 'Bearer ' + env.SUPABASE_SERVICE_KEY,
+          Prefer: 'return=minimal',
+        },
+      });
+    } catch (e) {
+      console.error('[DELETE] table', table, 'failed:', e.message);
+    }
+  }
+
+  // profiles is keyed by id (matches auth user id)
+  try {
+    await fetch(env.SUPABASE_URL + '/rest/v1/profiles?id=eq.' + encodeURIComponent(userId), {
+      method: 'DELETE',
+      headers: {
+        apikey: env.SUPABASE_SERVICE_KEY,
+        Authorization: 'Bearer ' + env.SUPABASE_SERVICE_KEY,
+        Prefer: 'return=minimal',
+      },
+    });
+  } catch (e) {
+    console.error('[DELETE] profiles failed:', e.message);
+  }
+
+  // KV cleanup: tier cache, push sub, wbtb alarms
+  if (env.ABLTY_KV) {
+    try { await env.ABLTY_KV.delete('tier:' + userId); } catch (_) {}
+
+    if (pushEndpoint) {
+      try {
+        const subKey = 'sub:' + btoa(pushEndpoint).slice(0, 40).replace(/[^a-zA-Z0-9]/g, '');
+        await env.ABLTY_KV.delete(subKey);
+        await removeFromSubscriberIndex(env, subKey);
+      } catch (e) {
+        console.error('[DELETE] sub cleanup failed:', e.message);
+      }
+    }
+
+    try {
+      const alarmsRaw = await env.ABLTY_KV.get('wbtb-alarms');
+      if (alarmsRaw) {
+        const alarms = JSON.parse(alarmsRaw);
+        if (Array.isArray(alarms)) {
+          const remaining = alarms.filter((a) => a && a.userId !== userId);
+          if (remaining.length === 0) {
+            await env.ABLTY_KV.delete('wbtb-alarms');
+          } else if (remaining.length !== alarms.length) {
+            await env.ABLTY_KV.put('wbtb-alarms', JSON.stringify(remaining));
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[DELETE] wbtb-alarms cleanup failed:', e.message);
+    }
+  }
+
+  // Auth row last - if this fails the user can still log in and retry.
+  try {
+    const adminRes = await fetch(env.SUPABASE_URL + '/auth/v1/admin/users/' + encodeURIComponent(userId), {
+      method: 'DELETE',
+      headers: {
+        apikey: env.SUPABASE_SERVICE_KEY,
+        Authorization: 'Bearer ' + env.SUPABASE_SERVICE_KEY,
+      },
+    });
+    if (!adminRes.ok && adminRes.status !== 404) {
+      const txt = await adminRes.text().catch(() => '');
+      return json({ error: 'auth_delete_failed', status: adminRes.status, detail: txt }, 500, origin);
+    }
+  } catch (e) {
+    return json({ error: 'auth_delete_failed', message: e.message }, 500, origin);
+  }
+
+  console.log('[DELETE] account deleted:', userId);
+  return json({ status: 'deleted' }, 200, origin);
 }
 
 // --- WEB PUSH (VAPID) ---------------------------------
