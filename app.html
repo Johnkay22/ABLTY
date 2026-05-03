@@ -4338,6 +4338,18 @@ html, body {
         </div>
       </div>
 
+      <!-- Support -->
+      <div class="section-label fade-in-delay-3">Support</div>
+      <div style="display:flex;flex-direction:column;gap:8px;" class="fade-in-delay-3">
+        <div class="setting-row" onclick="openSupportEmail()" style="cursor:pointer;">
+          <div>
+            <div class="setting-label">Contact Support</div>
+            <div class="setting-desc">abltyapp@gmail.com</div>
+          </div>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+        </div>
+      </div>
+
       <!-- Legal -->
       <div class="section-label fade-in-delay-3">Legal</div>
       <div style="display:flex;flex-direction:column;gap:8px;" class="fade-in-delay-3">
@@ -8224,6 +8236,16 @@ async function renderSettingsState() {
   } else {
     if (upgradeRowEl) upgradeRowEl.style.display = 'none';
   }
+}
+
+function openSupportEmail() {
+  const username = localStorage.getItem('ablty_username') || 'Guest';
+  const version  = typeof APP_VERSION !== 'undefined' ? APP_VERSION : '—';
+  const subject  = encodeURIComponent('ABLTY Support');
+  const body     = encodeURIComponent(
+    'Hi,\n\n[Describe your issue here]\n\n---\nUsername: ' + username + '\nVersion: ' + version
+  );
+  window.location.href = 'mailto:abltyapp@gmail.com?subject=' + subject + '&body=' + body;
 }
 
 async function handleSignOut() {
@@ -13428,7 +13450,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.05.03.2';
+const APP_VERSION = '2026.05.03.3';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
