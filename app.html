@@ -3840,40 +3840,6 @@ html, body {
         </div>
       </div>
 
-      <!-- ASTRAL PROJECTION CARD (locked) -->
-      <div class="module-card fade-in-delay-4" onclick="showComingSoon('Astral Projection')">
-        <div class="card-visual astral-bg">
-          <!-- Animated stars -->
-          <div class="star" style="width:2px;height:2px;top:22%;left:18%;opacity:.9"></div>
-          <div class="star" style="width:1px;height:1px;top:40%;left:55%;opacity:.6"></div>
-          <div class="star" style="width:3px;height:3px;top:15%;left:72%;opacity:.7"></div>
-          <div class="star" style="width:1px;height:1px;top:65%;left:28%;opacity:.8"></div>
-          <div class="star" style="width:2px;height:2px;top:50%;left:85%;opacity:.5"></div>
-          <div class="star" style="width:1px;height:1px;top:30%;left:42%;opacity:.6"></div>
-          <div class="star" style="width:2px;height:2px;top:12%;left:60%;opacity:.9"></div>
-          <!-- Silhouette figure -->
-          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;">
-            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" opacity="0.4">
-              <circle cx="24" cy="10" r="5" stroke="rgba(91,158,244,0.8)" stroke-width="1.2"/>
-              <path d="M24 15v14" stroke="rgba(91,158,244,0.8)" stroke-width="1.2" stroke-linecap="round"/>
-              <path d="M14 20c3-1 7-1 10 0" stroke="rgba(91,158,244,0.8)" stroke-width="1.2" stroke-linecap="round"/>
-              <path d="M34 20c-3-1-7-1-10 0" stroke="rgba(91,158,244,0.8)" stroke-width="1.2" stroke-linecap="round"/>
-              <path d="M18 29l-4 10M30 29l4 10" stroke="rgba(91,158,244,0.8)" stroke-width="1.2" stroke-linecap="round"/>
-              <!-- Floating duplicate  -  the "astral body" -->
-              <circle cx="24" cy="4" r="4" stroke="rgba(74,240,200,0.35)" stroke-width="1" stroke-dasharray="2 2"/>
-              <path d="M24 8v10" stroke="rgba(74,240,200,0.25)" stroke-width="1" stroke-linecap="round" stroke-dasharray="2 2"/>
-            </svg>
-          </div>
-          <div style="position:absolute;top:10px;right:12px;background:rgba(0,0,0,0.55);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:5px 12px;">
-            <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:2px;color:rgba(255,255,255,0.4);text-transform:uppercase;">Soon</span>
-          </div>
-        </div>
-        <div class="card-overlay">
-          <div class="card-tag">Module 04</div>
-          <div class="display-md">ASTRAL PROJECTION</div>
-          <div class="mono-sm" style="margin-top:4px">OBE Induction &amp; Exit Protocols</div>
-        </div>
-      </div>
 
     </div><!-- /screen-inner -->
   </div><!-- /home -->
@@ -4821,7 +4787,7 @@ html, body {
         </div>
 
         <div class="export-toolbar">
-          <button id="export-data-btn" class="export-data-btn locked" onclick="openExportModal()" disabled>
+          <button id="export-data-btn" class="export-data-btn locked" onclick="openExportModal()">
             <span class="export-data-btn-main">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 20h16"/></svg>
               <span>Export Data</span>
@@ -7328,7 +7294,7 @@ function formatBedtime(h, m, ampm) {
 async function handleRCToggle() {
   const permission = getPushStatus();
   if (permission === 'denied') {
-    alert('Notifications are blocked for this site. Enable them in your browser settings.');
+    showToast('Notifications are blocked. Enable them in your browser settings.', 'error', 5000);
     return;
   }
   if (getPushEnabled()) {
@@ -8517,6 +8483,7 @@ function showAnalyticsSkeleton() {
 //  WBTB TIMER
 // ═══════════════════════════════════════════════════════
 
+let _wbtbResumeToastShown = false;
 let wbtbDuration  = 4.5;  // hours
 let wbtbTimer     = null;
 let wbtbStartTime = null;
@@ -8688,6 +8655,14 @@ function restoreWBTBIfActive() {
     wbtbFireAt    = saved.fireAt;
     wbtbTotalSecs = Math.round(saved.duration * 3600);
     wbtbTimer     = setInterval(tickWBTB, 1000);
+    if (!_wbtbResumeToastShown) {
+      _wbtbResumeToastShown = true;
+      const totalMins = Math.max(0, Math.round(remaining / 60000));
+      const h = Math.floor(totalMins / 60);
+      const m = totalMins % 60;
+      const hoursMins = (h ? h + 'h ' : '') + m + 'm';
+      showToast('WBTB timer resumed. Wake in ' + hoursMins + '.', 'info', 4000);
+    }
     // Update button state if on WBTB screen
     const startBtn = document.getElementById('wbtb-start-btn');
     const stopBtn  = document.getElementById('wbtb-stop-btn');
@@ -8750,9 +8725,6 @@ function clearAllData() {
   }
 }
 
-function showComingSoon(name) {
-  showToast(name + '  -  coming soon.', 'info');
-}
 
 // ─── INIT ─────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -10441,7 +10413,11 @@ function updateExportButtonState() {
 }
 
 function openExportModal() {
-  if (!isPremiumTier()) return;
+  if (!isPremiumTier()) {
+    showToast('Export is a Premium feature.', 'info', 3000);
+    showUpgradeModal('export', 'Data Export', 'Upgrade to Premium to export your full session history as JSON or CSV.');
+    return;
+  }
   const modal = document.getElementById('export-data-modal');
   if (!modal) return;
   // Default all modules checked every open.
@@ -13450,7 +13426,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.05.03.3';
+const APP_VERSION = '2026.05.04.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
