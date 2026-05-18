@@ -1,0 +1,1857 @@
+ABLTY — PRE-LAUNCH AUDIT REPORT
+================================
+
+Audit type: Read-only pre-launch audit (no code changes, no edits).
+Scope: Full repository at time of audit.
+Auditor role: Senior product developer, lead programmer, UX architect, QA lead, pre-launch technical auditor.
+
+Scope reviewed:
+- app.html (~15.6k lines, single-page PWA runtime, vanilla JS)
+- ablty-worker.js (Cloudflare Worker: RV assign/grade, dream tagging, push, WBTB, Stripe webhook, delete-account)
+- sw.js (service worker ablty-v37, push handling)
+- index.html (marketing/waitlist landing) and index-old.html
+- manifest.json, version.json, wrangler.toml, CNAME
+- supabase/migrations/20260430000001_add_legal_acceptance_to_profiles.sql
+- supabase/email-templates/confirm-signup.html
+- Ops docs (CHANGELOG.md, CLAUDE_HANDOFF.md, CURRENT_STATE_BASELINE.md, KNOWN_ISSUES.md, MOBILE_QA_CHECKLIST.md, RELEASE_CHECKLIST.md)
+- ablty-app (2).html (stale duplicate, unused in build)
+
+
+================================================================================
+1. RANKED LAUNCH READINESS REPORT
+================================================================================
+
+Area                                    | Readiness
+----------------------------------------+--------------------------------------
+Marketing landing + waitlist            | Mostly ready; minor copy + a11y polish
+Auth (email + Google)                   | Mostly ready; verification edge cases + RLS unknowns
+Payments (Stripe)                       | NOT launch-ready (test URL hardcoded; webhook event coverage gaps; user mapping fragile)
+RV (Remote Viewing)                     | Mostly ready; retry flow + IP-based daily limits weak
+Zener / Photo Pair / Presentiment       | Ready for launch
+Dream Journal + Insights                | Ready; depends on RLS being enforced server-side
+Reality Check + WBTB push               | Mostly ready; unauthenticated schedule + multi-user races
+Cloud sync + local-first persistence    | Mostly ready; a few non-atomic merge windows
+PWA / service worker                    | Ready; some browser-guard friction
+Accessibility                           | Below launch quality (no labels, low-contrast mono text, click-only elements)
+Analytics/observability of users        | Not ready (no product analytics)
+Compliance (Terms, Privacy, CCPA, Stripe ToS) | Mostly written; signup verification gap on legal acceptance timestamp
+Code organization                       | Risk: 15k-line single HTML file; no tests; high regression surface
+
+Overall verdict: NOT ready to ship to paying customers — primarily because of
+the test Stripe checkout URL, the user→customer mapping fragility in the
+webhook, and the lack of any product analytics. The free/guest experience is
+shippable.
+
+
+================================================================================
+2. CRITICAL ISSUES
+================================================================================
+
+--------------------------------------------------------------------------------
+C-1 — Stripe checkout URL is the TEST URL (hardcoded)
+--------------------------------------------------------------------------------
+Priority: Critical
+Category: Payment / Subscription / Gating
+
+Issue:
+The "Upgrade to Premium" button sends users to a Stripe TEST mode Payment Link.
+
+Why it matters:
+Real cards are rejected in test mode, test cards do not produce real revenue,
+and webhooks will not be sent from your live Stripe account. Premium will
+appear to "work" in QA but no one can actually pay.
+
+Where it appears:
+app.html  handleUpgradeCTA()  lines 8104–8123.
+
+Evidence:
+  const checkoutUrl = email
+    ? ('https://buy.stripe.com/test_5kQfZhe6OfNg5On3p78g000' + '?prefilled_email=' + encodeURIComponent(email))
+    : 'https://buy.stripe.com/test_5kQfZhe6OfNg5On3p78g000';
+
+Recommended fix:
+Swap to a live-mode Payment Link (or a server-created Checkout Session), and
+add a build/env-time guard so test URLs cannot ship to production.
+
+Implementation caution:
+The new URL must point at the matching live-mode Product/Price, and the live
+webhook signing secret must be configured on the worker. Switching modes
+without updating STRIPE_WEBHOOK_SECRET will silently break upgrades.
+
+Confidence: 99%.
+
+
+--------------------------------------------------------------------------------
+C-2 — Stripe checkout does not pass client_reference_id or metadata.supabase_user_id
+--------------------------------------------------------------------------------
+Priority: Critical
+Category: Payment / Account mapping
+
+Issue:
+The only signal sent to Stripe is prefilled_email. The worker's
+resolveSupabaseUserIdFromStripe() therefore relies on (a) UUID metadata that
+never gets set, then (b) stripe_customer: KV mapping that only exists after a
+prior event, then (c) email-based admin lookup.
+
+Why it matters:
+If the user types a different email at Stripe than their account email (very
+common), or signs up later, the webhook silently no-ops (`if (!userId) return;`)
+and they never get upgraded. The Payment Link cannot carry client_reference_id
+unless you pass ?client_reference_id=... in the URL.
+
+Where it appears:
+app.html 8115–8118; ablty-worker.js handleStripeWebhook,
+processStripeTierEvent, resolveSupabaseUserIdFromStripe (lines 269–392).
+
+Evidence:
+  const targetTier = eventType === 'customer.subscription.deleted' ? 'free' : 'premium';
+  const userId = await resolveSupabaseUserIdFromStripe(event, env);
+  if (!userId) return;
+
+Recommended fix:
+Append client_reference_id=<supabase_user_id> to the Payment Link URL (or move
+to a server-created Checkout Session that sets client_reference_id and
+metadata.supabase_user_id). Add structured logging when userId cannot be
+resolved and queue manual reconciliation.
+
+Implementation caution:
+Existing customers paying via email-only flow already exist (test mode) — the
+email fallback must remain. Do not log raw access tokens.
+
+Confidence: 95%.
+
+
+--------------------------------------------------------------------------------
+C-3 — findSupabaseUserIdByEmail likely uses the wrong query parameter
+--------------------------------------------------------------------------------
+Priority: Critical
+Category: Payment / Backend
+
+Issue:
+The worker calls GET /auth/v1/admin/users?filter=<email>, but the Supabase
+Admin API expects ?email=<email> (or paginates and you filter client-side).
+?filter is undocumented for that endpoint and may return all users or no users
+depending on Supabase version.
+
+Why it matters:
+Combined with C-2, the email fallback for upgrades may not match at all in
+production, so Stripe webhook events arrive but the user is never flipped to
+premium. The webhook still returns 200 ("received: true").
+
+Where it appears:
+ablty-worker.js findSupabaseUserIdByEmail (370–392).
+
+Evidence:
+  const u = new URL(env.SUPABASE_URL + '/auth/v1/admin/users');
+  u.searchParams.set('filter', needle);
+  u.searchParams.set('per_page', '10');
+
+Recommended fix:
+Verify against current Supabase docs and use the supported parameter
+(email=<lowercased> or paginate and match). Add a unit test that hits a real
+Supabase project and confirms the lookup works.
+
+Implementation caution:
+Admin keys must never reach the browser. Don't expose this lookup to client
+routes.
+
+Confidence: 80% (depends on Supabase Auth version).
+
+
+--------------------------------------------------------------------------------
+C-4 — Premium gating is purely client-side for several "premium" features
+--------------------------------------------------------------------------------
+Priority: Critical
+Category: Auth / Gating / Security
+
+Issue:
+getCurrentTier() reads localStorage.getItem('ablty_tier'). The user can set
+localStorage.ablty_tier = 'premium' in DevTools and unlock:
+  - Data export ("Premium" feature), including dream entries, RV sketches, etc.
+  - Full analytics history (>7 days)
+  - "Community RV", "leaderboards", "ability_profile" UI paths
+
+Why it matters:
+Anyone can bypass paywalled UI from a console. The RV daily limit and the
+Stripe upgrade are server-checked, but most other premium UX gates are not.
+Lost revenue and brand integrity issue if this gets shared on Reddit/Discord.
+
+Where it appears:
+app.html lines 7775–7872 (getCurrentTier, canAccess, TIER_ACCESS), 10409
+(export), 9421 (Insights cutoff), 11064–11086 (analytics log cutoff).
+
+Evidence:
+  function getCurrentTier() {
+    if (!isLoggedIn()) return 'guest';
+    return localStorage.getItem('ablty_tier') || 'free';
+  }
+
+Recommended fix:
+For features that touch the cloud (export, full history, dream insights past 7
+days), enforce tier server-side (RLS policy or a worker endpoint that re-reads
+profiles.tier from Supabase using the service key). Treat the client-side gate
+as cosmetic only.
+
+Implementation caution:
+Local-only features (RC pager, WBTB timer) are fine; do not over-gate UX.
+Server enforcement must still allow Stripe to flip tier in <1 minute (today
+the worker caches tier 5 minutes).
+
+Confidence: 90%.
+
+
+--------------------------------------------------------------------------------
+C-5 — handleGrade retry path (target_id) bypasses the RV daily limit
+--------------------------------------------------------------------------------
+Priority: Critical
+Category: API / Gating
+
+Issue:
+/rv-assign enforces the free-tier 2/day limit. But /grade accepts either
+assignment_id OR target_id. The target_id retry branch does not consume an
+assignment and /grade itself does not increment any daily counter — so a user
+who knows any valid target_id (T001..T036) can call /grade repeatedly without
+ever requesting a new assignment.
+
+Why it matters:
+Premium pressure for unlimited RV is undermined; LLM costs spike. Cost-of-goods
+on Gemini grading is real money.
+
+Where it appears:
+ablty-worker.js lines 182–227 (rate limiting), 850–961 (handleGrade, retry
+branch 890–898).
+
+Evidence:
+  } else if (retryTargetId) {
+    // Retry flow: look up target directly by ID (assignment expired or consumed)
+    target = RV_TARGET_POOL.find((t) => t.id === retryTargetId);
+    if (!target) {
+      return json({ error: 'Target not found' }, 400, origin);
+    }
+  } else {
+    return json({ error: 'Missing assignment_id or target_id' }, 400, origin);
+  }
+
+Recommended fix:
+Increment the rvdaily: counter inside /grade when the retry branch is used by
+a non-premium user, OR require the retry path to also include a valid
+(consumed) assignment id, OR require auth and rate-limit per user.
+
+Implementation caution:
+Don't double-count legitimate retries after a transient Gemini failure (where
+the user did consume an assignment but never got a result back). Consider
+tracking "billable grades per day" rather than per-assignment.
+
+Confidence: 90%.
+
+
+--------------------------------------------------------------------------------
+C-6 — Server-side authoritative gate on RV is per-IP, not per-user
+--------------------------------------------------------------------------------
+Priority: Critical
+Category: Gating / Multi-tenancy
+
+Issue:
+Both the per-day rate limit (ratelimit:rvassign:) and the free-tier 2/day cap
+(rvdaily:) key on CF-Connecting-IP. Premium check happens via bearer token,
+but unsigned-in users on shared NAT/IPv4 (universities, schools, family Wi-Fi,
+mobile carriers, corporate proxies) get blocked because somebody else used
+both slots.
+
+Why it matters:
+Real users will be blocked from any RV at all on day 1 from popular networks.
+Conversely, a single user moving between Wi-Fi and cellular doubles their
+quota.
+
+Where it appears:
+ablty-worker.js lines 204–224.
+
+Evidence:
+  if (!isPremium) {
+    const dailyKey = 'rvdaily:' + ip + ':' + new Date().toISOString().slice(0, 10);
+    const dailyCount = parseInt(await env.ABLTY_KV.get(dailyKey) || '0', 10);
+    if (dailyCount >= 2) {
+      return json({ error: 'daily_limit', message: 'Free tier allows 2 RV sessions per day. Upgrade to Premium for unlimited sessions.' }, 429, origin);
+    }
+    await env.ABLTY_KV.put(dailyKey, String(dailyCount + 1), { expirationTtl: 86400 });
+  }
+
+Recommended fix:
+Require authentication on /rv-assign (already partly there) and key the daily
+counter on user.id for free users; only fall back to IP-based for guest users,
+with a higher cap.
+
+Implementation caution:
+Guests have no user id; keep an IP fallback but warn the user clearly when the
+cap is the network's not theirs. Premium check today silently treats
+unauthenticated requests as "not premium" — keep that behavior.
+
+Confidence: 95%.
+
+
+--------------------------------------------------------------------------------
+C-7 — wbtb-alarms is a single KV object that races and can drop other users' alarms
+--------------------------------------------------------------------------------
+Priority: Critical
+Category: Backend reliability / Sleep alarm
+
+Issue:
+handleWBTBSchedule, handleWBTBCancel, and runWBTBCron all do read-modify-write
+on the single key wbtb-alarms. KV writes are eventually consistent and there's
+no compare-and-swap. Two users scheduling within the same edge cache window
+can overwrite each other's alarm.
+
+Why it matters:
+WBTB users wake up expecting the alarm. A dropped alarm = no wake-up at the
+target time. This is the most user-trust-sensitive feature in the app.
+
+Where it appears:
+ablty-worker.js 1086–1196.
+
+Evidence:
+  const raw = await env.ABLTY_KV.get('wbtb-alarms');
+  const alarms = raw ? JSON.parse(raw) : {};
+  alarms[id] = { ... };
+  alarms[id + '-return'] = { ... };
+  const ttlSeconds = Math.ceil(duration * 3600) + 7200;
+  await env.ABLTY_KV.put('wbtb-alarms', JSON.stringify(alarms), { expirationTtl: ttlSeconds });
+
+Recommended fix:
+Store each alarm as its own KV key (wbtb:<id> and wbtb:<id>-return) and have
+the cron either (a) use list({ prefix: 'wbtb:' }) (with awareness of list-op
+quota), or (b) maintain a wbtb-index parallel to sub-index. Avoid concurrent
+rewrites of a shared map. Optionally migrate to a Durable Object or D1 if
+reliability matters more than KV cost.
+
+Implementation caution:
+Migrating storage shape needs a one-time backfill so currently-scheduled
+alarms still fire. The TTL also blows away the whole map today — per-key TTL
+is per-alarm naturally.
+
+Confidence: 95%.
+
+
+--------------------------------------------------------------------------------
+C-8 — /wbtb-schedule is unauthenticated; trusts client-supplied push endpoint and ID
+--------------------------------------------------------------------------------
+Priority: Critical
+Category: Security / Notifications
+
+Issue:
+Anyone who has someone else's push endpoint (a long but not secret-by-design
+string) can schedule or cancel WBTB pushes to them. There's no signature or
+auth tying the endpoint to the calling user.
+
+Why it matters:
+Targeted harassment vector (spammed wake-up alarms in the middle of the
+night). Even without targeting, the worker accepts any well-formed payload
+and will encrypt+sign it with VAPID. Cancel is also unauthenticated — a
+user's alarm can be cancelled by anyone who reproduces their endpoint ID.
+
+Where it appears:
+ablty-worker.js handleWBTBSchedule 1086–1125; handleWBTBCancel 1127–1150.
+
+Evidence:
+No bearer-token check; only an IP-based rate limit at lines 238–254.
+
+Recommended fix:
+Require a Supabase access token and store the user id with the alarm so a
+user can only schedule/cancel their own. Cross-reference the endpoint to the
+user's stored sub: record.
+
+Implementation caution:
+Push endpoints stored in KV sub: need a user_id link before this can be
+enforced for legacy subscriptions; backfill on the next sign-in.
+
+Confidence: 90%.
+
+
+--------------------------------------------------------------------------------
+C-9 — User-typed content rendered via innerHTML (XSS-leaning patterns)
+--------------------------------------------------------------------------------
+Priority: High → Critical for stored XSS
+Category: Security / Frontend
+
+Issue:
+Many places interpolate user data straight into innerHTML. The risky cases
+include:
+  - renderResults impressions:
+      notesCard.innerHTML = `...<div ...>${notes}</div>`  (line 6886, no escape).
+  - buildCombinedLog session card: title, label, thumb URL, ${s.notes} slice
+    without escape (11137–11150).
+
+Why it matters:
+A user could store HTML/JS in their own impression notes; if those notes ever
+appear on a screen another user can see (admin view, exports, future "share
+my session"), it becomes a stored-XSS pivot. Even self-only, a paste from the
+clipboard with HTML can break layout.
+
+Where it appears:
+app.html 6886, 11140–11150 (and several other innerHTML = calls — 86 total
+per grep, most are template strings of trusted content but should be audited).
+
+Evidence:
+  ${s.type === 'rv' && s.notes && s.notes.trim() ? `<div ... >${s.notes.slice(0,60)}${s.notes.length>60?'..':''}</div>` : ''}
+
+Recommended fix:
+Run all user-supplied strings (notes, dream body, dream tags, label, target
+labels) through escapeHtml() before interpolation. The helper already exists
+(8903–8910); use it consistently.
+
+Implementation caution:
+escapeHtml is currently used in dream code but not in RV/Zener/PP/TS render
+paths. Don't accidentally escape strings that are intentionally HTML (e.g.,
+SVG icons stored as static strings).
+
+Confidence: 95% (vulnerability exists; impact is currently single-user but
+compounds the moment any social/admin view is added).
+
+
+--------------------------------------------------------------------------------
+C-10 — Worker has no production observability or alerts beyond console.log
+--------------------------------------------------------------------------------
+Priority: Critical for launch
+Category: Analytics / Admin visibility
+
+Issue:
+The only signal on /grade failures, Stripe webhook resolution failures, and
+push delivery failures is console.log/console.warn. There is no metric,
+dashboard, no error budget. No product analytics on the client (no Plausible,
+PostHog, Mixpanel, etc.).
+
+Why it matters:
+On launch day you will not be able to answer "how many people tried to
+upgrade?", "how many checkout sessions completed?", "how many pushes failed?",
+"how many RV sessions saw grading_failed?". Almost no way to triage user
+complaints.
+
+Where it appears:
+ablty-worker.js throughout; no analytics SDK loaded in app.html (greps for
+analytics SDKs return nothing).
+
+Recommended fix:
+Add a privacy-respecting product analytics library and instrument: signup,
+login, paywall-shown, paywall-CTA-clicked, checkout-redirect,
+premium-activated (from webhook), session-completed-per-module,
+push-permission-granted/denied, grading-failed. Pipe Cloudflare Worker logs
+into a real log sink with alerts on 5xx.
+
+Implementation caution:
+Privacy policy says "we do not use tracking cookies, advertising cookies, or
+third-party analytics cookies" — pick an analytics tool that fits that
+promise (cookieless, EU-hosted), and update the policy if needed.
+
+Confidence: 99%.
+
+
+================================================================================
+3. HIGH-PRIORITY ISSUES
+================================================================================
+
+--------------------------------------------------------------------------------
+H-1 — Stripe webhook missing important events
+--------------------------------------------------------------------------------
+Priority: High
+Category: Payment
+
+Issue:
+STRIPE_TIER_EVENTS only includes customer.subscription.created, invoice.paid,
+customer.subscription.deleted, checkout.session.completed. It misses
+customer.subscription.updated, invoice.payment_failed, and trial-related
+events.
+
+Why it matters:
+Past-due, unpaid, or failed payments keep the user as "premium". When a
+subscription is paused or status changes (e.g., incomplete_expired), tier is
+not downgraded.
+
+Where it appears:
+ablty-worker.js 17–22.
+
+Recommended fix:
+Handle customer.subscription.updated and derive tier from obj.status
+(active/trialing → premium; past_due/unpaid/canceled/incomplete_expired →
+free). Treat invoice.payment_failed as a soft signal (send an email or
+in-app warning).
+
+Implementation caution:
+Don't immediately downgrade on the first past_due; Stripe usually retries.
+Use customer.subscription.deleted as the authoritative downgrade.
+
+Confidence: 90%.
+
+
+--------------------------------------------------------------------------------
+H-2 — Tier cache not invalidated after Stripe webhook flips tier
+--------------------------------------------------------------------------------
+Priority: High
+Category: Payment / Caching
+
+Issue:
+checkPremiumTier caches tier:<userId> for 300 s in KV. The webhook updates
+Supabase but does NOT delete this cache key, so the user can stay "free" in
+the worker's eyes for up to 5 minutes after paying.
+
+Why it matters:
+Users will pay, immediately try a 3rd RV session, get blocked, and email
+support thinking the upgrade failed.
+
+Where it appears:
+ablty-worker.js processStripeTierEvent 302–316; checkPremiumTier 418–460.
+
+Recommended fix:
+In processStripeTierEvent, after updating Supabase, also
+  await env.ABLTY_KV.delete('tier:' + userId).
+
+Implementation caution:
+If the cache is shared per-user only, deleting is safe. Don't try to "set" it
+to premium — the source of truth is profiles.tier.
+
+Confidence: 95%.
+
+
+--------------------------------------------------------------------------------
+H-3 — Email confirmation flow loses legal acceptance metadata across devices
+--------------------------------------------------------------------------------
+Priority: High
+Category: Compliance
+
+Issue:
+On signup, the timestamp/version of accepted Terms & Privacy is saved to
+localStorage.ablty_pending_legal_acceptance and only flushed to
+profiles.terms_accepted_at/privacy_accepted_at when onSignedIn runs. If the
+user verifies the email on a different device (phone vs. desktop, etc.), the
+pending field is gone and the profile is created without legal acceptance
+fields populated.
+
+Why it matters:
+You have a Privacy/Terms compliance story that depends on those fields being
+recorded. The migration 20260430000001_add_legal_acceptance_to_profiles.sql
+clearly intends to record these.
+
+Where it appears:
+app.html 12039–12083; migration file.
+
+Recommended fix:
+Pass acceptance into sb.auth.signUp({ options: { data: { username,
+terms_accepted_at: now, terms_version: 'v', privacy_accepted_at: now,
+privacy_version: 'v' } } }) (Supabase persists user_metadata), then read from
+user.user_metadata in onSignedIn and write to the profile.
+
+Implementation caution:
+Don't trust user_metadata for authorization decisions, only for replaying
+intent. Trying to mutate user_metadata from the worker requires the service
+key.
+
+Confidence: 85%.
+
+
+--------------------------------------------------------------------------------
+H-4 — 30-day username change cooldown enforced only on the client
+--------------------------------------------------------------------------------
+Priority: High
+Category: Backend / Security
+
+Issue:
+openUsernameEdit checks ablty_username_changed_at from localStorage and
+refuses to open the editor within 30 days. saveUsernameEdit itself sends
+update({ username, username_changed_at: now }) to Supabase with no constraint.
+A motivated user can call the JS function directly or update via the Supabase
+JS client they can construct themselves.
+
+Why it matters:
+Username squatting, impersonation, harassment via rapid renames. Stale
+username_changed_at mismatches the UI.
+
+Where it appears:
+app.html 8356–8446.
+
+Recommended fix:
+Enforce a row-level trigger or Postgres function (e.g., BEFORE UPDATE ON
+profiles that rejects rename if now() - username_changed_at < 30 days) and
+set username_changed_at via the trigger. RLS policy should also restrict who
+can UPDATE username and tier.
+
+Implementation caution:
+First-time provisioning sets username_changed_at null — make sure the trigger
+allows the initial insert and the first rename. Premium users who want to
+rename more often need an admin path.
+
+Confidence: 90%.
+
+
+--------------------------------------------------------------------------------
+H-5 — Tier column writable from client?
+--------------------------------------------------------------------------------
+Priority: High
+Category: Security / Data integrity
+
+Issue:
+The codebase writes profiles.tier = 'free' on signup from the client (line
+12055), and reads it freely. There is no migration in the repo defining RLS
+policies for profiles. If RLS allows UPDATE by the row owner, the user can
+sb.from('profiles').update({ tier: 'premium' }) from the browser console.
+
+Why it matters:
+Trivial total bypass of paywall for any logged-in user.
+
+Where it appears:
+app.html 12053–12061; missing migrations.
+
+Recommended fix:
+Define an RLS policy that allows users to UPDATE only username and
+username_changed_at on their own profile row; deny tier, terms_*, privacy_*
+writes from authenticated. Tier writes must come from the worker using the
+service key.
+
+Implementation caution:
+Make sure the worker's updateProfileTierByUserId still works (it uses the
+service key, which bypasses RLS — fine). Verify with
+  select * from pg_policies where tablename='profiles'.
+
+Confidence: 70% — cannot fully verify because the RLS migration file is not
+in the repo.
+
+
+--------------------------------------------------------------------------------
+H-6 — index.html waitlist insert exposes only the Supabase publishable key but trusts RLS for waitlist
+--------------------------------------------------------------------------------
+Priority: High
+Category: Security / Privacy
+
+Issue:
+The marketing page uses sb.from('waitlist').insert([{ email }]) directly. If
+RLS isn't tight, an attacker can also select the entire waitlist or update
+emails. Migration for waitlist is not present in the repo.
+
+Why it matters:
+Exposing waitlist emails is a privacy breach.
+
+Where it appears:
+index.html 697–743.
+
+Recommended fix:
+Verify (and check into the repo) the RLS policy: anon INSERT allowed with rate
+limiting, no SELECT/UPDATE/DELETE. Add a UNIQUE constraint on email (you
+already special-case error.code === '23505').
+
+Implementation caution:
+Don't accidentally lock out the Worker that may need to read waitlist for an
+announcement broadcast.
+
+Confidence: 70%.
+
+
+--------------------------------------------------------------------------------
+H-7 — /delete-account deletes children first, auth last; partial failure leaves orphaned auth row
+--------------------------------------------------------------------------------
+Priority: High
+Category: Data integrity
+
+Issue:
+The function deletes from user_settings, dream_entries, rv_sessions,
+zener_runs, ts_trials, pp_sessions, profiles, KV (tier:, sub:, wbtb-alarms),
+and finally auth.users. Errors on child tables are swallowed (console.error).
+If auth/v1/admin/users fails, the auth row remains; on next login onSignedIn
+will re-upsert a profile but the user expected a clean wipe.
+
+Why it matters:
+Users may believe their data is gone when it isn't (a GDPR/CCPA right-to-delete
+violation in the worst case). They may also try again and re-trigger
+half-deletes.
+
+Where it appears:
+ablty-worker.js 1240–1355.
+
+Recommended fix:
+Run deletions in a strict order, capture per-table errors, return a structured
+result. Mark the user "deletion-pending" before starting; on re-login,
+complete the deletion. Consider doing this as a server-side SQL function
+inside a transaction.
+
+Implementation caution:
+wbtb-alarms cleanup loop currently assumes the value is an array, but
+handleWBTBSchedule stores an OBJECT keyed by id (see line 1102). That cleanup
+is a no-op for the actual data shape. (Also a data-integrity bug; see M-1.)
+
+Confidence: 95%.
+
+
+--------------------------------------------------------------------------------
+H-8 — clearAllData and "Sign out" only clear local data, not cloud
+--------------------------------------------------------------------------------
+Priority: High
+Category: UX / Data
+
+Issue:
+clearAllData() (Settings → "Clear all session data") only clears local RV
+(STATE.sessions) and ablty_zener. It does not clear cloud rows or Photo Pair,
+Presentiment, dreams. On next sync, cloud rows hydrate back and the user
+thinks the button didn't work. Sign-out also leaves all cloud rows in place
+(correct), but the local cache stays partly populated.
+
+Why it matters:
+Users complain "I clicked Clear and my data came back." Looks broken.
+
+Where it appears:
+app.html clearAllData 8719–8726.
+
+Recommended fix:
+Clearly label the destructive scope ("Clear local cache" vs "Delete all cloud
+data"); for "delete cloud data", reuse /delete-account-style server cleanup
+but without the auth delete; on sign-out, clear all ablty_* keys (RV, Zener,
+TS, PP, dream caches, milestones, daily counters).
+
+Implementation caution:
+Don't delete ablty_logged_in while user has cloud data still pending sync —
+risk of data loss for legitimate users.
+
+Confidence: 95%.
+
+
+--------------------------------------------------------------------------------
+H-9 — Browser guard hides the app for desktop or web users — no fallback or graceful messaging
+--------------------------------------------------------------------------------
+Priority: High
+Category: UX / Onboarding / Mobile
+
+Issue:
+enforcePwaOnlyMode() shows the #browser-guard overlay whenever the page isn't
+in standalone/fullscreen mode (or iOS navigator.standalone). The card has no
+"Install on iOS" or "Install on Android" instructions, and the only button
+visible is unspecified in the snippet I read. Desktop users see a hard wall.
+
+Why it matters:
+Many users will tap a marketing link in a browser and immediately bounce. iOS
+Safari users in particular must be guided to Share → "Add to Home Screen";
+without instructions the install rate cratered.
+
+Where it appears:
+app.html lines 60–115 (CSS); 7717–7735 (logic); 8731–8748 (post-callback
+override).
+
+Recommended fix:
+Replace the guard with a friendly install screen that detects OS and shows
+the proper "Add to Home Screen" steps; allow desktop users to continue
+in-browser (or at least see what the app is). Currently desktop OS = no
+standalone = no app at all.
+
+Implementation caution:
+Email-verification redirect uses the guard to show "EMAIL VERIFIED" —
+preserve that path.
+
+Confidence: 90%.
+
+
+--------------------------------------------------------------------------------
+H-10 — Accessibility is sub-standard
+--------------------------------------------------------------------------------
+Priority: High
+Category: Accessibility
+
+Issue:
+Many click handlers live on plain <div>s (.module-card[data-feature],
+.nav-item, .mode, .rc-onboard-option, .rv-cat-tile). Missing role, tabindex,
+aria-label, keyboard handlers. Color-contrast: mono text on --bg #0d0e10 at
+color: var(--dim) #3a3f48 fails WCAG by a wide margin. Form inputs in the
+landing page lack aria-describedby for the success/error message. viewport
+sets maximum-scale=1.0, user-scalable=no (disables zoom — WCAG violation).
+
+Why it matters:
+Excludes users with screen readers/low vision; can fail app-store/PWA store
+accessibility review; legal risk in some jurisdictions.
+
+Where it appears:
+app.html head (5–10), <nav> 6031–6057, many module cards.
+
+Recommended fix:
+Switch clickable divs to <button>, add aria-labels, remove user-scalable=no,
+ensure all interactive text is ≥ AA contrast. Add focus rings.
+
+Implementation caution:
+Removing user-scalable=no can cause iOS to zoom in on input focus if
+font-size < 16px — bump inputs to 16px minimum.
+
+Confidence: 95%.
+
+
+--------------------------------------------------------------------------------
+H-11 — No "Manage Subscription" link inside the app
+--------------------------------------------------------------------------------
+Priority: High
+Category: Payment / Stripe ToS / Privacy ToS
+
+Issue:
+Privacy policy/ToS say "You may cancel your subscription at any time through
+your account settings or by contacting abltyapp@gmail.com." There is NO
+in-app cancellation flow today — every cancel goes through email, which is
+poor UX and is increasingly out of compliance (Stripe + many app-store
+equivalents require an in-app cancel path).
+
+Why it matters:
+Stripe customer support and chargebacks rise sharply when users can't
+self-serve cancel. Also a marketing-promise gap.
+
+Where it appears:
+app.html Settings (4286-4350 area, 8143-8205), Terms text 5777.
+
+Recommended fix:
+Either add a Stripe Customer Portal link generated from a worker endpoint, or
+remove the "through your account settings" promise from the Terms. Customer
+Portal is the standard.
+
+Implementation caution:
+Portal session requires customer_id; build the mapping reliably (depends on
+C-2 fix).
+
+Confidence: 95%.
+
+
+--------------------------------------------------------------------------------
+H-12 — ablty-app (2).html is a duplicate/stale 10k-line file in the repo root
+--------------------------------------------------------------------------------
+Priority: High
+Category: Maintainability / Launch hygiene
+
+Issue:
+A second, older app file is checked in alongside app.html. It will confuse
+future agents, may be cached/served accidentally, and inflates audit/review
+scope.
+
+Why it matters:
+Drift between two app files is silent — bug fixes in one won't be in the
+other. If a worker route or static host accidentally serves it, users will
+run code that's not what you tested.
+
+Where it appears:
+/workspace/ablty-app (2).html.
+
+Recommended fix:
+Delete it from main. Use git history for archival.
+
+Implementation caution:
+Confirm no script or build pipeline references it (none found in
+wrangler.toml, manifest.json).
+
+Confidence: 99%.
+
+
+--------------------------------------------------------------------------------
+H-13 — No CSP, no Permissions-Policy, no X-Content-Type-Options headers configured
+--------------------------------------------------------------------------------
+Priority: High
+Category: Security
+
+Issue:
+There's no Cloudflare Pages / GitHub Pages headers config in the repo. The
+Cloudflare worker also doesn't return security headers. Combined with the
+multiple innerHTML and inline onclick handlers, a future XSS becomes far
+worse.
+
+Why it matters:
+Defense in depth. Pre-launch is the cheapest moment to add CSP. Inline
+handlers prevent a strict CSP; review needed.
+
+Where it appears:
+Repo-wide (no _headers, no next.config, no worker response headers).
+
+Recommended fix:
+Add a _headers file (Cloudflare Pages format) with at minimum
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=(self "https://*.stripe.com")
+  X-Content-Type-Options: nosniff
+For CSP, start with report-only (the 249 inline onclicks and inline <script>s
+will need 'unsafe-inline' or refactor).
+
+Implementation caution:
+A too-strict CSP will break Supabase, Stripe, Google Sign-In, and Gemini
+calls — start with report-only.
+
+Confidence: 90%.
+
+
+--------------------------------------------------------------------------------
+H-14 — Push subscription endpoint stored without user_id link; cannot be safely garbage-collected
+--------------------------------------------------------------------------------
+Priority: High
+Category: Notifications / Backend
+
+Issue:
+handleSubscribe stores the subscription under sub:<hash> with the full
+subscription object but NO Supabase user id. If the user logs out, signs into
+another account, or deletes their account, the subscription record can't be
+located by user (delete-account works only if the client passes the
+endpoint). Orphaned sub: keys keep firing RC pushes for 90 days.
+
+Why it matters:
+A previous owner of a device receives pushes for the new user's settings;
+users on shared devices receive notifications even after sign-out; deleted
+accounts may continue receiving pings.
+
+Where it appears:
+ablty-worker.js 1220–1233 (handleSubscribe), 1308–1316 (/delete-account).
+
+Recommended fix:
+Require an auth token on /subscribe, store user_id and email alongside the
+subscription, and add a "sign out → unsubscribe push" path on the client.
+Provide a server endpoint to list/cancel a user's subscriptions.
+
+Implementation caution:
+Subscriptions taken under "guest" mode have no user id — keep storing them
+but tag guest=true and expire faster.
+
+Confidence: 85%.
+
+
+================================================================================
+4. MEDIUM-PRIORITY ISSUES
+================================================================================
+
+--------------------------------------------------------------------------------
+M-1 — /delete-account WBTB cleanup uses wrong data shape
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Data integrity
+
+Issue:
+The wbtb-alarms value is written as an OBJECT keyed by id (see
+handleWBTBSchedule line 1102), but /delete-account (1318–1333) iterates it
+expecting Array.isArray(alarms). The cleanup branch never runs.
+
+Why it matters:
+Cancelled accounts may still get a wake/return push if an alarm was
+scheduled.
+
+Where it appears:
+ablty-worker.js 1320–1330.
+
+Recommended fix:
+Make wbtb-alarms a stable shape and iterate object entries; filter out
+alarms where endpoint hashes to this user's subscription, or, better, link
+alarms to user_id and filter by that.
+
+Implementation caution:
+Combined with C-7, redesign storage rather than patching.
+
+Confidence: 95%.
+
+
+--------------------------------------------------------------------------------
+M-2 — shouldSendNow math gets weird around windows that wrap midnight
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Notifications
+
+Issue:
+When bedtime is between midnight and 7 AM (postMidnightBedtime), the
+active-window calculation (1440 - 420) + Math.max(0, primerCutoff) correctly
+handles wrap, but elapsedMinutes falls back to (1440 - 420) + currentMinutes
+only when currentMinutes < 420. The denominator minutesLeft / remaining can
+spike when remaining = freq - sentToday is 1, scheduling a final push very
+late and urgency >= 1.5 short-circuit fires it.
+
+Why it matters:
+Late-night users with early bedtimes (e.g., 3 AM) may receive bunched-up RC
+pushes near the end of the window.
+
+Where it appears:
+ablty-worker.js 713–774.
+
+Recommended fix:
+Add unit tests with several bedtime/timezone combos and tune minGap so the
+very-late-window urgency doesn't cluster.
+
+Implementation caution:
+Don't reduce frequency for normal-bedtime users (the default 9/day worked in
+QA).
+
+Confidence: 70%.
+
+
+--------------------------------------------------------------------------------
+M-3 — handleStripeWebhook Stripe-Signature tolerance is 5 minutes; missing customer.subscription.updated and invoice.payment_failed
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Payment
+
+Issue:
+5-minute clock skew tolerance is OK; but: Stripe retries can arrive >5
+minutes after the event, and replay protection is implicit-only. Also see
+H-1.
+
+Where it appears:
+ablty-worker.js 462–479.
+
+Recommended fix:
+Idempotency key via event.id (store stripe_event:<id> in KV with 7-day TTL).
+Allow generous tolerance.
+
+Implementation caution:
+Stripe requires the response within ~5s; KV reads are fine.
+
+Confidence: 90%.
+
+
+--------------------------------------------------------------------------------
+M-4 — runRealityCheckCron no parallelism limit
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Scalability
+
+Issue:
+sendToAll iterates subscribers sequentially with await per user. At scale
+(hundreds of subscribers across 5-minute cron), some send + KV write combos
+can exceed Worker CPU limits.
+
+Why it matters:
+Beyond ~50–100 subscribers per cron tick, you can hit Worker CPU caps or
+timeouts and miss notifications for the tail of the list. The handoff doc
+already pegs free-tier ceiling at "50–100 active users."
+
+Where it appears:
+ablty-worker.js 634–711.
+
+Recommended fix:
+Use Promise.allSettled in batches of 10–25 and parallelize the HTTP/encrypt
+step; or move to a Durable Object alarm per user.
+
+Implementation caution:
+Concurrent KV writes still race for the same subscriber's last: and sends:
+counters (currently fine because each user has their own keys, but if you
+parallelize be careful).
+
+Confidence: 80%.
+
+
+--------------------------------------------------------------------------------
+M-5 — sub-index bootstrap loop runs a full list({ prefix: 'sub:' })
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Scalability / Cost
+
+Issue:
+If sub-index is corrupted or absent, the worker falls back to a list(). That's
+bounded but free-tier KV gives 1,000 list ops/day. If sub-index ever expires
+or is accidentally deleted, the cron's first run after will list and
+immediately exhaust budget.
+
+Where it appears:
+ablty-worker.js 581–598.
+
+Recommended fix:
+Bootstrap the index in handleSubscribe rather than relying on list(); alarm
+on corruption.
+
+Implementation caution:
+Backfilling once is fine; constant list() is not.
+
+Confidence: 80%.
+
+
+--------------------------------------------------------------------------------
+M-6 — localStorage quota risk on heavy users
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Frontend / Data
+
+Issue:
+RV sketches are stored as base64 data URLs in ablty_sessions (cap 120
+sessions, sketch kept for the most-recent 30, others stripped via saveState).
+Even so, 30 sketches at 50–200 KB each can hit Safari iOS quota (~5 MB).
+safeStore.set catches the throw silently — failures are invisible.
+
+Why it matters:
+Sessions appear to save but quietly drop; user data is lost without a
+notification.
+
+Where it appears:
+app.html store, saveState 6138–6188.
+
+Recommended fix:
+Detect quota exceeded and prompt the user to sign in (cloud-backed) or clear
+older sessions. Compress the canvas more aggressively. Move sketches out of
+localStorage to IndexedDB.
+
+Implementation caution:
+IndexedDB migration would be a bigger change; minimum fix is detect & toast.
+
+Confidence: 85%.
+
+
+--------------------------------------------------------------------------------
+M-7 — incrementDailyCount function is dead code
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Code hygiene / Gating
+
+Issue:
+incrementDailyCount() (6437) and getDailyCount() (6430) exist but are not
+called from startRVSession/submitSession. The actual daily increment is done
+inline in submitSession (6806) on a different localStorage key
+(ablty_rv_daily_<date>). Two parallel daily-counter systems exist.
+
+Why it matters:
+Dead code is a regression risk and confuses future maintainers. The
+ablty_daily key may collect stale values forever.
+
+Where it appears:
+6425–6444, 6806.
+
+Recommended fix:
+Delete getDailyCount/incrementDailyCount/ablty_daily references.
+
+Implementation caution:
+Confirm via codebase grep that nothing else reads ablty_daily.
+
+Confidence: 95%.
+
+
+--------------------------------------------------------------------------------
+M-8 — confirm()/prompt()/alert() used in production code
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: UX / Mobile
+
+Issue:
+Sign-out (8218), Clear all data (8720), and Add dream tag (9390) use native
+browser dialogs. On iOS these can look odd or be blocked by PWA chrome; they
+break the design language.
+
+Recommended fix:
+Use the existing modal pattern (upgrade-modal, edit-session-modal, etc.) for
+confirmation and text input.
+
+Implementation caution:
+Modal-based confirms must be focus-trapped and keyboard-dismissable.
+
+Confidence: 90%.
+
+
+--------------------------------------------------------------------------------
+M-9 — Service worker fetch handler caches every successful GET indefinitely
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: PWA / Storage
+
+Issue:
+For non-HTML requests, the SW puts every successful response in the cache and
+never evicts. Sketch backgrounds, target images, fonts, etc. grow unbounded.
+
+Where it appears:
+sw.js 73–92.
+
+Recommended fix:
+Limit cache size or add expirationTtl-like LRU eviction. For images, consider
+a separate cache and a max entries cap.
+
+Implementation caution:
+Don't evict the static shell.
+
+Confidence: 80%.
+
+
+--------------------------------------------------------------------------------
+M-10 — Service worker only handles WBTB by body string match
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Notifications / I18n
+
+Issue:
+sw.js distinguishes WBTB-return vs wake vs RC by body.includes('WBTB return')
+and body.includes('WBTB wake'). If you ever translate/localize the body,
+routing breaks. Also, an attacker who controls the body could spoof tags.
+
+Where it appears:
+sw.js 131–143.
+
+Recommended fix:
+Send a JSON payload with { kind: 'wbtb-wake' | 'wbtb-return' | 'rc' |
+'primer', body: '...' } and route on kind.
+
+Implementation caution:
+Older clients still expect the current shape; deploy SW change before
+changing payload shape.
+
+Confidence: 90%.
+
+
+--------------------------------------------------------------------------------
+M-11 — runSplash shows splash even on update reload; perceived performance hit
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Perceived performance / UX
+
+Issue:
+Splash plays 2.2–3 s every cold start. Combined with applyUpdate (which
+reloads), users see a splash twice in a row on upgrade.
+
+Where it appears:
+app.html 11844–11898.
+
+Recommended fix:
+Skip splash if document.referrer is same-origin or if
+performance.navigation.type === 'reload'.
+
+Implementation caution:
+Don't kill the splash on first-ever visit — it's a brand moment.
+
+Confidence: 80%.
+
+
+--------------------------------------------------------------------------------
+M-12 — dream-journal Add Tag is prompt(), no validation, no length cap
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: UX / Data
+
+Issue:
+promptAddDreamTag accepts arbitrary text up to whatever the browser allows,
+only trims and lowercases. Could collide with AI tags or be very long.
+
+Where it appears:
+9389–9403.
+
+Recommended fix:
+Use a modal with a 24-char cap, allow only [a-z0-9 -], dedupe.
+
+Implementation caution:
+Some accent characters are reasonable; consider unicode normalization.
+
+Confidence: 90%.
+
+
+--------------------------------------------------------------------------------
+M-13 — Anon Supabase key in app.html is a JWT; index.html uses a different "publishable" key — inconsistent
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Config drift
+
+Issue:
+app.html uses eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.... (legacy anon JWT).
+index.html uses sb_publishable_DRu8Zv7QgjoOrRngN8iFUw_vKffPnSf (new-style
+publishable key). Both will likely work but the inconsistency is a smell, and
+JWT key rotation would only update one.
+
+Where it appears:
+app.html 6068–6069; index.html 703.
+
+Recommended fix:
+Use one key style across both pages; centralize in a config.js.
+
+Implementation caution:
+Switching key type requires the matching Supabase project setting; do not
+invalidate live sessions.
+
+Confidence: 90%.
+
+
+--------------------------------------------------------------------------------
+M-14 — assets/logo.png 403s from email clients (called out in template comment); confirm signup email is unrendered
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Email / Brand
+
+Issue:
+The Supabase email template explicitly warns the logo URL returns 403 from
+email clients. If not fixed, the verify-email message will have a broken
+image.
+
+Where it appears:
+supabase/email-templates/confirm-signup.html 16–29.
+
+Recommended fix:
+Upload the logo to a public Supabase Storage bucket or a CDN with permissive
+CORS/Access-Control-Allow-Origin: * and update the template src.
+
+Implementation caution:
+Cache-bust by versioning the filename.
+
+Confidence: 95%.
+
+
+--------------------------------------------------------------------------------
+M-15 — version.json says 2026.05.04.1 but APP_VERSION in app.html also says 2026.05.04.1 (good) — however SW cache is ablty-v37; the docs (CLAUDE_HANDOFF.md) say 2026.04.13.1 and SW v15
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Release hygiene
+
+Issue:
+Docs drift quickly. The handoff doc and the baseline doc reference older
+versions. The release rule (always bump all three) is followed for the actual
+app — but the docs don't reflect current state.
+
+Recommended fix:
+Either auto-generate version metadata or remove version numbers from docs.
+
+Implementation caution:
+Don't bump SW cache unnecessarily — every bump invalidates user caches and
+costs bandwidth.
+
+Confidence: 95%.
+
+
+--------------------------------------------------------------------------------
+M-16 — cron runs every 5 minutes but RC granularity claims "30-min minGap" — pushes can still arrive every 30 minutes which feels heavy
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: UX / Notifications
+
+Issue:
+With 9 pushes/day across ~14 active hours, the average gap is ~93 min, but
+the minGap = Math.max(30, idealIntervalMinutes * 0.5) allows back-to-back
+pushes 30 min apart, which feels spammy.
+
+Where it appears:
+ablty-worker.js 764.
+
+Recommended fix:
+Make minGap floor configurable (e.g., 45 or 60) and surface it as a Settings
+option.
+
+Confidence: 70%.
+
+
+--------------------------------------------------------------------------------
+M-17 — All sample RV target images shipped in the public bundle
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Privacy / Protocol integrity
+
+Issue:
+/targets/*.jpg (36 files) are served alongside the worker as public static
+assets. The point of "blind" remote viewing is that the user shouldn't know
+which target was assigned. A user can list /targets/ (if directory listing is
+on) or look at the source / network tab and see all 36 candidates.
+
+Why it matters:
+With knowledge of the 36 candidates, a viewer can "search" the assigned TRN
+against the public list mid-session and bias their sketch. The server claims
+protocol integrity by hiding the mapping, but the candidates are public.
+
+Where it appears:
+targets/ and ablty-worker.js RV_TARGET_POOL.
+
+Recommended fix:
+Either (a) serve targets behind a short-lived signed URL only AFTER grading,
+or (b) frame the experience as "candidate-known but assignment blind" in
+onboarding and reduce/diversify the pool.
+
+Implementation caution:
+Signed URLs add infra complexity; the simpler change is rotating a much
+larger pool periodically.
+
+Confidence: 90%.
+
+
+--------------------------------------------------------------------------------
+M-18 — RC streak only counted on local device; can disagree across devices
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Data
+
+Issue:
+ablty_rc_streak/ablty_rc_sessions and the milestone state are all
+device-local. A user on two devices will have two different
+streaks/milestones and no merge logic.
+
+Recommended fix:
+Sync to user_settings if logged in (table exists but is not used for this).
+
+Confidence: 90%.
+
+
+--------------------------------------------------------------------------------
+M-19 — handleGrade returns 200 with grading_failed: true for Gemini errors — silent rate-limit consumption
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Cost / UX
+
+Issue:
+When Gemini quota is hit, the worker returns buildGradingFailure with 200 so
+the client UX is friendlier, but the per-IP ratelimit:grade: counter already
+incremented before the call. Failed grades count toward the limit.
+
+Where it appears:
+ablty-worker.js 183–191, 934–940.
+
+Recommended fix:
+Don't increment until after Gemini returns success, OR decrement on
+grading_failed.
+
+Implementation caution:
+Counts can go negative if you decrement without a floor.
+
+Confidence: 85%.
+
+
+--------------------------------------------------------------------------------
+M-20 — cancelUsernameEdit doesn't re-render the entire username row (orphaned Save/Cancel buttons after blur)
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Frontend
+
+Issue:
+cancelUsernameEdit resets el.textContent = _usernameEditOriginal which removes
+the input AND the inline Save/Cancel buttons (good). But on Enter keypress it
+doesn't blur the input, so a follow-up Save click can fire after navigating
+away.
+
+Recommended fix:
+After save, blur input and re-render the profile.
+
+Confidence: 70%.
+
+
+--------------------------------------------------------------------------------
+M-21 — gatedNavigate calls navigate(feature), but navigate itself re-runs gating for some features only (e.g., dream-journal gets a hard-coded login check)
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Auth / Gating
+
+Issue:
+There are two layers of gating with slightly different rules. gatedNavigate
+checks canAccess(feature) (tier-based), but navigate has its own
+if (... === 'dream-journal' && !isLoggedIn()) clause. If canAccess ever
+returns true while isLoggedIn() is false (e.g., a future tier change), the
+flow short-circuits the other way.
+
+Where it appears:
+6363–6391, 7853–7872, 8130–8137.
+
+Recommended fix:
+Pick one source of truth. Put the "feature requires login" check inside
+canAccess/TIER_ACCESS.
+
+Confidence: 80%.
+
+
+--------------------------------------------------------------------------------
+M-22 — No CSRF protection on worker (mostly fine because origin check exists, but custom headers would harden)
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Security
+
+Issue:
+The worker uses Origin checks. A page that sets Origin cannot be spoofed by a
+browser, but server-side cURL can. Endpoints /grade, /rv-assign, /tag-dream,
+/wbtb-schedule, /wbtb-cancel, /subscribe, /delete-account all accept any
+origin or no origin in some branches.
+
+Where it appears:
+ablty-worker.js 90–100.
+
+Recommended fix:
+Combine origin check with bearer-token auth on every mutating endpoint that
+touches user data.
+
+Confidence: 75%.
+
+
+--------------------------------------------------------------------------------
+M-23 — Local-only "guest" data on shared devices leaks to the next person
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Privacy
+
+Issue:
+Guest data sits in localStorage forever. The next user of the device may see
+prior sessions if they tap "Save Progress" on the guest-data modal (which
+would attach a stranger's data to their new account).
+
+Where it appears:
+app.html 12275–12352.
+
+Recommended fix:
+Default the modal action to "Start Fresh" or add a clear warning. Auto-clear
+guest data after N days of inactivity.
+
+Confidence: 80%.
+
+
+--------------------------------------------------------------------------------
+M-24 — Username uniqueness check uses anonymous select on profiles (or fails silently if RLS blocks)
+--------------------------------------------------------------------------------
+Priority: Medium
+Category: Auth / RLS
+
+Issue:
+Pre-signup, the form does
+sb.from('profiles').select('id').eq('username', ...).limit(1). If RLS only
+allows SELECT to the row owner (recommended), this returns [] for every
+username, the check passes, and signup proceeds — only to hit a 23505 in
+onSignedIn upsert which then forces a fallback seeker_<id> username instead
+of failing the form.
+
+Where it appears:
+12627–12636, 12057–12063.
+
+Recommended fix:
+Move the uniqueness check to a server endpoint or a Postgres function with
+SECURITY DEFINER that returns only "available/taken".
+
+Confidence: 75%.
+
+
+================================================================================
+5. LOW-PRIORITY ISSUES
+================================================================================
+
+L-1 — Hardcoded VAPID public key in client (fine, but ship a build-time check)
+  Priority: Low
+  Recommended fix: Move to a config.js and assert non-empty at boot.
+  Confidence: 95%.
+
+L-2 — console.log debug noise in production
+  Priority: Low
+  Issue: console.log('[DEV][signUp]...') at 12655, console.log('[ABLTY
+  Milestones]', ...) at 7936, and many console.warn calls.
+  Recommended fix: Strip non-essential logs in production builds.
+  Confidence: 95%.
+
+L-3 — Several screens render before data load completes, then re-render on data arrival (jank)
+  Priority: Low
+  Issue: renderAnalytics() runs synchronously, then
+  refreshCloudDataCaches(true).finally(renderAnalytics) re-renders.
+  Recommended fix: Add a skeleton state (showAnalyticsSkeleton exists but is
+  rarely invoked); call it before the cloud round-trip.
+  Confidence: 90%.
+
+L-4 — runSplash writes ablty_splash only after setTimeout; on first visit and quick close, it never gets set
+  Priority: Low
+  Recommended fix: Set immediately at start.
+  Confidence: 90%.
+
+L-5 — index.html waitlist UX swaps the "other" form even on duplicate error (looks like success); fine but consider differentiating
+  Priority: Low
+  Confidence: 80%.
+
+L-6 — getTodayKey() uses local time but daily caps server-side use UTC date — mismatched user perception
+  Priority: Low
+  Issue: A user in Hawaii at 11 PM may get blocked because the server already
+  rolled over to UTC tomorrow.
+  Where it appears: app.html 6425; ablty-worker.js 184.
+  Recommended fix: Use getTodayStr(utcOffset) server-side using the user's
+  utcOffset (already done for RC).
+  Confidence: 90%.
+
+L-7 — handleDebug is defined but not routed (admin endpoint stubbed out); dead code
+  Priority: Low
+  Where it appears: ablty-worker.js 521–576, 178–180.
+  Recommended fix: Remove or wire to an admin-token-protected path.
+  Confidence: 95%.
+
+L-8 — Onboarding slide 3 "What ABLTY is" text mentions WBTB + MILD as "the most research-backed lucid dream induction combination available" — marketing claim that may need softening for app-store/Stripe review
+  Priority: Low
+  Confidence: 60%.
+
+L-9 — Empty BlankCanvas.png, HomeMenu.png, Analytics.png, RVGoodScore.png, Impressions.png, demo-sketch.png, demo-target.png shipped in the repo (>4 MB combined)
+  Priority: Low
+  Recommended fix: Move marketing/demo assets out of the deployable bundle.
+  Confidence: 90%.
+
+L-10 — Splash CSS uses var(--bg) but theme-color meta is #0d0e10 while manifest is #0e1012 — slight color mismatch on launch chrome
+  Priority: Low
+  Confidence: 80%.
+
+L-11 — manifest.json icons are marked "purpose": "any maskable" but no checked maskable icon is provided; some Android launchers will show ugly cropping
+  Priority: Low
+  Confidence: 75%.
+
+L-12 — qr.png (235 KB) in repo root — unclear purpose, looks like dev artifact
+  Priority: Low
+  Confidence: 80%.
+
+L-13 — manifest.json is missing screenshots (improves install UX on Android/Chromium)
+  Priority: Low
+  Confidence: 90%.
+
+L-14 — Hardcoded grading prompt makes Gemini model upgrades risky (gemini-2.5-flash)
+  Priority: Low
+  Recommended fix: Use env var.
+  Confidence: 90%.
+
+L-15 — Stripe test URL leaks into the *production* Terms page as the actual checkout reference? (Terms says $4.99/month — fine; just verify the live Payment Link uses the same price)
+  Priority: Low
+  Confidence: 70%.
+
+L-16 — RV_DAILY_LIMIT = 2 constant declared but never read (gating uses local literal 2)
+  Priority: Low
+  Confidence: 95%.
+
+L-17 — index-old.html still in repo
+  Priority: Low
+  Recommended fix: Remove.
+  Confidence: 99%.
+
+L-18 — Photo Pair pleasant/neutral pools are tiny (5 each) and procedurally generated; repetition becomes obvious quickly
+  Priority: Low
+  Confidence: 80%.
+
+L-19 — popstate handler doesn't close legal-modal, delete-account-modal, change-password-modal, edit-session-modal, etc. — Android back button doesn't dismiss them
+  Priority: Low
+  Where it appears: 6327–6356.
+  Confidence: 85%.
+
+L-20 — handleSignup console.log('[DEV][signUp] user.id:', ...) logs PII to console in production
+  Priority: Low
+  Confidence: 95%.
+
+
+================================================================================
+6. NICE-TO-HAVE IMPROVEMENTS
+================================================================================
+
+N-1: Add a "What's New" changelog modal triggered after APP_VERSION changes
+     (you have CHANGELOG.md but no in-app surface).
+
+N-2: Add typed events bus rather than the many
+     if (window.location.search.includes(...)) checks
+     (?wbtb=1, ?wbtb=return, ?rc=1, ?payment=success).
+
+N-3: Replace single-file app.html with a small bundle pipeline (vite/esbuild)
+     — preserves the "ship a single file" production output but enables
+     linting, type-checking, tests, and code splitting (grading prompts,
+     dream insights, etc.).
+
+N-4: Add Lighthouse/Web Vitals telemetry and budget — the splash + heavy DOM
+     make LCP risky.
+
+N-5: Pre-generate Photo Pair images at build time and use real images
+     instead of canvas-drawn ones.
+
+N-6: Move user-facing copy into a tiny i18n table.
+
+N-7: Add a "Restore Purchase" button (defensive UX even with web Stripe).
+
+N-8: A Settings → "Run diagnostic" that pings the worker, checks push
+     permission, checks SW version — your support email volume will drop.
+
+N-9: Replace prompt() dream tag entry with a chip-style autocomplete
+     (suggest popular tags).
+
+N-10: Show the assigned RV target_id (not just TRN) in Stats so a user can
+      correlate across retries.
+
+
+================================================================================
+7. THINGS THAT APPEAR LAUNCH-READY
+================================================================================
+
+- Cloudflare Worker route surface, CORS handshake, and origin pinning to
+  ablty.app/www.ablty.app.
+- VAPID push encryption (RFC 8291 aes128gcm) implementation — correct shape;
+  salt/CEK/nonce derivation matches spec.
+- Sub-index optimization to avoid KV list() exhaustion
+  (getSubscriberKeys/addToSubscriberIndex/removeFromSubscriberIndex).
+- Service worker network-first for HTML, cache-first for static;
+  controllerchange-on-update reload.
+- Splash + onboarding visuals; brand consistency between landing and app.
+- Pull-to-refresh and bottom-nav structure.
+- Auth screens, including a complete forgot-password flow.
+- Google Identity Services (ID token flow exchanged via Supabase) — modern
+  path.
+- Local-first, cloud-merge pattern with pending queues (good resilience).
+- Gemini grading retry/backoff and the explicit grading_failed user-visible
+  path.
+- Terms and Privacy Policy text are comprehensive (Illinois, CCPA section,
+  Stripe/Cloudflare/Google disclosed).
+- 30-day username cooldown UX (client side).
+- Delete-account flow exists and clears most state.
+
+
+================================================================================
+8. THINGS THAT COULD NOT BE VERIFIED FROM THIS CODEBASE
+================================================================================
+
+- Supabase RLS policies on profiles, waitlist, user_settings, dream_entries,
+  rv_sessions, zener_runs, ts_trials, pp_sessions. Only one migration file
+  (legal acceptance columns) is present; the rest must live outside the repo.
+  Critical to verify in the Supabase dashboard.
+- STRIPE_WEBHOOK_SECRET, VAPID_PRIVATE_KEY, SUPABASE_SERVICE_KEY,
+  GEMINI_API_KEY are not in the repo (correct), but I cannot verify they are
+  set in the Worker's environment.
+- Whether the live Stripe Product/Price actually exists and whether the live
+  Payment Link is configured to redirect to ?payment=success.
+- Whether the Supabase email template referenced by confirm-signup.html is
+  the one actually configured in the Supabase Auth dashboard (the file lives
+  in the repo but Supabase pulls templates from its own UI).
+- Whether CNAME ablty.app actually resolves to GitHub Pages (or wherever
+  production is hosted) and whether the SW scope covers everything (/sw.js
+  registered at root).
+- Whether */5 * * * * cron is configured in the Cloudflare dashboard (the
+  CLAUDE_HANDOFF.md says wrangler.toml only applies on deploy).
+- Real-device behavior of requireInteraction: true notifications on
+  Android 14 / iOS 17 (Apple PWA push had compatibility flux).
+- Whether username has a UNIQUE constraint in Postgres (assumed from
+  error.code === '23505' handling).
+- Whether profiles.tier is enumerated or free-text — typo-risk if free text.
+
+
+================================================================================
+9. RECOMMENDED PRE-LAUNCH CHECKLIST
+================================================================================
+
+ 1. Replace Stripe test URL with live Payment Link, attach client_reference_id
+    (or move to server-created Checkout Session).
+ 2. Verify and check in Supabase RLS policies for EVERY user-data table;
+    harden profiles.tier, profiles.terms_*, and waitlist SELECT.
+ 3. Add customer.subscription.updated and invoice.payment_failed handling in
+    the worker; invalidate tier: KV on every webhook.
+ 4. Replace ?filter= admin lookup with documented param and add unit test.
+ 5. Fix the retry-target bypass on /grade; counter must reflect billable
+    grades.
+ 6. Move daily-cap key from IP to user_id for signed-in users.
+ 7. Authenticate /wbtb-schedule, /wbtb-cancel, /subscribe; store user_id with
+    subscriptions and alarms; redesign wbtb-alarms to per-key storage.
+ 8. Add escapeHtml to every place user content hits innerHTML.
+ 9. Persist legal acceptance via user_metadata so cross-device verification
+    still records it.
+10. Add a real product-analytics SDK (cookieless) and instrument the funnel.
+11. Add a Stripe Customer Portal "Manage subscription" button.
+12. Add a properly hosted logo for the verification email.
+13. Add _headers file with security headers; ship a Content-Security-Policy
+    in report-only first.
+14. Improve #browser-guard with iOS/Android install instructions; consider
+    letting desktop continue.
+15. Accessibility pass: remove user-scalable=no, contrast fixes, focus rings,
+    semantic buttons.
+16. Remove ablty-app (2).html and index-old.html from main.
+17. Strip console.log debug noise; gate behind if (isDevMode()).
+18. Verify */5 * * * * cron is configured in Cloudflare; verify worker
+    secrets are populated.
+19. Test the full payment flow on a real card end-to-end and confirm tier
+    flips in <30 s.
+20. Run mobile QA checklist on real iPhone Safari, real Android Chrome,
+    *installed* PWA, in poor network conditions and airplane mode.
+
+
+================================================================================
+10. RECOMMENDED POST-LAUNCH MONITORING CHECKLIST
+================================================================================
+
+- Cloudflare Worker error rate, p95 latency, and CPU time per route
+  (/grade, /rv-assign, /stripe-webhook).
+- Stripe Dashboard: failed webhooks; 4xx responses; dispute rate;
+  "subscription created" without matching profiles.tier=premium flip within
+  60s (cross-check).
+- KV op counts (free tier ceilings: 100k reads/day, 1k lists/day, 1k
+  writes/day) — alert at 70%.
+- Gemini API daily quota; cost burn per 1k RV sessions.
+- Push delivery success rate; auto-removal counter (410 responses) to size
+  churn.
+- Supabase auth: signups, confirmations, password resets, deletes.
+- Service worker controlling clients % vs uncontrolled (uncontrolled = old
+  build still in field).
+- Sentry-style frontend errors (window.error, unhandledrejection) — currently
+  surfaced only as a toast; capture them somewhere.
+- "Premium activation latency" — time between Stripe
+  checkout.session.completed and the user's next request seeing tier=premium.
+- "Stuck-on-grading" rate: percent of RV sessions with grading_failed: true.
+- RC pager: target = N notifications/day actually delivered per active
+  subscriber; alert when avg < frequency.
+
+
+================================================================================
+SUGGESTED FUTURE CURSOR TASKS
+================================================================================
+
+Plain-English prompts — do not execute. Each is intended to be safe, narrowly
+scoped, and PR-sized.
+
+ 1. "Replace the hardcoded Stripe TEST checkout URL in app.html with a
+    server-created Checkout Session created in ablty-worker.js that sets
+    client_reference_id and metadata.supabase_user_id from the caller's
+    Supabase access token, and add a /customer-portal worker route that
+    creates a Stripe Customer Portal link for the calling user."
+
+ 2. "Audit and check the Supabase RLS policies for profiles, waitlist,
+    user_settings, dream_entries, rv_sessions, zener_runs, ts_trials, and
+    pp_sessions. Generate idempotent SQL migrations that enforce: row-owner
+    read/write, no client write to tier/terms_*/privacy_*, anon insert-only
+    on waitlist, and a username uniqueness + 30-day rename cooldown trigger."
+
+ 3. "Harden the Stripe webhook in ablty-worker.js: handle
+    customer.subscription.updated and invoice.payment_failed, derive tier
+    from obj.status, invalidate the tier:<userId> KV cache after every tier
+    change, add idempotency by event.id, and rewrite findSupabaseUserIdByEmail
+    to use the supported Admin API parameter."
+
+ 4. "Close the /grade retry-target bypass: when called with target_id instead
+    of assignment_id, require an authenticated user, count the call against
+    the same rvdaily: budget as /rv-assign, and surface a clear error when
+    the cap is hit."
+
+ 5. "Move all per-user daily caps (RV assign, RV grade) from CF-Connecting-IP
+    keys to user.id keys with a sensible IP fallback only for unauthenticated
+    guest requests."
+
+ 6. "Add authentication and per-user storage to /wbtb-schedule, /wbtb-cancel,
+    and /subscribe. Replace the single wbtb-alarms KV object with per-alarm
+    keys, fix the array/object shape bug in /delete-account, and add a
+    wbtb-index for the cron to enumerate without list() exhaustion."
+
+ 7. "Sweep every innerHTML = ... call in app.html and pipe user-supplied data
+    through the existing escapeHtml helper. Add a lightweight ESLint rule or
+    codemod to flag future regressions."
+
+ 8. "Persist Terms/Privacy acceptance through Supabase user_metadata during
+    signup so verification on another device still records terms_accepted_at
+    and privacy_accepted_at in the profile."
+
+ 9. "Add a privacy-respecting, cookieless product analytics SDK and
+    instrument: signup, login (email + Google), paywall_shown,
+    paywall_cta_clicked, checkout_redirect, premium_activated (from
+    webhook), session_completed_<module>, push_permission_granted/denied,
+    push_subscribed, grading_failed, delete_account."
+
+10. "Add a _headers (or worker response headers) with X-Frame-Options,
+    X-Content-Type-Options, Referrer-Policy, Permissions-Policy, and a
+    Content-Security-Policy in report-only mode that allows Supabase,
+    Stripe, Google Identity, and Cloudflare endpoints."
+
+11. "Redesign the #browser-guard overlay into an install-instructions screen
+    that detects iOS Safari vs Android Chrome vs desktop and shows the
+    correct 'Add to Home Screen' steps; allow desktop users to continue in
+    browser with reduced features."
+
+12. "Run an accessibility pass on app.html: convert clickable divs
+    (.module-card, .nav-item, .mode, .rv-cat-tile, .rc-onboard-option) to
+    <button>, remove user-scalable=no, bump input font sizes to 16 px,
+    ensure all interactive text has WCAG-AA contrast, and add visible focus
+    rings."
+
+13. "Add a Stripe Customer Portal button to Settings for premium users (uses
+    the /customer-portal route from task 1)."
+
+14. "Replace confirm(), alert(), and prompt() calls (sign out, clear data,
+    add dream tag) with the existing modal pattern; add focus trapping and
+    ESC dismissal."
+
+15. "Move RV sketch storage from localStorage to IndexedDB, detect
+    quota-exceeded failures, and surface a toast that prompts the user to
+    sign in for cloud sync."
+
+16. "Remove ablty-app (2).html, index-old.html, qr.png, and oversized
+    marketing PNGs from the deployable bundle. Keep them only if explicitly
+    needed."
+
+17. "Add a release tooling script that bumps APP_VERSION, version.json, and
+    CACHE_NAME together (the three-file rule in CLAUDE.md) and updates
+    CHANGELOG.md from a commit-message template."
+
+18. "Verify and update the Supabase confirm-signup email template to use a
+    public CDN logo URL and re-deploy."
+
+19. "Add a Settings → Run diagnostic that pings /ping, validates push
+    permission, prints SW version, current APP_VERSION, and tier — pre-cans
+    a support email body."
+
+20. "Migrate the single-file app.html to a bundled build (vite/esbuild) that
+    still ships a single HTML to production, but enables ESLint, type
+    checking, and Vitest unit tests for the grading/sync/tier logic."
+
+
+================================================================================
+END OF AUDIT REPORT
+================================================================================
