@@ -67,6 +67,37 @@ const RV_TARGET_POOL = [
   { id:'T034', src:'targets/9184-3725.jpg',  label:'Storm Coast',      category:'landscapes', descriptors:['black rock','waves crashing','spray','grey sky','rough','violent'] },
   { id:'T035', src:'targets/6371-4908.jpg',  label:'Sand Dunes',       category:'landscapes', descriptors:['rippled sand','beige','open sky','soft curves','minimal','arid'] },
   { id:'T036', src:'targets/1758-9034.jpg',  label:'Summit Cloud',     category:'landscapes', descriptors:['snow peak','triangular','clouds','grey-blue','cold','high altitude'] },
+  // ANIMALS (additional)
+  { id:'T037', src:'targets/8066-5774.jpg',  label:'Aerial Hunter',    category:'animals',    descriptors:['wings spread','white head','sky','soaring','sharp beak','airborne'] },
+  { id:'T038', src:'targets/5777-3472.jpg',  label:'Tentacled Form',   category:'animals',    descriptors:['red','tentacles','underwater','suction cups','flowing','reef'] },
+  { id:'T039', src:'targets/3022-3102.jpg',  label:'Shelled Wanderer', category:'animals',    descriptors:['domed shell','slow','rocky path','grey-brown','heavy','wrinkled'] },
+  { id:'T040', src:'targets/3233-4249.jpg',  label:'Snow Stalker',     category:'animals',    descriptors:['orange-red','white snow','pointed ears','bushy tail','alert','cold'] },
+  { id:'T041', src:'targets/1501-5174.jpg',  label:'Striped Gaze',     category:'animals',    descriptors:['orange','black stripes','intense eyes','fur','whiskers','feline'] },
+  // OBJECTS (additional)
+  { id:'T042', src:'targets/9523-4616.jpg',  label:'Painted Steed',    category:'objects',    descriptors:['painted horse','vertical pole','ornate detail','glossy','decorative','curved pose'] },
+  { id:'T043', src:'targets/6291-3893.jpg',  label:'Keyed Instrument', category:'objects',    descriptors:['mechanical','round keys','metallic','desk','old','dark tones'] },
+  { id:'T044', src:'targets/4313-2763.jpg',  label:'Tall Timekeeper',  category:'objects',    descriptors:['tall','wood','pendulum','ornate','vertical','round face'] },
+  { id:'T045', src:'targets/5644-7300.jpg',  label:'Floating Sphere',  category:'objects',    descriptors:['rounded','rainbow stripes','suspended','sky','basket below','floating'] },
+  { id:'T046', src:'targets/3617-8772.jpg',  label:'Stellar Lens',     category:'objects',    descriptors:['brass','tubular','tripod','dark room','pointed up','reflective'] },
+  { id:'T047', src:'targets/6482-1947.jpg',  label:'Strategic Grid',   category:'objects',    descriptors:['checkered board','small figures','black and white','grid','arranged','carved'] },
+  { id:'T048', src:'targets/8619-4730.jpg',  label:'Fungal Cluster',   category:'objects',    descriptors:['rounded caps','grouped','moist','earthy','organic','low to ground'] },
+  { id:'T049', src:'targets/3707-3649.jpg',  label:'Bound Stack',      category:'objects',    descriptors:['leather','stacked','rectangular','aged','warm tones','textured'] },
+  { id:'T050', src:'targets/4109-3914.jpg',  label:'Crystal Halo',     category:'objects',    descriptors:['suspended','glittering','crystal','ornate','hanging','radiant'] },
+  { id:'T051', src:'targets/7873-7032.jpg',  label:'Pocket Mechanism', category:'objects',    descriptors:['circular','gold','open hinge','gears visible','small','reflective'] },
+  // STRUCTURES (additional)
+  { id:'T052', src:'targets/4409-5212.jpg',  label:'Sacred Gateway',   category:'structures', descriptors:['vertical posts','red','reflective water','mist','sacred','symmetrical'] },
+  { id:'T053', src:'targets/4851-3491.jpg',  label:'Rotating Sentinels',category:'structures', descriptors:['tall','white','rotating blades','rolling green','vertical','windswept'] },
+  { id:'T054', src:'targets/6572-9797.jpg',  label:'Triangular Mass',  category:'structures', descriptors:['triangular','massive','sand','stone','ancient','warm tones'] },
+  { id:'T055', src:'targets/3675-4370.jpg',  label:'Ringed Arena',     category:'structures', descriptors:['circular','stone','tiered','ruins','arches','ancient'] },
+  { id:'T056', src:'targets/2835-2280.jpg',  label:'Standing Circle',  category:'structures', descriptors:['upright stones','circular arrangement','grey','grass','ancient','monolithic'] },
+  // LANDSCAPES (additional)
+  { id:'T057', src:'targets/5912-4157.jpg',  label:'White Expanse',    category:'landscapes', descriptors:['white','vast','flat','reflective','open sky','minimal'] },
+  { id:'T058', src:'targets/7494-5646.jpg',  label:'Sky Veil',         category:'landscapes', descriptors:['green glow','wavy','night sky','ice peaks','cold','luminous'] },
+  { id:'T059', src:'targets/9848-7890.jpg',  label:'Verdant Cathedral',category:'landscapes', descriptors:['towering trunks','green ferns','filtered light','vertical','vast','quiet'] },
+  { id:'T060', src:'targets/8406-6832.jpg',  label:'Layered Slope',    category:'landscapes', descriptors:['stepped terraces','green','curved lines','mist','vibrant','tropical'] },
+  { id:'T061', src:'targets/7864-6713.jpg',  label:'Purple Field',     category:'landscapes', descriptors:['purple rows','golden sky','soft light','horizontal lines','fragrant','warm'] },
+  { id:'T062', src:'targets/9161-1660.jpg',  label:'Golden Field',     category:'landscapes', descriptors:['golden','swaying','horizontal','warm light','vast','agricultural'] },
+  { id:'T063', src:'targets/7037-5136.jpg',  label:'Blossom Corridor', category:'landscapes', descriptors:['pink','overhead canopy','path','soft','floral','spring'] },
 ];
 
 // Returns CORS headers for a given request origin
