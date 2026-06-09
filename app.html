@@ -11709,11 +11709,21 @@ async function requestRVAssignment(category) {
       if (s?.session?.access_token) headers['Authorization'] = 'Bearer ' + s.session.access_token;
     } catch (e) {}
   }
-  const resp = await fetch(WORKER_URL + '/rv-assign', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ category: sanitizeRVCategory(category) }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
+  let resp;
+  try {
+    resp = await fetch(WORKER_URL + '/rv-assign', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ category: sanitizeRVCategory(category) }),
+      signal: controller.signal,
+    });
+  } catch (fetchErr) {
+    clearTimeout(timeoutId);
+    throw new Error('Request timed out. Please check your connection and try again.');
+  }
+  clearTimeout(timeoutId);
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok || data?.error) {
     const err = new Error(data?.message || data?.error || ('Worker error ' + resp.status));
@@ -13426,7 +13436,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.05.04.1';
+const APP_VERSION = '2026.06.09.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {

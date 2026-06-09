@@ -244,7 +244,10 @@ export default {
       // Free-tier daily limit (2/day) — premium users bypass
       const authHeader = request.headers.get('Authorization') || '';
       const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-      const isPremium = token ? await checkPremiumTier(token, env) : false;
+      const isPremium = token ? await Promise.race([
+        checkPremiumTier(token, env),
+        new Promise(resolve => setTimeout(() => resolve(false), 5000)),
+      ]) : false;
       if (!isPremium) {
         const dailyKey = 'rvdaily:' + ip + ':' + new Date().toISOString().slice(0, 10);
         const dailyCount = parseInt(await env.ABLTY_KV.get(dailyKey) || '0', 10);
