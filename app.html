@@ -11705,7 +11705,10 @@ async function requestRVAssignment(category) {
   const headers = { 'Content-Type': 'application/json' };
   if (sb) {
     try {
-      const { data: s } = await sb.auth.getSession();
+      const { data: s } = await Promise.race([
+        sb.auth.getSession(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
+      ]);
       if (s?.session?.access_token) headers['Authorization'] = 'Bearer ' + s.session.access_token;
     } catch (e) {}
   }
@@ -13436,7 +13439,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.06.09.1';
+const APP_VERSION = '2026.06.09.2';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
