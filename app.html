@@ -1854,6 +1854,11 @@ html, body {
 #begin-session-btn {
   display: flex;
 }
+#begin-session-btn:disabled {
+  opacity: 0.55;
+  cursor: wait;
+  pointer-events: none;
+}
 
 
 /* ═══════════════════════════════════════════
@@ -3966,7 +3971,7 @@ html, body {
         </div>
       </div>
       <div class="rv-step-foot">
-        <button class="btn btn-primary" id="begin-session-btn" onclick="openCanvas()">
+        <button class="btn btn-primary" id="begin-session-btn" onclick="openCanvas()" disabled aria-disabled="true">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
           BEGIN SESSION
         </button>
@@ -6098,6 +6103,10 @@ const STATE = {
   activeTab: 'sketch',
 };
 
+let rvAssignRequestSeq = 0;
+let rvAssignAbortController = null;
+let rvAssignInFlight = null;
+
 const MAX_RV_LOCAL_SESSIONS = 120;
 const RV_SKETCH_KEEP_RECENT = 30;
 const MAX_ZENER_LOCAL_RUNS = 600;
@@ -6234,6 +6243,10 @@ const SCREENS = {
 let currentScreen = 'home';
 
 function showScreen(name, hideNav = false) {
+  if (currentScreen === 'rv' && name !== 'rv' && name !== 'canvas') {
+    resetRVAssignmentState();
+  }
+
   const prev = document.getElementById(SCREENS[currentScreen]);
   if (prev) {
     prev.classList.remove('active');
@@ -6465,6 +6478,7 @@ function startRVSession() {
   }
 
   // Reset to step 1
+  resetRVAssignmentState();
   document.querySelectorAll('.rv-step').forEach(s => s.classList.remove('active'));
   const step1 = document.getElementById('rv-step-1');
   if (step1) step1.classList.add('active');
@@ -11663,6 +11677,9 @@ function closeCalibrationInfoModal(event) {
 // ═══════════════════════════════════════════════════════
 
 async function rvGoStep(n) {
+  if (n !== 2) {
+    resetRVAssignmentState();
+  }
   document.querySelectorAll('.rv-step').forEach(s => s.classList.remove('active'));
 
   // First time doing RV: inject protocol step between 1 and 2
@@ -11676,10 +11693,13 @@ async function rvGoStep(n) {
     // Show step 2 while fetching secure worker-side assignment.
     const step2 = document.getElementById('rv-step-2');
     if (step2) step2.classList.add('active');
+    if (rvAssignInFlight) return;
     try {
       await rvAssignTarget();
     } catch (e) {
+      if (isRVAssignmentCancellation(e)) return;
       console.warn('[ABLTY] Failed to assign RV target:', e?.message || e);
+      resetRVAssignmentState();
       document.querySelectorAll('.rv-step').forEach(s => s.classList.remove('active'));
       const step1 = document.getElementById('rv-step-1');
       if (step1) step1.classList.add('active');
@@ -11701,7 +11721,40 @@ function sanitizeRVCategory(cat) {
   return allowed.has(cat) ? cat : 'all';
 }
 
-async function requestRVAssignment(category) {
+function setRVBeginSessionEnabled(enabled) {
+  const btn = document.getElementById('begin-session-btn');
+  if (!btn) return;
+  btn.disabled = !enabled;
+  btn.setAttribute('aria-disabled', String(!enabled));
+}
+
+function resetRVAssignmentDisplay() {
+  const trnEl = document.getElementById('trn-display');
+  if (trnEl) trnEl.textContent = '---- ----';
+  const canvasTrn = document.getElementById('canvas-trn');
+  if (canvasTrn) canvasTrn.textContent = '--------';
+  setRVBeginSessionEnabled(false);
+}
+
+function resetRVAssignmentState() {
+  rvAssignRequestSeq += 1;
+  if (rvAssignAbortController) {
+    rvAssignAbortController.abort();
+    rvAssignAbortController = null;
+  }
+  rvAssignInFlight = null;
+  STATE.currentAssignmentId = null;
+  STATE.currentTRN = null;
+  resetRVAssignmentDisplay();
+}
+
+function isRVAssignmentCancellation(error) {
+  return error?.name === 'AbortError'
+    || error?.code === 'rv_assignment_cancelled'
+    || error?.code === 'rv_assignment_stale';
+}
+
+async function requestRVAssignment(category, options = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (sb) {
     try {
@@ -11713,6 +11766,16 @@ async function requestRVAssignment(category) {
     } catch (e) {}
   }
   const controller = new AbortController();
+  const externalSignal = options.signal;
+  let externalAbortHandler = null;
+  if (externalSignal) {
+    if (externalSignal.aborted) {
+      controller.abort();
+    } else {
+      externalAbortHandler = () => controller.abort();
+      externalSignal.addEventListener('abort', externalAbortHandler, { once: true });
+    }
+  }
   const timeoutId = setTimeout(() => controller.abort(), 12000);
   let resp;
   try {
@@ -11723,10 +11786,20 @@ async function requestRVAssignment(category) {
       signal: controller.signal,
     });
   } catch (fetchErr) {
-    clearTimeout(timeoutId);
+    if (controller.signal.aborted) {
+      const cancelled = externalSignal?.aborted;
+      const err = new Error(cancelled ? 'Assignment request cancelled.' : 'Request timed out. Please check your connection and try again.');
+      err.code = cancelled ? 'rv_assignment_cancelled' : 'rv_assignment_timeout';
+      if (cancelled) err.name = 'AbortError';
+      throw err;
+    }
     throw new Error('Request timed out. Please check your connection and try again.');
+  } finally {
+    clearTimeout(timeoutId);
+    if (externalSignal && externalAbortHandler) {
+      externalSignal.removeEventListener('abort', externalAbortHandler);
+    }
   }
-  clearTimeout(timeoutId);
   const data = await resp.json().catch(() => ({}));
   if (!resp.ok || data?.error) {
     const err = new Error(data?.message || data?.error || ('Worker error ' + resp.status));
@@ -11740,23 +11813,51 @@ async function requestRVAssignment(category) {
 }
 
 async function rvAssignTarget() {
+  if (rvAssignInFlight) return rvAssignInFlight;
+
+  resetRVAssignmentState();
+  const requestId = rvAssignRequestSeq + 1;
+  rvAssignRequestSeq = requestId;
+  const assignmentController = new AbortController();
+  rvAssignAbortController = assignmentController;
+
   STATE.currentAssignmentId = null;
   STATE.currentTRN = null;
   const trnEl = document.getElementById('trn-display');
   if (trnEl) trnEl.textContent = 'ASSIGNING...';
   const canvasTrn = document.getElementById('canvas-trn');
   if (canvasTrn) canvasTrn.textContent = '--------';
+  setRVBeginSessionEnabled(false);
 
-  const assignment = await requestRVAssignment(STATE.currentCategory);
-  const trn = String(assignment.trn);
+  rvAssignInFlight = (async () => {
+    const assignment = await requestRVAssignment(STATE.currentCategory, {
+      signal: assignmentController.signal,
+    });
+    if (requestId !== rvAssignRequestSeq) {
+      const err = new Error('Stale assignment ignored.');
+      err.code = 'rv_assignment_stale';
+      throw err;
+    }
+    const trn = String(assignment.trn);
 
-  STATE.currentAssignmentId = String(assignment.assignment_id);
-  STATE.currentTRN = trn;
+    STATE.currentAssignmentId = String(assignment.assignment_id);
+    STATE.currentTRN = trn;
 
-  // Display with space: "6047 5129"
-  const formatted = trn.replace('-', '  ');
-  if (trnEl) trnEl.textContent = formatted;
-  if (canvasTrn) canvasTrn.textContent = trn;
+    // Display with space: "6047 5129"
+    const formatted = trn.replace('-', '  ');
+    if (trnEl) trnEl.textContent = formatted;
+    if (canvasTrn) canvasTrn.textContent = trn;
+    setRVBeginSessionEnabled(true);
+  })();
+
+  try {
+    return await rvAssignInFlight;
+  } finally {
+    if (requestId === rvAssignRequestSeq && rvAssignAbortController === assignmentController) {
+      rvAssignAbortController = null;
+      rvAssignInFlight = null;
+    }
+  }
 }
 
 function showProtocolModal() {
@@ -13439,7 +13540,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.06.09.2';
+const APP_VERSION = '2026.06.09.3';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
