@@ -3212,6 +3212,11 @@ html, body {
 .wbtb-btn { flex: 1; padding: 18px; border-radius: 14px; font-family: var(--font-display); font-size: 22px; letter-spacing: 2px; cursor: pointer; border: none; -webkit-tap-highlight-color: transparent; }
 .wbtb-btn-start { background: var(--accent); color: #000; }
 .wbtb-btn-stop  { background: var(--card); border: 1px solid var(--border); color: var(--muted); }
+.wbtb-alarm-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 16px; margin-bottom: 20px; text-align: center; }
+.wbtb-alarm-eyebrow { font-family: var(--font-mono); font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.wbtb-alarm-time-display { font-family: var(--font-display); font-size: 52px; letter-spacing: 2px; color: var(--accent); line-height: 1.1; margin-bottom: 10px; }
+.wbtb-alarm-copy-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; background: rgba(74,240,200,0.08); border: 1px solid rgba(74,240,200,0.25); color: var(--accent); font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px; cursor: pointer; -webkit-tap-highlight-color: transparent; margin-bottom: 12px; transition: background 0.15s; }
+.wbtb-alarm-note { font-family: var(--font-body); font-size: 11px; color: var(--muted); line-height: 1.5; }
 
 /* ── AUTH SCREENS ──────────────────────────────────── */
 .auth-screen {
@@ -6398,7 +6403,7 @@ function navigate(name) {
   if (name === 'dream-new-entry') renderDreamNewEntry();
   if (name === 'dream-entry-detail') renderDreamEntryDetail();
   if (name === 'dream-insights') renderDreamInsights();
-  if (name === 'wbtb')      { /* init wbtb */ }
+  if (name === 'wbtb')      { updateWBTBAlarmDisplay(); }
   if (name === 'photopair') renderPhotoPairBrief();
   if (name === 'home')     updateHomeRCStreak();
 }
@@ -8519,6 +8524,25 @@ function setWBTBDuration(btn, hours) {
   const ring = document.getElementById('wbtb-ring-fill');
   if (ring) ring.style.strokeDashoffset = '0';
   updateWBTBCycles(0);
+  updateWBTBAlarmDisplay();
+}
+
+function updateWBTBAlarmDisplay() {
+  const el = document.getElementById('wbtb-alarm-time-display');
+  if (!el) return;
+  const alarmMs = Date.now() + Math.round(wbtbDuration * 3600 * 1000);
+  el.textContent = new Date(alarmMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function copyWBTBAlarmTime() {
+  const el = document.getElementById('wbtb-alarm-time-display');
+  const timeStr = el ? el.textContent : '';
+  if (!timeStr || timeStr === '—') return;
+  navigator.clipboard.writeText(timeStr).then(() => {
+    showToast('Alarm time copied.', 'success', 2000);
+  }).catch(() => {
+    showToast(timeStr, 'info', 3000);
+  });
 }
 
 function updateWBTBCycles(elapsedHours) {
@@ -8596,6 +8620,9 @@ async function startWBTB() {
   if (startBtn) startBtn.style.display = 'none';
   if (stopBtn)  stopBtn.style.display  = 'block';
 
+  const alarmCard = document.getElementById('wbtb-alarm-card');
+  if (alarmCard) alarmCard.style.display = 'none';
+
   const label = document.getElementById('wbtb-time-label');
   if (label) label.textContent = 'remaining';
 
@@ -8634,6 +8661,9 @@ async function stopWBTB() {
   const stopBtn  = document.getElementById('wbtb-stop-btn');
   if (startBtn) startBtn.style.display = 'block';
   if (stopBtn)  stopBtn.style.display  = 'none';
+
+  const alarmCard = document.getElementById('wbtb-alarm-card');
+  if (alarmCard) alarmCard.style.display = '';
 
   setWBTBDuration(null, wbtbDuration);
   const label = document.getElementById('wbtb-time-label');
@@ -8682,6 +8712,8 @@ function restoreWBTBIfActive() {
     const stopBtn  = document.getElementById('wbtb-stop-btn');
     if (startBtn) startBtn.style.display = 'none';
     if (stopBtn)  stopBtn.style.display  = 'block';
+    const alarmCard = document.getElementById('wbtb-alarm-card');
+    if (alarmCard) alarmCard.style.display = 'none';
   } catch(e) {}
 }
 
@@ -13540,7 +13572,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.06.09.3';
+const APP_VERSION = '2026.06.12.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -15255,8 +15287,19 @@ window.addEventListener('unhandledrejection', (e) => {
         </div>
       </div>
 
-      <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:14px;">
-        Set your sleep duration. The timer wakes you after 5-6 sleep cycles, then tracks your 20-30 min waking period before returning to sleep for REM-rich lucid dreaming.
+      <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:16px;">
+        WBTB is a session planner, not an alarm. Select your sleep duration, then set your phone's native alarm for the time shown below. ABLTY guides you through the awake window — only your phone's alarm can reliably wake you.
+      </div>
+
+      <!-- Alarm time card -->
+      <div class="wbtb-alarm-card" id="wbtb-alarm-card">
+        <div class="wbtb-alarm-eyebrow">Set your phone's alarm for</div>
+        <div class="wbtb-alarm-time-display" id="wbtb-alarm-time-display">—</div>
+        <button class="wbtb-alarm-copy-btn" onclick="copyWBTBAlarmTime()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy time
+        </button>
+        <div class="wbtb-alarm-note">ABLTY's notification is a backup reminder. Only your phone's alarm can reliably wake you.</div>
       </div>
 
       <!-- Sleep duration selector -->
