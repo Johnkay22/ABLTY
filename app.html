@@ -8718,7 +8718,30 @@ function tickWBTB() {
 
   updateWBTBCycles(elapsed / 3600);
 
-  if (remaining <= 0) stopWBTB();
+  if (remaining <= 0) wbtbAlarmFired();
+}
+
+function wbtbAlarmFired() {
+  // Client-side timer expired — open wake screen directly.
+  // Do not call stopWBTB() here: that cancels the server alarm and resets UI without
+  // showing the wake screen. Instead, reset just the timer state and open the screen.
+  wbtbRunning = false;
+  if (wbtbTimer) { clearInterval(wbtbTimer); wbtbTimer = null; }
+  localStorage.removeItem('ablty_wbtb');
+
+  const startBtn = document.getElementById('wbtb-start-btn');
+  const stopBtn  = document.getElementById('wbtb-stop-btn');
+  if (startBtn) startBtn.style.display = 'block';
+  if (stopBtn)  stopBtn.style.display  = 'none';
+
+  const alarmCard = document.getElementById('wbtb-alarm-card');
+  if (alarmCard) alarmCard.style.display = '';
+
+  setWBTBDuration(null, wbtbDuration);
+  const label = document.getElementById('wbtb-time-label');
+  if (label) label.textContent = 'hours';
+
+  openWBTBWakeScreen();
 }
 
 async function stopWBTB() {
