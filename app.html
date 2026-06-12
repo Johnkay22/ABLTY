@@ -8742,10 +8742,24 @@ function wbtbAlarmFired() {
   wbtbRunning = false;
   if (wbtbTimer) { clearInterval(wbtbTimer); wbtbTimer = null; }
   localStorage.removeItem('ablty_wbtb');
-  // Cancel the server-side push since the client handled expiry first
   (async () => {
     try {
       const reg = window._swRegistration || await navigator.serviceWorker.ready;
+      // Local notification — same tag as the server push so they dedupe
+      // rather than stack if both arrive
+      try {
+        await reg.showNotification('ABLTY', {
+          body: 'WBTB wake — time to begin re-entry.',
+          icon: '/icon-192.png',
+          badge: '/badge-72.png',
+          tag: 'ablty-wbtb',
+          renotify: true,
+          requireInteraction: true,
+          vibrate: [500, 200, 500, 200, 500, 200, 500],
+          data: { url: '/app.html?wbtb=1' },
+        });
+      } catch(e) {}
+      // Cancel the server-side push since the client handled expiry first
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
         await fetch(WORKER_URL + '/wbtb-cancel', {
@@ -14267,7 +14281,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.06.12.6';
+const APP_VERSION = '2026.06.12.7';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
