@@ -8549,6 +8549,8 @@ function showAnalyticsSkeleton() {
 
 let _wbtbResumeToastShown = false;
 let wbtbDuration  = 4.5;  // hours
+let _wbtbDevTapCount = 0;
+let _wbtbDevTapTimer = null;
 let wbtbTimer     = null;
 let wbtbStartTime = null;
 let wbtbTotalSecs = 0;
@@ -8563,13 +8565,31 @@ function setWBTBDuration(btn, hours) {
   const h = Math.floor(hours);
   const m = Math.round((hours - h) * 60);
   const display = document.getElementById('wbtb-time-display');
-  if (display) display.textContent = h + ':' + String(m).padStart(2,'0');
+  if (display) {
+    display.textContent = h + ':' + String(m).padStart(2,'0');
+    // Restore CSS defaults (overridden during running state)
+    display.style.fontSize     = '';
+    display.style.letterSpacing = '';
+  }
 
   // Reset ring
   const ring = document.getElementById('wbtb-ring-fill');
   if (ring) ring.style.strokeDashoffset = '0';
   updateWBTBCycles(0);
   updateWBTBAlarmDisplay();
+}
+
+function wbtbDevTap() {
+  if (!wbtbRunning) return;
+  _wbtbDevTapCount++;
+  if (_wbtbDevTapTimer) clearTimeout(_wbtbDevTapTimer);
+  if (_wbtbDevTapCount >= 5) {
+    _wbtbDevTapCount = 0;
+    wbtbStartTime = Date.now() - (wbtbTotalSecs - 10) * 1000;
+    showToast('Dev: skipped to 10s remaining.', 'info', 2000);
+  } else {
+    _wbtbDevTapTimer = setTimeout(() => { _wbtbDevTapCount = 0; }, 2000);
+  }
 }
 
 function updateWBTBAlarmDisplay() {
@@ -8683,7 +8703,12 @@ function tickWBTB() {
   const s = Math.floor(remaining % 60);
 
   const display = document.getElementById('wbtb-time-display');
-  if (display) display.textContent = h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  if (display) {
+    display.textContent = h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+    // h:mm:ss (7 chars) is too wide at 64px — shrink while running
+    display.style.fontSize    = '36px';
+    display.style.letterSpacing = '0px';
+  }
 
   const ring = document.getElementById('wbtb-ring-fill');
   if (ring) {
@@ -13971,7 +13996,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.06.12.2';
+const APP_VERSION = '2026.06.12.3';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -15720,7 +15745,7 @@ window.addEventListener('unhandledrejection', (e) => {
             stroke-dashoffset="0"/>
         </svg>
         <div class="wbtb-ring-text">
-          <div class="wbtb-time-display" id="wbtb-time-display">4:30</div>
+          <div class="wbtb-time-display" id="wbtb-time-display" onclick="wbtbDevTap()" style="user-select:none;-webkit-user-select:none;">4:30</div>
           <div class="wbtb-time-label" id="wbtb-time-label">hours</div>
         </div>
       </div>
