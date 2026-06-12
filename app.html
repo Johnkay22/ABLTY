@@ -8958,14 +8958,48 @@ function rpBack() {
 }
 
 function rpExit() {
+  const modal = document.getElementById('rp-exit-modal');
+  if (!modal) return;
+  const stepNum = document.getElementById('rp-exit-step-num');
+  if (stepNum && _rpState) stepNum.textContent = _rpState.currentStep;
+  modal.style.display = 'flex';
+}
+
+function rpExitConfirm() {
   _rpStopStepTimer();
   _rpStopBreathing();
   _rpStopWindDown();
   _rpReleaseWakeLock();
+  const modal = document.getElementById('rp-exit-modal');
+  if (modal) modal.style.display = 'none';
   navigate('wbtb');
+  // ablty_wbtb_protocol preserved — resumeOrInitRP() will restore this step on re-entry
+}
+
+function rpExitCancel() {
+  const modal = document.getElementById('rp-exit-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function rpExitModalBgClick(e) {
+  if (e.target === e.currentTarget) rpExitCancel();
 }
 
 // ── Step 7: Morning Sync ─────────────────────
+
+// Called on boot — mirrors restoreWBTBIfActive pattern.
+// If a protocol session was interrupted mid-flow, navigate back to it after splash.
+function checkRPActiveState() {
+  try {
+    const saved = _loadRPState();
+    if (!saved || !saved.active) return;
+    setTimeout(() => {
+      _rpState = saved;
+      navigate('reentry-protocol');
+      showToast('Resuming Re-Entry Protocol — Step ' + saved.currentStep + ' of ' + RP_TOTAL_STEPS + '.', 'info', 3500);
+    }, 800);
+  } catch(e) {}
+}
 
 function checkPendingMorningSync() {
   try {
@@ -9168,6 +9202,7 @@ document.addEventListener('DOMContentLoaded', () => {
   checkRCHash();
   checkWBTBHash();
   restoreWBTBIfActive();
+  checkRPActiveState();
   checkPendingMorningSync();
   setTimeout(updateHomeRCStreak, 100);
   setTimeout(() => buildDreamParticles('dream-particles'), 150);
@@ -15774,6 +15809,17 @@ window.addEventListener('unhandledrejection', (e) => {
 
   </div><!-- /screen-reentry-protocol -->
 
+
+  <!-- RE-ENTRY PROTOCOL EXIT CONFIRM -->
+  <div class="modal-overlay" id="rp-exit-modal" style="display:none;" onclick="rpExitModalBgClick(event)">
+    <div class="modal-box" style="max-width:320px;">
+      <div class="modal-tag">Re-Entry Protocol</div>
+      <div class="modal-title">Leave?</div>
+      <div class="modal-body">Your progress is saved. You can resume from Step <span id="rp-exit-step-num">1</span> when you come back.</div>
+      <button class="modal-close-btn" onclick="rpExitConfirm()">Leave for now</button>
+      <button class="modal-close-btn" style="margin-top:8px;background:transparent;border-color:transparent;color:var(--muted);" onclick="rpExitCancel()">Stay in protocol</button>
+    </div>
+  </div>
 
   <!-- MORNING SYNC MODAL (Step 7) -->
   <div class="modal-overlay" id="rp-morning-modal" style="display:none;" onclick="rpMorningModalBgClick(event)">
