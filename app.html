@@ -3261,6 +3261,23 @@ html, body {
 .rp-onset-btn.selected { background: rgba(91,158,244,0.1); border-color: var(--accent2); color: var(--accent2); }
 .rp-morning-ta { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px; font-family: var(--font-body); font-size: 13px; color: var(--text); resize: none; margin-top: 6px; margin-bottom: 20px; min-height: 68px; outline: none; box-sizing: border-box; }
 .rp-morning-ta:focus { border-color: var(--border2); }
+.rp-s2-view { display: none; flex-direction: column; flex: 1; }
+.rp-s2-view.active { display: flex; }
+.rp-s2-path-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+.rp-s2-path-btn { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; background: var(--card); border: 1px solid var(--border); border-radius: 14px; color: var(--text); font-family: var(--font-body); font-size: 15px; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: border-color 0.15s; text-align: left; width: 100%; }
+.rp-s2-path-btn:active { border-color: var(--accent); }
+.rp-s2-skip-btn { background: none; border: none; color: var(--muted); font-family: var(--font-body); font-size: 13px; cursor: pointer; padding: 12px 0 2px; text-decoration: underline; -webkit-tap-highlight-color: transparent; margin-top: auto; text-align: center; }
+.rp-s2-prompt-row { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 6px; margin-bottom: 10px; padding-bottom: 2px; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+.rp-s2-prompt-row::-webkit-scrollbar { display: none; }
+.rp-s2-prompt-chip { flex-shrink: 0; padding: 6px 12px; border-radius: 20px; background: var(--surface); border: 1px solid var(--border2); color: var(--muted); font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.5px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.rp-s2-ta { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; font-family: var(--font-body); font-size: 14px; color: var(--text); resize: none; outline: none; box-sizing: border-box; line-height: 1.6; margin-bottom: 8px; }
+.rp-s2-ta:focus { border-color: var(--border2); }
+.rp-s2-err { font-family: var(--font-body); font-size: 12px; color: #f97474; margin-bottom: 8px; }
+.rp-s2-seed-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.rp-s2-seed-btn { padding: 14px 10px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-family: var(--font-body); font-size: 13px; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: all 0.15s; line-height: 1.35; }
+.rp-s2-seed-btn.selected { background: rgba(74,240,200,0.08); border-color: var(--accent); color: var(--text); }
+.rp-s2-custom-input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-family: var(--font-body); font-size: 14px; color: var(--text); outline: none; box-sizing: border-box; margin-bottom: 14px; }
+.rp-s2-custom-input:focus { border-color: var(--border2); }
 .auth-screen {
   position: fixed; inset: 0; z-index: 9990;
   background: var(--bg);
@@ -8914,6 +8931,7 @@ function rpNavigateToStep(n) {
   }
 
   if (n === 1) _rpStartStep1();
+  if (n === 2) rpStep2Init();
   if (n === 6) _rpStartStep6();
 }
 
@@ -9065,6 +9083,172 @@ function rpExitEndSession() {
   if (modal) modal.style.display = 'none';
   navigate('wbtb');
   // Dream Lab entries written during Dream Capture are not touched — only protocol state is cleared
+}
+
+// ── Step 2: Dream Capture ────────────────────
+
+function rpStep2Init() {
+  rpStep2ShowView('rp-s2-select');
+  ['rp-s2-ta-a', 'rp-s2-ta-b', 'rp-s2-ta-c'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  ['rp-s2-err-a', 'rp-s2-err-b'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  document.querySelectorAll('.rp-s2-seed-btn').forEach(b => b.classList.remove('selected'));
+  const customInput = document.getElementById('rp-s2-seed-custom');
+  if (customInput) { customInput.style.display = 'none'; customInput.value = ''; }
+  const saveSeedBtn = document.getElementById('rp-s2-seed-save-btn');
+  if (saveSeedBtn) saveSeedBtn.disabled = true;
+  if (_rpState && _rpState.stepData) delete _rpState.stepData.seed;
+  _saveRPState(_rpState);
+  _rpStep2CheckSkip();
+}
+
+function rpStep2ShowView(id) {
+  document.querySelectorAll('#rp-step-2 .rp-s2-view').forEach(el => el.classList.remove('active'));
+  const el = document.getElementById(id);
+  if (el) el.classList.add('active');
+}
+
+function rpStep2SelectPath(path) {
+  if (path === 'A') rpStep2ShowView('rp-s2-path-a');
+  else if (path === 'B') rpStep2ShowView('rp-s2-path-b');
+  else rpStep2ShowView('rp-s2-path-c1');
+}
+
+function rpS2InsertPrompt(panel, prefix) {
+  const ta = document.getElementById('rp-s2-ta-' + panel);
+  if (!ta) return;
+  const v = ta.value;
+  ta.value = (v.length > 0 && !v.endsWith('\n') ? v + '\n' : v) + prefix;
+  ta.focus();
+  ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+
+function rpStep2SelectSeed(seed, btn) {
+  document.querySelectorAll('.rp-s2-seed-btn').forEach(b => b.classList.remove('selected'));
+  if (btn) btn.classList.add('selected');
+  const customInput = document.getElementById('rp-s2-seed-custom');
+  if (customInput) customInput.style.display = 'none';
+  if (_rpState) {
+    _rpState.stepData = _rpState.stepData || {};
+    _rpState.stepData.seed = seed;
+    _saveRPState(_rpState);
+  }
+  const saveSeedBtn = document.getElementById('rp-s2-seed-save-btn');
+  if (saveSeedBtn) saveSeedBtn.disabled = false;
+}
+
+function rpStep2ToggleCustomSeed(btn) {
+  document.querySelectorAll('.rp-s2-seed-btn').forEach(b => b.classList.remove('selected'));
+  if (btn) btn.classList.add('selected');
+  const customInput = document.getElementById('rp-s2-seed-custom');
+  if (customInput) { customInput.style.display = 'block'; customInput.focus(); }
+  if (_rpState) {
+    _rpState.stepData = _rpState.stepData || {};
+    _rpState.stepData.seed = null;
+    _saveRPState(_rpState);
+  }
+  const saveSeedBtn = document.getElementById('rp-s2-seed-save-btn');
+  if (saveSeedBtn) saveSeedBtn.disabled = true;
+}
+
+function rpStep2SetCustomSeed(val) {
+  const trimmed = (val || '').trim();
+  if (_rpState) {
+    _rpState.stepData = _rpState.stepData || {};
+    _rpState.stepData.seed = trimmed || null;
+    _saveRPState(_rpState);
+  }
+  const saveSeedBtn = document.getElementById('rp-s2-seed-save-btn');
+  if (saveSeedBtn) saveSeedBtn.disabled = !trimmed;
+}
+
+async function _rpStep2CheckSkip() {
+  const skipBtn = document.getElementById('rp-s2-skip-btn');
+  if (!skipBtn || !sb) return;
+  try {
+    const userId = await getLoggedInUserId();
+    if (!userId) return;
+    const { count } = await sb
+      .from('wbtb_sessions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .in('completion_state', ['wound_down', 'completed']);
+    if ((count || 0) >= 3) skipBtn.style.display = 'block';
+  } catch(e) {}
+}
+
+function rpStep2Skip() {
+  rpCompleteStep(2);
+}
+
+async function rpStep2Submit(path) {
+  const saveBtn = path === 'C'
+    ? document.getElementById('rp-s2-seed-save-btn')
+    : document.getElementById('rp-s2-save-' + path.toLowerCase());
+
+  // Validate A and B
+  if (path === 'A' || path === 'B') {
+    const ta = document.getElementById('rp-s2-ta-' + path.toLowerCase());
+    const bodyText = (ta ? ta.value : '').trim();
+    const errEl = document.getElementById('rp-s2-err-' + path.toLowerCase());
+    if (!bodyText) {
+      if (errEl) errEl.style.display = 'block';
+      return;
+    }
+    if (errEl) errEl.style.display = 'none';
+  }
+
+  if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = 'Saving...'; }
+
+  try {
+    let bodyText = '';
+    let entryType = '';
+
+    if (path === 'A') {
+      bodyText = (document.getElementById('rp-s2-ta-a')?.value || '').trim();
+      entryType = 'full';
+    } else if (path === 'B') {
+      bodyText = (document.getElementById('rp-s2-ta-b')?.value || '').trim();
+      entryType = 'fragment';
+    } else {
+      const residue = (document.getElementById('rp-s2-ta-c')?.value || '').trim();
+      const seed = (_rpState?.stepData?.seed || '').trim();
+      bodyText = [residue ? 'Residue: ' + residue : '', seed ? 'Seed: ' + seed : ''].filter(Boolean).join('\n') || '[Mind blank — seed set]';
+      entryType = 'mind_blank_with_seed';
+    }
+
+    // Persist path to local state and session row
+    if (_rpState) { _rpState.path = path; _saveRPState(_rpState); }
+    _rpUpdateSessionRow({ path_taken: path });
+
+    // Save dream entry (authenticated users only)
+    if (sb) {
+      try {
+        const userId = await getLoggedInUserId();
+        if (userId) {
+          await sb.from('dream_entries').insert({
+            user_id:         userId,
+            body:            bodyText,
+            entry_type:      entryType,
+            wbtb_session_id: _rpState?.wbtbSessionId || null,
+            clarity:         3,
+            lucid:           'no',
+            emotion:         'Neutral',
+            ai_tags:         [],
+          });
+        }
+      } catch(e) { console.warn('[RP] dream entry save failed:', e); }
+    }
+
+    rpCompleteStep(2);
+  } finally {
+    if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save & Continue'; }
+  }
 }
 
 // ── Step 7: Morning Sync ─────────────────────
@@ -14062,7 +14246,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.06.12.4';
+const APP_VERSION = '2026.06.12.5';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -15884,17 +16068,96 @@ window.addEventListener('unhandledrejection', (e) => {
       </div>
     </div>
 
-    <!-- Step 2: Dream Capture (placeholder — D-3) -->
+    <!-- Step 2: Dream Capture -->
     <div id="rp-step-2" class="rp-step">
       <div class="rp-step-tag">Dream Capture</div>
-      <div class="rp-placeholder-card">
-        <div class="rp-placeholder-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M12 8v4l3 3"/></svg>
+
+      <!-- Select: initial path choice -->
+      <div id="rp-s2-select" class="rp-s2-view active">
+        <div class="rp-step-heading">Take a breath.</div>
+        <div class="rp-step-body">Before anything else — do you remember dreaming?</div>
+        <div class="rp-s2-path-list">
+          <button class="rp-s2-path-btn" onclick="rpStep2SelectPath('A')">
+            <span>Yes — I have a full memory</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+          <button class="rp-s2-path-btn" onclick="rpStep2SelectPath('B')">
+            <span>A bit — images or feelings</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+          <button class="rp-s2-path-btn" onclick="rpStep2SelectPath('C')">
+            <span>Nothing at all</span>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
         </div>
-        <div style="font-family:var(--font-display);font-size:22px;letter-spacing:1px;color:var(--text);">Dream Capture</div>
-        <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.6;max-width:240px;">Guided dream journaling and recall branching launches in the next build.</div>
+        <button id="rp-s2-skip-btn" class="rp-s2-skip-btn" onclick="rpStep2Skip()" style="display:none">Skip dream capture</button>
       </div>
-      <button class="rp-btn-primary" onclick="rpCompleteStep(2)">Continue</button>
+
+      <!-- Path A: Full Recall -->
+      <div id="rp-s2-path-a" class="rp-s2-view">
+        <div class="rp-step-heading">Start anywhere.</div>
+        <div class="rp-step-body">Don't force it into a story yet. Just pull threads.</div>
+        <div class="rp-s2-prompt-row">
+          <button class="rp-s2-prompt-chip" onclick="rpS2InsertPrompt('a','Last image: ')">Last image</button>
+          <button class="rp-s2-prompt-chip" onclick="rpS2InsertPrompt('a','Who was there: ')">Who was there</button>
+          <button class="rp-s2-prompt-chip" onclick="rpS2InsertPrompt('a','What I was doing: ')">What I was doing</button>
+          <button class="rp-s2-prompt-chip" onclick="rpS2InsertPrompt('a','Emotional tone: ')">Emotional tone</button>
+        </div>
+        <textarea id="rp-s2-ta-a" class="rp-s2-ta" rows="7" placeholder="Write it down..."></textarea>
+        <div id="rp-s2-err-a" class="rp-s2-err" style="display:none">Add something before saving.</div>
+        <button id="rp-s2-save-a" class="rp-btn-primary" onclick="rpStep2Submit('A')">Save &amp; Continue</button>
+        <button class="rp-btn-ghost" onclick="rpStep2ShowView('rp-s2-select')">Back</button>
+      </div>
+
+      <!-- Path B: Fragment -->
+      <div id="rp-s2-path-b" class="rp-s2-view">
+        <div class="rp-step-heading">One image.<br>One feeling.</div>
+        <div class="rp-step-body">That's enough. Let it land.</div>
+        <textarea id="rp-s2-ta-b" class="rp-s2-ta" rows="4" placeholder="Capture whatever you have. One word, one image, one feeling."></textarea>
+        <div id="rp-s2-err-b" class="rp-s2-err" style="display:none">Add something before saving.</div>
+        <button id="rp-s2-save-b" class="rp-btn-primary" onclick="rpStep2Submit('B')">Save &amp; Continue</button>
+        <button class="rp-btn-ghost" onclick="rpStep2ShowView('rp-s2-select')">Back</button>
+      </div>
+
+      <!-- Path C step 1: Reframe -->
+      <div id="rp-s2-path-c1" class="rp-s2-view">
+        <div class="rp-step-heading">A blank mind<br>is data.</div>
+        <div class="rp-step-body">It tells you about sleep depth and where in the cycle you woke. You didn't fail at dreaming — your brain was just somewhere very deep.</div>
+        <div style="flex:1"></div>
+        <button class="rp-btn-primary" onclick="rpStep2ShowView('rp-s2-path-c2')">Continue</button>
+        <button class="rp-btn-ghost" onclick="rpStep2ShowView('rp-s2-select')">Back</button>
+      </div>
+
+      <!-- Path C step 2: Mental Scan -->
+      <div id="rp-s2-path-c2" class="rp-s2-view">
+        <div class="rp-step-heading">Scan inward.</div>
+        <div class="rp-step-body">Take a moment. Any body sensations? A mood you can't explain? The faintest residue of anything?</div>
+        <div style="flex:1"></div>
+        <button class="rp-btn-primary" onclick="rpStep2ShowView('rp-s2-path-c3')">I'm ready</button>
+      </div>
+
+      <!-- Path C step 3: Residue Capture -->
+      <div id="rp-s2-path-c3" class="rp-s2-view">
+        <div class="rp-step-heading">Anything at all?</div>
+        <div class="rp-step-body">Even "nothing" is worth noting.</div>
+        <textarea id="rp-s2-ta-c" class="rp-s2-ta" rows="3" placeholder="Any sensation, mood, or trace of something..."></textarea>
+        <button class="rp-btn-primary" onclick="rpStep2ShowView('rp-s2-path-c4')">Continue</button>
+      </div>
+
+      <!-- Path C step 4: Seed Picker -->
+      <div id="rp-s2-path-c4" class="rp-s2-view">
+        <div class="rp-step-heading">Set your seed.</div>
+        <div class="rp-step-body">Choose an intention to carry back into sleep. You'll refine it in Step 5.</div>
+        <div class="rp-s2-seed-grid">
+          <button class="rp-s2-seed-btn" onclick="rpStep2SelectSeed('Flying freely', this)">Flying freely</button>
+          <button class="rp-s2-seed-btn" onclick="rpStep2SelectSeed('A familiar place', this)">A familiar place</button>
+          <button class="rp-s2-seed-btn" onclick="rpStep2SelectSeed('Someone I know', this)">Someone I know</button>
+          <button class="rp-s2-seed-btn" onclick="rpStep2SelectSeed('Exploring the unknown', this)">Exploring the unknown</button>
+          <button class="rp-s2-seed-btn" onclick="rpStep2ToggleCustomSeed(this)" style="grid-column:span 2">Something of my own…</button>
+        </div>
+        <input id="rp-s2-seed-custom" class="rp-s2-custom-input" type="text" placeholder="Describe your scene or intention..." style="display:none" oninput="rpStep2SetCustomSeed(this.value)">
+        <button id="rp-s2-seed-save-btn" class="rp-btn-primary" onclick="rpStep2Submit('C')" disabled>Save &amp; Continue</button>
+      </div>
     </div>
 
     <!-- Step 3: Reality Check Drill (placeholder — D-4) -->
