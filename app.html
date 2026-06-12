@@ -3218,7 +3218,49 @@ html, body {
 .wbtb-alarm-copy-btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px; background: rgba(74,240,200,0.08); border: 1px solid rgba(74,240,200,0.25); color: var(--accent); font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px; cursor: pointer; -webkit-tap-highlight-color: transparent; margin-bottom: 12px; transition: background 0.15s; }
 .wbtb-alarm-note { font-family: var(--font-body); font-size: 11px; color: var(--muted); line-height: 1.5; }
 
-/* ── AUTH SCREENS ──────────────────────────────────── */
+/* ── RE-ENTRY PROTOCOL ──────────────────────────────── */
+#screen-reentry-protocol { transition: background 0.6s ease; }
+#screen-reentry-protocol.rp-dim { background: #07080b; }
+#screen-reentry-protocol.rp-dim .rp-header,
+#screen-reentry-protocol.rp-dim .rp-progress-wrap { opacity: 0.5; transition: opacity 0.6s ease; }
+.rp-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 10px; flex-shrink: 0; }
+.rp-icon-btn { width: 36px; height: 36px; background: none; border: none; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; border-radius: 10px; -webkit-tap-highlight-color: transparent; flex-shrink: 0; }
+.rp-icon-btn[disabled] { opacity: 0.2; pointer-events: none; }
+.rp-step-label { font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+.rp-progress-wrap { padding: 0 18px 14px; flex-shrink: 0; }
+.rp-progress-track { height: 2px; background: var(--border2); border-radius: 2px; }
+.rp-progress-fill { height: 2px; background: var(--accent); border-radius: 2px; transition: width 0.4s ease; width: 0%; }
+.rp-step { display: none; flex-direction: column; flex: 1; overflow-y: auto; padding: 8px 18px 32px; }
+.rp-step.active { display: flex; }
+.rp-step-tag { font-family: var(--font-mono); font-size: 9px; letter-spacing: 3px; text-transform: uppercase; color: var(--accent); margin-bottom: 14px; }
+.rp-step-heading { font-family: var(--font-display); font-size: 34px; letter-spacing: 1px; color: var(--text); line-height: 1.05; margin-bottom: 10px; }
+.rp-step-body { font-family: var(--font-body); font-size: 14px; color: var(--muted); line-height: 1.65; margin-bottom: 20px; }
+.rp-breathing-wrap { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; padding: 20px 0; }
+.rp-breathing-ring { width: 110px; height: 110px; border-radius: 50%; border: 1.5px solid var(--accent); transform: scale(1); opacity: 0.5; transition: opacity 0.4s ease; }
+.rp-breathing-ring.rp-inhale { animation: rpIn 4s ease-in-out forwards; opacity: 1; }
+.rp-breathing-ring.rp-hold   { transform: scale(1.38); opacity: 1; }
+.rp-breathing-ring.rp-exhale { animation: rpOut 4s ease-in-out forwards; opacity: 0.5; }
+@keyframes rpIn  { from { transform: scale(1);    } to { transform: scale(1.38); } }
+@keyframes rpOut { from { transform: scale(1.38); } to { transform: scale(1);    } }
+.rp-breathing-phase { font-family: var(--font-mono); font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--accent); margin-top: 18px; min-height: 16px; text-align: center; }
+.rp-countdown { font-family: var(--font-display); font-size: 54px; letter-spacing: 2px; color: var(--text); line-height: 1; margin-top: 16px; text-align: center; }
+.rp-countdown-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); text-align: center; margin-top: 4px; }
+.rp-btn-primary { width: 100%; padding: 16px; border-radius: 14px; background: var(--accent); color: #000; font-family: var(--font-display); font-size: 20px; letter-spacing: 2px; border: none; cursor: pointer; -webkit-tap-highlight-color: transparent; margin-top: auto; flex-shrink: 0; }
+.rp-btn-ghost   { width: 100%; padding: 14px; border-radius: 14px; background: var(--card); border: 1px solid var(--border); color: var(--muted); font-family: var(--font-display); font-size: 18px; letter-spacing: 2px; cursor: pointer; -webkit-tap-highlight-color: transparent; margin-top: 10px; flex-shrink: 0; }
+.rp-placeholder-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 28px 20px; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 10px; margin-bottom: 20px; }
+.rp-placeholder-icon { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--border2); display: flex; align-items: center; justify-content: center; color: var(--muted); margin-bottom: 4px; }
+.rp-wind-prompt { font-family: var(--font-body); font-size: 18px; color: var(--text); line-height: 1.7; text-align: center; flex: 1; display: flex; align-items: center; padding: 0 8px; }
+.rp-wind-note { font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); text-align: center; margin-bottom: 8px; }
+/* Morning sync modal */
+.rp-morning-box { background: var(--card); border: 1px solid var(--border2); border-radius: 18px; padding: 28px 24px; width: 100%; max-width: 380px; max-height: 88vh; overflow-y: auto; }
+.rp-outcome-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 16px 0 20px; }
+.rp-outcome-btn { padding: 12px 8px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: all 0.15s; }
+.rp-outcome-btn.selected { background: rgba(74,240,200,0.1); border-color: var(--accent); color: var(--accent); }
+.rp-onset-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 20px; }
+.rp-onset-btn { padding: 8px 12px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: all 0.15s; }
+.rp-onset-btn.selected { background: rgba(91,158,244,0.1); border-color: var(--accent2); color: var(--accent2); }
+.rp-morning-ta { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px; font-family: var(--font-body); font-size: 13px; color: var(--text); resize: none; margin-top: 6px; margin-bottom: 20px; min-height: 68px; outline: none; box-sizing: border-box; }
+.rp-morning-ta:focus { border-color: var(--border2); }
 .auth-screen {
   position: fixed; inset: 0; z-index: 9990;
   background: var(--bg);
@@ -6240,6 +6282,7 @@ const SCREENS = {
   'dream-entry-detail':   'screen-dream-entry-detail',
   'dream-insights':       'screen-dream-insights',
   'wbtb':                 'screen-wbtb',
+  'reentry-protocol':     'screen-reentry-protocol',
   'terms':                'screen-terms',
   'privacy':               'screen-privacy',
   'app-preferences':       'screen-app-preferences',
@@ -6334,6 +6377,7 @@ const BACK_MAP = {
   detail:               'analytics',
   profile:              'home',
   wbtb:                 'dream-lab',
+  'reentry-protocol':   'wbtb',
   terms:                'profile',
   privacy:              'profile',
   'app-preferences':    'profile',
@@ -6403,7 +6447,8 @@ function navigate(name) {
   if (name === 'dream-new-entry') renderDreamNewEntry();
   if (name === 'dream-entry-detail') renderDreamEntryDetail();
   if (name === 'dream-insights') renderDreamInsights();
-  if (name === 'wbtb')      { updateWBTBAlarmDisplay(); }
+  if (name === 'wbtb')             { updateWBTBAlarmDisplay(); }
+  if (name === 'reentry-protocol') { resumeOrInitRP(); }
   if (name === 'photopair') renderPhotoPairBrief();
   if (name === 'home')     updateHomeRCStreak();
 }
@@ -8717,6 +8762,358 @@ function restoreWBTBIfActive() {
   } catch(e) {}
 }
 
+// ─── RE-ENTRY PROTOCOL ────────────────────────────────────────────────────────
+
+let _rpState        = null;
+let _rpWakeLock     = null;
+let _rpStepTimer    = null;
+let _rpBreathTimer  = null;
+let _rpWindDownTimer = null;
+
+const RP_TOTAL_STEPS = 7;
+const RP_WAKE_LOCK_STEPS = [1, 2, 3, 4, 5];
+
+function _loadRPState() {
+  try { const r = localStorage.getItem('ablty_wbtb_protocol'); return r ? JSON.parse(r) : null; } catch(e) { return null; }
+}
+
+function _saveRPState(s) {
+  _rpState = s;
+  try { localStorage.setItem('ablty_wbtb_protocol', JSON.stringify(s)); } catch(e) {}
+}
+
+function _clearRPState() {
+  _rpState = null;
+  try { localStorage.removeItem('ablty_wbtb_protocol'); } catch(e) {}
+}
+
+function _newRPState() {
+  return { active: true, currentStep: 1, completedSteps: [], path: null, stepData: {}, wbtbSessionId: null, startedAt: Date.now(), pendingSync: false };
+}
+
+function resumeOrInitRP() {
+  const saved = _loadRPState();
+  if (saved && saved.active) {
+    _rpState = saved;
+  } else {
+    _rpState = _newRPState();
+    _saveRPState(_rpState);
+  }
+  rpNavigateToStep(_rpState.currentStep);
+}
+
+function rpNavigateToStep(n) {
+  _rpStopStepTimer();
+  _rpStopBreathing();
+  _rpStopWindDown();
+
+  _rpState.currentStep = n;
+  _saveRPState(_rpState);
+
+  const screen = document.getElementById('screen-reentry-protocol');
+  if (!screen) return;
+
+  // Dim mode for steps 1 and 6
+  screen.classList.toggle('rp-dim', n === 1 || n === 6);
+
+  // Step label
+  const lbl = document.getElementById('rp-step-label');
+  if (lbl) lbl.textContent = 'Step ' + n + ' of ' + RP_TOTAL_STEPS;
+
+  // Progress bar: fill on step completion; entering step N fills to (N-1)/7
+  const fill = document.getElementById('rp-progress-fill');
+  if (fill) fill.style.width = (((n - 1) / RP_TOTAL_STEPS) * 100) + '%';
+
+  // Back button — enabled only if previous step is completed
+  const backBtn = document.getElementById('rp-back-btn');
+  if (backBtn) {
+    const canBack = n > 1 && _rpState.completedSteps.includes(n - 1);
+    backBtn.disabled = !canBack;
+  }
+
+  // Show only the active step panel
+  for (let i = 1; i <= 6; i++) {
+    const el = document.getElementById('rp-step-' + i);
+    if (el) el.classList.toggle('active', i === n);
+  }
+
+  // Wake lock
+  if (RP_WAKE_LOCK_STEPS.includes(n)) {
+    _rpAcquireWakeLock();
+  } else {
+    _rpReleaseWakeLock();
+  }
+
+  if (n === 1) _rpStartStep1();
+  if (n === 6) _rpStartStep6();
+}
+
+// ── Wake Lock ─────────────────────────────────
+
+async function _rpAcquireWakeLock() {
+  if (!('wakeLock' in navigator) || _rpWakeLock) return;
+  try {
+    _rpWakeLock = await navigator.wakeLock.request('screen');
+    _rpWakeLock.addEventListener('release', () => { _rpWakeLock = null; });
+  } catch(e) {}
+}
+
+function _rpReleaseWakeLock() {
+  if (_rpWakeLock) { _rpWakeLock.release().catch(() => {}); _rpWakeLock = null; }
+}
+
+// ── Step 1: Wake Calibration ──────────────────
+
+function _rpStartStep1() {
+  const timerEl = document.getElementById('rp-s1-timer');
+  if (timerEl) timerEl.textContent = '2:00';
+  let remaining = 120;
+  _rpBreathingCycle();
+  _rpStepTimer = setInterval(() => {
+    remaining--;
+    if (timerEl) {
+      const m = Math.floor(remaining / 60);
+      const s = remaining % 60;
+      timerEl.textContent = m + ':' + String(s).padStart(2, '0');
+    }
+    if (remaining <= 0) {
+      _rpStopStepTimer();
+      _rpStopBreathing();
+      rpCompleteStep(1);
+    }
+  }, 1000);
+}
+
+function _rpStopStepTimer() {
+  if (_rpStepTimer) { clearInterval(_rpStepTimer); _rpStepTimer = null; }
+}
+
+// 3-phase 4-4-4 box breathing (no four-count sedation — three phases only)
+function _rpBreathingCycle() {
+  const ring  = document.getElementById('rp-breathing-ring');
+  const phase = document.getElementById('rp-breathing-phase');
+  if (!ring || !phase) return;
+
+  ring.className = 'rp-breathing-ring rp-inhale';
+  phase.textContent = 'INHALE';
+
+  _rpBreathTimer = setTimeout(() => {
+    ring.className = 'rp-breathing-ring rp-hold';
+    phase.textContent = 'HOLD';
+
+    _rpBreathTimer = setTimeout(() => {
+      ring.className = 'rp-breathing-ring rp-exhale';
+      phase.textContent = 'EXHALE';
+
+      _rpBreathTimer = setTimeout(() => {
+        if (_rpState && _rpState.currentStep === 1 && _rpState.active) _rpBreathingCycle();
+      }, 4000);
+    }, 4000);
+  }, 4000);
+}
+
+function _rpStopBreathing() {
+  if (_rpBreathTimer) { clearTimeout(_rpBreathTimer); _rpBreathTimer = null; }
+  const ring  = document.getElementById('rp-breathing-ring');
+  const phase = document.getElementById('rp-breathing-phase');
+  if (ring)  ring.className  = 'rp-breathing-ring';
+  if (phase) phase.textContent = '';
+}
+
+// ── Step 6: Wind-Down ────────────────────────
+
+function _rpStartStep6() {
+  // Release wake lock after 5 min (screen dims naturally)
+  _rpWindDownTimer = setTimeout(() => { _rpReleaseWakeLock(); }, 5 * 60 * 1000);
+  // Mark step complete after a brief moment (user just lays down — no explicit action)
+  setTimeout(() => {
+    if (_rpState && _rpState.currentStep === 6) rpCompleteStep(6, false);
+  }, 2000);
+}
+
+function _rpStopWindDown() {
+  if (_rpWindDownTimer) { clearTimeout(_rpWindDownTimer); _rpWindDownTimer = null; }
+}
+
+// ── Step completion & navigation ─────────────
+
+function rpCompleteStep(n, advance = true) {
+  if (!_rpState) return;
+  if (!_rpState.completedSteps.includes(n)) _rpState.completedSteps.push(n);
+  if (n === 6) {
+    _rpState.pendingSync = true;
+    _rpState.active = false;
+    _saveRPState(_rpState);
+    // Protocol in-app portion done — stay on Step 6 wind-down screen
+  } else {
+    _saveRPState(_rpState);
+    if (advance && n < 6) rpNavigateToStep(n + 1);
+  }
+}
+
+function rpBack() {
+  if (!_rpState) return;
+  const prev = _rpState.currentStep - 1;
+  if (prev >= 1 && _rpState.completedSteps.includes(prev)) rpNavigateToStep(prev);
+}
+
+function rpExit() {
+  const modal = document.getElementById('rp-exit-modal');
+  if (!modal) return;
+  const stepNum = document.getElementById('rp-exit-step-num');
+  if (stepNum && _rpState) stepNum.textContent = _rpState.currentStep;
+  modal.style.display = 'flex';
+}
+
+function rpExitConfirm() {
+  _rpStopStepTimer();
+  _rpStopBreathing();
+  _rpStopWindDown();
+  _rpReleaseWakeLock();
+  const modal = document.getElementById('rp-exit-modal');
+  if (modal) modal.style.display = 'none';
+  navigate('wbtb');
+  // ablty_wbtb_protocol preserved — resumeOrInitRP() will restore this step on re-entry
+}
+
+function rpExitCancel() {
+  const modal = document.getElementById('rp-exit-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function rpExitModalBgClick(e) {
+  if (e.target === e.currentTarget) rpExitCancel();
+}
+
+function rpExitEndSession() {
+  _rpStopStepTimer();
+  _rpStopBreathing();
+  _rpStopWindDown();
+  _rpReleaseWakeLock();
+  _clearRPState();
+  const modal = document.getElementById('rp-exit-modal');
+  if (modal) modal.style.display = 'none';
+  navigate('wbtb');
+  // Dream Lab entries written during Dream Capture are not touched — only protocol state is cleared
+}
+
+// ── Step 7: Morning Sync ─────────────────────
+
+const RP_FRESH_WINDOW_MS = 4 * 60 * 60 * 1000; // 4 hours
+
+// Called on boot — mirrors restoreWBTBIfActive pattern.
+function checkRPActiveState() {
+  try {
+    const saved = _loadRPState();
+    if (!saved || !saved.active) return;
+    const age = Date.now() - (saved.startedAt || 0);
+    setTimeout(() => {
+      if (age < RP_FRESH_WINDOW_MS) {
+        // Fresh — auto-resume
+        _rpState = saved;
+        navigate('reentry-protocol');
+        showToast('Resuming Re-Entry Protocol — Step ' + saved.currentStep + ' of ' + RP_TOTAL_STEPS + '.', 'info', 3500);
+      } else {
+        // Stale — prompt instead of auto-resuming
+        _openRPStaleModal(saved);
+      }
+    }, 800);
+  } catch(e) {}
+}
+
+function _openRPStaleModal(saved) {
+  const modal = document.getElementById('rp-stale-modal');
+  if (!modal) return;
+  const h = Math.round((Date.now() - (saved.startedAt || 0)) / 3600000);
+  const label = h < 48 ? h + ' hour' + (h === 1 ? '' : 's') + ' ago' : Math.round(h / 24) + ' days ago';
+  const sub = modal.querySelector('.rp-stale-sub');
+  if (sub) sub.textContent = 'You have an unfinished Re-Entry Protocol from ' + label + '. Resume or discard?';
+  modal.style.display = 'flex';
+}
+
+function rpStaleResume() {
+  const saved = _loadRPState();
+  const modal = document.getElementById('rp-stale-modal');
+  if (modal) modal.style.display = 'none';
+  if (!saved) return;
+  _rpState = saved;
+  navigate('reentry-protocol');
+}
+
+function rpStaleDiscard() {
+  _clearRPState();
+  const modal = document.getElementById('rp-stale-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function checkPendingMorningSync() {
+  try {
+    const saved = _loadRPState();
+    if (!saved || !saved.pendingSync) return;
+    const age = Date.now() - (saved.startedAt || 0);
+    if (age > 7 * 24 * 60 * 60 * 1000) { _clearRPState(); return; }
+    setTimeout(() => _openMorningSyncModal(saved, age), 1200);
+  } catch(e) {}
+}
+
+function _openMorningSyncModal(state, ageMs) {
+  const modal = document.getElementById('rp-morning-modal');
+  if (!modal) return;
+  const isRecent = ageMs < 24 * 60 * 60 * 1000;
+  const hl = modal.querySelector('.rp-morning-headline');
+  const sub = modal.querySelector('.rp-morning-sub');
+  if (hl)  hl.textContent  = isRecent ? 'GOOD MORNING' : 'REVISIT SESSION';
+  if (sub) {
+    if (isRecent) {
+      sub.textContent = 'Did you have a lucid dream or OBE last night?';
+    } else {
+      const h = Math.round(ageMs / 3600000);
+      sub.textContent = 'Your WBTB session from ' + (h < 48 ? h + ' hours' : Math.round(ageMs / 86400000) + ' days') + ' ago — how did it go?';
+    }
+  }
+  modal.querySelectorAll('.rp-outcome-btn, .rp-onset-btn').forEach(b => b.classList.remove('selected'));
+  const ta = document.getElementById('rp-morning-desc');
+  if (ta) ta.value = '';
+  _rpOutcomeSelected = null;
+  _rpOnsetSelected   = null;
+  modal.style.display = 'flex';
+}
+
+let _rpOutcomeSelected = null;
+let _rpOnsetSelected   = null;
+
+function selectRPOutcome(val) {
+  _rpOutcomeSelected = val;
+  document.querySelectorAll('.rp-outcome-btn').forEach(b => b.classList.toggle('selected', b.dataset.outcome === val));
+}
+
+function selectRPSleepOnset(val) {
+  _rpOnsetSelected = val;
+  document.querySelectorAll('.rp-onset-btn').forEach(b => b.classList.toggle('selected', b.dataset.onset === val));
+}
+
+async function submitMorningSync() {
+  // TODO D-7: persist wbtb_sessions row with outcome, onset, description, and linked dream entry
+  _clearRPState();
+  _closeMorningSyncModal();
+  showToast('Session recorded.', 'success', 2000);
+}
+
+function dismissMorningSync() {
+  _closeMorningSyncModal(); // pendingSync stays true; modal re-appears on next open
+}
+
+function _closeMorningSyncModal() {
+  const modal = document.getElementById('rp-morning-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function rpMorningModalBgClick(e) {
+  if (e.target === e.currentTarget) _closeMorningSyncModal();
+}
+
+// ─── END RE-ENTRY PROTOCOL ────────────────────────────────────────────────────
+
 // WBTB wake screen
 let wbtbWakeTimer = null;
 let wbtbFireAt    = 0;
@@ -8850,6 +9247,8 @@ document.addEventListener('DOMContentLoaded', () => {
   checkRCHash();
   checkWBTBHash();
   restoreWBTBIfActive();
+  checkRPActiveState();
+  checkPendingMorningSync();
   setTimeout(updateHomeRCStreak, 100);
   setTimeout(() => buildDreamParticles('dream-particles'), 150);
   // Seed history so hardware back button has a state to pop
@@ -13572,7 +13971,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.06.12.1';
+const APP_VERSION = '2026.06.12.2';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -15360,11 +15759,156 @@ window.addEventListener('unhandledrejection', (e) => {
     </div>
 
     <div class="wbtb-wake-btn-row">
-      <button class="btn btn-primary" onclick="closeWBTBWakeScreen()">Got It</button>
+      <button class="btn btn-primary" onclick="closeWBTBWakeScreen(); navigate('reentry-protocol');">Begin Re-Entry Protocol</button>
       <button class="btn btn-ghost" onclick="closeWBTBWakeScreen()">Dismiss</button>
     </div>
   </div>
 
+
+  <!-- RE-ENTRY PROTOCOL SCREEN -->
+  <div id="screen-reentry-protocol" class="screen">
+    <!-- Fixed header -->
+    <div class="rp-header">
+      <button class="rp-icon-btn" id="rp-back-btn" onclick="rpBack()" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+      </button>
+      <span class="rp-step-label" id="rp-step-label">Step 1 of 7</span>
+      <button class="rp-icon-btn" onclick="rpExit()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="rp-progress-wrap">
+      <div class="rp-progress-track"><div class="rp-progress-fill" id="rp-progress-fill"></div></div>
+    </div>
+
+    <!-- Step 1: Wake Calibration -->
+    <div id="rp-step-1" class="rp-step">
+      <div class="rp-step-tag">Wake Calibration</div>
+      <div class="rp-step-heading">Sit up. Sip water. Don't open bright apps.</div>
+      <div class="rp-breathing-wrap">
+        <div class="rp-breathing-ring" id="rp-breathing-ring"></div>
+        <div class="rp-breathing-phase" id="rp-breathing-phase"></div>
+        <div class="rp-countdown" id="rp-s1-timer">2:00</div>
+        <div class="rp-countdown-label">let your mind come online</div>
+      </div>
+    </div>
+
+    <!-- Step 2: Dream Capture (placeholder — D-3) -->
+    <div id="rp-step-2" class="rp-step">
+      <div class="rp-step-tag">Dream Capture</div>
+      <div class="rp-placeholder-card">
+        <div class="rp-placeholder-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M12 8v4l3 3"/></svg>
+        </div>
+        <div style="font-family:var(--font-display);font-size:22px;letter-spacing:1px;color:var(--text);">Dream Capture</div>
+        <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.6;max-width:240px;">Guided dream journaling and recall branching launches in the next build.</div>
+      </div>
+      <button class="rp-btn-primary" onclick="rpCompleteStep(2)">Continue</button>
+    </div>
+
+    <!-- Step 3: Reality Check Drill (placeholder — D-4) -->
+    <div id="rp-step-3" class="rp-step">
+      <div class="rp-step-tag">Reality Check Drill</div>
+      <div class="rp-placeholder-card">
+        <div class="rp-placeholder-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+        </div>
+        <div style="font-family:var(--font-display);font-size:22px;letter-spacing:1px;color:var(--text);">Reality Check Drill</div>
+        <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.6;max-width:240px;">Guided hand, text, and finger-through-palm checks launch in the next build.</div>
+      </div>
+      <button class="rp-btn-primary" onclick="rpCompleteStep(3)">Continue</button>
+    </div>
+
+    <!-- Step 4: Lucidity Reading (placeholder — D-5) -->
+    <div id="rp-step-4" class="rp-step">
+      <div class="rp-step-tag">Lucidity Reading</div>
+      <div class="rp-placeholder-card">
+        <div class="rp-placeholder-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        </div>
+        <div style="font-family:var(--font-display);font-size:22px;letter-spacing:1px;color:var(--text);">Lucidity Reading</div>
+        <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.6;max-width:240px;">Curated short-form lucid dreaming content launches in the next build.</div>
+      </div>
+      <button class="rp-btn-primary" onclick="rpCompleteStep(4)">Continue</button>
+    </div>
+
+    <!-- Step 5: Intention Setting (placeholder — D-6) -->
+    <div id="rp-step-5" class="rp-step">
+      <div class="rp-step-tag">Intention Setting</div>
+      <div class="rp-placeholder-card">
+        <div class="rp-placeholder-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        </div>
+        <div style="font-family:var(--font-display);font-size:22px;letter-spacing:1px;color:var(--text);">Intention Setting</div>
+        <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.6;max-width:240px;">MILD intention encoding and the full library launch in the next build.</div>
+      </div>
+      <button class="rp-btn-primary" onclick="rpCompleteStep(5)">Continue</button>
+    </div>
+
+    <!-- Step 6: Wind-Down -->
+    <div id="rp-step-6" class="rp-step">
+      <div class="rp-step-tag">Wind-Down</div>
+      <div class="rp-wind-prompt">Lay back down. Stay still. Replay your intention in your mind.</div>
+      <div class="rp-wind-note">Screen goes dark in 5 minutes</div>
+    </div>
+
+  </div><!-- /screen-reentry-protocol -->
+
+
+  <!-- RE-ENTRY PROTOCOL EXIT CONFIRM -->
+  <div class="modal-overlay" id="rp-exit-modal" style="display:none;" onclick="rpExitModalBgClick(event)">
+    <div class="modal-box" style="max-width:320px;">
+      <div class="modal-tag">Re-Entry Protocol</div>
+      <div class="modal-title">Leave?</div>
+      <div class="modal-body">Your progress is saved. You can resume from Step <span id="rp-exit-step-num">1</span> when you come back.</div>
+      <button class="modal-close-btn" onclick="rpExitConfirm()">Leave for now</button>
+      <button class="modal-close-btn" style="margin-top:8px;background:transparent;border-color:transparent;color:var(--muted);" onclick="rpExitCancel()">Stay in protocol</button>
+      <button class="modal-close-btn" style="margin-top:8px;background:transparent;border-color:transparent;color:#f87171;" onclick="rpExitEndSession()">End session</button>
+    </div>
+  </div>
+
+  <!-- RE-ENTRY PROTOCOL STALE SESSION PROMPT -->
+  <div class="modal-overlay" id="rp-stale-modal" style="display:none;">
+    <div class="modal-box" style="max-width:320px;">
+      <div class="modal-tag">Re-Entry Protocol</div>
+      <div class="modal-title">Unfinished Session</div>
+      <div class="modal-body rp-stale-sub"></div>
+      <button class="modal-close-btn" onclick="rpStaleResume()">Resume</button>
+      <button class="modal-close-btn" style="margin-top:8px;background:transparent;border-color:transparent;color:#f87171;" onclick="rpStaleDiscard()">Discard</button>
+    </div>
+  </div>
+
+  <!-- MORNING SYNC MODAL (Step 7) -->
+  <div class="modal-overlay" id="rp-morning-modal" style="display:none;" onclick="rpMorningModalBgClick(event)">
+    <div class="rp-morning-box">
+      <div class="modal-tag">Re-Entry Protocol</div>
+      <div class="modal-title rp-morning-headline">GOOD MORNING</div>
+      <div class="modal-body rp-morning-sub" style="margin-bottom:0;">Did you have a lucid dream or OBE last night?</div>
+
+      <div class="rp-outcome-grid">
+        <button class="rp-outcome-btn" data-outcome="lucid"        onclick="selectRPOutcome('lucid')">Yes</button>
+        <button class="rp-outcome-btn" data-outcome="partial"      onclick="selectRPOutcome('partial')">Partial</button>
+        <button class="rp-outcome-btn" data-outcome="no"           onclick="selectRPOutcome('no')">No</button>
+        <button class="rp-outcome-btn" data-outcome="dont_remember" onclick="selectRPOutcome('dont_remember')">Don't remember</button>
+      </div>
+
+      <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:4px;">Description (optional)</div>
+      <textarea class="rp-morning-ta" id="rp-morning-desc" placeholder="What happened..."></textarea>
+
+      <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">How long to fall back asleep?</div>
+      <div class="rp-onset-wrap">
+        <button class="rp-onset-btn" data-onset="under_5min"    onclick="selectRPSleepOnset('under_5min')">Under 5 min</button>
+        <button class="rp-onset-btn" data-onset="5_15min"       onclick="selectRPSleepOnset('5_15min')">5–15 min</button>
+        <button class="rp-onset-btn" data-onset="15_30min"      onclick="selectRPSleepOnset('15_30min')">15–30 min</button>
+        <button class="rp-onset-btn" data-onset="over_30min"    onclick="selectRPSleepOnset('over_30min')">Over 30 min</button>
+        <button class="rp-onset-btn" data-onset="never"         onclick="selectRPSleepOnset('never')">Never fell back asleep</button>
+        <button class="rp-onset-btn" data-onset="dont_remember" onclick="selectRPSleepOnset('dont_remember')">Don't remember</button>
+      </div>
+
+      <button class="modal-close-btn" onclick="submitMorningSync()">Save &amp; Close</button>
+      <button class="modal-close-btn" style="margin-top:8px;background:transparent;border-color:transparent;color:var(--muted);" onclick="dismissMorningSync()">Skip for now</button>
+    </div>
+  </div>
 
 
   <!-- SESSION EDIT MODAL (tags + notes) -->
