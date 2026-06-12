@@ -8823,8 +8823,52 @@ function resumeOrInitRP() {
   } else {
     _rpState = _newRPState();
     _saveRPState(_rpState);
+    _rpCreateSessionRow();
   }
   rpNavigateToStep(_rpState.currentStep);
+}
+
+// ── Supabase session row ─────────────────────
+// Guests run the protocol normally; their session is captured to a local
+// fallback at morning sync instead of a wbtb_sessions row.
+
+async function _rpCreateSessionRow() {
+  try {
+    const userId = await getLoggedInUserId();
+    if (!userId || !sb) return;
+    const startedAtMs = _rpState ? _rpState.startedAt : Date.now();
+    const { data, error } = await sb
+      .from('wbtb_sessions')
+      .insert({
+        user_id:          userId,
+        duration_hours:   wbtbDuration || null,
+        started_at:       new Date(startedAtMs).toISOString(),
+        alarm_time:       wbtbFireAt ? new Date(wbtbFireAt).toISOString() : null,
+        completion_state: 'started',
+      })
+      .select('id')
+      .single();
+    if (error) throw error;
+    if (data && data.id && _rpState) {
+      _rpState.wbtbSessionId = data.id;
+      _saveRPState(_rpState);
+    }
+  } catch(e) { console.warn('[RP] session row create failed:', e); }
+}
+
+async function _rpUpdateSessionRow(fields) {
+  try {
+    const state = _rpState || _loadRPState();
+    if (!state || !state.wbtbSessionId || !sb) return;
+    const userId = await getLoggedInUserId();
+    if (!userId) return;
+    const { error } = await sb
+      .from('wbtb_sessions')
+      .update(fields)
+      .eq('id', state.wbtbSessionId)
+      .eq('user_id', userId);
+    if (error) throw error;
+  } catch(e) { console.warn('[RP] session row update failed:', e); }
 }
 
 function rpNavigateToStep(n) {
@@ -8970,6 +9014,7 @@ function rpCompleteStep(n, advance = true) {
     _rpState.active = false;
     _saveRPState(_rpState);
     // Protocol in-app portion done — stay on Step 6 wind-down screen
+    _rpUpdateSessionRow({ protocol_completed_at: new Date().toISOString(), completion_state: 'wound_down' });
   } else {
     _saveRPState(_rpState);
     if (advance && n < 6) rpNavigateToStep(n + 1);
@@ -9118,7 +9163,28 @@ function selectRPSleepOnset(val) {
 }
 
 async function submitMorningSync() {
-  // TODO D-7: persist wbtb_sessions row with outcome, onset, description, and linked dream entry
+  const state = _loadRPState();
+  const ta = document.getElementById('rp-morning-desc');
+  const record = {
+    outcome:              _rpOutcomeSelected || null,
+    reported_sleep_onset: _rpOnsetSelected || null,
+    outcome_description:  ta && ta.value.trim() ? ta.value.trim() : null,
+    completed_at:         new Date().toISOString(),
+    completion_state:     'synced',
+  };
+
+  if (state && state.wbtbSessionId) {
+    await _rpUpdateSessionRow(record);
+  } else {
+    // Guest (or row creation failed) — keep the outcome locally so the
+    // session isn't lost; synced to Supabase is out of scope for guests.
+    try {
+      const arr = JSON.parse(localStorage.getItem('ablty_wbtb_guest_sessions') || '[]');
+      arr.push({ ...record, startedAt: state ? state.startedAt : null });
+      localStorage.setItem('ablty_wbtb_guest_sessions', JSON.stringify(arr.slice(-50)));
+    } catch(e) {}
+  }
+
   _clearRPState();
   _closeMorningSyncModal();
   showToast('Session recorded.', 'success', 2000);
@@ -13996,7 +14062,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.06.12.3';
+const APP_VERSION = '2026.06.12.4';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
