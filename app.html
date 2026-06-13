@@ -3290,6 +3290,15 @@ html, body {
 .rp-s3-guidance { font-family: var(--font-body); font-size: 14px; color: var(--muted); line-height: 1.65; margin-bottom: 18px; }
 .rp-s3-timer-row { text-align: center; margin-bottom: 8px; }
 .rp-s3-skip { background: none; border: none; color: var(--muted); font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; padding: 8px 0 2px; -webkit-tap-highlight-color: transparent; text-align: center; width: 100%; }
+.rp-s5-view { display: none; flex-direction: column; flex: 1; }
+.rp-s5-view.active { display: flex; }
+.rp-s5-preset-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.rp-s5-preset-btn { width: 100%; padding: 14px 16px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border); color: var(--muted); font-family: var(--font-body); font-size: 13px; line-height: 1.5; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; transition: all 0.15s; }
+.rp-s5-preset-btn.selected { background: rgba(74,240,200,0.08); border-color: var(--accent); color: var(--text); }
+.rp-s5-divider { font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--border2); text-align: center; margin: 14px 0 12px; }
+.rp-s5-ta { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px; font-family: var(--font-body); font-size: 14px; color: var(--text); resize: none; outline: none; box-sizing: border-box; line-height: 1.6; margin-bottom: 6px; }
+.rp-s5-ta:focus { border-color: var(--border2); }
+.rp-s5-confirm-text { font-family: var(--font-display); font-size: 26px; letter-spacing: 0.5px; color: var(--accent); line-height: 1.25; text-align: center; flex: 1; display: flex; align-items: center; justify-content: center; padding: 20px 8px; overflow-y: auto; }
 .auth-screen {
   position: fixed; inset: 0; z-index: 9990;
   background: var(--bg);
@@ -8980,6 +8989,7 @@ function rpNavigateToStep(n) {
   if (n === 1) rpStep2Init();    // step 1 = Dream Capture
   if (n === 2) _rpStartStep1();  // step 2 = Wake Calibration
   if (n === 3) rpStep3Init();
+  if (n === 5) rpStep5Init();
   if (n === 6) _rpStartStep6();
 }
 
@@ -9353,6 +9363,79 @@ function _rpStep3Advance() {
 function rpStep3SkipCheck() {
   _rpStopStepTimer();
   _rpStep3Advance();
+}
+
+// ── Step 5: Intention Setting ─────────────────
+
+let _rpStep5Intention = null;
+
+const RP_STEP5_PRESETS = [
+  "The next time I'm dreaming, I'll recognize that I'm dreaming.",
+  "The next time I'm dreaming, I'll remember it's a dream.",
+  "The next time something strange happens, I'll realize I'm dreaming.",
+  "When I return to the dream I just left, I'll know that I'm dreaming.",
+  "The next time I'm somewhere I don't remember arriving, I'll recognize I'm dreaming.",
+  "As I fall back asleep, I'll carry the intention to notice I'm dreaming.",
+];
+
+function rpStep5Init() {
+  _rpStep5Intention = null;
+  document.querySelectorAll('#rp-step-5 .rp-s5-view').forEach(el => el.classList.remove('active'));
+  const picker = document.getElementById('rp-s5-picker');
+  if (picker) picker.classList.add('active');
+  document.querySelectorAll('#rp-s5-picker .rp-s5-preset-btn').forEach(btn => btn.classList.remove('selected'));
+  const confirmBtn = document.getElementById('rp-s5-confirm-btn');
+  if (confirmBtn) confirmBtn.disabled = true;
+  const ta = document.getElementById('rp-s5-ta');
+  if (!ta) return;
+  const seed = (_rpState?.stepData?.seed || '').trim();
+  if (seed) {
+    const prefilled = "Next time I'm in " + seed + ", I'll realize I'm dreaming.";
+    ta.value = prefilled;
+    _rpStep5Intention = prefilled;
+    if (confirmBtn) confirmBtn.disabled = false;
+  } else {
+    ta.value = '';
+  }
+}
+
+function rpStep5SelectPreset(idx, btn) {
+  document.querySelectorAll('#rp-s5-picker .rp-s5-preset-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  _rpStep5Intention = RP_STEP5_PRESETS[idx];
+  const ta = document.getElementById('rp-s5-ta');
+  if (ta) ta.value = '';
+  const confirmBtn = document.getElementById('rp-s5-confirm-btn');
+  if (confirmBtn) confirmBtn.disabled = false;
+}
+
+function rpStep5OnCustomInput(val) {
+  document.querySelectorAll('#rp-s5-picker .rp-s5-preset-btn').forEach(btn => btn.classList.remove('selected'));
+  _rpStep5Intention = val.trim() || null;
+  const confirmBtn = document.getElementById('rp-s5-confirm-btn');
+  if (confirmBtn) confirmBtn.disabled = !_rpStep5Intention;
+}
+
+function rpStep5Confirm() {
+  if (!_rpStep5Intention) return;
+  const textEl = document.getElementById('rp-s5-confirm-text');
+  if (textEl) textEl.textContent = _rpStep5Intention;
+  document.querySelectorAll('#rp-step-5 .rp-s5-view').forEach(el => el.classList.remove('active'));
+  const confirmView = document.getElementById('rp-s5-confirm');
+  if (confirmView) confirmView.classList.add('active');
+}
+
+function rpStep5Back() {
+  document.querySelectorAll('#rp-step-5 .rp-s5-view').forEach(el => el.classList.remove('active'));
+  const picker = document.getElementById('rp-s5-picker');
+  if (picker) picker.classList.add('active');
+}
+
+function rpStep5Submit() {
+  if (!_rpStep5Intention) return;
+  if (_rpState) _rpState.stepData.intention = _rpStep5Intention;
+  _rpUpdateSessionRow({ intention: _rpStep5Intention });
+  rpCompleteStep(5);
 }
 
 // ── Step 7: Morning Sync ─────────────────────
@@ -14350,7 +14433,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.06.12.9';
+const APP_VERSION = '2026.06.12.10';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -16338,17 +16421,34 @@ window.addEventListener('unhandledrejection', (e) => {
       <button class="rp-btn-primary" onclick="rpCompleteStep(4)">Continue</button>
     </div>
 
-    <!-- Step 5: Intention Setting (placeholder — D-6) -->
+    <!-- Step 5: Intention Setting -->
     <div id="rp-step-5" class="rp-step">
-      <div class="rp-step-tag">Intention Setting</div>
-      <div class="rp-placeholder-card">
-        <div class="rp-placeholder-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+
+      <!-- Sub-view: Picker -->
+      <div id="rp-s5-picker" class="rp-s5-view active">
+        <div class="rp-step-tag">Intention Setting</div>
+        <div class="rp-step-heading">Set your intention.</div>
+        <div class="rp-step-body">Choose one to carry back into sleep. Repeat it quietly as you drift off.</div>
+        <div class="rp-s5-preset-list">
+          <button class="rp-s5-preset-btn" onclick="rpStep5SelectPreset(0, this)">The next time I'm dreaming, I'll recognize that I'm dreaming.</button>
+          <button class="rp-s5-preset-btn" onclick="rpStep5SelectPreset(1, this)">The next time I'm dreaming, I'll remember it's a dream.</button>
+          <button class="rp-s5-preset-btn" onclick="rpStep5SelectPreset(2, this)">The next time something strange happens, I'll realize I'm dreaming.</button>
+          <button class="rp-s5-preset-btn" onclick="rpStep5SelectPreset(3, this)">When I return to the dream I just left, I'll know that I'm dreaming.</button>
+          <button class="rp-s5-preset-btn" onclick="rpStep5SelectPreset(4, this)">The next time I'm somewhere I don't remember arriving, I'll recognize I'm dreaming.</button>
+          <button class="rp-s5-preset-btn" onclick="rpStep5SelectPreset(5, this)">As I fall back asleep, I'll carry the intention to notice I'm dreaming.</button>
         </div>
-        <div style="font-family:var(--font-display);font-size:22px;letter-spacing:1px;color:var(--text);">Intention Setting</div>
-        <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.6;max-width:240px;">MILD intention encoding and the full library launch in the next build.</div>
+        <div class="rp-s5-divider">or write your own</div>
+        <textarea id="rp-s5-ta" class="rp-s5-ta" rows="3" placeholder="Next time I'm dreaming, I'll..." oninput="rpStep5OnCustomInput(this.value)"></textarea>
+        <button id="rp-s5-confirm-btn" class="rp-btn-primary" onclick="rpStep5Confirm()" disabled>Confirm →</button>
       </div>
-      <button class="rp-btn-primary" onclick="rpCompleteStep(5)">Continue</button>
+
+      <!-- Sub-view: Lock it in -->
+      <div id="rp-s5-confirm" class="rp-s5-view">
+        <div class="rp-step-tag">Your intention</div>
+        <div id="rp-s5-confirm-text" class="rp-s5-confirm-text"></div>
+        <button class="rp-btn-primary" onclick="rpStep5Submit()">Lock it in</button>
+        <button class="rp-btn-ghost" onclick="rpStep5Back()">← Change</button>
+      </div>
     </div>
 
     <!-- Step 6: Wind-Down -->
