@@ -8946,8 +8946,8 @@ function rpNavigateToStep(n) {
   const screen = document.getElementById('screen-reentry-protocol');
   if (!screen) return;
 
-  // Dim mode for steps 1 and 6
-  screen.classList.toggle('rp-dim', n === 1 || n === 6);
+  // Dim mode for steps 2 and 6
+  screen.classList.toggle('rp-dim', n === 2 || n === 6);
 
   // Step label
   const lbl = document.getElementById('rp-step-label');
@@ -8977,8 +8977,8 @@ function rpNavigateToStep(n) {
     _rpReleaseWakeLock();
   }
 
-  if (n === 1) _rpStartStep1();
-  if (n === 2) rpStep2Init();
+  if (n === 1) rpStep2Init();    // step 1 = Dream Capture
+  if (n === 2) _rpStartStep1();  // step 2 = Wake Calibration
   if (n === 3) rpStep3Init();
   if (n === 6) _rpStartStep6();
 }
@@ -8999,6 +8999,7 @@ function _rpReleaseWakeLock() {
 
 // ── Step 1: Wake Calibration ──────────────────
 
+// Runs at Step 2 (Wake Calibration). Name predates the step reorder.
 function _rpStartStep1() {
   const timerEl = document.getElementById('rp-s1-timer');
   if (timerEl) timerEl.textContent = '2:00';
@@ -9014,7 +9015,7 @@ function _rpStartStep1() {
     if (remaining <= 0) {
       _rpStopStepTimer();
       _rpStopBreathing();
-      rpCompleteStep(1);
+      rpCompleteStep(2);
     }
   }, 1000);
 }
@@ -9041,7 +9042,7 @@ function _rpBreathingCycle() {
       phase.textContent = 'EXHALE';
 
       _rpBreathTimer = setTimeout(() => {
-        if (_rpState && _rpState.currentStep === 1 && _rpState.active) _rpBreathingCycle();
+        if (_rpState && _rpState.currentStep === 2 && _rpState.active) _rpBreathingCycle();
       }, 4000);
     }, 4000);
   }, 4000);
@@ -9135,6 +9136,7 @@ function rpExitEndSession() {
 
 // ── Step 2: Dream Capture ────────────────────
 
+// Runs at Step 1 (Dream Capture). Name predates the step reorder.
 function rpStep2Init() {
   rpStep2ShowView('rp-s2-select');
   ['rp-s2-ta-a', 'rp-s2-ta-b', 'rp-s2-ta-c'].forEach(id => {
@@ -9156,7 +9158,7 @@ function rpStep2Init() {
 }
 
 function rpStep2ShowView(id) {
-  document.querySelectorAll('#rp-step-2 .rp-s2-view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('#rp-step-1 .rp-s2-view').forEach(el => el.classList.remove('active'));
   const el = document.getElementById(id);
   if (el) el.classList.add('active');
 }
@@ -9231,7 +9233,7 @@ async function _rpStep2CheckSkip() {
 }
 
 function rpStep2Skip() {
-  rpCompleteStep(2);
+  rpCompleteStep(1);
 }
 
 async function rpStep2Submit(path) {
@@ -9293,7 +9295,7 @@ async function rpStep2Submit(path) {
       } catch(e) { console.warn('[RP] dream entry save failed:', e); }
     }
 
-    rpCompleteStep(2);
+    rpCompleteStep(1);
   } finally {
     if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save & Continue'; }
   }
@@ -14348,7 +14350,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.06.12.8';
+const APP_VERSION = '2026.06.12.9';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -16158,20 +16160,8 @@ window.addEventListener('unhandledrejection', (e) => {
       <div class="rp-progress-track"><div class="rp-progress-fill" id="rp-progress-fill"></div></div>
     </div>
 
-    <!-- Step 1: Wake Calibration -->
+    <!-- Step 1: Dream Capture -->
     <div id="rp-step-1" class="rp-step">
-      <div class="rp-step-tag">Wake Calibration</div>
-      <div class="rp-step-heading">Sit up. Sip water. Don't open bright apps.</div>
-      <div class="rp-breathing-wrap">
-        <div class="rp-breathing-ring" id="rp-breathing-ring"></div>
-        <div class="rp-breathing-phase" id="rp-breathing-phase"></div>
-        <div class="rp-countdown" id="rp-s1-timer">2:00</div>
-        <div class="rp-countdown-label">let your mind come online</div>
-      </div>
-    </div>
-
-    <!-- Step 2: Dream Capture -->
-    <div id="rp-step-2" class="rp-step">
       <div class="rp-step-tag">Dream Capture</div>
 
       <!-- Select: initial path choice -->
@@ -16259,6 +16249,18 @@ window.addEventListener('unhandledrejection', (e) => {
         </div>
         <input id="rp-s2-seed-custom" class="rp-s2-custom-input" type="text" placeholder="Describe your scene or intention..." style="display:none" oninput="rpStep2SetCustomSeed(this.value)">
         <button id="rp-s2-seed-save-btn" class="rp-btn-primary" onclick="rpStep2Submit('C')" disabled>Save &amp; Continue</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Wake Calibration -->
+    <div id="rp-step-2" class="rp-step">
+      <div class="rp-step-tag">Wake Calibration</div>
+      <div class="rp-step-heading">Sit up. Sip water. Don't open bright apps.</div>
+      <div class="rp-breathing-wrap">
+        <div class="rp-breathing-ring" id="rp-breathing-ring"></div>
+        <div class="rp-breathing-phase" id="rp-breathing-phase"></div>
+        <div class="rp-countdown" id="rp-s1-timer">2:00</div>
+        <div class="rp-countdown-label">let your mind come online</div>
       </div>
     </div>
 
