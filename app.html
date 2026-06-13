@@ -3278,6 +3278,18 @@ html, body {
 .rp-s2-seed-btn.selected { background: rgba(74,240,200,0.08); border-color: var(--accent); color: var(--text); }
 .rp-s2-custom-input { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; font-family: var(--font-body); font-size: 14px; color: var(--text); outline: none; box-sizing: border-box; margin-bottom: 14px; }
 .rp-s2-custom-input:focus { border-color: var(--border2); }
+.rp-s3-view { display: none; flex-direction: column; flex: 1; }
+.rp-s3-view.active { display: flex; }
+.rp-s3-progress { display: flex; gap: 8px; padding: 4px 0 14px; }
+.rp-s3-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border2); transition: background 0.3s ease; }
+.rp-s3-dot.active { background: var(--accent); }
+.rp-s3-dot.done { background: rgba(74,240,200,0.4); }
+.rp-s3-check-label { font-family: var(--font-mono); font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.rp-s3-visual { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 80px; }
+.rp-s3-text-display { font-family: var(--font-display); font-size: 72px; letter-spacing: 6px; color: var(--accent); line-height: 1; text-align: center; }
+.rp-s3-guidance { font-family: var(--font-body); font-size: 14px; color: var(--muted); line-height: 1.65; margin-bottom: 18px; }
+.rp-s3-timer-row { text-align: center; margin-bottom: 8px; }
+.rp-s3-skip { background: none; border: none; color: var(--muted); font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; padding: 8px 0 2px; -webkit-tap-highlight-color: transparent; text-align: center; width: 100%; }
 .auth-screen {
   position: fixed; inset: 0; z-index: 9990;
   background: var(--bg);
@@ -8967,6 +8979,7 @@ function rpNavigateToStep(n) {
 
   if (n === 1) _rpStartStep1();
   if (n === 2) rpStep2Init();
+  if (n === 3) rpStep3Init();
   if (n === 6) _rpStartStep6();
 }
 
@@ -9284,6 +9297,60 @@ async function rpStep2Submit(path) {
   } finally {
     if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = 'Save & Continue'; }
   }
+}
+
+// ── Step 3: Reality Check Drill ──────────────
+
+let _rpS3Check = 0;
+
+function rpStep3Init() {
+  _rpS3Check = 0;
+  [1, 2, 3].forEach(n => {
+    const dot = document.getElementById('rp-s3-dot-' + n);
+    if (dot) dot.className = 'rp-s3-dot';
+  });
+  _rpStep3StartCheck(1);
+}
+
+function _rpStep3StartCheck(n) {
+  _rpStopStepTimer();
+  _rpS3Check = n;
+
+  document.querySelectorAll('#rp-step-3 .rp-s3-view').forEach(el => el.classList.remove('active'));
+  const view = document.getElementById('rp-s3-check-' + n);
+  if (view) view.classList.add('active');
+
+  [1, 2, 3].forEach(i => {
+    const dot = document.getElementById('rp-s3-dot-' + i);
+    if (!dot) return;
+    dot.className = 'rp-s3-dot' + (i < n ? ' done' : i === n ? ' active' : '');
+  });
+
+  let remaining = 30;
+  const timerEl = document.getElementById('rp-s3-timer-' + n);
+  if (timerEl) timerEl.textContent = '30';
+
+  _rpStepTimer = setInterval(() => {
+    remaining--;
+    if (timerEl) timerEl.textContent = String(remaining);
+    if (remaining <= 0) {
+      _rpStopStepTimer();
+      _rpStep3Advance();
+    }
+  }, 1000);
+}
+
+function _rpStep3Advance() {
+  if (_rpS3Check < 3) {
+    _rpStep3StartCheck(_rpS3Check + 1);
+  } else {
+    rpCompleteStep(3);
+  }
+}
+
+function rpStep3SkipCheck() {
+  _rpStopStepTimer();
+  _rpStep3Advance();
 }
 
 // ── Step 7: Morning Sync ─────────────────────
@@ -14281,7 +14348,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.06.12.7';
+const APP_VERSION = '2026.06.12.8';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -16195,17 +16262,65 @@ window.addEventListener('unhandledrejection', (e) => {
       </div>
     </div>
 
-    <!-- Step 3: Reality Check Drill (placeholder — D-4) -->
+    <!-- Step 3: Reality Check Drill -->
     <div id="rp-step-3" class="rp-step">
       <div class="rp-step-tag">Reality Check Drill</div>
-      <div class="rp-placeholder-card">
-        <div class="rp-placeholder-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-        </div>
-        <div style="font-family:var(--font-display);font-size:22px;letter-spacing:1px;color:var(--text);">Reality Check Drill</div>
-        <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.6;max-width:240px;">Guided hand, text, and finger-through-palm checks launch in the next build.</div>
+      <div class="rp-s3-progress">
+        <div class="rp-s3-dot" id="rp-s3-dot-1"></div>
+        <div class="rp-s3-dot" id="rp-s3-dot-2"></div>
+        <div class="rp-s3-dot" id="rp-s3-dot-3"></div>
       </div>
-      <button class="rp-btn-primary" onclick="rpCompleteStep(3)">Continue</button>
+
+      <!-- Check 1: Hands -->
+      <div id="rp-s3-check-1" class="rp-s3-view">
+        <div class="rp-s3-check-label">Check 1 of 3</div>
+        <div class="rp-step-heading" style="margin-bottom:4px">Look at your hands.</div>
+        <div class="rp-s3-visual">
+          <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85">
+            <path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10V5a2 2 0 0 0-4 0v9M6 14l2.5 4.5A4 4 0 0 0 12 21h4.5A4.5 4.5 0 0 0 21 16.5V14a2 2 0 0 0-4 0v-3"/>
+          </svg>
+        </div>
+        <div class="rp-s3-guidance">Count your fingers. Look closely at each one. In a dream, they blur, fuse, or multiply.</div>
+        <div class="rp-s3-timer-row">
+          <div class="rp-countdown" id="rp-s3-timer-1">30</div>
+          <div class="rp-countdown-label">seconds</div>
+        </div>
+        <button class="rp-s3-skip" onclick="rpStep3SkipCheck()">Skip →</button>
+      </div>
+
+      <!-- Check 2: Text -->
+      <div id="rp-s3-check-2" class="rp-s3-view">
+        <div class="rp-s3-check-label">Check 2 of 3</div>
+        <div class="rp-step-heading" style="margin-bottom:4px">Read this. Look away. Look back.</div>
+        <div class="rp-s3-visual">
+          <div class="rp-s3-text-display">AWAKE</div>
+        </div>
+        <div class="rp-s3-guidance">Look away from the screen for a few seconds, then look back at the word. In a dream, text often shifts, blurs, or becomes unreadable on the second look.</div>
+        <div class="rp-s3-timer-row">
+          <div class="rp-countdown" id="rp-s3-timer-2">30</div>
+          <div class="rp-countdown-label">seconds</div>
+        </div>
+        <button class="rp-s3-skip" onclick="rpStep3SkipCheck()">Skip →</button>
+      </div>
+
+      <!-- Check 3: Finger-through-palm -->
+      <div id="rp-s3-check-3" class="rp-s3-view">
+        <div class="rp-s3-check-label">Check 3 of 3</div>
+        <div class="rp-step-heading" style="margin-bottom:4px">Finger through palm.</div>
+        <div class="rp-s3-visual">
+          <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" opacity="0.85">
+            <circle cx="12" cy="16" r="6"/>
+            <path d="M12 2v8"/>
+            <path d="M9 7l3-3 3 3"/>
+          </svg>
+        </div>
+        <div class="rp-s3-guidance">Press your index finger gently against your palm. Try to feel it pass through. In a dream, it does.</div>
+        <div class="rp-s3-timer-row">
+          <div class="rp-countdown" id="rp-s3-timer-3">30</div>
+          <div class="rp-countdown-label">seconds</div>
+        </div>
+        <button class="rp-s3-skip" onclick="rpStep3SkipCheck()">Skip →</button>
+      </div>
     </div>
 
     <!-- Step 4: Lucidity Reading (placeholder — D-5) -->
