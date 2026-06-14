@@ -1,8 +1,8 @@
-// ABLTY Service Worker v51
+// ABLTY Service Worker v52
 // Strategy: network-first for HTML, cache-first for static assets
 // Includes update detection to notify users of new versions
 
-const CACHE_NAME = 'ablty-v51';
+const CACHE_NAME = 'ablty-v52';
 const STATIC_ASSETS = [
   '/',
   '/app.html',

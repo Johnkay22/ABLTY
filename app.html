@@ -9095,10 +9095,15 @@ function rpCompleteStep(n, advance = true) {
     _rpState.pendingSync = true;
     _rpState.active = false;
     _saveRPState(_rpState);
-    // Protocol in-app portion done — stay on Step 6 wind-down screen
+    // Protocol in-app portion done — stay on Step 6 wind-down screen.
+    // 'wound_down' and 'synced' both count as protocol success;
+    // 'synced' is next-day morning sync, not part of the overnight run.
     _rpUpdateSessionRow({ protocol_completed_at: new Date().toISOString(), completion_state: 'wound_down' });
   } else {
     _saveRPState(_rpState);
+    // Per-step completion tracking for drop-off analysis.
+    // If a user exits after this, completion_state shows the last genuine step completed.
+    _rpUpdateSessionRow({ completion_state: 'completed_step_' + n });
     if (advance && n < 6) rpNavigateToStep(n + 1);
   }
 }
@@ -9124,6 +9129,10 @@ function rpExitConfirm() {
   _rpReleaseWakeLock();
   const modal = document.getElementById('rp-exit-modal');
   if (modal) modal.style.display = 'none';
+  // Write explicit exit marker at the step the user was ON, not the last completed step.
+  // 'completed_step_N' means they finished N and quit during N+1 — exited_at_step_N
+  // identifies the abandoned step directly, making drop-off analysis unambiguous.
+  if (_rpState) _rpUpdateSessionRow({ completion_state: 'exited_at_step_' + _rpState.currentStep });
   navigate('wbtb');
   // ablty_wbtb_protocol preserved — resumeOrInitRP() will restore this step on re-entry
 }
@@ -14482,7 +14491,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.06.13.1';
+const APP_VERSION = '2026.06.14.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
