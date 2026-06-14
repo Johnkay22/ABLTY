@@ -3290,6 +3290,10 @@ html, body {
 .rp-s3-guidance { font-family: var(--font-body); font-size: 14px; color: var(--muted); line-height: 1.65; margin-bottom: 18px; }
 .rp-s3-timer-row { text-align: center; margin-bottom: 8px; }
 .rp-s3-skip { background: none; border: none; color: var(--muted); font-family: var(--font-mono); font-size: 10px; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; padding: 8px 0 2px; -webkit-tap-highlight-color: transparent; text-align: center; width: 100%; }
+.rp-s4-reading-wrap { flex: 1; overflow-y: auto; margin-bottom: 20px; }
+.rp-s4-reading-title { font-family: var(--font-display); font-size: 28px; letter-spacing: 1px; color: var(--accent); line-height: 1.1; margin-bottom: 6px; }
+.rp-s4-reading-meta { font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 20px; }
+.rp-s4-reading-body { font-family: var(--font-body); font-size: 15px; line-height: 1.75; color: var(--text); white-space: pre-wrap; }
 .rp-s5-view { display: none; flex-direction: column; flex: 1; }
 .rp-s5-view.active { display: flex; }
 .rp-s5-preset-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
@@ -8989,6 +8993,7 @@ function rpNavigateToStep(n) {
   if (n === 1) rpStep2Init();    // step 1 = Dream Capture
   if (n === 2) _rpStartStep1();  // step 2 = Wake Calibration
   if (n === 3) rpStep3Init();
+  if (n === 4) rpStep4Init();
   if (n === 5) rpStep5Init();
   if (n === 6) _rpStartStep6();
 }
@@ -9363,6 +9368,50 @@ function _rpStep3Advance() {
 function rpStep3SkipCheck() {
   _rpStopStepTimer();
   _rpStep3Advance();
+}
+
+// ── Step 4: Lucidity Reading ──────────────────
+
+async function rpStep4Init() {
+  // Always hide reading content first; Continue is always visible regardless of tier/auth.
+  const wrap = document.getElementById('rp-s4-reading-wrap');
+  if (wrap) wrap.style.display = 'none';
+
+  if (!sb) return;
+
+  try {
+    // Query 1: RLS is the premium gate — free/guest users get [] with error:null (silent pass-through).
+    const { data: readings, error } = await sb.from('lucidity_readings').select('*');
+    if (error || !readings || readings.length === 0) return;
+
+    // Only premium users reach here. Query 2: exclude recently shown readings.
+    // wbtb_sessions.reading_id_shown is the DB source of truth for rotation.
+    const userId = await getLoggedInUserId();
+    let recentIds = [];
+    if (userId) {
+      const { data: recentSessions } = await sb
+        .from('wbtb_sessions')
+        .select('reading_id_shown')
+        .eq('user_id', userId)
+        .not('reading_id_shown', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(5);
+      recentIds = (recentSessions || []).map(s => s.reading_id_shown);
+    }
+
+    const candidates = readings.filter(r => !recentIds.includes(r.id));
+    const pick = candidates.length > 0 ? candidates[0] : readings[0];
+
+    const titleEl = document.getElementById('rp-s4-reading-title');
+    const metaEl  = document.getElementById('rp-s4-reading-meta');
+    const bodyEl  = document.getElementById('rp-s4-reading-body');
+    if (titleEl) titleEl.textContent = pick.title;
+    if (metaEl)  metaEl.textContent  = pick.author || '';
+    if (bodyEl)  bodyEl.textContent  = pick.body_text;
+    if (wrap) wrap.style.display = '';
+
+    _rpUpdateSessionRow({ reading_id_shown: pick.id });
+  } catch(e) { /* silent — Continue always visible */ }
 }
 
 // ── Step 5: Intention Setting ─────────────────
@@ -14433,7 +14482,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.06.12.10';
+const APP_VERSION = '2026.06.13.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -16408,17 +16457,16 @@ window.addEventListener('unhandledrejection', (e) => {
       </div>
     </div>
 
-    <!-- Step 4: Lucidity Reading (placeholder — D-5) -->
+    <!-- Step 4: Lucidity Reading -->
     <div id="rp-step-4" class="rp-step">
       <div class="rp-step-tag">Lucidity Reading</div>
-      <div class="rp-placeholder-card">
-        <div class="rp-placeholder-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-        </div>
-        <div style="font-family:var(--font-display);font-size:22px;letter-spacing:1px;color:var(--text);">Lucidity Reading</div>
-        <div style="font-family:var(--font-body);font-size:13px;color:var(--muted);line-height:1.6;max-width:240px;">Curated short-form lucid dreaming content launches in the next build.</div>
+      <!-- TODO: dim/serif reading mode for sleep onset — candidate for follow-up styling -->
+      <div id="rp-s4-reading-wrap" class="rp-s4-reading-wrap" style="display:none">
+        <div id="rp-s4-reading-title" class="rp-s4-reading-title"></div>
+        <div id="rp-s4-reading-meta" class="rp-s4-reading-meta"></div>
+        <div id="rp-s4-reading-body" class="rp-s4-reading-body"></div>
       </div>
-      <button class="rp-btn-primary" onclick="rpCompleteStep(4)">Continue</button>
+      <button class="rp-btn-primary" onclick="rpCompleteStep(4)">Continue →</button>
     </div>
 
     <!-- Step 5: Intention Setting -->
