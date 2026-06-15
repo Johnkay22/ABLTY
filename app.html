@@ -3294,6 +3294,7 @@ html, body {
 .rp-s4-reading-title { font-family: var(--font-display); font-size: 28px; letter-spacing: 1px; color: var(--accent); line-height: 1.1; margin-bottom: 6px; }
 .rp-s4-reading-meta { font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 20px; }
 .rp-s4-reading-body { font-family: var(--font-body); font-size: 15px; line-height: 1.75; color: var(--text); white-space: pre-wrap; }
+.rp-gate-card { flex: 1; display: flex; flex-direction: column; }
 .rp-s5-view { display: none; flex-direction: column; flex: 1; }
 .rp-s5-view.active { display: flex; }
 .rp-s5-preset-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
@@ -9330,6 +9331,18 @@ async function rpStep2Submit(path) {
 let _rpS3Check = 0;
 
 function rpStep3Init() {
+  const gate    = document.getElementById('rp-s3-gate');
+  const dots    = document.getElementById('rp-s3-progress-dots');
+  const checks  = document.querySelectorAll('#rp-step-3 .rp-s3-view');
+  if (!isPremiumTier()) {
+    if (gate)  gate.style.display = 'flex';
+    if (dots)  dots.style.display = 'none';
+    checks.forEach(c => { c.style.display = 'none'; });
+    return;
+  }
+  if (gate)  gate.style.display = 'none';
+  if (dots)  dots.style.display = '';
+  checks.forEach(c => { c.style.display = ''; });
   _rpS3Check = 0;
   [1, 2, 3].forEach(n => {
     const dot = document.getElementById('rp-s3-dot-' + n);
@@ -9381,10 +9394,32 @@ function rpStep3SkipCheck() {
 
 // ── Step 4: Lucidity Reading ──────────────────
 
+function rpGatedSkipStep(n) {
+  if (!_rpState) return;
+  if (!_rpState.completedSteps.includes(n)) _rpState.completedSteps.push(n);
+  _saveRPState(_rpState);
+  // Distinct from completed_step_N (genuine) and exited_at_step_N (explicit quit).
+  // Note: last-write-wins — a user who skips both gates lands on gated_skip_4 only.
+  // Per-gate skip counts require querying completion_state sequence, not column value.
+  _rpUpdateSessionRow({ completion_state: 'gated_skip_' + n });
+  if (n < 6) rpNavigateToStep(n + 1);
+}
+
 async function rpStep4Init() {
-  // Always hide reading content first; Continue is always visible regardless of tier/auth.
-  const wrap = document.getElementById('rp-s4-reading-wrap');
-  if (wrap) wrap.style.display = 'none';
+  const gate        = document.getElementById('rp-s4-gate');
+  const wrap        = document.getElementById('rp-s4-reading-wrap');
+  const continueBtn = document.getElementById('rp-s4-continue-btn');
+
+  if (!isPremiumTier()) {
+    if (gate)        gate.style.display        = 'flex';
+    if (wrap)        wrap.style.display        = 'none';
+    if (continueBtn) continueBtn.style.display = 'none';
+    return;
+  }
+
+  if (gate)        gate.style.display        = 'none';
+  if (continueBtn) continueBtn.style.display = '';
+  if (wrap)        wrap.style.display        = 'none'; // hidden until content loads
 
   if (!sb) return;
 
@@ -14491,7 +14526,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.06.14.1';
+const APP_VERSION = '2026.06.15.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -16408,7 +16443,16 @@ window.addEventListener('unhandledrejection', (e) => {
     <!-- Step 3: Reality Check Drill -->
     <div id="rp-step-3" class="rp-step">
       <div class="rp-step-tag">Reality Check Drill</div>
-      <div class="rp-s3-progress">
+
+      <!-- Gate: shown for non-premium; hides on premium init -->
+      <div id="rp-s3-gate" class="rp-gate-card" style="display:none">
+        <div class="rp-step-heading">Premium step.</div>
+        <div class="rp-step-body">The Reality Check Drill trains dream recognition — the core habit behind lucid dreaming. Available with Premium.</div>
+        <button class="rp-btn-primary" onclick="handleUpgradeCTA()">Upgrade to Premium</button>
+        <button class="rp-btn-ghost" onclick="rpGatedSkipStep(3)">Skip this step</button>
+      </div>
+
+      <div class="rp-s3-progress" id="rp-s3-progress-dots">
         <div class="rp-s3-dot" id="rp-s3-dot-1"></div>
         <div class="rp-s3-dot" id="rp-s3-dot-2"></div>
         <div class="rp-s3-dot" id="rp-s3-dot-3"></div>
@@ -16469,13 +16513,22 @@ window.addEventListener('unhandledrejection', (e) => {
     <!-- Step 4: Lucidity Reading -->
     <div id="rp-step-4" class="rp-step">
       <div class="rp-step-tag">Lucidity Reading</div>
+
+      <!-- Gate: shown for non-premium; hides on premium init -->
+      <div id="rp-s4-gate" class="rp-gate-card" style="display:none">
+        <div class="rp-step-heading">Premium step.</div>
+        <div class="rp-step-body">A short read to prime your mind for the dream state before returning to sleep. Available with Premium.</div>
+        <button class="rp-btn-primary" onclick="handleUpgradeCTA()">Upgrade to Premium</button>
+        <button class="rp-btn-ghost" onclick="rpGatedSkipStep(4)">Skip this step</button>
+      </div>
+
       <!-- TODO: dim/serif reading mode for sleep onset — candidate for follow-up styling -->
       <div id="rp-s4-reading-wrap" class="rp-s4-reading-wrap" style="display:none">
         <div id="rp-s4-reading-title" class="rp-s4-reading-title"></div>
         <div id="rp-s4-reading-meta" class="rp-s4-reading-meta"></div>
         <div id="rp-s4-reading-body" class="rp-s4-reading-body"></div>
       </div>
-      <button class="rp-btn-primary" onclick="rpCompleteStep(4)">Continue →</button>
+      <button id="rp-s4-continue-btn" class="rp-btn-primary" onclick="rpCompleteStep(4)">Continue →</button>
     </div>
 
     <!-- Step 5: Intention Setting -->
