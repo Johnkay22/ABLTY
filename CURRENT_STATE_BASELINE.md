@@ -1,6 +1,6 @@
 # ABLTY Current-State Baseline (Source of Truth)
 
-Last updated: 2026-03-22
+Last updated: 2026-06-19
 
 This document is the practical "safe edit map" for the current codebase.
 Use it before making feature changes to avoid regressions.
@@ -22,6 +22,7 @@ Use it before making feature changes to avoid regressions.
   - `RELEASE_CHECKLIST.md`
   - `MOBILE_QA_CHECKLIST.md`
   - `KNOWN_ISSUES.md`
+  - `CLAUDE_HANDOFF.md` — Claude Code session context, WBTB feature status, launch checklist
 
 ## 2) App architecture (high-level)
 
@@ -51,6 +52,7 @@ Primary screens:
   - Dream Journal (home/new/detail)
   - Reality Check (settings/info + live check task screen)
   - WBTB timer + wake flow
+  - WBTB Re-Entry Protocol (7-step guided overnight protocol — see CLAUDE_HANDOFF.md)
 - Analytics
 - Profile/Settings
 - Terms / Privacy
@@ -71,7 +73,8 @@ Tier cache:
 Access map (function-level):
 - Guest allowed: RV, Zener (limited)
 - Free/Premium: timestamp, photopair, dream-lab, dream journal, RC, analytics, WBTB
-- Premium-only features include expanded access paths (example: export unlock)
+- Premium-only features: RC Drill (Step 3) and Lucidity Reading (Step 4) of WBTB Re-Entry Protocol; expanded access paths (example: export unlock)
+- Free users see inline gate cards on premium steps with upgrade CTA + skip option
 
 RV daily limit:
 - Limit applies only if NOT premium and NOT dev mode.
@@ -84,6 +87,7 @@ Local-first keys (non-exhaustive):
 - Presentiment: `ablty_timestamp`, `ablty_timestamp_all`, `ablty_ts_cloud_cache`, `ablty_ts_pending`
 - Photo Pair: `ablty_photopair`, `ablty_pp_cloud_cache`, `ablty_pp_pending`
 - Dream: in-memory state + Supabase `dream_entries`
+- WBTB Re-Entry Protocol: `ablty_wbtb_protocol` (active session state machine)
 - Auth profile cache: `ablty_logged_in`, `ablty_username`, `ablty_tier`, `ablty_user_email`
 
 Cloud merge behavior:
@@ -112,7 +116,7 @@ Notable behavior:
 ## 7) Service worker and update flow
 
 Current SW:
-- `CACHE_NAME = ablty-v15`
+- `CACHE_NAME = ablty-v53`
 - Static cached assets include `/`, `/app.html`, `/version.json`
 
 In-app update logic:
@@ -120,8 +124,10 @@ In-app update logic:
 - SW `UPDATE_READY` message can trigger update banner.
 - `applyUpdate()` posts `SKIP_WAITING` and reloads.
 
+Current version: `2026.06.15.1`
+
 Important release rule:
-- Keep `APP_VERSION` and `version.json` aligned when shipping app-shell changes.
+- Bump all three together: `APP_VERSION` in app.html, `version` in version.json, `CACHE_NAME` in sw.js.
 
 ## 8) Presentiment analytics (current intent)
 
@@ -133,14 +139,27 @@ Important release rule:
 
 Strong tier intentionally requires all metrics to be meaningfully above chance together.
 
-## 9) Known risk hotspots
+## 9) Supabase tables (active)
 
-1. `app.html` is large and tightly coupled (high regression risk from unrelated edits).
-2. Version drift risk if `APP_VERSION`, `version.json`, and SW cadence are not coordinated.
+| Table | Purpose | RLS |
+|---|---|---|
+| `auth.users` | Supabase built-in auth | — |
+| `profiles` | `id = auth.uid()`, `tier` field; tier is write-protected (BEFORE UPDATE trigger — only service_role can change it) | own row |
+| `dream_entries` | Dream journal entries with AI tags | own rows |
+| `wbtb_sessions` | One row per Re-Entry Protocol run; tracks `completion_state`, `path_taken`, `intention`, `reading_id_shown`, outcome | own rows |
+| `lucidity_readings` | Short reading pieces shown at Step 4; currently 3 placeholder rows — needs 10+ real pieces | premium SELECT only (free/guest → empty array, no error) |
+
+Migrations: `supabase/migrations/` — applied in chronological order.
+
+## 10) Known risk hotspots
+
+1. `app.html` is large (~16,500 lines) and tightly coupled — high regression risk from unrelated edits.
+2. Version drift risk if `APP_VERSION`, `version.json`, and SW `CACHE_NAME` are not bumped together.
 3. Production debug residue can be left behind during tuning (example: analytics gate logging).
 4. Many flows are interdependent (auth cache, tier gating, sync, analytics rendering).
+5. WBTB Re-Entry Protocol has a dev skip shortcut — must be gated or removed before public launch (see CLAUDE_HANDOFF.md launch checklist).
 
-## 10) Safe edit guardrails (recommended)
+## 11) Safe edit guardrails (recommended)
 
 Before changing behavior:
 1. Identify exact function(s) and screen IDs touched.
@@ -155,7 +174,7 @@ After changing behavior:
 3. Validate reopen persistence.
 4. Validate update banner logic if app shell changed.
 
-## 11) Quick smoke checklist (minimum)
+## 12) Quick smoke checklist (minimum)
 
 - Open from home-screen icon.
 - Run 1 trial/session in RV, Zener, Presentiment, Photo Pair.
