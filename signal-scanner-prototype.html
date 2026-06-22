@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Signal Scanner V1 Prototype</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #05060d;
+      --panel: rgba(13, 18, 34, 0.76);
+      --panel-strong: rgba(18, 25, 48, 0.94);
+      --text: #f6f8ff;
+      --muted: #8e9aba;
+      --cyan: #5df2ff;
+      --violet: #9b70ff;
+      --pink: #ff5fc8;
+      --green: #79ffbd;
+      --amber: #ffd36a;
+      --danger: #ff6d8f;
+      --ring: rgba(93, 242, 255, 0.42);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100svh;
+      margin: 0;
+      overflow: hidden;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 50% 22%, rgba(93, 242, 255, 0.22), transparent 28%),
+        radial-gradient(circle at 15% 10%, rgba(155, 112, 255, 0.28), transparent 30%),
+        radial-gradient(circle at 86% 72%, rgba(255, 95, 200, 0.16), transparent 27%),
+        linear-gradient(180deg, #0a1022 0%, var(--bg) 48%, #03040a 100%);
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: -20%;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.032) 1px, transparent 1px);
+      background-size: 34px 34px;
+      mask-image: radial-gradient(circle at center, black, transparent 72%);
+      transform: perspective(700px) rotateX(62deg) translateY(11%);
+      opacity: .65;
+    }
+
+    .app {
+      position: relative;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-height: 100svh;
+      padding: max(18px, env(safe-area-inset-top)) 18px max(20px, env(safe-area-inset-bottom));
+      isolation: isolate;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      z-index: 4;
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+
+    .brand strong { font-size: 13px; color: var(--cyan); }
+    .brand span { font-size: 11px; color: var(--muted); }
+
+    .help-btn {
+      width: 42px;
+      height: 42px;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 50%;
+      color: var(--text);
+      background: rgba(255,255,255,.07);
+      box-shadow: 0 0 28px rgba(93,242,255,.14), inset 0 1px 0 rgba(255,255,255,.12);
+      font-size: 19px;
+      font-weight: 800;
+    }
+
+    main {
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 18px;
+      z-index: 2;
+    }
+
+    .scanner {
+      position: relative;
+      width: min(82vw, 360px);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(93,242,255,.10) 0 28%, transparent 29%),
+                  radial-gradient(circle, rgba(155,112,255,.14), rgba(5,6,13,.16) 55%, rgba(93,242,255,.10));
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow: 0 0 80px rgba(93,242,255,.20), inset 0 0 60px rgba(93,242,255,.07);
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    .scanner::before, .scanner::after {
+      content: "";
+      position: absolute;
+      inset: 11%;
+      border-radius: 50%;
+      border: 1px solid rgba(93,242,255,.20);
+      box-shadow: inset 0 0 22px rgba(93,242,255,.09);
+    }
+
+    .scanner::after { inset: 29%; border-color: rgba(255,95,200,.18); }
+
+    .sweep {
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      background: conic-gradient(from 0deg, transparent 0 72%, rgba(93,242,255,.05), rgba(93,242,255,.38), transparent 86% 100%);
+      animation: rotate 4s linear infinite;
+      mix-blend-mode: screen;
+    }
+
+    .scanner.locked .sweep { animation-duration: 1.2s; }
+
+    .target {
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: radial-gradient(circle, #fff 0 12%, var(--cyan) 13% 38%, rgba(93,242,255,.12) 39% 100%);
+      box-shadow: 0 0 20px var(--cyan), 0 0 46px rgba(93,242,255,.42);
+      transition: left .42s cubic-bezier(.22,1,.36,1), top .42s cubic-bezier(.22,1,.36,1), transform .22s ease;
+    }
+
+    .scanner.locked .target { transform: translate(-50%, -50%) scale(1.28); background: radial-gradient(circle, #fff 0 10%, var(--green) 11% 40%, rgba(121,255,189,.14) 41% 100%); }
+
+    .lock-ring {
+      position: absolute;
+      inset: 4%;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      opacity: 0;
+      box-shadow: 0 0 50px rgba(121,255,189,.24), inset 0 0 42px rgba(121,255,189,.1);
+      transition: opacity .3s ease, border-color .3s ease;
+    }
+
+    .scanner.locked .lock-ring { opacity: 1; border-color: rgba(121,255,189,.56); }
+
+    @keyframes rotate { to { transform: rotate(360deg); } }
+
+    .status {
+      width: min(100%, 430px);
+      padding: 18px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 26px;
+      background: var(--panel);
+      backdrop-filter: blur(22px);
+      box-shadow: 0 20px 70px rgba(0,0,0,.34), inset 0 1px 0 rgba(255,255,255,.08);
+    }
+
+    .message {
+      min-height: 48px;
+      margin: 0 0 14px;
+      color: var(--text);
+      font-size: 17px;
+      line-height: 1.35;
+      text-align: center;
+    }
+
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .metric { padding: 12px 8px; border-radius: 18px; background: rgba(255,255,255,.055); border: 1px solid rgba(255,255,255,.08); text-align: center; }
+    .metric b { display: block; font-size: 20px; color: var(--cyan); }
+    .metric span { display: block; margin-top: 5px; font-size: 10px; line-height: 1.1; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+
+    .controls { display: flex; gap: 10px; width: min(100%, 430px); }
+    button.primary, button.secondary {
+      flex: 1;
+      border: 0;
+      border-radius: 18px;
+      padding: 15px 16px;
+      color: #061018;
+      background: linear-gradient(135deg, var(--cyan), var(--green));
+      font-weight: 900;
+      letter-spacing: .02em;
+      box-shadow: 0 12px 34px rgba(93,242,255,.25);
+    }
+    button.secondary { color: var(--text); background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.12); box-shadow: none; }
+    button:disabled { opacity: .55; }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: grid;
+      place-items: center;
+      padding: 22px;
+      background: rgba(1,2,7,.72);
+      backdrop-filter: blur(18px);
+    }
+    .modal[hidden] { display: none; }
+    .card {
+      width: min(100%, 430px);
+      padding: 24px;
+      border-radius: 30px;
+      border: 1px solid rgba(255,255,255,.15);
+      background: linear-gradient(180deg, rgba(23,31,58,.96), rgba(8,11,24,.96));
+      box-shadow: 0 28px 90px rgba(0,0,0,.55), 0 0 55px rgba(93,242,255,.12);
+    }
+    .card h1 { margin: 0 0 10px; font-size: 28px; letter-spacing: -.03em; }
+    .card p, .card li { color: #b8c2dd; line-height: 1.5; }
+    .card ul { padding-left: 20px; }
+    .pref { display: flex; align-items: center; gap: 10px; margin: 16px 0 20px; color: #c9d2e9; }
+    .pref input { width: 18px; height: 18px; accent-color: var(--cyan); }
+
+    @media (min-width: 720px) {
+      body { overflow: auto; }
+      .app { max-width: 520px; margin: 0 auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div class="brand"><strong>Signal Scanner</strong><span>Standalone V1 Prototype</span></div>
+      <button class="help-btn" id="helpBtn" aria-label="Open help">?</button>
+    </header>
+
+    <main>
+      <section class="scanner" id="scanner" aria-label="Signal scanning field">
+        <div class="sweep"></div>
+        <div class="lock-ring"></div>
+        <div class="target" id="target" style="left:50%;top:50%"></div>
+      </section>
+
+      <section class="status" aria-live="polite">
+        <p class="message" id="message">Ready. Begin a 15-second scan when you feel clear intent.</p>
+        <div class="metrics">
+          <div class="metric"><b id="duration">15.0s</b><span>Scan Duration</span></div>
+          <div class="metric"><b id="contacts">0</b><span>Signal Contacts</span></div>
+          <div class="metric"><b id="stability">0%</b><span>Scan Stability %</span></div>
+        </div>
+      </section>
+
+      <div class="controls">
+        <button class="primary" id="startBtn">Start Scan</button>
+        <button class="secondary" id="resetBtn">Reset</button>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal" id="introModal" role="dialog" aria-modal="true" aria-labelledby="introTitle" hidden>
+    <div class="card">
+      <h1 id="introTitle">How to Scan</h1>
+      <p>Hold your attention on the scanner and move slowly with intention. The prototype measures repeated dwell near the same zone, smooth movement, and low jitter.</p>
+      <ul>
+        <li>Each scan runs for 15 seconds unless an early lock is detected.</li>
+        <li>Signal Contacts increase only after meaningful dwell and revisits.</li>
+        <li>No future signal is selected until lock or timer completion.</li>
+      </ul>
+      <label class="pref"><input type="checkbox" id="dontShow" /> Do not show again</label>
+      <button class="primary" id="closeIntro">Begin</button>
+    </div>
+  </div>
+
+  <script>
+    (() => {
+      const SCAN_MS = 15000;
+      const SAMPLE_MS = 120;
+      const LOCK_CONTACTS = 5;
+      const LOCK_STABILITY = 72;
+      const INTRO_KEY = 'signalScannerV1IntroDismissed';
+      const zones = [
+        { x: 28, y: 33, dwell: 0, visits: 0, active: false },
+        { x: 68, y: 27, dwell: 0, visits: 0, active: false },
+        { x: 51, y: 58, dwell: 0, visits: 0, active: false },
+        { x: 76, y: 66, dwell: 0, visits: 0, active: false },
+        { x: 31, y: 73, dwell: 0, visits: 0, active: false }
+      ];
+      const scanner = document.getElementById('scanner');
+      const target = document.getElementById('target');
+      const message = document.getElementById('message');
+      const duration = document.getElementById('duration');
+      const contactsEl = document.getElementById('contacts');
+      const stabilityEl = document.getElementById('stability');
+      const startBtn = document.getElementById('startBtn');
+      const resetBtn = document.getElementById('resetBtn');
+      const helpBtn = document.getElementById('helpBtn');
+      const modal = document.getElementById('introModal');
+      const dontShow = document.getElementById('dontShow');
+      const closeIntro = document.getElementById('closeIntro');
+
+      let scanning = false;
+      let locked = false;
+      let startedAt = 0;
+      let timer = 0;
+      let contacts = 0;
+      let stability = 0;
+      let lastPoint = { x: 50, y: 50, t: performance.now() };
+      let smoothSamples = [];
+      let autoPath = 0;
+      let futureSignal = null;
+
+      function showIntro(force = false) {
+        if (force || localStorage.getItem(INTRO_KEY) !== '1') modal.hidden = false;
+      }
+
+      function hideIntro() {
+        if (dontShow.checked) localStorage.setItem(INTRO_KEY, '1');
+        modal.hidden = true;
+      }
+
+      function setPoint(x, y) {
+        target.style.left = `${x}%`;
+        target.style.top = `${y}%`;
+        recordIntentionality(x, y);
+        lastPoint = { x, y, t: performance.now() };
+      }
+
+      function recordIntentionality(x, y) {
+        const now = performance.now();
+        const dt = Math.max(1, now - lastPoint.t);
+        const distance = Math.hypot(x - lastPoint.x, y - lastPoint.y);
+        const velocity = distance / dt;
+        const smoothness = Math.max(0, 1 - Math.abs(velocity - 0.075) / 0.16);
+        const centered = Math.max(0, 1 - Math.hypot(x - 50, y - 50) / 72);
+        smoothSamples.push((smoothness * 0.72) + (centered * 0.28));
+        if (smoothSamples.length > 90) smoothSamples.shift();
+        stability = Math.round(100 * smoothSamples.reduce((a, b) => a + b, 0) / smoothSamples.length);
+      }
+
+      function updateContacts(x, y) {
+        zones.forEach(zone => {
+          const near = Math.hypot(x - zone.x, y - zone.y) < 13;
+          if (near) {
+            zone.dwell += SAMPLE_MS;
+            if (!zone.active) {
+              zone.active = true;
+              zone.visits += 1;
+            }
+            if (zone.dwell >= 620 && zone.visits >= 2 && !zone.counted) {
+              zone.counted = true;
+              contacts += 1;
+            }
+          } else {
+            zone.active = false;
+            zone.dwell = Math.max(0, zone.dwell - SAMPLE_MS * 0.35);
+          }
+        });
+      }
+
+      function generateFutureSignal() {
+        const pool = ['North Star', 'Blue Door', 'Copper Key', 'Glass Tide', 'Quiet Flame'];
+        futureSignal = pool[Math.floor(Math.random() * pool.length)];
+      }
+
+      function lockScan(reason) {
+        if (locked) return;
+        locked = true;
+        scanning = false;
+        clearInterval(timer);
+        scanner.classList.add('locked');
+        generateFutureSignal();
+        message.textContent = reason === 'early'
+          ? 'Scan locked. Selecting future signal now.'
+          : `Timer complete. Future signal selected: ${futureSignal}.`;
+        if (reason === 'early') setTimeout(() => { message.textContent = `Future signal selected: ${futureSignal}.`; }, 1400);
+        startBtn.textContent = 'Scan Complete';
+        startBtn.disabled = true;
+      }
+
+      function tick() {
+        const elapsed = performance.now() - startedAt;
+        const remaining = Math.max(0, SCAN_MS - elapsed);
+        duration.textContent = `${(remaining / 1000).toFixed(1)}s`;
+
+        autoPath += 0.045;
+        const x = 50 + Math.cos(autoPath * 1.3) * 25 + Math.sin(autoPath * .7) * 7;
+        const y = 50 + Math.sin(autoPath * 1.1) * 23 + Math.cos(autoPath * .9) * 6;
+        setPoint(Math.max(12, Math.min(88, x)), Math.max(12, Math.min(88, y)));
+        updateContacts(lastPoint.x, lastPoint.y);
+
+        contactsEl.textContent = contacts;
+        stabilityEl.textContent = `${stability}%`;
+
+        if (contacts >= LOCK_CONTACTS && stability >= LOCK_STABILITY && elapsed > 4500) lockScan('early');
+        else if (remaining <= 0) lockScan('timer');
+      }
+
+      function startScan() {
+        if (scanning || locked) return;
+        scanning = true;
+        futureSignal = null;
+        startedAt = performance.now();
+        startBtn.textContent = 'Scanning...';
+        message.textContent = 'Scanning for dwell, revisits, smoothness, and intentionality. No future signal generated yet.';
+        timer = setInterval(tick, SAMPLE_MS);
+        tick();
+      }
+
+      function resetScan() {
+        clearInterval(timer);
+        scanning = false;
+        locked = false;
+        contacts = 0;
+        stability = 0;
+        futureSignal = null;
+        smoothSamples = [];
+        zones.forEach(z => Object.assign(z, { dwell: 0, visits: 0, active: false, counted: false }));
+        scanner.classList.remove('locked');
+        duration.textContent = '15.0s';
+        contactsEl.textContent = '0';
+        stabilityEl.textContent = '0%';
+        message.textContent = 'Ready. Begin a 15-second scan when you feel clear intent.';
+        startBtn.textContent = 'Start Scan';
+        startBtn.disabled = false;
+        setPoint(50, 50);
+      }
+
+      scanner.addEventListener('pointermove', event => {
+        if (!scanning || locked) return;
+        const rect = scanner.getBoundingClientRect();
+        const x = ((event.clientX - rect.left) / rect.width) * 100;
+        const y = ((event.clientY - rect.top) / rect.height) * 100;
+        setPoint(Math.max(8, Math.min(92, x)), Math.max(8, Math.min(92, y)));
+        updateContacts(x, y);
+      });
+
+      startBtn.addEventListener('click', startScan);
+      resetBtn.addEventListener('click', resetScan);
+      helpBtn.addEventListener('click', () => showIntro(true));
+      closeIntro.addEventListener('click', hideIntro);
+      showIntro();
+    })();
+  </script>
+</body>
+</html>
