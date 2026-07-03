@@ -4437,10 +4437,8 @@ html, body {
         </div>
       </div>
 
-      <!-- RC Debug  -  only visible in dev mode -->
+      <!-- Dev mode controls  -  only visible in dev mode -->
       <div id="rc-debug-wrap" style="display:none;flex-direction:column;gap:8px;margin-top:4px;">
-        <button class="admin-btn" onclick="runRCDebug()" id="rc-debug-btn">◈ RC Pager Diagnostics</button>
-        <div id="rc-debug-output" style="display:none;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:14px;font-family:var(--font-mono);font-size:9px;color:var(--muted);letter-spacing:0.5px;line-height:1.8;white-space:pre-wrap;word-break:break-all;"></div>
         <button class="admin-btn" style="color:var(--danger);border-color:var(--danger);" onclick="exitDevMode()">Exit Dev Mode</button>
       </div>
 
@@ -7124,116 +7122,6 @@ function renderProfile() {
   const rcDebugWrap = document.getElementById('rc-debug-wrap');
   if (rcDebugWrap) rcDebugWrap.style.display = isDevMode() ? 'flex' : 'none';
   refreshPushUI();
-}
-
-
-async function runRCDebug() {
-  if (!isDevMode()) {
-    showToast('Diagnostics are available in dev mode only.', 'info');
-    return;
-  }
-  const btn = document.getElementById('rc-debug-btn');
-  const out = document.getElementById('rc-debug-output');
-  if (!out) return;
-  out.style.display = 'block';
-  out.textContent = 'Fetching diagnostics...';
-  if (btn) btn.textContent = '◈ Running...';
-
-  // First check client-side state
-  const pushEnabled  = getPushEnabled();
-  const permission   = getPushStatus();
-  const rcSettings   = getRCSettings();
-  const streak       = getRCStreak();
-
-  let subEndpoint = 'none';
-  let subValid = false;
-  try {
-    const reg = window._swRegistration || await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
-    if (sub) { subEndpoint = sub.endpoint.slice(0,60) + '...'; subValid = true; }
-  } catch(e) { subEndpoint = 'error: ' + e.message; }
-
-  const clientInfo = [
-    '── CLIENT STATE ──────────────────',
-    'push_enabled:  ' + pushEnabled,
-    'permission:    ' + permission,
-    'sw_registered: ' + !!window._swRegistration,
-    'sub_in_browser:' + subValid,
-    'sub_endpoint:  ' + subEndpoint,
-    'freq:          ' + (rcSettings.freq || 'not set'),
-    'bedtime:       ' + (rcSettings.bedtimeHour || '?') + ':' + String(rcSettings.bedtimeMin||0).padStart(2,'0') + ' ' + (rcSettings.bedtimeAmpm||'?'),
-    'utcOffset:     ' + (rcSettings.utcOffset !== undefined ? rcSettings.utcOffset : 'not set'),
-    'local_now:     ' + new Date().toLocaleTimeString(),
-    'streak:        ' + streak.count + ' days',
-    '',
-  ].join('\n');
-
-  out.textContent = clientInfo + 'Contacting worker...';
-
-  try {
-    const resp = await fetch(WORKER_URL + '/debug', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({})
-    });
-    const data = await resp.json();
-
-    let serverInfo = '── SERVER STATE ──────────────────\n';
-    serverInfo += 'worker_utc_now: ' + (data.now_utc || 'n/a') + '\n';
-
-    if (data.error) {
-      serverInfo += 'ERROR: ' + data.error + '\n';
-    } else if (data.subscribers && data.subscribers.length) {
-      data.subscribers.forEach((s, i) => {
-        serverInfo += '\n── Subscriber ' + (i+1) + ' ─────────────\n';
-        if (s.error) { serverInfo += 'error: ' + s.error + '\n'; return; }
-        serverInfo += 'freq:            ' + s.freq + '/day\n';
-        serverInfo += 'bedtime:         ' + s.bedtime + '\n';
-        serverInfo += 'utcOffset:       ' + s.utcOffset + '\n';
-        serverInfo += 'worker_localTime:' + s.localTime + '\n';
-        serverInfo += 'in_window:       ' + s.inWindow + '\n';
-        serverInfo += 'sent_today:      ' + s.sentToday + '\n';
-        serverInfo += 'mins_since_last: ' + (s.minutesSinceLast !== null ? s.minutesSinceLast + ' min' : 'never') + '\n';
-        serverInfo += 'today_key:       ' + s.todayKey + '\n';
-        serverInfo += 'endpoint:        ' + (s.endpointPrefix || 'n/a') + '\n';
-
-        // Diagnose
-        serverInfo += '\n── DIAGNOSIS ─────────────────────\n';
-        if (!s.inWindow) serverInfo += '⚠ NOT in active window right now\n';
-        else serverInfo += '✓ In active window\n';
-        if (s.sentToday >= s.freq) serverInfo += '⚠ Daily limit reached (' + s.sentToday + '/' + s.freq + ')\n';
-        else serverInfo += '✓ ' + (s.freq - s.sentToday) + ' sends remaining today\n';
-        if (s.utcOffset === 0 && Intl.DateTimeFormat().resolvedOptions().timeZone !== 'UTC')
-          serverInfo += '⚠ utcOffset is 0 but you are not in UTC  -  re-subscribe may be needed\n';
-
-        // Check for the sign flip bug
-        const clientOffset = rcSettings.utcOffset;
-        const serverOffset = s.utcOffset;
-        if (clientOffset !== undefined && serverOffset !== clientOffset)
-          serverInfo += '⚠ offset mismatch: client=' + clientOffset + ' server=' + serverOffset + '\n';
-
-        // Check if server local time looks right
-        const localNowH = new Date().getHours();
-        const serverH = parseInt((s.localTime||'0:').split(':')[0]);
-        const drift = Math.abs(localNowH - serverH);
-        if (drift > 1 && drift < 23)
-          serverInfo += '⚠ Server local time (' + s.localTime + ') differs from your local time by ' + drift + 'h  -  offset bug suspected\n';
-        else
-          serverInfo += '✓ Server local time matches your clock\n';
-      });
-    } else {
-      serverInfo += '⚠ NO SUBSCRIBERS FOUND IN KV\n';
-      serverInfo += '   → Pager was never successfully subscribed to the server,\n';
-      serverInfo += '     or KV entry expired. Go to Dream Lab → Reality Check\n';
-      serverInfo += '     and toggle it off then back on to re-subscribe.\n';
-    }
-
-    out.textContent = clientInfo + serverInfo;
-  } catch(e) {
-    out.textContent = clientInfo + '── SERVER STATE ──────────────────\nFailed to reach worker:\n' + e.message;
-  }
-
-  if (btn) btn.textContent = '◈ RC Pager Diagnostics';
 }
 
 function toggleSetting(key) {
@@ -10857,7 +10745,10 @@ function renderZenerResults(run) {
   const breakdownEl = document.getElementById('zener-symbol-breakdown');
 
   const pct = run.hitPct;
-  const verdict = pct > 28 ? 'above' : pct < 12 ? 'below' : 'at';
+  // Verdict from raw hit count, not percentage. Zener chance = 5/25; under the null
+  // hits ~ Binomial(25, 0.2), mean 5, SD 2. hits >= 9 clears p < 0.05 (upper tail);
+  // hits <= 1 is the statistically consistent lower-tail cutoff (P(X<=1) = 0.027).
+  const verdict = run.hits >= 9 ? 'above' : run.hits <= 1 ? 'below' : 'at';
 
   if (scoreEl) {
     scoreEl.textContent = run.hits + '/25';
@@ -10871,12 +10762,18 @@ function renderZenerResults(run) {
   }
 
   const allRuns = loadZenerSessions();
+  // Pool raw hits and raw trials across runs (25 trials/run) rather than averaging per-run
+  // percentages, then run a binomial test on the pooled counts for the cumulative verdict.
+  const totalTrials = allRuns.reduce((s, r) => s + Math.max(0, Number(r?.trials || 25)), 0);
+  const totalHits   = allRuns.reduce((s, r) => s + Math.max(0, Number(r?.hits || 0)), 0);
+  const overallPct  = totalTrials > 0 ? Math.round((totalHits / totalTrials) * 100) : 0;
   if (sigEl) {
     if (allRuns.length < 5) {
       sigEl.textContent = `Complete ${5 - allRuns.length} more run${allRuns.length === 4 ? '' : 's'} for statistical baseline.`;
     } else {
-      const overallPct = Math.round(allRuns.reduce((a, r) => a + r.hitPct, 0) / allRuns.length);
-      sigEl.textContent = overallPct > 25
+      const pVal = approximateBinomialPValue(totalHits, totalTrials, 0.2);
+      const aboveChance = pVal !== null && pVal < 0.05 && totalHits > totalTrials * 0.2;
+      sigEl.textContent = aboveChance
         ? `Cumulative avg ${overallPct}% across ${allRuns.length} runs  -  consistently above chance baseline.`
         : `Cumulative avg ${overallPct}% across ${allRuns.length} runs  -  within chance range.`;
     }
@@ -10887,7 +10784,7 @@ function renderZenerResults(run) {
   }
   if (runsEl)    runsEl.textContent    = allRuns.length;
   if (overallEl && allRuns.length) {
-    overallEl.textContent = Math.round(allRuns.reduce((a, r) => a + r.hitPct, 0) / allRuns.length) + '%';
+    overallEl.textContent = overallPct + '%';
   }
 
   // Symbol breakdown
@@ -13671,25 +13568,26 @@ async function handleLogin() {
   if (!valid) return;
 
   const btn = document.getElementById('login-btn');
-  if (btn) btn.disabled = true;
+  const originalText = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Signing in...'; }
 
   if (!sb) {
     setAuthError('login-email','login-email-err','Auth is not configured');
-    if (btn) btn.disabled = false;
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
     return;
   }
 
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (error) {
     setAuthError('login-email','login-email-err', error.message);
-    if (btn) btn.disabled = false;
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
     return;
   }
 
   await onSignedIn(data.user);
   closeAuthScreen('login');
   showToast('Signed in.', 'success');
-  if (btn) btn.disabled = false;
+  if (btn) { btn.disabled = false; btn.textContent = originalText; }
 }
 
 async function handleSignup() {
@@ -14526,7 +14424,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.06.15.1';
+const APP_VERSION = '2026.07.03.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -15283,7 +15181,7 @@ function renderTimestampResults() {
     if (taps.length < 10) {
       badge.textContent = 'Need 10+ taps for statistical analysis';
       badge.className = 'ts-sigma-badge nosig';
-    } else if (sigma > 1.5) {
+    } else if (sigma > 2.0) {
       badge.textContent = sigma.toFixed(1) + '\u03C3 below chance \u00B7 Significant';
       badge.className = 'ts-sigma-badge sig';
     } else if (sigma > 0) {

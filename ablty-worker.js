@@ -1350,15 +1350,19 @@ async function handleDeleteAccount(request, env, origin = '') {
     }
 
     try {
-      const alarmsRaw = await env.ABLTY_KV.get('wbtb-alarms');
-      if (alarmsRaw) {
-        const alarms = JSON.parse(alarmsRaw);
-        if (Array.isArray(alarms)) {
-          const remaining = alarms.filter((a) => a && a.userId !== userId);
-          if (remaining.length === 0) {
+      // wbtb-alarms is an OBJECT keyed by an endpoint-derived id (see /wbtb-schedule),
+      // not an array with userId. Delete this user's alarm the same way /wbtb-cancel does.
+      if (pushEndpoint) {
+        const alarmsRaw = await env.ABLTY_KV.get('wbtb-alarms');
+        if (alarmsRaw) {
+          const alarms = JSON.parse(alarmsRaw);
+          const id = btoa(pushEndpoint).slice(0, 40).replace(/[^a-zA-Z0-9]/g, '');
+          delete alarms[id];
+          delete alarms[id + '-return'];
+          if (Object.keys(alarms).length === 0) {
             await env.ABLTY_KV.delete('wbtb-alarms');
-          } else if (remaining.length !== alarms.length) {
-            await env.ABLTY_KV.put('wbtb-alarms', JSON.stringify(remaining));
+          } else {
+            await env.ABLTY_KV.put('wbtb-alarms', JSON.stringify(alarms));
           }
         }
       }
