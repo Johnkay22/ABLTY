@@ -10771,7 +10771,7 @@ function renderZenerResults(run) {
     if (allRuns.length < 5) {
       sigEl.textContent = `Complete ${5 - allRuns.length} more run${allRuns.length === 4 ? '' : 's'} for statistical baseline.`;
     } else {
-      const pVal = approximateBinomialPValue(totalHits, totalTrials, 0.2);
+      const pVal = binomialUpperTailP(totalHits, totalTrials, 0.2);
       const aboveChance = pVal !== null && pVal < 0.05 && totalHits > totalTrials * 0.2;
       sigEl.textContent = aboveChance
         ? `Cumulative avg ${overallPct}% across ${allRuns.length} runs  -  consistently above chance baseline.`
@@ -11028,6 +11028,33 @@ function approximateBinomialPValue(successes, trials, baseline = 0.5) {
   const z = (k - mean) / Math.sqrt(variance);
   const pUpper = 1 - normalCdf(z);
   return Math.max(0, Math.min(1, pUpper));
+}
+
+// Exact binomial upper-tail p-value P(X >= k) for X ~ Binomial(n, p). Unlike the
+// normal approximation above, this is used to gate every user-facing "above chance" /
+// significance verdict, because the approximation is too permissive at the p=0.05
+// boundary (e.g. 33/125 hits: normal approx 0.037 "significant" vs exact 0.0502).
+function logGamma(z) {
+  const g = 7;
+  const c = [0.99999999999980993, 676.5203681218851, -1259.1392167224028,
+    771.32342877765313, -176.61502916214059, 12.507343278686905,
+    -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7];
+  if (z < 0.5) return Math.log(Math.PI / Math.sin(Math.PI * z)) - logGamma(1 - z);
+  z -= 1;
+  let x = c[0];
+  for (let i = 1; i < g + 2; i++) x += c[i] / (z + i);
+  const t = z + g + 0.5;
+  return 0.5 * Math.log(2 * Math.PI) + (z + 0.5) * Math.log(t) - t + Math.log(x);
+}
+function binomialUpperTailP(k, n, p) {
+  if (k <= 0) return 1;
+  if (k > n) return 0;
+  const lnp = Math.log(p), lnq = Math.log(1 - p), lnFacN = logGamma(n + 1);
+  let sum = 0;
+  for (let i = k; i <= n; i++) {
+    sum += Math.exp(lnFacN - logGamma(i + 1) - logGamma(n - i + 1) + i * lnp + (n - i) * lnq);
+  }
+  return Math.min(1, sum);
 }
 
 // ── Signal Tier System ──────────────────────
@@ -11834,7 +11861,7 @@ function buildSymbolAccuracy(zenerRuns) {
     const hitRate = totalTrials > 0 ? (totalHits / totalTrials) * 100 : 0;
     const chance = 20;
     const edge = hitRate - chance;
-    const pValue = approximateBinomialPValue(totalHits, totalTrials, 0.2);
+    const pValue = binomialUpperTailP(totalHits, totalTrials, 0.2);
 
 
     // Improving trend: compare recent half vs early half hit rate
@@ -15543,7 +15570,7 @@ function renderPPAnalyticsCard(sessions, n, hits, hitPct, hitStr, aboveBelow) {
 
   const chance = 50;
   const edge = hitPct === null ? 0 : (hitPct - chance);
-  const pValue = n > 0 ? approximateBinomialPValue(hits, n, 0.5) : null;
+  const pValue = n > 0 ? binomialUpperTailP(hits, n, 0.5) : null;
 
   // Improving trend: compare recent half vs early half hit rate
   const sorted = [...sessions].sort((a, b) => new Date(b.date || b.timestamp || 0) - new Date(a.date || a.timestamp || 0));
