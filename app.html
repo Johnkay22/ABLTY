@@ -12977,7 +12977,7 @@ function onSignupTosChange(cb) {
   if (gate) gate.style.opacity = checked ? '' : '0.4';
   if (overlay) overlay.style.display = checked ? 'none' : '';
   if (checked) {
-    localStorage.setItem('ablty_pending_legal_acceptance', JSON.stringify({ at: new Date().toISOString(), version: '2026-04-30' }));
+    localStorage.setItem('ablty_pending_legal_acceptance', JSON.stringify({ at: new Date().toISOString(), version: '2026-07-19' }));
   } else {
     localStorage.removeItem('ablty_pending_legal_acceptance');
   }
@@ -13691,7 +13691,7 @@ async function handleSignup() {
   if (data?.user?.id) {
     // Persist desired username for first confirmed sign-in profile provisioning.
     localStorage.setItem('ablty_pending_username', username);
-    localStorage.setItem('ablty_pending_legal_acceptance', JSON.stringify({ at: new Date().toISOString(), version: '2026-04-30' }));
+    localStorage.setItem('ablty_pending_legal_acceptance', JSON.stringify({ at: new Date().toISOString(), version: '2026-07-19' }));
   }
 
   if (data?.session?.user && typeof onSignedIn === 'function') {
