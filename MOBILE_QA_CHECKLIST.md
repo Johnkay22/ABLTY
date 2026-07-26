@@ -29,7 +29,6 @@ Run at least one session/trial in each:
 - [ ] RV
 - [ ] Zener
 - [ ] Presentiment
-- [ ] Photo Pair
 
 ## 4) Analytics log correctness
 
@@ -37,7 +36,6 @@ Run at least one session/trial in each:
 - [ ] RV filter shows only RV
 - [ ] Zener filter shows only Zener
 - [ ] Presentiment filter shows only Presentiment
-- [ ] Photo Pair filter shows only Photo Pair
 - [ ] Sort by Date works (newest first)
 - [ ] Sort by Score works (high to low)
 
@@ -69,7 +67,6 @@ Copy and fill this in one message:
 - RV: Pass/Fail
 - Zener: Pass/Fail
 - Presentiment: Pass/Fail
-- Photo Pair: Pass/Fail
 - Filter correctness: Pass/Fail
 - Sorting: Pass/Fail
 - Persistence after reopen: Pass/Fail
