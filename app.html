@@ -3022,121 +3022,6 @@ html, body {
   width: 48px; text-align: right; flex-shrink: 0;
 }
 
-
-/* ── Photo Pair Intuition ─────────────────────────── */
-.pp-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-  perspective: 900px;
-  height: 100%;
-  max-height: 340px;
-  align-self: center;
-  width: 100%;
-}
-.pp-card {
-  cursor: pointer;
-  position: relative;
-  min-height: 160px;
-  max-height: 340px;
-}
-.pp-card-inner {
-  width: 100%; height: 100%;
-  position: relative;
-  transform-style: preserve-3d;
-  transition: transform 0.65s cubic-bezier(0.4, 0.2, 0.2, 1);
-  border-radius: 14px;
-}
-.pp-card.flipped .pp-card-inner {
-  transform: rotateY(180deg);
-}
-.pp-card-face {
-  position: absolute; inset: 0;
-  border-radius: 14px;
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-  overflow: hidden;
-}
-.pp-card-front {
-  background: var(--card);
-  border: 1px solid var(--border);
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 10px;
-}
-.pp-card-front-pattern {
-  display: grid; grid-template-columns: repeat(4,1fr); gap: 4px;
-  padding: 18px; width: 100%; box-sizing: border-box;
-}
-.pp-front-dot {
-  aspect-ratio: 1; border-radius: 2px;
-  background: var(--border2); opacity: 0.6;
-}
-.pp-card-qlabel {
-  font-family: var(--font-display);
-  font-size: 36px; color: var(--muted);
-  letter-spacing: 2px;
-}
-.pp-card-back {
-  transform: rotateY(180deg);
-}
-.pp-card-back img {
-  width: 100%; height: 100%;
-  object-fit: cover; display: block;
-}
-.pp-verdict {
-  position: absolute; bottom: 0; left: 0; right: 0;
-  padding: 10px 8px 8px;
-  text-align: center;
-  font-family: var(--font-display);
-  font-size: 14px; letter-spacing: 2px;
-}
-.pp-verdict.hit  { background: rgba(74,240,200,0.85); color: #000; }
-.pp-verdict.miss { background: rgba(240,90,74,0.85);  color: #fff; }
-.pp-label-tag {
-  position: absolute; top: 8px; left: 8px;
-  font-family: var(--font-mono); font-size: 9px;
-  letter-spacing: 1px; text-transform: uppercase;
-  background: rgba(0,0,0,0.6); border-radius: 5px; padding: 3px 7px;
-}
-.pp-label-tag.pleasant { color: #ffd54f; }
-.pp-label-tag.neutral  { color: var(--muted); }
-.pp-stat-row {
-  display: flex; align-items: center; gap: 6px;
-  justify-content: center;
-}
-.pp-chance-bar {
-  display: flex; align-items: center; gap: 10px;
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: 12px; padding: 14px 16px;
-}
-.pp-tap-hint {
-  font-family: var(--font-mono); font-size: 10px;
-  letter-spacing: 2px; color: var(--dim);
-  text-align: center; text-transform: uppercase;
-}
-
-
-
-/* Shared psi module stat bar */
-.psi-stat-bar {
-  display: flex; align-items: stretch; gap: 8px;
-}
-.psi-stat-cell {
-  flex: 1; background: var(--card); border: 1px solid var(--border);
-  border-radius: 12px; padding: 12px 10px; text-align: center;
-}
-.psi-stat-val {
-  font-family: var(--font-display); font-size: 28px;
-  color: var(--text); line-height: 1; margin-top: 4px;
-}
-.psi-stat-val.above { color: var(--accent); }
-.psi-stat-val.below { color: var(--danger); }
-.psi-chance-note {
-  font-family: var(--font-mono); font-size: 9px;
-  color: var(--dim); letter-spacing: 1px;
-  text-align: center; margin-top: 4px;
-}
-
 /* ── TOAST NOTIFICATION ──────────────────────────── */
 #app-toast {
   position: fixed;
@@ -4164,7 +4049,6 @@ html, body {
       <div class="mono-label" style="margin-bottom:6px;">HOW EACH PROTOCOL IS SCORED</div>
       <div class="modal-body" style="margin-bottom:14px;">
         <strong>Zener</strong> — Hit rate compared to 20% chance (5 symbols, each equally likely).<br><br>
-        <strong>Photo Pair</strong> — Hit rate compared to 50% chance (2 choices per trial).<br><br>
         <strong>Presentiment</strong> — Your tap-to-event timing gap is compared against 10,000 randomized shuffles. If your timing is closer than most random pairings, the p-value drops.
       </div>
       <button class="modal-close-btn" onclick="closePsiInfoModal()">Got It</button>
@@ -4609,28 +4493,6 @@ html, body {
         </div>
       </div>
 
-      <!-- Photo Pair Intuition card -->
-      <div class="module-card fade-in-delay-3" data-feature="photopair" onclick="gatedNavigate('photopair', 'Photo Pair', 'Choose the real target between two images. Create a free account to unlock.')" style="flex-shrink:0;">
-        <div class="card-visual" style="background:linear-gradient(135deg,#06090f 0%,#0a1220 100%);overflow:hidden;">
-          <!-- Warm card / Cold card illustration -->
-          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:16px;">
-            <div style="width:50px;height:68px;border-radius:9px;border:1.5px solid rgba(255,160,50,0.5);background:linear-gradient(160deg,rgba(255,120,30,0.25),rgba(255,200,60,0.12));display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(255,180,60,0.8)" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-              <div style="font-family:var(--font-mono);font-size:8px;color:rgba(255,180,60,0.7);letter-spacing:1px;">↑</div>
-            </div>
-            <div style="width:50px;height:68px;border-radius:9px;border:1.5px solid rgba(100,130,180,0.35);background:linear-gradient(160deg,rgba(70,90,130,0.2),rgba(50,65,100,0.12));display:flex;align-items:center;justify-content:center;flex-direction:column;gap:5px;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgba(100,130,180,0.6)" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-              <div style="font-family:var(--font-mono);font-size:8px;color:rgba(100,130,180,0.5);letter-spacing:1px;">?</div>
-            </div>
-          </div>
-        </div>
-        <div class="card-overlay">
-          <div class="card-tag">Protocol 3</div>
-          <div class="display-md">PHOTO PAIR</div>
-          <div class="mono-sm" style="margin-top:4px">Implicit Psi · Emotional Valence</div>
-        </div>
-      </div>
-
     </div>
   </div>
 
@@ -4946,11 +4808,6 @@ html, body {
           <div id="presentiment-stats-wrap"></div>
         </div>
 
-        <div class="chart-card" id="pp-analytics-card">
-          <div class="chart-title">Photo Pair</div>
-          <div class="mono-sm" style="color:var(--dim);margin-bottom:12px;">Implicit psi · Emotional valence</div>
-          <div id="pp-analytics-wrap"></div>
-        </div>
       </div>
 
       <!-- LOG PANEL -->
@@ -4973,7 +4830,6 @@ html, body {
           <button class="log-filter-btn"        data-filter="rv"     onclick="setLogFilter('rv')">RV</button>
           <button class="log-filter-btn"        data-filter="zener"  onclick="setLogFilter('zener')">Zener</button>
           <button class="log-filter-btn"        data-filter="ts"     onclick="setLogFilter('ts')">Presentiment</button>
-          <button class="log-filter-btn"        data-filter="pp"     onclick="setLogFilter('pp')">Photo Pair</button>
           <button class="log-filter-btn"        data-filter="tagged" onclick="setLogFilter('tagged')">Tagged</button>
         </div>
       <div class="log-sort-row">
@@ -5690,112 +5546,6 @@ html, body {
   <!-- ══════════════════════════════════
        BOTTOM NAV
   ═══════════════════════════════════ -->
-  <!-- ══════════════════════════════════
-       SCREEN: PHOTO PAIR INTUITION
-  ═══════════════════════════════════ -->
-  <div id="screen-photopair" class="screen" style="display:flex;flex-direction:column;">
-
-    <!-- Header — always visible -->
-    <div style="padding:56px 20px 0;flex-shrink:0;">
-      <div class="screen-hdr" style="padding:0 0 16px;">
-        <button class="screen-hdr-back" onclick="navigate('psi')">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-        </button>
-        <div>
-          <div class="screen-hdr-title">PHOTO PAIR</div>
-          <div class="screen-hdr-sub">Implicit psi · Emotional valence</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- BRIEF / STATS VIEW -->
-    <div id="pp-view-brief" style="display:flex;flex-direction:column;gap:14px;padding:16px 20px calc(24px + var(--safe-bottom));">
-
-      <!-- Quick stat summary — compact, not full height -->
-      <div style="display:flex;gap:8px;">
-        <div style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 10px;text-align:center;">
-          <div class="mono-label">Trials</div>
-          <div style="font-family:var(--font-display);font-size:28px;color:var(--text);line-height:1;margin-top:4px;" id="pp-stat-trials">0</div>
-        </div>
-        <div style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 10px;text-align:center;">
-          <div class="mono-label">Hit Rate</div>
-          <div style="font-family:var(--font-display);font-size:28px;color:var(--text);line-height:1;margin-top:4px;" id="pp-stat-hitrate">-</div>
-        </div>
-        <div style="flex:1;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:12px 10px;text-align:center;">
-          <div class="mono-label">Chance</div>
-          <div style="font-family:var(--font-display);font-size:28px;color:var(--muted);line-height:1;margin-top:4px;">50%</div>
-        </div>
-      </div>
-      <div class="psi-chance-note" id="pp-stat-note">Complete 10+ trials for statistical analysis. Full stats in Analytics.</div>
-
-      <!-- How it works -->
-      <div style="background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;">
-        <div class="mono-label" style="margin-bottom:8px;">How It Works</div>
-        <div class="body-sm">Two cards are shown face-down. One hides a <strong>pleasant image</strong>. The other hides a <strong>neutral image</strong>. Tap the card you feel drawn to. <span style="color:var(--accent);">Chance is 50%.</span></div>
-        <div style="margin-top:8px;font-family:var(--font-mono);font-size:9px;color:var(--muted);line-height:1.6;letter-spacing:0.5px;">Based on non-intentional psi research. Emotional charge is the key variable.</div>
-      </div>
-
-      <button class="btn btn-primary" style="width:100%;" onclick="startPPTrial()">NEW TRIAL</button>
-    </div>
-
-    <!-- TRIAL VIEW — fills screen properly -->
-    <div id="pp-view-trial" style="display:none;flex-direction:column;flex:1;padding:0 20px calc(16px + var(--safe-bottom));gap:12px;">
-
-      <div class="pp-tap-hint" id="pp-tap-hint" style="padding-top:8px;">TAP THE CARD YOU FEEL DRAWN TO</div>
-
-      <!-- Cards: fixed height calculated from viewport -->
-      <div class="pp-grid" style="flex:1;min-height:0;">
-        <!-- Left card -->
-        <div class="pp-card" id="pp-card-0" onclick="handlePPTap(0)">
-          <div class="pp-card-inner">
-            <div class="pp-card-face pp-card-front">
-              <div class="pp-card-front-pattern" id="pp-pattern-0"></div>
-              <div class="pp-card-qlabel">?</div>
-            </div>
-            <div class="pp-card-face pp-card-back">
-              <img id="pp-img-0" src="" alt="" />
-              <div class="pp-verdict" id="pp-verdict-0" style="display:none;"></div>
-              <div class="pp-label-tag" id="pp-label-0" style="display:none;"></div>
-            </div>
-          </div>
-        </div>
-        <!-- Right card -->
-        <div class="pp-card" id="pp-card-1" onclick="handlePPTap(1)">
-          <div class="pp-card-inner">
-            <div class="pp-card-face pp-card-front">
-              <div class="pp-card-front-pattern" id="pp-pattern-1"></div>
-              <div class="pp-card-qlabel">?</div>
-            </div>
-            <div class="pp-card-face pp-card-back">
-              <img id="pp-img-1" src="" alt="" />
-              <div class="pp-verdict" id="pp-verdict-1" style="display:none;"></div>
-              <div class="pp-label-tag" id="pp-label-1" style="display:none;"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Post-reveal -->
-      <div id="pp-post-reveal" style="display:none;flex-direction:column;gap:8px;">
-        <div class="psi-stat-bar">
-          <div class="psi-stat-cell">
-            <div class="mono-label">This Trial</div>
-            <div class="psi-stat-val" id="pp-trial-result" style="font-size:22px;">-</div>
-          </div>
-          <div class="psi-stat-cell">
-            <div class="mono-label">Running</div>
-            <div class="psi-stat-val" id="pp-running-rate" style="font-size:22px;">-</div>
-          </div>
-        </div>
-        <button class="btn btn-primary" style="width:100%;" onclick="startPPTrial()">NEXT TRIAL</button>
-        <button class="btn btn-ghost" style="width:100%;" onclick="showPPView('brief')">Stats / Back</button>
-        <button class="btn btn-ghost" style="width:100%;" onclick="openPsiAnalytics('pp-analytics-card')">Full Stats</button>
-      </div>
-
-    </div>
-
-  </div>
-
   <!-- ==============================
        SCREEN: TERMS OF SERVICE
   ============================== -->
@@ -5993,7 +5743,7 @@ When you create an account we collect:
 - Email address
 - Username you choose
 - Password (stored as a secure hash  -  we never see your actual password)
-- Session data you create: RV scores, Zener results, Presentiment results, Photo Pair results, session timestamps, and impression notes you type
+- Session data you create: RV scores, Zener results, Presentiment results, session timestamps, and impression notes you type
 - For Premium users: sketch images from RV sessions
 - Device and browser type (collected automatically by our infrastructure provider)
 - Approximate timezone (used to send Reality Check notifications at appropriate times)
@@ -6198,7 +5948,6 @@ const MAX_RV_LOCAL_SESSIONS = 120;
 const RV_SKETCH_KEEP_RECENT = 30;
 const MAX_ZENER_LOCAL_RUNS = 600;
 const MAX_TS_LOCAL_TRIALS = 1200;
-const MAX_PP_LOCAL_TRIALS = 1200;
 const DREAM_EMOTION_OPTIONS = ['Calm', 'Anxious', 'Euphoric', 'Fearful', 'Curious', 'Confused', 'Sad', 'Neutral'];
 const DREAM_CLARITY_LABELS = {
   1: 'Barely remembered',
@@ -6263,9 +6012,6 @@ function normalizePersistentCaches() {
 
     const tsTap = trimRecent(safeParseArray(store.get('ablty_timestamp')), MAX_TS_LOCAL_TRIALS);
     if (tsTap.length) store.set('ablty_timestamp', JSON.stringify(tsTap));
-
-    const pp = trimRecent(safeParseArray(store.get('ablty_photopair')), MAX_PP_LOCAL_TRIALS);
-    if (pp.length) store.set('ablty_photopair', JSON.stringify(pp));
   } catch (e) {}
 }
 
@@ -6315,7 +6061,6 @@ const SCREENS = {
   'reality-check':        'screen-reality-check',
   'rc-task':              'screen-rc-task',
   'psi':                  'screen-psi',
-  'photopair':            'screen-photopair',
   'dream-lab':            'screen-dream-lab',
   'dream-journal':        'screen-dream-journal',
   'dream-new-entry':      'screen-dream-new-entry',
@@ -6378,7 +6123,6 @@ function showScreen(name, hideNav = false) {
     wbtb:                   'nav-dream',
     terms:                  'nav-home',
     privacy:                'nav-home',
-    photopair:              'nav-psi',
     'app-preferences':      'nav-home',
   };
   const activeNav = document.getElementById(navMap[name]);
@@ -6403,7 +6147,6 @@ const BACK_MAP = {
   timestamp:            'psi',
   'timestamp-session':  'timestamp',
   'timestamp-results':  'timestamp',
-  photopair:            'psi',
   psi:                  'home',
   'dream-lab':          'home',
   'dream-journal':      'dream-lab',
@@ -6489,7 +6232,6 @@ function navigate(name) {
   if (name === 'dream-insights') renderDreamInsights();
   if (name === 'wbtb')             { updateWBTBAlarmDisplay(); }
   if (name === 'reentry-protocol') { resumeOrInitRP(); }
-  if (name === 'photopair') renderPhotoPairBrief();
   if (name === 'home')     updateHomeRCStreak();
 }
 
@@ -7848,7 +7590,6 @@ const TIER_ACCESS = {
   rv:           ['guest','free','premium'],
   zener:        ['guest','free','premium'],
   timestamp:    ['free','premium'],
-  photopair:    ['free','premium'],
   'dream-lab':  ['free','premium'],
   'dream-journal': ['free','premium'],
   'reality-check': ['free','premium'],
@@ -7979,7 +7720,7 @@ function showUpgradeModal(featureKey, featureName, featureDesc, opts) {
       <div class="upgrade-feature-name">${escapeHtml(name)}</div>
       <div class="upgrade-modal-desc">Create a free account to unlock this and most other features.</div>
       <button class="upgrade-cta-premium" onclick="handleFreeAccountCTA()">CREATE FREE ACCOUNT</button>
-      <div class="upgrade-modal-sub" style="font-family:var(--font-body);font-size:11px;color:var(--dim);line-height:1.5;text-align:center;margin-top:12px;">Free includes RV, Zener, Presentiment, Photo Pair, Dream Lab, cloud sync, and more.</div>
+      <div class="upgrade-modal-sub" style="font-family:var(--font-body);font-size:11px;color:var(--dim);line-height:1.5;text-align:center;margin-top:12px;">Free includes RV, Zener, Presentiment, Dream Lab, cloud sync, and more.</div>
       <div class="upgrade-modal-link" style="text-align:center;margin-top:16px;">
         <span style="font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--muted);cursor:pointer;text-decoration:underline;" onclick="closeUpgradeModal();openAuthScreen('login')">Already have an account? Sign in</span>
       </div>`;
@@ -8006,7 +7747,7 @@ function showUpgradeModal(featureKey, featureName, featureDesc, opts) {
         </div>
         <div class="upgrade-tier-cell">
           <div class="upgrade-tier-name">Free</div>
-          <div class="upgrade-tier-features">2 RV/day<br>Unlimited Zener, Presentiment, Photo Pair<br>Dream Lab (7-day history)<br>Basic analytics (7-day)<br>Cloud sync</div>
+          <div class="upgrade-tier-features">2 RV/day<br>Unlimited Zener, Presentiment<br>Dream Lab (7-day history)<br>Basic analytics (7-day)<br>Cloud sync</div>
           <div class="upgrade-tier-price" style="font-size:14px;color:var(--accent2);">Free</div>
         </div>
         <div class="upgrade-tier-cell highlighted">
@@ -10861,7 +10602,6 @@ function renderAnalytics() {
   const rvSessions = (STATE.sessions || []).filter(s => !isRVGradingFailed(s));
   const zenerRuns  = loadZenerSessions();
   const tsTrials = loadTimestampAll();
-  const ppSessions = loadPPSessions();
   updateExportButtonState();
 
   const scoredRvSessions = rvSessions.filter((s) => Number.isFinite(Number(s?.score)));
@@ -10870,8 +10610,8 @@ function renderAnalytics() {
     : null;
 
   // Overview KPIs: high-level engagement only
-  const totalSessions = rvSessions.length + zenerRuns.length + tsTrials.length + ppSessions.length;
-  const activeDays = calcActiveDays([...rvSessions, ...zenerRuns, ...tsTrials, ...ppSessions]);
+  const totalSessions = rvSessions.length + zenerRuns.length + tsTrials.length;
+  const activeDays = calcActiveDays([...rvSessions, ...zenerRuns, ...tsTrials]);
   setEl('kpi-total-sessions', totalSessions);
   setEl('kpi-total-sessions-sub', 'Tap for session log');
   setEl('kpi-active-days', activeDays);
@@ -10879,7 +10619,7 @@ function renderAnalytics() {
 
   // Keep key sections rendered by their new tab grouping
   buildTODChart(rvSessions);
-  renderStreakBanner(rvSessions, zenerRuns, tsTrials, ppSessions);
+  renderStreakBanner(rvSessions, zenerRuns, tsTrials);
   buildOverviewSparklines();
   buildProtocolActivity();
 
@@ -10891,7 +10631,6 @@ function renderAnalytics() {
   buildBarChartMotivated('zener-chart-wrap', zenerRuns.slice(-10), r => r.hitPct, 100, '%', 20, 3, 'Zener run');
   buildSymbolAccuracy(zenerRuns);
   buildPresentimentStats();
-  renderPPAnalyticsCard();
 
   const logTotalEl = document.getElementById('log-total');
   const logBestEl  = document.getElementById('log-best');
@@ -10916,7 +10655,6 @@ function renderGuestAnalyticsPlaceholder() {
       { label: 'RV', values: [42,48,51,45,54,58,53,60,55,54], baselinePct: 50, avg: '54%', color: 'var(--accent)' },
       { label: 'ZENER', values: [18,22,20,24,19,26,23,25,22,24], baselinePct: 20, avg: '24%', color: 'var(--accent)' },
       { label: 'PRESENTIMENT', values: [55,60,58,65,62,68,64,70,66,72], baselinePct: 67, avg: '3.2s', color: 'var(--accent)' },
-      { label: 'PHOTO PAIR', values: [45,50,55,52,60,58,62,55,60,58], baselinePct: 50, avg: '58%', color: 'var(--accent)' },
     ];
     wrap.innerHTML = fakeCards.map(card => `
       <div class="module-card overview-spark-card">
@@ -10955,9 +10693,9 @@ function renderGuestAnalyticsPlaceholder() {
   // Placeholder protocol activity
   const protocolWrap = document.getElementById('protocol-activity-wrap');
   if (protocolWrap) {
-    protocolWrap.innerHTML = ['RV','Zener','Presentiment','Photo Pair'].map((name, i) => {
-      const counts = [22, 12, 8, 5];
-      const pct = Math.round((counts[i] / 47) * 100);
+    protocolWrap.innerHTML = ['RV','Zener','Presentiment'].map((name, i) => {
+      const counts = [22, 12, 8];
+      const pct = Math.round((counts[i] / 42) * 100);
       return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
         <span class="mono-label" style="width:90px;">${name}</span>
         <div style="flex:1;height:6px;background:var(--card);border-radius:3px;overflow:hidden;">
@@ -10981,8 +10719,6 @@ function renderGuestAnalyticsPlaceholder() {
   if (symbolGrid) symbolGrid.innerHTML = '';
   const presWrap = document.getElementById('presentiment-stats-wrap');
   if (presWrap) presWrap.innerHTML = '';
-  const ppWrap = document.getElementById('pp-analytics-wrap');
-  if (ppWrap) ppWrap.innerHTML = '';
   const catBreakdown = document.getElementById('cat-breakdown');
   if (catBreakdown) catBreakdown.innerHTML = '';
   const dimWrap = document.getElementById('dim-strength-wrap');
@@ -11071,9 +10807,9 @@ const SIGNAL_TIERS = [
   { stage: 6, name: 'Anomalous Cognition', color: 'var(--signal-anomalous)', bg: 'rgba(111,30,186,0.10)', border: 'rgba(111,30,186,0.35)',
     messages: ['Exceptional functioning detected. High-fidelity connection established.', 'Operating well beyond standard deviations. Peak target clarity.'] },
 ];
-const SIGNAL_TIER_MINIMUMS = { zener: 25, presentiment: 8, photopair: 15 };
-const SIGNAL_TIER_STAGE6_EFFECTS = { zener: 30, photopair: 65, presentiment: 15 };
-const SIGNAL_TIER_STAGE5_EFFECTS = { zener: 24, photopair: 55, presentiment: 5 };
+const SIGNAL_TIER_MINIMUMS = { zener: 25, presentiment: 8 };
+const SIGNAL_TIER_STAGE6_EFFECTS = { zener: 30, presentiment: 15 };
+const SIGNAL_TIER_STAGE5_EFFECTS = { zener: 24, presentiment: 5 };
 
 function getSignalTier(protocol, stats) {
   const min = SIGNAL_TIER_MINIMUMS[protocol] || 20;
@@ -11188,7 +10924,6 @@ function buildOverviewSparklines() {
   const rvSessions = sortByTimestampAsc((STATE.sessions || []).filter((s) => !isRVGradingFailed(s) && Number.isFinite(Number(s?.score))));
   const zenerRuns = sortByTimestampAsc(loadZenerSessions().filter((r) => Number.isFinite(Number(r?.hitPct))));
   const tsTrials = sortByTimestampAsc(typeof loadTimestampAll === 'function' ? loadTimestampAll() : []);
-  const ppSessions = sortByTimestampAsc(loadPPSessions());
 
   const rvValues = rvSessions.map((s) => Number(s.score));
   const rvAvg = rvValues.length ? (rvValues.reduce((a, b) => a + b, 0) / rvValues.length) : null;
@@ -11211,8 +10946,6 @@ function buildOverviewSparklines() {
     ? (presentimentValues.reduce((a, b) => a + b, 0) / presentimentValues.length)
     : null;
 
-  const ppValues = ppSessions.map((s) => (s?.hit ? 100 : 0));
-  const ppAvg = ppValues.length ? (ppValues.reduce((a, b) => a + b, 0) / ppValues.length) : null;
 
   const cards = [
     {
@@ -11239,14 +10972,6 @@ function buildOverviewSparklines() {
       avgLabel: presentimentAvgPct === null ? '--' : (Math.round(presentimentAvgPct) + '%'),
       avgColor: presentimentMeanDelta === null ? 'var(--muted)' : (presentimentMeanDelta < 10 ? 'var(--accent)' : presentimentMeanDelta > 10 ? 'var(--danger)' : 'var(--muted)'),
     },
-    {
-      label: 'PHOTO PAIR',
-      values: rollingAverage(ppValues, 5),
-      count: ppValues.length,
-      baselinePct: 50,
-      avgLabel: ppAvg === null ? '--' : (Math.round(ppAvg) + '%'),
-      avgColor: ppAvg === null ? 'var(--muted)' : (ppAvg > 50 ? 'var(--accent)' : ppAvg < 50 ? 'var(--danger)' : 'var(--muted)'),
-    },
   ];
 
   wrap.innerHTML = cards.map((card) => `
@@ -11270,7 +10995,6 @@ function buildProtocolActivity() {
     { label: 'RV', count: (STATE.sessions || []).filter((s) => !isRVGradingFailed(s)).length },
     { label: 'Zener', count: loadZenerSessions().length },
     { label: 'Presentiment', count: (typeof loadTimestampAll === 'function' ? loadTimestampAll() : []).length },
-    { label: 'Photo Pair', count: loadPPSessions().length },
   ];
 
   const total = counts.reduce((sum, item) => sum + item.count, 0);
@@ -11378,7 +11102,6 @@ function collectAllExportTimestamps() {
     ...(STATE.sessions || []),
     ...loadZenerSessions(),
     ...loadTimestampAll(),
-    ...loadPPSessions(),
     ...getDreamExportRows(),
   ];
   return sources
@@ -11603,24 +11326,6 @@ function collectExportRows(modules) {
     }));
   }
 
-  if (selected.has('pp')) {
-    rows = rows.concat(loadPPSessions().map((session) => {
-      const dt = formatExportDateTime(session.timestamp || '');
-      return {
-        date: dt.date,
-        time: dt.time,
-        module: 'Photo Pair',
-        score: session.hit ? 100 : 0,
-        result: session.hit ? 'Hit' : 'Miss',
-        target_id: '',
-        category: '',
-        label: 'Photo Pair Trial',
-        details: 'Pleasant vs neutral selection',
-        notes: '',
-      };
-    }));
-  }
-
   if (selected.has('dreams')) {
     rows = rows.concat(getDreamExportRows());
   }
@@ -11730,10 +11435,10 @@ function _dateKey(d) {
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
-function calcStreak(rvSessions, zenerRuns, tsTrials, ppSessions) {
+function calcStreak(rvSessions, zenerRuns, tsTrials) {
   // Collect all unique active dates across all 4 protocols
   const dates = new Set();
-  [...rvSessions, ...zenerRuns, ...(tsTrials || []), ...(ppSessions || [])].forEach(s => {
+  [...rvSessions, ...zenerRuns, ...(tsTrials || [])].forEach(s => {
     const d = new Date(s.timestamp);
     dates.add(_dateKey(d));
   });
@@ -11933,13 +11638,6 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   const el = document.getElementById('combined-log-list');
   if (!el) return;
 
-  const ppSessions = loadPPSessions().map(s => ({
-    ...s,
-    type: 'pp',
-    score: s.hit ? 100 : 0,
-    timestamp: s.timestamp || new Date().toISOString(),
-  }));
-
   const tsSessions = loadTimestampAll().map(s => ({
     ...s,
     type: 'ts',
@@ -11950,14 +11648,13 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   const rv = rvSessions.map(s => ({ ...s, type: 'rv' }));
   const ze = zenerRuns.map(r => ({ ...r, type: 'zener', score: r.hitPct }));
 
-  let all = [...rv, ...ze, ...ppSessions, ...tsSessions].filter(s => s.timestamp);
+  let all = [...rv, ...ze, ...tsSessions].filter(s => s.timestamp);
 
   // Apply filter
   const f = currentLogFilter;
   if (f === 'rv')     all = all.filter(s => s.type === 'rv');
   if (f === 'zener')  all = all.filter(s => s.type === 'zener');
   if (f === 'ts')     all = all.filter(s => s.type === 'ts');
-  if (f === 'pp')     all = all.filter(s => s.type === 'pp');
   if (f === 'high')   all = all.filter(s => s.score >= 60);
   if (f === 'tagged') all = all.filter(s => s.type === 'rv' && s.tags && s.tags.length);
 
@@ -11967,9 +11664,8 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   };
   const toScore = (s) => {
     if (Number.isFinite(Number(s?.score))) return Number(s.score);
-    if (s?.type === 'ts' || s?.type === 'pp') {
-      const hit = s?.type === 'ts' ? getTSTrialHit(s) : !!s?.hit;
-      return hit ? 100 : 0;
+    if (s?.type === 'ts') {
+      return getTSTrialHit(s) ? 100 : 0;
     }
     return 0;
   };
@@ -12011,7 +11707,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
     return;
   }
 
-  const TYPE_TAG  = { rv: 'RV', zener: 'ZNR', ts: 'PSI', pp: 'PSI' };
+  const TYPE_TAG  = { rv: 'RV', zener: 'ZNR', ts: 'PSI' };
   const TYPE_LABEL = {
     rv:    s => s.targetLabel || '-',
     zener: s => `${s.hits}/25 hits`,
@@ -12019,13 +11715,11 @@ function buildCombinedLog(rvSessions, zenerRuns) {
       const elapsed = getTSElapsedSeconds(s);
       return elapsed === null ? 'Miss' : `${elapsed.toFixed(1)}s from event`;
     },
-    pp:    s => s.hit ? 'Hit' : 'Miss',
   };
   const TYPE_TITLE = {
     rv:    s => 'TRN ' + (s.trn || ''),
     zener: s => 'ZENER',
     ts:    s => 'PRESENTIMENT',
-    pp:    s => 'PHOTO PAIR',
   };
   const TYPE_SCORE_DISPLAY = {
     rv:    s => {
@@ -12037,7 +11731,6 @@ function buildCombinedLog(rvSessions, zenerRuns) {
       const elapsed = getTSElapsedSeconds(s);
       return elapsed === null ? 'MISS' : `${elapsed.toFixed(1)}s`;
     },
-    pp:    s => s.hit ? 'HIT' : 'MISS',
   };
 
   el.innerHTML = all.map(s => {
@@ -12050,8 +11743,8 @@ function buildCombinedLog(rvSessions, zenerRuns) {
     const thumb   = s.type === 'rv' ? (s.sketchData || s.targetSrc || '') : '';
     const sessionId   = s.id;
     const sessionType = s.type;
-    const isHitMiss   = s.type === 'ts' || s.type === 'pp';
-    const isHitLike   = s.type === 'ts' ? getTSTrialHit(s) : s.hit;
+    const isHitMiss   = s.type === 'ts';
+    const isHitLike   = getTSTrialHit(s);
     const rvScore = s.type === 'rv' ? getRVSessionScore(s) : null;
     const cls = isHitMiss
       ? (isHitLike ? 'high' : 'low')
@@ -12116,65 +11809,12 @@ function openSessionDetail(type, id) {
     const run = runs.find(r => String(r.id) === String(id));
     if (!run) return;
     renderZenerDetail(run);
-  } else if (type === 'pp') {
-    const sessions = loadPPSessions();
-    const session = sessions.find(s => String(s.id) === String(id));
-    if (!session) return;
-    renderPPDetail(session);
   } else if (type === 'ts') {
     const trials = loadTimestampAll();
     const trial = trials.find(t => String(t.id) === String(id));
     if (!trial) return;
     renderTSDetail(trial);
   }
-}
-
-function renderPPDetail(s) {
-  const d = new Date(s.timestamp);
-  const dateStr = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
-
-  setEl('detail-type-label', 'PHOTO PAIR');
-  setEl('detail-date', dateStr);
-
-  // Score ring — show Hit/Miss as 100/0
-  const ring   = document.getElementById('detail-score-ring');
-  const pctEl  = document.getElementById('detail-score-pct');
-  const lblEl  = document.getElementById('detail-score-label');
-  setEl('detail-score-label', 'Result');
-  if (ring) {
-    ring.style.stroke = s.hit ? 'var(--accent)' : 'var(--danger)';
-    setTimeout(() => { ring.style.strokeDashoffset = s.hit ? 0 : 364.4; }, 100);
-  }
-  if (pctEl) pctEl.textContent = s.hit ? 'HIT' : 'MISS';
-
-  // Hide RV-specific elements
-  const imagesRow = document.getElementById('detail-images-row');
-  if (imagesRow) imagesRow.style.display = 'none';
-  const dimWrap = document.getElementById('detail-dimensions-wrap');
-  if (dimWrap) dimWrap.style.display = 'none';
-  // Hide RV-only dynamic cards
-  const nc = document.getElementById('detail-notes-card');    if (nc) nc.style.display = 'none';
-  const rc = document.getElementById('detail-retry-card');    if (rc) rc.style.display = 'none';
-  const rsc = document.getElementById('detail-reasoning-card'); if (rsc) rsc.style.display = 'none';
-  const summaryCard = document.getElementById('detail-summary-card');
-  if (summaryCard) {
-    summaryCard.style.display = 'block';
-    setEl('detail-summary', s.hit
-      ? 'You selected the pleasant image. Your unconscious orientation matched the emotional valence of the target.'
-      : 'You selected the neutral image. No match on this trial.'
-    );
-  }
-
-  const hitList = document.getElementById('detail-hit-list');
-  if (hitList) {
-    hitList.innerHTML = `
-      <div class="hit-item">
-        <div class="hit-badge ${s.hit ? 'hit' : 'noise'}">${s.hit ? 'Hit' : 'Miss'}</div>
-        <div class="hit-text">Chance baseline is 50%. ${s.hit ? 'You matched the pleasant image.' : 'You selected the neutral image.'}</div>
-      </div>`;
-  }
-  const zWrap = document.getElementById('detail-zener-wrap');
-  if (zWrap) zWrap.style.display = 'none';
 }
 
 function renderTSDetail(s) {
@@ -12426,17 +12066,17 @@ function renderZenerDetail(run) {
 //  STREAK BANNER
 // ═══════════════════════════════════════════════════════
 
-function renderStreakBanner(rvSessions, zenerRuns, tsTrials, ppSessions) {
+function renderStreakBanner(rvSessions, zenerRuns, tsTrials) {
   const wrap = document.getElementById('streak-banner-wrap');
   if (!wrap) return;
 
-  const streak = calcStreak(rvSessions, zenerRuns, tsTrials, ppSessions);
+  const streak = calcStreak(rvSessions, zenerRuns, tsTrials);
 
   // Check if user trained yesterday (to detect broken streak)
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   const yKey = _dateKey(yesterday);
-  const allDates = new Set([...rvSessions, ...zenerRuns, ...(tsTrials || []), ...(ppSessions || [])].map(s => {
+  const allDates = new Set([...rvSessions, ...zenerRuns, ...(tsTrials || [])].map(s => {
     const d = new Date(s.timestamp);
     return _dateKey(d);
   }));
@@ -13197,19 +12837,6 @@ function mapTSTrialRow(trial) {
   };
 }
 
-function mapPPSessionRow(session) {
-  let fallbackId = Date.now();
-  if (session?.timestamp) {
-    const parsed = Date.parse(session.timestamp);
-    if (Number.isFinite(parsed)) fallbackId = parsed;
-  }
-  return {
-    id: Number(session?.id) || fallbackId,
-    hit: !!session?.hit,
-    timestamp: session?.timestamp || new Date().toISOString(),
-  };
-}
-
 async function syncSessionToSupabase(table, data) {
   if (!sb || !isLoggedIn()) return;
   try {
@@ -13238,20 +12865,6 @@ function clearTsPendingByKeys(keys) {
   } catch(e) {}
 }
 
-function clearPpPendingByKeys(keys) {
-  try {
-    const keySet = new Set(Array.isArray(keys) ? keys.filter(Boolean) : []);
-    if (!keySet.size) return;
-    const pending = JSON.parse(localStorage.getItem('ablty_pp_pending') || '[]');
-    if (!Array.isArray(pending) || !pending.length) return;
-    const filtered = pending.filter((p) => {
-      const k = String(p?.id || p?.timestamp || '');
-      return !keySet.has(k);
-    });
-    localStorage.setItem('ablty_pp_pending', JSON.stringify(filtered));
-  } catch(e) {}
-}
-
 let _guestSyncHandled = false;
 
 function hasLocalGuestData() {
@@ -13259,7 +12872,6 @@ function hasLocalGuestData() {
   if (rv.length) return true;
   if ((JSON.parse(localStorage.getItem('ablty_zener') || '[]')).length) return true;
   if ((JSON.parse(localStorage.getItem('ablty_timestamp_all') || '[]')).length) return true;
-  if ((JSON.parse(localStorage.getItem('ablty_photopair') || '[]')).length) return true;
   return false;
 }
 
@@ -13351,20 +12963,6 @@ async function migrateGuestData(userId) {
     errors.push('Presentiment');
   }
 
-  try {
-    const pp = loadPPSessions();
-    if (pp.length) {
-      const rows = pp.map((s, idx) => {
-        const mapped = mapPPSessionRow(s);
-        if (!Number.isFinite(Number(mapped.id))) mapped.id = Date.now() + idx;
-        return { ...mapped, user_id: userId };
-      });
-      await sb.from('pp_sessions').upsert(rows, { onConflict: 'id' });
-    }
-  } catch(e) {
-    errors.push('Photo Pair');
-  }
-
   if (errors.length) {
     showToast('Some data could not be transferred: ' + errors.join(', '), 'warn', 6000);
   }
@@ -13413,7 +13011,7 @@ async function loadAnalyticsFromCloud(userId, opts = {}) {
   const mergeOnly = !!opts.mergeOnly;
   if (!sb || !userId) return;
   try {
-    const [rvRes, zeRes, tsRes, ppRes] = await Promise.all([
+    const [rvRes, zeRes, tsRes] = await Promise.all([
       sb.from('rv_sessions')
         .select('id, session_type, trn, target_id, target_src, target_label, category, score, dimension_scores, hits, noise, aol, summary, notes, duration, sketch_data, timestamp, tags')
         .eq('user_id', userId)
@@ -13429,22 +13027,15 @@ async function loadAnalyticsFromCloud(userId, opts = {}) {
         .eq('user_id', userId)
         .order('timestamp', { ascending: false })
         .limit(500),
-      sb.from('pp_sessions')
-        .select('id, hit, timestamp')
-        .eq('user_id', userId)
-        .order('timestamp', { ascending: false })
-        .limit(500),
     ]);
 
     if (rvRes?.error) console.warn('[SYNC] rv_sessions fetch error:', rvRes.error.message);
     if (zeRes?.error) console.warn('[SYNC] zener_runs fetch error:', zeRes.error.message);
     if (tsRes?.error) console.warn('[SYNC] ts_trials fetch error:', tsRes.error.message);
-    if (ppRes?.error) console.warn('[SYNC] pp_sessions fetch error:', ppRes.error.message);
 
     const rvRows = Array.isArray(rvRes?.data) ? rvRes.data : [];
     const zeRows = Array.isArray(zeRes?.data) ? zeRes.data : [];
     const tsRows = Array.isArray(tsRes?.data) ? tsRes.data : [];
-    const ppRows = Array.isArray(ppRes?.data) ? ppRes.data : [];
 
     // ── RV sessions ──
     try {
@@ -13547,39 +13138,6 @@ async function loadAnalyticsFromCloud(userId, opts = {}) {
         } catch(e) {}
       }
     } catch(e) { console.warn('[SYNC] Presentiment processing error:', e.message); }
-
-    // ── Photo Pair sessions ──
-    try {
-      const ppLocal = ppRows.map((r) => ({
-        id: Number(r.id) || Date.now(),
-        hit: !!r.hit,
-        timestamp: r.timestamp || new Date().toISOString(),
-      }));
-      const ppExisting = loadPPSessions();
-      const ppMerged = mergeSessionArrays(
-        ppExisting,
-        ppLocal,
-        (p) => String(p?.id || p?.timestamp || '')
-      );
-      if (ppMerged.length) {
-        localStorage.setItem('ablty_photopair', JSON.stringify(ppMerged));
-        localStorage.setItem('ablty_pp_cloud_cache', JSON.stringify(ppMerged));
-        // Confirm pending PP entries now present in durable cache.
-        try {
-          const pendingPp = JSON.parse(localStorage.getItem('ablty_pp_pending') || '[]');
-          if (Array.isArray(pendingPp) && pendingPp.length) {
-            const mergedPp = mergeSessionArrays(
-              ppMerged,
-              pendingPp,
-              (p) => String(p?.id || p?.timestamp || '')
-            );
-            localStorage.setItem('ablty_photopair', JSON.stringify(mergedPp));
-            localStorage.setItem('ablty_pp_cloud_cache', JSON.stringify(mergedPp));
-            localStorage.removeItem('ablty_pp_pending');
-          }
-        } catch(e) {}
-      }
-    } catch(e) { console.warn('[SYNC] Photo Pair processing error:', e.message); }
   } catch(e) { console.warn('[SYNC] loadAnalyticsFromCloud failed:', e.message); }
 }
 
@@ -14450,7 +14008,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.07.19.1';
+const APP_VERSION = '2026.07.26.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -15286,461 +14844,6 @@ document.addEventListener('DOMContentLoaded', buildTSWaveform);
 
 
 
-// ═══════════════════════════════════════════════════════
-//  PHOTO PAIR INTUITION
-// ═══════════════════════════════════════════════════════
-
-let PP_PLEASANT_POOL = null;
-let PP_NEUTRAL_POOL  = null;
-
-const PP_STATE = {
-  pleasantSide: null,  // 0=left, 1=right
-  answered: false,
-  pleasantIdx: 0,
-  neutralIdx:  0,
-};
-
-// ── Image generators ──────────────────────────────────
-function genPleasantCanvas(idx) {
-  const c = document.createElement('canvas');
-  c.width = c.height = 260;
-  const ctx = c.getContext('2d');
-  const w = c.width, h = c.height;
-  switch (idx % 5) {
-    case 0: { // Warm sunset
-      const sk = ctx.createLinearGradient(0,0,0,h);
-      sk.addColorStop(0, '#1a0a2e'); sk.addColorStop(0.35,'#c2185b');
-      sk.addColorStop(0.65,'#ff6f00'); sk.addColorStop(1,'#ffd54f');
-      ctx.fillStyle = sk; ctx.fillRect(0,0,w,h);
-      // Sun glow
-      const sg = ctx.createRadialGradient(w*0.62,h*0.48,0,w*0.62,h*0.48,55);
-      sg.addColorStop(0,'rgba(255,230,60,0.95)'); sg.addColorStop(0.4,'rgba(255,160,30,0.6)'); sg.addColorStop(1,'transparent');
-      ctx.fillStyle=sg; ctx.fillRect(0,0,w,h);
-      ctx.beginPath(); ctx.arc(w*0.62,h*0.48,28,0,Math.PI*2); ctx.fillStyle='rgba(255,230,60,0.9)'; ctx.fill();
-      // Water
-      const wa = ctx.createLinearGradient(0,h*0.62,0,h);
-      wa.addColorStop(0,'#e65100'); wa.addColorStop(1,'#4e342e');
-      ctx.fillStyle=wa; ctx.fillRect(0,h*0.62,w,h*0.38);
-      // Reflections
-      ctx.strokeStyle='rgba(255,200,80,0.3)'; ctx.lineWidth=2;
-      for(let i=0;i<5;i++){ctx.beginPath();ctx.moveTo(w*0.4+i*18,h*0.7);ctx.lineTo(w*0.5+i*12,h*0.95);ctx.stroke();}
-      break;
-    }
-    case 1: { // Green forest
-      const gr = ctx.createRadialGradient(w/2,0,20,w/2,h*0.3,h);
-      gr.addColorStop(0,'#c8e6c9'); gr.addColorStop(0.4,'#43a047'); gr.addColorStop(1,'#1b5e20');
-      ctx.fillStyle=gr; ctx.fillRect(0,0,w,h);
-      // Rays of light
-      ctx.save(); ctx.globalAlpha=0.08;
-      for(let i=0;i<6;i++){
-        ctx.beginPath(); ctx.moveTo(w/2,0);
-        ctx.lineTo(w/2-80+i*32,h); ctx.lineTo(w/2-70+i*32,h); ctx.closePath();
-        ctx.fillStyle='#fff176'; ctx.fill();
-      }
-      ctx.restore();
-      // Tree silhouettes
-      ctx.fillStyle='#1b5e20';
-      const trees=[{x:10,h:130},{x:55,h:160},{x:120,h:140},{x:175,h:155},{x:215,h:125},{x:245,h:145}];
-      trees.forEach(t=>{
-        ctx.beginPath(); ctx.moveTo(t.x+20,h*0.95);
-        ctx.lineTo(t.x-10,h*0.95-t.h); ctx.lineTo(t.x+50,h*0.95-t.h); ctx.closePath(); ctx.fill();
-        ctx.fillRect(t.x+16,h*0.95-t.h*0.15,8,t.h*0.15);
-      });
-      break;
-    }
-    case 2: { // Ocean
-      const sky2=ctx.createLinearGradient(0,0,0,h*0.5);
-      sky2.addColorStop(0,'#1565c0'); sky2.addColorStop(1,'#4fc3f7');
-      ctx.fillStyle=sky2; ctx.fillRect(0,0,w,h*0.5);
-      const sea=ctx.createLinearGradient(0,h*0.5,0,h);
-      sea.addColorStop(0,'#0097a7'); sea.addColorStop(1,'#004d40');
-      ctx.fillStyle=sea; ctx.fillRect(0,h*0.5,w,h*0.5);
-      // Sun
-      const sunG=ctx.createRadialGradient(w*0.75,h*0.18,0,w*0.75,h*0.18,35);
-      sunG.addColorStop(0,'rgba(255,250,200,0.95)'); sunG.addColorStop(1,'transparent');
-      ctx.fillStyle=sunG; ctx.fillRect(0,0,w,h*0.5);
-      // Waves
-      ctx.strokeStyle='rgba(255,255,255,0.35)'; ctx.lineWidth=1.5;
-      for(let i=0;i<5;i++){
-        ctx.beginPath(); ctx.moveTo(0,h*0.52+i*18);
-        for(let x=0;x<=w;x+=8) ctx.lineTo(x,h*0.52+i*18+Math.sin(x*0.07+i)*3.5);
-        ctx.stroke();
-      }
-      // Beach
-      const beach=ctx.createLinearGradient(0,h*0.82,0,h);
-      beach.addColorStop(0,'#ffe082'); beach.addColorStop(1,'#ffcc02');
-      ctx.fillStyle=beach; ctx.fillRect(0,h*0.82,w,h*0.18);
-      break;
-    }
-    case 3: { // Garden flowers
-      const gnd=ctx.createLinearGradient(0,0,0,h);
-      gnd.addColorStop(0,'#e8f5e9'); gnd.addColorStop(1,'#2e7d32');
-      ctx.fillStyle=gnd; ctx.fillRect(0,0,w,h);
-      const fc=['#e91e63','#ff9800','#ffeb3b','#f44336','#9c27b0','#00bcd4','#ff5722','#8bc34a'];
-      for(let i=0;i<16;i++){
-        const fx=15+(i%4)*62+(Math.floor(i/4)%2)*30, fy=25+Math.floor(i/4)*60;
-        const col=fc[i%fc.length];
-        for(let p=0;p<6;p++){
-          const a=(p/6)*Math.PI*2;
-          ctx.beginPath(); ctx.ellipse(fx+Math.cos(a)*16,fy+Math.sin(a)*16,12,7,a,0,Math.PI*2);
-          ctx.fillStyle=col; ctx.fill();
-        }
-        ctx.beginPath(); ctx.arc(fx,fy,8,0,Math.PI*2); ctx.fillStyle='#fff176'; ctx.fill();
-        ctx.beginPath(); ctx.moveTo(fx,fy+8); ctx.lineTo(fx+5,fy+28); ctx.lineTo(fx-5,fy+28);
-        ctx.fillStyle='#388e3c'; ctx.fill();
-      }
-      break;
-    }
-    case 4: { // Aurora mountain
-      const nsk=ctx.createLinearGradient(0,0,0,h);
-      nsk.addColorStop(0,'#050014'); nsk.addColorStop(0.5,'#0d0030'); nsk.addColorStop(1,'#130040');
-      ctx.fillStyle=nsk; ctx.fillRect(0,0,w,h);
-      // Stars
-      ctx.fillStyle='rgba(255,255,255,0.85)';
-      for(let i=0;i<50;i++){
-        ctx.beginPath(); ctx.arc(Math.random()*w,Math.random()*h*0.55,Math.random()*1.4,0,Math.PI*2); ctx.fill();
-      }
-      // Aurora bands
-      [['rgba(0,230,118,0.18)',0,30],['rgba(0,200,150,0.12)',20,45],['rgba(100,200,255,0.1)',40,25]].forEach(([col,yo,str])=>{
-        const ag=ctx.createLinearGradient(0,h*0.08+yo,w*1.2,h*0.35+yo);
-        ag.addColorStop(0,'transparent'); ag.addColorStop(0.3,col); ag.addColorStop(0.7,col); ag.addColorStop(1,'transparent');
-        ctx.fillStyle=ag; ctx.fillRect(0,0,w,h*0.6);
-      });
-      // Mountain
-      ctx.fillStyle='#050014';
-      ctx.beginPath(); ctx.moveTo(0,h);
-      ctx.lineTo(0,h*0.72); ctx.lineTo(w*0.18,h*0.45); ctx.lineTo(w*0.35,h*0.62);
-      ctx.lineTo(w*0.55,h*0.32); ctx.lineTo(w*0.7,h*0.52); ctx.lineTo(w,h*0.38); ctx.lineTo(w,h);
-      ctx.closePath(); ctx.fill();
-      break;
-    }
-  }
-  return c.toDataURL('image/jpeg', 0.82);
-}
-
-function genNeutralCanvas(idx) {
-  const c = document.createElement('canvas');
-  c.width = c.height = 260;
-  const ctx = c.getContext('2d');
-  const w = c.width, h = c.height;
-  switch (idx % 5) {
-    case 0: { // Empty gray room
-      ctx.fillStyle='#8a9199'; ctx.fillRect(0,0,w,h);
-      ctx.fillStyle='#6b737a'; ctx.fillRect(0,h*0.65,w,h*0.35);
-      ctx.strokeStyle='#5a6067'; ctx.lineWidth=1;
-      [[0,0,w*0.35,h*0.65],[w,0,w*0.65,h*0.65]].forEach(([x1,y1,x2,y2])=>{
-        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-      });
-      ctx.strokeStyle='rgba(0,0,0,0.08)';
-      for(let i=1;i<4;i++){ctx.beginPath();ctx.moveTo(0,h*0.65/4*i);ctx.lineTo(w,h*0.65/4*i);ctx.stroke();}
-      break;
-    }
-    case 1: { // Overcast sky
-      const ov=ctx.createLinearGradient(0,0,0,h);
-      ov.addColorStop(0,'#a8b5bd'); ov.addColorStop(0.5,'#8c99a1'); ov.addColorStop(1,'#6b7880');
-      ctx.fillStyle=ov; ctx.fillRect(0,0,w,h);
-      ctx.fillStyle='rgba(255,255,255,0.06)';
-      for(let i=0;i<10;i++){ctx.beginPath();ctx.ellipse(20+i*28,25+(i%3)*22,35,14,0,0,Math.PI*2);ctx.fill();}
-      // Gray ground
-      ctx.fillStyle='#5a6670'; ctx.fillRect(0,h*0.78,w,h*0.22);
-      break;
-    }
-    case 2: { // Concrete texture
-      ctx.fillStyle='#6e7b84'; ctx.fillRect(0,0,w,h);
-      ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=1;
-      const bw=55, bh=28;
-      for(let row=0;row*bh<h;row++){
-        const off=(row%2)*(bw/2);
-        for(let col=-1;col*bw<w;col++) ctx.strokeRect(col*bw+off,row*bh,bw,bh);
-      }
-      // Slight vignette
-      const vig=ctx.createRadialGradient(w/2,h/2,w*0.3,w/2,h/2,w*0.75);
-      vig.addColorStop(0,'transparent'); vig.addColorStop(1,'rgba(0,0,0,0.25)');
-      ctx.fillStyle=vig; ctx.fillRect(0,0,w,h);
-      break;
-    }
-    case 3: { // Foggy road
-      const fog=ctx.createLinearGradient(0,0,0,h);
-      fog.addColorStop(0,'#d0d5d9'); fog.addColorStop(0.5,'#b0b8be'); fog.addColorStop(1,'#8a9299');
-      ctx.fillStyle=fog; ctx.fillRect(0,0,w,h);
-      // Road
-      ctx.fillStyle='#6e777e';
-      ctx.beginPath();
-      ctx.moveTo(w*0.28,h); ctx.lineTo(w*0.44,h*0.42);
-      ctx.lineTo(w*0.56,h*0.42); ctx.lineTo(w*0.72,h); ctx.fill();
-      // Dashes
-      ctx.strokeStyle='rgba(180,185,190,0.6)'; ctx.lineWidth=2; ctx.setLineDash([10,10]);
-      ctx.beginPath(); ctx.moveTo(w/2,h); ctx.lineTo(w/2,h*0.42); ctx.stroke();
-      ctx.setLineDash([]);
-      break;
-    }
-    case 4: { // Dead tree
-      const dtsk=ctx.createLinearGradient(0,0,0,h);
-      dtsk.addColorStop(0,'#b0bec5'); dtsk.addColorStop(1,'#78909c');
-      ctx.fillStyle=dtsk; ctx.fillRect(0,0,w,h);
-      ctx.fillStyle='#546e7a'; ctx.fillRect(0,h*0.8,w,h*0.2);
-      ctx.strokeStyle='#37474f'; ctx.lineCap='round';
-      const branch=(x,y,angle,len,d)=>{
-        if(d<=0||len<5) return;
-        const ex=x+Math.cos(angle)*len, ey=y+Math.sin(angle)*len;
-        ctx.lineWidth=d*1.8; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(ex,ey); ctx.stroke();
-        branch(ex,ey,angle-0.45,len*0.62,d-1);
-        branch(ex,ey,angle+0.45,len*0.62,d-1);
-        if(d>2) branch(ex,ey,angle-0.1,len*0.55,d-1);
-      };
-      branch(w/2,h*0.8,-Math.PI/2,55,5);
-      break;
-    }
-  }
-  return c.toDataURL('image/jpeg', 0.82);
-}
-
-function initPPImages() {
-  if (PP_PLEASANT_POOL) return;
-  PP_PLEASANT_POOL = [];
-  PP_NEUTRAL_POOL  = [];
-  for (let i = 0; i < 5; i++) {
-    PP_PLEASANT_POOL.push(genPleasantCanvas(i));
-    PP_NEUTRAL_POOL.push(genNeutralCanvas(i));
-  }
-}
-
-// ── Front card dot pattern ─────────────────────────
-function buildPPFrontPattern(containerId) {
-  const el = document.getElementById(containerId);
-  if (!el || el.children.length > 0) return;
-  for (let i = 0; i < 16; i++) {
-    const d = document.createElement('div');
-    d.className = 'pp-front-dot';
-    d.style.opacity = (0.15 + Math.random() * 0.35).toFixed(2);
-    el.appendChild(d);
-  }
-}
-
-// ── Screen views ──────────────────────────────────
-function showPPView(name) {
-  const brief = document.getElementById('pp-view-brief');
-  const trial = document.getElementById('pp-view-trial');
-  if (brief) { brief.style.display = name === 'brief' ? 'flex' : 'none'; brief.style.flexDirection = 'column'; }
-  if (trial) { trial.style.display = name === 'trial' ? 'flex' : 'none'; trial.style.flexDirection = 'column'; }
-  if (name === 'brief') renderPhotoPairBrief();
-}
-
-function renderPhotoPairBrief() {
-  const sessions = loadPPSessions();
-  const n = sessions.length;
-  const hits = sessions.filter(s => s.hit).length;
-  const hitPct = n ? Math.round(hits / n * 100) : null;
-  const hitStr = hitPct !== null ? hitPct + '%' : '-';
-  const aboveBelow = hitPct !== null ? (hitPct > 50 ? ' above' : hitPct < 50 ? ' below' : '') : '';
-
-  // Brief view stats
-  setEl('pp-stat-trials', n);
-  const rateEl = document.getElementById('pp-stat-hitrate');
-  if (rateEl) {
-    rateEl.textContent = hitStr;
-    rateEl.style.color = hitPct !== null ? (hitPct > 50 ? 'var(--accent)' : hitPct < 50 ? 'var(--danger)' : 'var(--text)') : 'var(--text)';
-  }
-  const noteEl = document.getElementById('pp-stat-note');
-  if (noteEl) {
-    if (n < 10) noteEl.textContent = (10 - n) + ' more trial' + (10 - n !== 1 ? 's' : '') + ' needed for analysis. Full stats in Analytics.';
-    else {
-      const sig = hitPct > 58 ? 'Trending above chance.' : hitPct < 42 ? 'Trending below chance.' : 'Within chance range.';
-      noteEl.textContent = n + ' trials - ' + hitPct + '% vs 50% chance. ' + sig + ' Full stats in Analytics.';
-    }
-  }
-
-  // Analytics card stats (also update when visible)
-  renderPPAnalyticsCard(sessions, n, hits, hitPct, hitStr, aboveBelow);
-}
-
-function renderPPAnalyticsCard(sessions, n, hits, hitPct, hitStr, aboveBelow) {
-  if (n === undefined) {
-    sessions = loadPPSessions();
-    n = sessions.length;
-    hits = sessions.filter(s => s.hit).length;
-    hitPct = n ? Math.round(hits / n * 100) : null;
-    hitStr = hitPct !== null ? hitPct + '%' : '-';
-    aboveBelow = hitPct !== null ? (hitPct > 50 ? ' above' : hitPct < 50 ? ' below' : '') : '';
-  }
-
-  const wrap = document.getElementById('pp-analytics-wrap');
-  if (!wrap) return;
-
-  const chance = 50;
-  const edge = hitPct === null ? 0 : (hitPct - chance);
-  const pValue = n > 0 ? binomialUpperTailP(hits, n, 0.5) : null;
-
-  // Improving trend: compare recent half vs early half hit rate
-  const sorted = [...sessions].sort((a, b) => new Date(b.date || b.timestamp || 0) - new Date(a.date || a.timestamp || 0));
-  const mid = Math.floor(sorted.length / 2);
-  const recentHalf = sorted.slice(0, Math.max(1, mid));
-  const earlyHalf = sorted.slice(Math.max(1, mid));
-  const recentRate = recentHalf.length ? (recentHalf.filter(s => s.hit).length / recentHalf.length) * 100 : 0;
-  const earlyRate = earlyHalf.length ? (earlyHalf.filter(s => s.hit).length / earlyHalf.length) * 100 : 0;
-  const improving = recentHalf.length > 0 && earlyHalf.length > 0 ? recentRate > earlyRate : false;
-
-  const tier = getSignalTier('photopair', { trials: n, hitRate: hitPct || 0, pValue, aboveChance: edge > 0, improving });
-  checkSignalTierDrop('photopair', tier);
-
-  wrap.innerHTML = `
-    ${buildSignalTierCard(tier, pValue)}
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;">
-        <div class="mono-label">Total Trials</div>
-        <div style="font-family:var(--font-display);font-size:24px;color:var(--text);line-height:1;margin-top:4px;">${n}</div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;">
-        <div class="mono-label">Hit Rate</div>
-        <div style="font-family:var(--font-display);font-size:24px;color:${hitPct !== null ? (hitPct > 50 ? 'var(--accent)' : hitPct < 50 ? 'var(--warn)' : 'var(--text)') : 'var(--text)'};line-height:1;margin-top:4px;">${hitStr}</div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 8px;text-align:center;">
-        <div class="mono-label">vs Chance</div>
-        <div style="font-family:var(--font-display);font-size:24px;color:${edge > 0 ? 'var(--accent)' : 'var(--warn)'};line-height:1;margin-top:4px;">${hitPct === null ? '--' : `${edge >= 0 ? '+' : ''}${Math.round(edge)}%`}</div>
-      </div>
-    </div>
-    <div class="mono-sm" style="color:var(--dim);text-align:center;margin-top:10px;">Based on ${n} trial${n !== 1 ? 's' : ''}. Reliability improves with larger sample sizes.</div>
-  `;
-}
-
-function startPPTrial() {
-  initPPImages();
-  showPPView('trial');
-
-  PP_STATE.answered = false;
-  PP_STATE.pleasantSide = Math.random() < 0.5 ? 0 : 1;
-  PP_STATE.pleasantIdx = Math.floor(Math.random() * 5);
-  PP_STATE.neutralIdx  = Math.floor(Math.random() * 5);
-
-  // Reset cards
-  [0,1].forEach(i => {
-    const card = document.getElementById('pp-card-' + i);
-    const verdict = document.getElementById('pp-verdict-' + i);
-    const label = document.getElementById('pp-label-' + i);
-    if (card) { card.classList.remove('flipped'); card.style.pointerEvents = 'auto'; }
-    if (verdict) verdict.style.display = 'none';
-    if (label) label.style.display = 'none';
-    buildPPFrontPattern('pp-pattern-' + i);
-  });
-
-  // Set images
-  const pImg = document.getElementById('pp-img-' + PP_STATE.pleasantSide);
-  const nImg = document.getElementById('pp-img-' + (1 - PP_STATE.pleasantSide));
-  if (pImg) pImg.src = PP_PLEASANT_POOL[PP_STATE.pleasantIdx];
-  if (nImg) nImg.src = PP_NEUTRAL_POOL[PP_STATE.neutralIdx];
-
-  // Reset post-reveal
-  const post = document.getElementById('pp-post-reveal');
-  if (post) post.style.display = 'none';
-  setEl('pp-tap-hint', 'TAP THE CARD YOU FEEL DRAWN TO');
-}
-
-function handlePPTap(side) {
-  if (PP_STATE.answered) return;
-  PP_STATE.answered = true;
-
-  const isHit = side === PP_STATE.pleasantSide;
-
-  // Disable both cards
-  [0,1].forEach(i => {
-    const c = document.getElementById('pp-card-' + i);
-    if (c) c.style.pointerEvents = 'none';
-  });
-
-  // Flip both after short delay
-  setTimeout(() => {
-    [0,1].forEach(i => {
-      const card = document.getElementById('pp-card-' + i);
-      if (card) card.classList.add('flipped');
-    });
-
-    // Show labels and verdict after flip completes
-    setTimeout(() => {
-      [0,1].forEach(i => {
-        const label = document.getElementById('pp-label-' + i);
-        const verdict = document.getElementById('pp-verdict-' + i);
-        if (label) {
-          label.style.display = 'block';
-          if (i === PP_STATE.pleasantSide) {
-            label.textContent = 'PLEASANT'; label.className = 'pp-label-tag pleasant';
-          } else {
-            label.textContent = 'NEUTRAL'; label.className = 'pp-label-tag neutral';
-          }
-        }
-        if (i === side && verdict) {
-          verdict.style.display = 'block';
-          verdict.textContent = isHit ? 'HIT' : 'MISS';
-          verdict.className = 'pp-verdict ' + (isHit ? 'hit' : 'miss');
-        }
-      });
-
-      // Save + show post
-      savePPSession({ hit: isHit, timestamp: new Date().toISOString() });
-      const sessions = loadPPSessions();
-      const hits = sessions.filter(s => s.hit).length;
-      const pct = Math.round(hits / sessions.length * 100);
-
-      const trialEl = document.getElementById('pp-trial-result');
-      if (trialEl) {
-        trialEl.textContent = isHit ? 'HIT' : 'MISS';
-        trialEl.className = 'psi-stat-val' + (isHit ? ' above' : ' below');
-      }
-      const runEl = document.getElementById('pp-running-rate');
-      if (runEl) {
-        runEl.textContent = pct + '%';
-        runEl.className = 'psi-stat-val' + (pct > 50 ? ' above' : pct < 50 ? ' below' : '');
-      }
-
-      setEl('pp-tap-hint', '');
-      const post = document.getElementById('pp-post-reveal');
-      if (post) { post.style.display = 'flex'; post.style.flexDirection = 'column'; }
-      checkMilestones({ protocol: 'photopair', score: isHit ? 100 : 0 });
-    }, 700);
-  }, 80);
-}
-
-// ── Persistence ───────────────────────────────────
-function loadPPSessions()  {
-  try {
-    const local = JSON.parse(localStorage.getItem('ablty_photopair') || '[]');
-    const queue = JSON.parse(localStorage.getItem('ablty_pp_pending') || '[]');
-    if (Array.isArray(local) && local.length) {
-      return mergeSessionArrays(
-        local,
-        Array.isArray(queue) ? queue : [],
-        (p) => String(p?.id || p?.timestamp || '')
-      );
-    }
-    if (isLoggedIn()) {
-      const cloud = JSON.parse(localStorage.getItem('ablty_pp_cloud_cache') || '[]');
-      if (Array.isArray(cloud) && cloud.length) {
-        return mergeSessionArrays(
-          cloud,
-          Array.isArray(queue) ? queue : [],
-          (p) => String(p?.id || p?.timestamp || '')
-        );
-      }
-    }
-    if (Array.isArray(queue) && queue.length) return queue;
-    return Array.isArray(local) ? local : [];
-  } catch(e) { return []; }
-}
-function savePPSession(s)  {
-  const normalized = Object.assign({}, s, {
-    id: Number(s?.id) || Date.now(),
-    hit: !!s?.hit,
-    timestamp: s?.timestamp || new Date().toISOString(),
-  });
-  try {
-    const pending = JSON.parse(localStorage.getItem('ablty_pp_pending') || '[]');
-    pending.unshift(normalized);
-    localStorage.setItem('ablty_pp_pending', JSON.stringify(pending.slice(0, 2000)));
-  } catch(e) {}
-  const d = loadPPSessions();
-  d.unshift(normalized);
-  try { localStorage.setItem('ablty_photopair', JSON.stringify(d.slice(0, MAX_PP_LOCAL_TRIALS))); } catch(e) {}
-  syncSessionToSupabase('pp_sessions', mapPPSessionRow(s));
-}
 window.addEventListener('error', (e) => {
   console.error('[ABLTY ERROR]', e.message, e.filename, e.lineno);
 });
@@ -16595,7 +15698,6 @@ window.addEventListener('unhandledrejection', (e) => {
         <label class="export-check"><input type="checkbox" class="export-module-checkbox" value="rv" checked> RV</label>
         <label class="export-check"><input type="checkbox" class="export-module-checkbox" value="zener" checked> Zener</label>
         <label class="export-check"><input type="checkbox" class="export-module-checkbox" value="ts" checked> Presentiment</label>
-        <label class="export-check"><input type="checkbox" class="export-module-checkbox" value="pp" checked> Photo Pair</label>
         <label class="export-check"><input type="checkbox" class="export-module-checkbox" value="dreams" checked> Dreams</label>
       </div>
 
@@ -16793,7 +15895,7 @@ When you create an account we collect:
 - Email address
 - Username you choose
 - Password (stored as a secure hash  -  we never see your actual password)
-- Session data you create: RV scores, Zener results, Presentiment results, Photo Pair results, session timestamps, and impression notes you type
+- Session data you create: RV scores, Zener results, Presentiment results, session timestamps, and impression notes you type
 - For Premium users: sketch images from RV sessions
 - Device and browser type (collected automatically by our infrastructure provider)
 - Approximate timezone (used to send Reality Check notifications at appropriate times)

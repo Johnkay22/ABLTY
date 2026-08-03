@@ -8,7 +8,7 @@ None at this time.
 
 ## Recently Resolved
 
-- Analytics category leakage in log filters (Presentiment/Photo Pair).
+- Analytics category leakage in log filters (Presentiment).
 - Missing sort controls in analytics log.
 - Stats/session data disappearing after reopen due to sync timing.
 - Service worker update banner not consistently appearing on reopen.

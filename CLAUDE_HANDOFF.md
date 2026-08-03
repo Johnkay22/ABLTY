@@ -22,7 +22,6 @@ A PWA for lucid dreaming and psi research. Single-page app (`app.html`, ~16,500 
 - **Remote Viewing (RV):** Sketch-based ESP test, AI-graded via Gemini API
 - **Zener Cards:** Classic 25-trial ESP card test
 - **Presentiment (Timestamp):** Precognitive timing test
-- **Photo Pair:** Binary forced-choice emotional valence test
 - **Dream Lab:** Hub screen for dream-related features
 - **Dream Journal:** Cloud-synced dream entries with AI tagging, lucidity tracking
 - **Dream Insights:** Analytics — lucidity rate, recall trend, streak, dream signs

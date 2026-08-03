@@ -46,7 +46,6 @@ Primary screens:
 - PSI hub:
   - Zener: brief/session/results
   - Presentiment: brief/session/results
-  - Photo Pair
 - Dream:
   - Dream Lab
   - Dream Journal (home/new/detail)
@@ -72,7 +71,7 @@ Tier cache:
 
 Access map (function-level):
 - Guest allowed: RV, Zener (limited)
-- Free/Premium: timestamp, photopair, dream-lab, dream journal, RC, analytics, WBTB
+- Free/Premium: timestamp, dream-lab, dream journal, RC, analytics, WBTB
 - Premium-only features: RC Drill (Step 3) and Lucidity Reading (Step 4) of WBTB Re-Entry Protocol; expanded access paths (example: export unlock)
 - Free users see inline gate cards on premium steps with upgrade CTA + skip option
 
@@ -85,7 +84,6 @@ Local-first keys (non-exhaustive):
 - RV: `STATE.sessions`, `ablty_rv_cloud_cache`
 - Zener: `ablty_zener`, `ablty_zener_cloud_cache`
 - Presentiment: `ablty_timestamp`, `ablty_timestamp_all`, `ablty_ts_cloud_cache`, `ablty_ts_pending`
-- Photo Pair: `ablty_photopair`, `ablty_pp_cloud_cache`, `ablty_pp_pending`
 - Dream: in-memory state + Supabase `dream_entries`
 - WBTB Re-Entry Protocol: `ablty_wbtb_protocol` (active session state machine)
 - Auth profile cache: `ablty_logged_in`, `ablty_username`, `ablty_tier`, `ablty_user_email`
@@ -177,7 +175,7 @@ After changing behavior:
 ## 12) Quick smoke checklist (minimum)
 
 - Open from home-screen icon.
-- Run 1 trial/session in RV, Zener, Presentiment, Photo Pair.
+- Run 1 trial/session in RV, Zener, Presentiment.
 - Confirm entries appear in Analytics Log with correct filters.
 - Force close and reopen; confirm data still present.
 - Check profile tier and upgrade CTA behavior.
