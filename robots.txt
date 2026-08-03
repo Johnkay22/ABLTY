@@ -1,0 +1,80 @@
+# ablty.app
+# Public marketing pages are open to all crawlers, including AI/LLM crawlers.
+# The app itself (app.html) and internal docs are excluded from indexing.
+
+User-agent: *
+Allow: /
+Disallow: /app.html
+Disallow: /signal-scanner-prototype.html
+Disallow: /CLAUDE.md
+Disallow: /CLAUDE_HANDOFF.md
+Disallow: /CURRENT_STATE_BASELINE.md
+Disallow: /KNOWN_ISSUES.md
+Disallow: /LAUNCH-STATUS.markdown
+Disallow: /LAUNCH_READINESS_AUDIT.txt
+Disallow: /MOBILE_QA_CHECKLIST.md
+
+# --- AI / LLM crawlers: explicitly welcome ---
+# (Each named group must repeat the rules; bots use their most specific match.)
+
+User-agent: GPTBot
+Allow: /
+Disallow: /app.html
+Disallow: /signal-scanner-prototype.html
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /app.html
+Disallow: /signal-scanner-prototype.html
+
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /app.html
+Disallow: /signal-scanner-prototype.html
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /app.html
+Disallow: /signal-scanner-prototype.html
+
+User-agent: Claude-User
+Allow: /
+Disallow: /app.html
+Disallow: /signal-scanner-prototype.html
+
+User-agent: Claude-SearchBot
+Allow: /
+Disallow: /app.html
+Disallow: /signal-scanner-prototype.html
+
+User-agent: anthropic-ai
+Allow: /
+Disallow: /app.html
+Disallow: /signal-scanner-prototype.html
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /app.html
+Disallow: /signal-scanner-prototype.html
+
+User-agent: Perplexity-User
+Allow: /
+Disallow: /app.html
+Disallow: /signal-scanner-prototype.html
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /app.html
+Disallow: /signal-scanner-prototype.html
+
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /app.html
+Disallow: /signal-scanner-prototype.html
+
+User-agent: meta-externalagent
+Allow: /
+Disallow: /app.html
+Disallow: /signal-scanner-prototype.html
+
+Sitemap: https://ablty.app/sitemap.xml

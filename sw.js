@@ -2,7 +2,7 @@
 // Strategy: network-first for HTML, cache-first for static assets
 // Includes update detection to notify users of new versions
 
-const CACHE_NAME = 'ablty-v56';
+const CACHE_NAME = 'ablty-v57';
 const STATIC_ASSETS = [
   '/',
   '/app.html',
