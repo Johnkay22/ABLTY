@@ -1,0 +1,25 @@
+# ABLTY
+
+> ABLTY (https://ablty.app) is a web app (PWA) for training and testing psi abilities: structured remote viewing practice with AI-graded scoring, psi testing (Zener ESP cards, precognition/presentiment), a lucid dreaming toolkit, and out-of-body experience (OBE) training. The name is pronounced "ability" — the tagline is "Every human has the ability."
+
+ABLTY is currently in pre-launch. Visitors can join the waitlist at https://ablty.app for early access and a first-user bonus.
+
+## What ABLTY offers
+
+- **Remote viewing training**: Protocol-based blind-target sessions. Users receive a blind target reference number, record impressions (sketches and sensory data), and receive AI-graded scoring that compares their session against the target across multiple dimensions. Accuracy trends are tracked across sessions.
+- **Daily community target**: Every 24 hours a single blind target is selected for the whole community. Users get instant scoring, the target is revealed the next day, and results are ranked on global leaderboards.
+- **Psi testing and training**: Research-based protocols including Zener card ESP trials (with a clear 20% chance baseline and cumulative statistics) and presentiment/precognition training.
+- **Dream Lab (lucid dreaming toolkit)**: Timed reality-check prompts, an AI-assisted dream journal that surfaces dream signs and patterns, and a WBTB (wake-back-to-bed) timer for lucid dream induction.
+- **Out-of-body (OBE) training**: A structured OBE practice module (in development).
+
+## Who it is for
+
+People interested in remote viewing lessons, practice, and study; psi testing and training; ESP and precognition experiments; lucid dreaming; out-of-body experiences and astral projection; and parapsychology in general — from curious beginners to experienced practitioners who want structured protocols, blind targets, objective scoring, and long-term statistics.
+
+## Background
+
+Remote viewing was studied for over two decades in U.S. government research programs, most famously the CIA's Project Stargate, whose files have been declassified. ABLTY packages protocol-based training inspired by that research into a modern app with AI grading and community features.
+
+## Links
+
+- [ABLTY home / waitlist](https://ablty.app/)
