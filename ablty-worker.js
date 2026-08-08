@@ -175,6 +175,35 @@ function assignmentKey(id) {
   return 'rv_assign:' + id;
 }
 
+async function sha256Hex(text) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+// Grading failures leave the assignment in place so the viewer can retry. The
+// target is revealed even when grading fails, so the sketch that was submitted
+// first is recorded and a retry must present that same sketch: otherwise the
+// retry window would allow re-drawing a target the viewer has already seen.
+// The expiry deliberately keeps the assignment's original 2h lifetime; the
+// retry window is a separate decision.
+async function retainAssignmentForRetry(env, assignmentId, assignment, sketchHash) {
+  try {
+    const issuedAt = Number(assignment?.issuedAt) || Date.now();
+    const remaining = RV_ASSIGN_TTL_SECONDS - Math.floor((Date.now() - issuedAt) / 1000);
+    // KV rejects a TTL under 60s; let the record expire as it would have.
+    if (remaining < 60) return;
+    await env.ABLTY_KV.put(
+      assignmentKey(assignmentId),
+      JSON.stringify({ ...assignment, sketchHash, failedAt: Date.now() }),
+      { expirationTtl: remaining }
+    );
+  } catch (e) {
+    console.warn('[GRADE] Could not retain assignment for retry:', e.message);
+  }
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -904,6 +933,7 @@ async function handleGrade(request, env, origin = '') {
     const requestedTrn = String(body?.trn || '').trim();
 
     let target = null;
+    let assignment = null;
     let consumeAssignment = false;
     let trnLabel = '';
 
@@ -914,7 +944,6 @@ async function handleGrade(request, env, origin = '') {
         return json({ error: 'Assignment expired. Start a new RV session.' }, 410, origin);
       }
 
-      let assignment;
       try {
         assignment = JSON.parse(assignmentRaw);
       } catch (e) {
@@ -947,6 +976,12 @@ async function handleGrade(request, env, origin = '') {
     const sketch = String(body?.sketch || '');
     if (!sketch || sketch.length < 100 || sketch.length > 5 * 1024 * 1024) {
       return json({ error: 'Missing or invalid sketch payload' }, 400, origin);
+    }
+    const sketchHash = await sha256Hex(sketch);
+    // Only set once a previous attempt has failed, so first attempts and
+    // assignments issued before this change are unaffected.
+    if (assignment?.sketchHash && assignment.sketchHash !== sketchHash) {
+      return json({ error: 'Sketch does not match the original submission. Start a new RV session.' }, 400, origin);
     }
     const notes = body?.notes;
 
@@ -983,6 +1018,7 @@ async function handleGrade(request, env, origin = '') {
       const reason = status === 429
         ? 'Gemini API quota exceeded'
         : `Gemini API error (${status || 'no response'})`;
+      await retainAssignmentForRetry(env, assignmentId, assignment, sketchHash);
       return json(buildGradingFailure(target, reason, trnLabel), 200, origin);
     }
 
@@ -993,9 +1029,11 @@ async function handleGrade(request, env, origin = '') {
     try {
       parsed = JSON.parse(cleaned);
     } catch (e) {
+      await retainAssignmentForRetry(env, assignmentId, assignment, sketchHash);
       return json(buildGradingFailure(target, 'Failed to parse Gemini response', trnLabel), 200, origin);
     }
     if (!parsed || typeof parsed !== 'object') {
+      await retainAssignmentForRetry(env, assignmentId, assignment, sketchHash);
       return json(buildGradingFailure(target, 'Invalid grading payload', trnLabel), 200, origin);
     }
     // Only consume assignment after successful grading so retries work.
