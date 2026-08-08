@@ -871,10 +871,10 @@ async function handleRVAssign(request, env, origin = '') {
       JSON.stringify(payload),
       { expirationTtl: RV_ASSIGN_TTL_SECONDS }
     );
+    // category is deliberately withheld: it would narrow the pool before drawing.
     return json({
       assignment_id: assignmentId,
       trn,
-      category: target.category,
       expires_in: RV_ASSIGN_TTL_SECONDS,
     }, 200, origin);
   } catch (e) {
