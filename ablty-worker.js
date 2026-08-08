@@ -134,13 +134,24 @@ function sanitizeRVCategory(category) {
   return RV_CATEGORIES.has(category) ? category : 'all';
 }
 
+// Uniform random integer in [0, limit) via rejection sampling to avoid modulo bias.
+function randomBelow(limit) {
+  if (!Number.isInteger(limit) || limit <= 0) return 0;
+  const ceiling = Math.floor(4294967296 / limit) * limit;
+  const buf = new Uint32Array(1);
+  for (;;) {
+    crypto.getRandomValues(buf);
+    if (buf[0] < ceiling) return buf[0] % limit;
+  }
+}
+
 function pickRVTarget(category) {
   const safeCategory = sanitizeRVCategory(category);
   const filtered = safeCategory === 'all'
     ? RV_TARGET_POOL
     : RV_TARGET_POOL.filter((t) => t.category === safeCategory);
   const pool = filtered.length ? filtered : RV_TARGET_POOL;
-  return pool[Math.floor(Math.random() * pool.length)];
+  return pool[randomBelow(pool.length)];
 }
 
 function getTargetTRN(target) {
