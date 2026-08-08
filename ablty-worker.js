@@ -22,6 +22,8 @@ const STRIPE_TIER_EVENTS = new Set([
 ]);
 
 const RV_ASSIGN_TTL_SECONDS = 60 * 60 * 2; // 2 hours
+// Tunable: how long a failed grading stays retryable. 2h because observed failures were bug-shaped, not quota-shaped.
+const RV_RETRY_WINDOW_SECONDS = 60 * 60 * 2;
 const RV_CATEGORIES = new Set(['all', 'animals', 'objects', 'structures', 'landscapes']);
 
 // Server-side RV target pool (kept off client for protocol integrity).
@@ -186,18 +188,14 @@ async function sha256Hex(text) {
 // target is revealed even when grading fails, so the sketch that was submitted
 // first is recorded and a retry must present that same sketch: otherwise the
 // retry window would allow re-drawing a target the viewer has already seen.
-// The expiry deliberately keeps the assignment's original 2h lifetime; the
-// retry window is a separate decision.
+// The window runs from the failure rather than from the assignment, because the
+// time spent on the session itself should not eat into the time left to retry.
 async function retainAssignmentForRetry(env, assignmentId, assignment, sketchHash) {
   try {
-    const issuedAt = Number(assignment?.issuedAt) || Date.now();
-    const remaining = RV_ASSIGN_TTL_SECONDS - Math.floor((Date.now() - issuedAt) / 1000);
-    // KV rejects a TTL under 60s; let the record expire as it would have.
-    if (remaining < 60) return;
     await env.ABLTY_KV.put(
       assignmentKey(assignmentId),
       JSON.stringify({ ...assignment, sketchHash, failedAt: Date.now() }),
-      { expirationTtl: remaining }
+      { expirationTtl: RV_RETRY_WINDOW_SECONDS }
     );
   } catch (e) {
     console.warn('[GRADE] Could not retain assignment for retry:', e.message);
