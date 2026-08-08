@@ -22,6 +22,8 @@ const STRIPE_TIER_EVENTS = new Set([
 ]);
 
 const RV_ASSIGN_TTL_SECONDS = 60 * 60 * 2; // 2 hours
+// Tunable: how long a failed grading stays retryable. 2h because observed failures were bug-shaped, not quota-shaped.
+const RV_RETRY_WINDOW_SECONDS = 60 * 60 * 2;
 const RV_CATEGORIES = new Set(['all', 'animals', 'objects', 'structures', 'landscapes']);
 
 // Server-side RV target pool (kept off client for protocol integrity).
@@ -161,8 +163,6 @@ function createTRN() {
   return group() + '-' + group();
 }
 
-const TRN_PATTERN = /^\d{4}-\d{4}$/;
-
 function publicTarget(target, trn) {
   return {
     id: target.id,
@@ -175,6 +175,31 @@ function publicTarget(target, trn) {
 
 function assignmentKey(id) {
   return 'rv_assign:' + id;
+}
+
+async function sha256Hex(text) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+// Grading failures leave the assignment in place so the viewer can retry. The
+// target is revealed even when grading fails, so the sketch that was submitted
+// first is recorded and a retry must present that same sketch: otherwise the
+// retry window would allow re-drawing a target the viewer has already seen.
+// The window runs from the failure rather than from the assignment, because the
+// time spent on the session itself should not eat into the time left to retry.
+async function retainAssignmentForRetry(env, assignmentId, assignment, sketchHash) {
+  try {
+    await env.ABLTY_KV.put(
+      assignmentKey(assignmentId),
+      JSON.stringify({ ...assignment, sketchHash, failedAt: Date.now() }),
+      { expirationTtl: RV_RETRY_WINDOW_SECONDS }
+    );
+  } catch (e) {
+    console.warn('[GRADE] Could not retain assignment for retry:', e.message);
+  }
 }
 
 function sleep(ms) {
@@ -903,10 +928,10 @@ async function handleGrade(request, env, origin = '') {
     const body = await request.json();
     const assignmentIdRaw = String(body?.assignment_id || '').trim();
     const assignmentId = assignmentIdRaw.replace(/[^a-zA-Z0-9]/g, '');
-    const retryTargetId = String(body?.target_id || '').trim();
     const requestedTrn = String(body?.trn || '').trim();
 
     let target = null;
+    let assignment = null;
     let consumeAssignment = false;
     let trnLabel = '';
 
@@ -914,10 +939,14 @@ async function handleGrade(request, env, origin = '') {
       // Normal flow: look up assignment from KV
       const assignmentRaw = await env.ABLTY_KV.get(assignmentKey(assignmentId));
       if (!assignmentRaw) {
-        return json({ error: 'Assignment expired. Start a new RV session.' }, 410, origin);
+        // The record is gone once the retry window closes, so a retry can never
+        // succeed from here. The client shows `message` in preference to `error`.
+        return json({
+          error: 'Assignment expired. Start a new RV session.',
+          message: 'This session can no longer be graded. Its retry window has closed, so start a new RV session.',
+        }, 410, origin);
       }
 
-      let assignment;
       try {
         assignment = JSON.parse(assignmentRaw);
       } catch (e) {
@@ -940,21 +969,22 @@ async function handleGrade(request, env, origin = '') {
       }
       trnLabel = assignedTrn;
       consumeAssignment = true;
-    } else if (retryTargetId) {
-      // Retry flow: look up target directly by ID (assignment expired or consumed)
-      target = RV_TARGET_POOL.find((t) => t.id === retryTargetId);
-      if (!target) {
-        return json({ error: 'Target not found' }, 400, origin);
-      }
-      // No server record to read the label from, so echo the submitted one.
-      trnLabel = TRN_PATTERN.test(requestedTrn) ? requestedTrn : '';
     } else {
-      return json({ error: 'Missing assignment_id or target_id' }, 400, origin);
+      // The target is never taken from the request: a submission must not be
+      // able to choose which target it is graded against. Retries are
+      // authorised by the assignment record alone.
+      return json({ error: 'Missing assignment_id. Start a new RV session.' }, 400, origin);
     }
 
     const sketch = String(body?.sketch || '');
     if (!sketch || sketch.length < 100 || sketch.length > 5 * 1024 * 1024) {
       return json({ error: 'Missing or invalid sketch payload' }, 400, origin);
+    }
+    const sketchHash = await sha256Hex(sketch);
+    // Only set once a previous attempt has failed, so first attempts and
+    // assignments issued before this change are unaffected.
+    if (assignment?.sketchHash && assignment.sketchHash !== sketchHash) {
+      return json({ error: 'Sketch does not match the original submission. Start a new RV session.' }, 400, origin);
     }
     const notes = body?.notes;
 
@@ -991,6 +1021,7 @@ async function handleGrade(request, env, origin = '') {
       const reason = status === 429
         ? 'Gemini API quota exceeded'
         : `Gemini API error (${status || 'no response'})`;
+      await retainAssignmentForRetry(env, assignmentId, assignment, sketchHash);
       return json(buildGradingFailure(target, reason, trnLabel), 200, origin);
     }
 
@@ -1001,9 +1032,11 @@ async function handleGrade(request, env, origin = '') {
     try {
       parsed = JSON.parse(cleaned);
     } catch (e) {
+      await retainAssignmentForRetry(env, assignmentId, assignment, sketchHash);
       return json(buildGradingFailure(target, 'Failed to parse Gemini response', trnLabel), 200, origin);
     }
     if (!parsed || typeof parsed !== 'object') {
+      await retainAssignmentForRetry(env, assignmentId, assignment, sketchHash);
       return json(buildGradingFailure(target, 'Invalid grading payload', trnLabel), 200, origin);
     }
     // Only consume assignment after successful grading so retries work.
