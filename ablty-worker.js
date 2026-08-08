@@ -939,7 +939,12 @@ async function handleGrade(request, env, origin = '') {
       // Normal flow: look up assignment from KV
       const assignmentRaw = await env.ABLTY_KV.get(assignmentKey(assignmentId));
       if (!assignmentRaw) {
-        return json({ error: 'Assignment expired. Start a new RV session.' }, 410, origin);
+        // The record is gone once the retry window closes, so a retry can never
+        // succeed from here. The client shows `message` in preference to `error`.
+        return json({
+          error: 'Assignment expired. Start a new RV session.',
+          message: 'This session can no longer be graded. Its retry window has closed, so start a new RV session.',
+        }, 410, origin);
       }
 
       try {
