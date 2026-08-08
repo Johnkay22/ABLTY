@@ -161,8 +161,6 @@ function createTRN() {
   return group() + '-' + group();
 }
 
-const TRN_PATTERN = /^\d{4}-\d{4}$/;
-
 function publicTarget(target, trn) {
   return {
     id: target.id,
@@ -903,7 +901,6 @@ async function handleGrade(request, env, origin = '') {
     const body = await request.json();
     const assignmentIdRaw = String(body?.assignment_id || '').trim();
     const assignmentId = assignmentIdRaw.replace(/[^a-zA-Z0-9]/g, '');
-    const retryTargetId = String(body?.target_id || '').trim();
     const requestedTrn = String(body?.trn || '').trim();
 
     let target = null;
@@ -940,16 +937,11 @@ async function handleGrade(request, env, origin = '') {
       }
       trnLabel = assignedTrn;
       consumeAssignment = true;
-    } else if (retryTargetId) {
-      // Retry flow: look up target directly by ID (assignment expired or consumed)
-      target = RV_TARGET_POOL.find((t) => t.id === retryTargetId);
-      if (!target) {
-        return json({ error: 'Target not found' }, 400, origin);
-      }
-      // No server record to read the label from, so echo the submitted one.
-      trnLabel = TRN_PATTERN.test(requestedTrn) ? requestedTrn : '';
     } else {
-      return json({ error: 'Missing assignment_id or target_id' }, 400, origin);
+      // The target is never taken from the request: a submission must not be
+      // able to choose which target it is graded against. Retries are
+      // authorised by the assignment record alone.
+      return json({ error: 'Missing assignment_id. Start a new RV session.' }, 400, origin);
     }
 
     const sketch = String(body?.sketch || '');
