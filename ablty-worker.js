@@ -134,27 +134,42 @@ function sanitizeRVCategory(category) {
   return RV_CATEGORIES.has(category) ? category : 'all';
 }
 
+// Uniform random integer in [0, limit) via rejection sampling to avoid modulo bias.
+function randomBelow(limit) {
+  if (!Number.isInteger(limit) || limit <= 0) return 0;
+  const ceiling = Math.floor(4294967296 / limit) * limit;
+  const buf = new Uint32Array(1);
+  for (;;) {
+    crypto.getRandomValues(buf);
+    if (buf[0] < ceiling) return buf[0] % limit;
+  }
+}
+
 function pickRVTarget(category) {
   const safeCategory = sanitizeRVCategory(category);
   const filtered = safeCategory === 'all'
     ? RV_TARGET_POOL
     : RV_TARGET_POOL.filter((t) => t.category === safeCategory);
   const pool = filtered.length ? filtered : RV_TARGET_POOL;
-  return pool[Math.floor(Math.random() * pool.length)];
+  return pool[randomBelow(pool.length)];
 }
 
-function getTargetTRN(target) {
-  const src = String(target?.src || '');
-  return src.replace(/^targets\//, '').replace(/\.(jpg|jpeg|png|webp)$/i, '');
+// TRN is a display label only. It must stay unrelated to the target, its
+// filename, its ID and its category so the assignment remains blind.
+function createTRN() {
+  const group = () => String(randomBelow(10000)).padStart(4, '0');
+  return group() + '-' + group();
 }
 
-function publicTarget(target) {
+const TRN_PATTERN = /^\d{4}-\d{4}$/;
+
+function publicTarget(target, trn) {
   return {
     id: target.id,
     src: target.src,
     label: target.label,
     category: target.category,
-    trn: getTargetTRN(target),
+    trn: String(trn || ''),
   };
 }
 
@@ -844,7 +859,7 @@ async function handleRVAssign(request, env, origin = '') {
     if (!target) return json({ error: 'No targets available' }, 500, origin);
 
     const assignmentId = createAssignmentId();
-    const trn = getTargetTRN(target);
+    const trn = createTRN();
     const payload = {
       targetId: target.id,
       trn,
@@ -856,10 +871,10 @@ async function handleRVAssign(request, env, origin = '') {
       JSON.stringify(payload),
       { expirationTtl: RV_ASSIGN_TTL_SECONDS }
     );
+    // category is deliberately withheld: it would narrow the pool before drawing.
     return json({
       assignment_id: assignmentId,
       trn,
-      category: target.category,
       expires_in: RV_ASSIGN_TTL_SECONDS,
     }, 200, origin);
   } catch (e) {
@@ -867,7 +882,7 @@ async function handleRVAssign(request, env, origin = '') {
   }
 }
 
-function buildGradingFailure(target, message) {
+function buildGradingFailure(target, message, trn) {
   return {
     grading_failed: true,
     grading_error: String(message || 'AI grading unavailable'),
@@ -877,7 +892,7 @@ function buildGradingFailure(target, message) {
     hits: [],
     noise: [],
     aol: [],
-    target: publicTarget(target),
+    target: publicTarget(target, trn),
   };
 }
 
@@ -889,9 +904,11 @@ async function handleGrade(request, env, origin = '') {
     const assignmentIdRaw = String(body?.assignment_id || '').trim();
     const assignmentId = assignmentIdRaw.replace(/[^a-zA-Z0-9]/g, '');
     const retryTargetId = String(body?.target_id || '').trim();
+    const requestedTrn = String(body?.trn || '').trim();
 
     let target = null;
     let consumeAssignment = false;
+    let trnLabel = '';
 
     if (assignmentId) {
       // Normal flow: look up assignment from KV
@@ -914,12 +931,14 @@ async function handleGrade(request, env, origin = '') {
         return json({ error: 'Assigned target not found' }, 500, origin);
       }
 
-      const requestedTrn = String(body?.trn || '').trim();
-      const targetTrn = getTargetTRN(target);
-      if (requestedTrn && requestedTrn !== targetTrn) {
+      // The TRN is a random label with no relationship to the target, so it can
+      // only be validated against the value stored when the target was assigned.
+      const assignedTrn = String(assignment?.trn || '');
+      if (requestedTrn && requestedTrn !== assignedTrn) {
         await env.ABLTY_KV.delete(assignmentKey(assignmentId));
         return json({ error: 'TRN mismatch. Start a new RV session.' }, 400, origin);
       }
+      trnLabel = assignedTrn;
       consumeAssignment = true;
     } else if (retryTargetId) {
       // Retry flow: look up target directly by ID (assignment expired or consumed)
@@ -927,6 +946,8 @@ async function handleGrade(request, env, origin = '') {
       if (!target) {
         return json({ error: 'Target not found' }, 400, origin);
       }
+      // No server record to read the label from, so echo the submitted one.
+      trnLabel = TRN_PATTERN.test(requestedTrn) ? requestedTrn : '';
     } else {
       return json({ error: 'Missing assignment_id or target_id' }, 400, origin);
     }
@@ -970,7 +991,7 @@ async function handleGrade(request, env, origin = '') {
       const reason = status === 429
         ? 'Gemini API quota exceeded'
         : `Gemini API error (${status || 'no response'})`;
-      return json(buildGradingFailure(target, reason), 200, origin);
+      return json(buildGradingFailure(target, reason, trnLabel), 200, origin);
     }
 
     const geminiData = await geminiRes.json();
@@ -980,14 +1001,14 @@ async function handleGrade(request, env, origin = '') {
     try {
       parsed = JSON.parse(cleaned);
     } catch (e) {
-      return json(buildGradingFailure(target, 'Failed to parse Gemini response'), 200, origin);
+      return json(buildGradingFailure(target, 'Failed to parse Gemini response', trnLabel), 200, origin);
     }
     if (!parsed || typeof parsed !== 'object') {
-      return json(buildGradingFailure(target, 'Invalid grading payload'), 200, origin);
+      return json(buildGradingFailure(target, 'Invalid grading payload', trnLabel), 200, origin);
     }
     // Only consume assignment after successful grading so retries work.
     if (consumeAssignment) await env.ABLTY_KV.delete(assignmentKey(assignmentId));
-    parsed.target = publicTarget(target);
+    parsed.target = publicTarget(target, trnLabel);
     return json(parsed, 200, origin);
   } catch (e) {
     return json({ error: e.message }, 500, origin);
