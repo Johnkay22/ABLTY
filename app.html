@@ -3940,8 +3940,10 @@ html, body {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   min-height: 0;
 }
+/* Height flexes so the orb, dots and label still clear the CTA on short screens. */
 .rv9-carousel {
-  position: relative; width: 100%; height: 250px; touch-action: none; cursor: grab;
+  position: relative; width: 100%; height: clamp(170px, 30vh, 250px);
+  touch-action: none; cursor: grab;
   user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
 .rv9-carousel:active { cursor: grabbing; }
@@ -4003,18 +4005,31 @@ html, body {
 }
 .rv9-dots i.rv9-on { background: var(--rv9-teal); box-shadow: 0 0 8px var(--rv9-teal); width: 18px; border-radius: 4px; }
 
-.rv9-biglabel { text-align: center; margin-top: 20px; height: 58px; position: relative; }
+.rv9-biglabel {
+  text-align: center; position: relative; flex: 0 0 auto;
+  margin-top: clamp(6px, 2.2vh, 20px); height: clamp(42px, 7.2vh, 58px);
+}
 .rv9-biglabel .rv9-bn {
-  font-family: var(--font-rv-display); font-weight: 600; font-size: 36px;
+  font-family: var(--font-rv-display); font-weight: 600;
+  font-size: clamp(28px, 8.6vw, 36px);
   letter-spacing: 5px; color: #fff; line-height: 1;
   text-shadow: 0 0 22px rgba(120,240,215,.28);
 }
 .rv9-biglabel .rv9-bs {
-  font-family: var(--font-rv-body); font-weight: 300; font-size: 15px;
+  font-family: var(--font-rv-body); font-weight: 300;
+  font-size: clamp(13px, 3.8vw, 15px);
   color: var(--rv9-muted); margin-top: 6px; min-height: 18px;
 }
 
 #screen-rv-brief .rv-step-foot { padding: 4px 26px calc(18px + var(--safe-bottom)); }
+
+@media (max-height: 720px) {
+  #screen-rv-brief .rv9-h1 { margin-top: 8px; }
+  #screen-rv-brief .rv9-sub { margin-top: 8px; line-height: 1.4; }
+  #screen-rv-brief .rv-step-header { padding: 10px 18px 0; }
+  #screen-rv-brief .rv-step-foot { padding: 0 26px calc(12px + var(--safe-bottom)); }
+  #rv-step-2 .rv9-head { margin-bottom: 18px; }
+}
 
 /* ============ SCREEN 1b: PROTOCOL ============ */
 #rv-step-protocol .rv-step-body { justify-content: flex-start; padding: 8px 24px 0; }
