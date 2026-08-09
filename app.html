@@ -13,7 +13,8 @@
   <meta name="apple-mobile-web-app-title" content="ABLTY">
 <title>ABLTY</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&family=Saira:wght@200;300;400;500;600&family=Saira+Condensed:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
 <style>
 /* ═══════════════════════════════════════════
    DESIGN TOKENS
@@ -40,6 +41,10 @@
   --font-display: 'Bebas Neue', sans-serif;
   --font-mono:    'DM Mono', monospace;
   --font-body:    'DM Sans', sans-serif;
+  /* RV flow type system. Scoped to the RV screens until the app-wide migration. */
+  --font-rv-display: 'Saira Condensed', sans-serif;
+  --font-rv-mono:    'Share Tech Mono', monospace;
+  --font-rv-body:    'Saira', system-ui, sans-serif;
   --nav-h: 72px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -3700,6 +3705,663 @@ html, body {
   pointer-events: none;
 }
 
+/* ===== RV FLOW VISUAL SYSTEM (v9) START =====
+   Scope: #screen-rv-brief, #screen-canvas, #screen-results only.
+   Every new class is rv9- prefixed and every new keyframe is rv9 prefixed so
+   nothing here can reach #screen-detail or the other 26 screens.
+   ============================================================ */
+
+#screen-rv-brief,
+#screen-canvas,
+#screen-results {
+  --rv9-teal: #4af0c8;
+  --rv9-teal-bright: #9df7e4;
+  --rv9-amber: #f0a94a;
+  --rv9-text: #eef3fb;
+  --rv9-muted: #7e8896;
+  background: radial-gradient(120% 60% at 50% 38%, #06080d 0%, #030406 44%, #010102 76%, #000 100%);
+  font-family: var(--font-rv-body);
+}
+
+/* ---------- atmosphere layers ---------- */
+.rv9-stars {
+  position: absolute; inset: 0; z-index: 0;
+  pointer-events: none;
+  display: block;
+}
+.rv9-vignette {
+  position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: radial-gradient(115% 80% at 50% 44%, transparent 42%, rgba(0,0,0,.5) 78%, rgba(0,0,0,.85) 100%);
+}
+.rv9-grain {
+  position: absolute; inset: 0; z-index: 50; pointer-events: none; opacity: .05;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 200px;
+}
+/* #screen-results is itself the scroll container, so its atmosphere is pinned
+   rather than absolute or it would scroll away with the content. */
+#screen-results .rv9-stars,
+#screen-results .rv9-vignette,
+#screen-results .rv9-grain { position: fixed; }
+
+/* Content sits above the atmosphere. These wrappers are unpositioned by
+   default, which would paint them beneath the z-indexed layers. */
+#screen-rv-brief .rv-step { position: relative; z-index: 4; }
+#screen-canvas .canvas-shell { position: relative; z-index: 4; }
+#screen-results .screen-inner { position: relative; z-index: 4; }
+
+/* ---------- decorative orbit / glow (step 1) ---------- */
+.rv9-coreglow {
+  position: absolute; left: 50%; top: 46%; transform: translate(-50%,-50%);
+  width: 260px; height: 260px; border-radius: 50%; z-index: 0; pointer-events: none;
+  background: radial-gradient(circle, rgba(74,240,200,.12) 0%, rgba(46,190,162,.04) 46%, transparent 62%);
+  filter: blur(24px); animation: rv9Breathe 7s ease-in-out infinite;
+}
+@keyframes rv9Breathe {
+  0%,100% { opacity: .65; transform: translate(-50%,-50%) scale(1); }
+  50%     { opacity: 1;   transform: translate(-50%,-50%) scale(1.06); }
+}
+.rv9-orbit {
+  position: absolute; left: 50%; top: 47%; transform: translate(-50%,-50%);
+  width: min(400px, 94vw); aspect-ratio: 1; border-radius: 50%;
+  border: 1px solid rgba(172,192,226,.14); z-index: 0; pointer-events: none;
+}
+.rv9-orbit .rv9-arc {
+  position: absolute; inset: -1px; border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0deg, rgba(190,250,238,.6) 26deg, transparent 64deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), #000 calc(100% - 1px));
+  animation: rv9Spin 70s linear infinite;
+}
+.rv9-orbit .rv9-satwrap { position: absolute; inset: 0; animation: rv9Spin 52s linear infinite; }
+.rv9-orbit .rv9-sat {
+  position: absolute; left: 50%; top: -2.5px; width: 5px; height: 5px; margin-left: -2.5px;
+  border-radius: 50%; background: #b9fbe9;
+  box-shadow: 0 0 8px rgba(150,248,228,.9), 0 0 20px rgba(74,240,200,.5);
+}
+.rv9-orbit2 {
+  position: absolute; left: 50%; top: 47%; transform: translate(-50%,-50%);
+  width: min(302px, 71vw); aspect-ratio: 1; border-radius: 50%;
+  border: 1px solid rgba(150,170,205,.06); z-index: 0; pointer-events: none;
+}
+@keyframes rv9Spin { to { transform: rotate(360deg); } }
+
+.rv9-pulse {
+  position: absolute; left: 50%; top: 50%; width: 170px; height: 170px;
+  margin: -85px 0 0 -85px; border-radius: 50%;
+  border: 1px solid rgba(110,244,214,.5); z-index: 0; pointer-events: none; opacity: 0;
+  animation: rv9Pulse 5.5s cubic-bezier(.2,.6,.35,1) infinite;
+}
+.rv9-pulse.rv9-p2 { animation-delay: 2.75s; }
+@keyframes rv9Pulse {
+  0%   { transform: scale(.86); opacity: 0; }
+  8%   { opacity: .4; }
+  60%  { transform: scale(1.9); opacity: 0; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+
+/* concentric rings behind the TRN card (step 2) */
+.rv9-rings {
+  position: absolute; left: 50%; top: 47%; transform: translate(-50%,-50%);
+  width: min(340px, 80vw); aspect-ratio: 1; border-radius: 50%;
+  border: 1px solid rgba(150,200,190,.05); z-index: 0; pointer-events: none;
+}
+.rv9-rings::after {
+  content: ""; position: absolute; inset: 13%; border-radius: 50%;
+  border: 1px solid rgba(150,200,190,.04);
+}
+
+/* ---------- shared headings ---------- */
+.rv9-head { position: relative; z-index: 5; text-align: center; }
+.rv9-step {
+  font-family: var(--font-rv-body); font-weight: 600; font-size: 13px;
+  letter-spacing: 5px; color: var(--rv9-teal);
+  text-shadow: 0 0 14px rgba(74,240,200,.4);
+}
+.rv9-h1 {
+  font-family: var(--font-rv-display); font-weight: 600;
+  font-size: clamp(28px, 7.6vw, 38px); line-height: 1; letter-spacing: 4px;
+  color: #f4f8ff; white-space: nowrap; margin-top: 12px;
+  text-shadow: 0 0 30px rgba(74,240,200,.2);
+}
+.rv9-sub {
+  margin-top: 14px; font-family: var(--font-rv-body); font-weight: 300;
+  font-size: 15px; line-height: 1.5; color: var(--rv9-muted);
+}
+
+/* ---------- the one primary CTA ---------- */
+#screen-rv-brief .rv9-cont,
+#screen-canvas   .rv9-cont,
+#screen-results  .rv9-cont {
+  position: relative; width: 100%; height: 62px; flex: 0 0 auto;
+  border: none; border-radius: 14px; padding: 0; cursor: pointer; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; gap: 0;
+  transition: transform .1s ease, box-shadow .3s ease, opacity .3s ease;
+  background:
+    radial-gradient(120% 170% at 50% 118%, rgba(74,240,200,.16), transparent 62%),
+    linear-gradient(180deg, rgba(6,22,23,.96), rgba(3,12,14,.97) 55%, rgba(5,19,20,.96));
+  box-shadow:
+    0 0 0 1px rgba(74,240,200,.5),
+    0 0 16px rgba(74,240,200,.22),
+    0 0 40px rgba(74,240,200,.09),
+    inset 0 0 26px rgba(74,240,200,.10),
+    inset 0 1px 0 rgba(170,250,235,.22),
+    inset 0 -16px 30px rgba(0,0,0,.62);
+}
+#screen-rv-brief .rv9-cont:active,
+#screen-canvas   .rv9-cont:active,
+#screen-results  .rv9-cont:active { transform: scale(.988); }
+
+.rv9-drift {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(44% 120% at 50% 78%, rgba(74,240,200,.16), transparent 72%);
+  animation: rv9Drift 11s ease-in-out infinite;
+}
+@keyframes rv9Drift {
+  0%,100% { transform: translateX(-13%); opacity: .72; }
+  50%     { transform: translateX(13%);  opacity: 1; }
+}
+.rv9-edge {
+  position: absolute; inset: 0; border-radius: 14px; padding: 1.4px; pointer-events: none;
+  -webkit-mask: linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000,#000) content-box, linear-gradient(#000,#000);
+  mask-composite: exclude;
+  overflow: hidden;
+}
+.rv9-edge i {
+  position: absolute; left: 50%; top: 50%; width: 150%; aspect-ratio: 1;
+  transform: translate(-50%,-50%);
+  background: conic-gradient(from 0deg,
+    transparent 0deg, rgba(74,240,200,.28) 14deg, rgba(190,254,240,.95) 30deg,
+    rgba(120,246,220,.42) 52deg, transparent 88deg);
+  animation: rv9Travel 9s linear infinite;
+}
+@keyframes rv9Travel { to { transform: translate(-50%,-50%) rotate(360deg); } }
+.rv9-lbl {
+  position: relative; font-family: var(--font-rv-body); font-weight: 500;
+  font-size: 17px; letter-spacing: 8px; color: #eafffc; white-space: nowrap;
+  text-shadow: 0 0 10px rgba(120,246,222,.55), 0 0 22px rgba(74,240,200,.28);
+}
+/* SUBMIT & GRADE is long and shares its row with the back button, so it
+   trades letter-spacing for width rather than being shortened. */
+.rv9-lbl-long {
+  font-size: clamp(13px, 3.9vw, 16px);
+  letter-spacing: clamp(2.5px, 1.2vw, 5px);
+  padding-right: clamp(2.5px, 1.2vw, 5px);
+}
+
+/* Disabled CTA: face goes dark, the border light and drifting glow go out.
+   Specificity here has to beat #begin-session-btn:disabled. */
+#screen-rv-brief .rv9-cont:disabled,
+#screen-canvas   .rv9-cont:disabled,
+#screen-results  .rv9-cont:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+  background: linear-gradient(180deg, rgba(9,13,14,.96), rgba(5,8,9,.97));
+  box-shadow:
+    0 0 0 1px rgba(120,140,138,.18),
+    inset 0 1px 0 rgba(170,200,196,.05),
+    inset 0 -16px 30px rgba(0,0,0,.62);
+}
+#screen-rv-brief .rv9-cont:disabled .rv9-drift,
+#screen-canvas   .rv9-cont:disabled .rv9-drift,
+#screen-results  .rv9-cont:disabled .rv9-drift { opacity: 0; animation-play-state: paused; }
+#screen-rv-brief .rv9-cont:disabled .rv9-edge,
+#screen-canvas   .rv9-cont:disabled .rv9-edge,
+#screen-results  .rv9-cont:disabled .rv9-edge { opacity: .04; animation-play-state: paused; }
+#screen-rv-brief .rv9-cont:disabled .rv9-edge i,
+#screen-canvas   .rv9-cont:disabled .rv9-edge i,
+#screen-results  .rv9-cont:disabled .rv9-edge i { animation-play-state: paused; }
+#screen-rv-brief .rv9-cont:disabled .rv9-lbl,
+#screen-canvas   .rv9-cont:disabled .rv9-lbl,
+#screen-results  .rv9-cont:disabled .rv9-lbl { color: #55625f; text-shadow: none; }
+
+/* secondary buttons */
+#screen-results .rv9-ghost {
+  width: 100%; height: 50px; padding: 0;
+  border: 1px solid rgba(255,255,255,.10); border-radius: 13px;
+  background: transparent; color: #8b9a98; cursor: pointer;
+  font-family: var(--font-rv-body); font-weight: 500; font-size: 14px; letter-spacing: 4px;
+}
+#screen-canvas .rv9-backb {
+  flex: 0 0 auto; width: 56px; height: 62px; padding: 0;
+  border: 1px solid rgba(255,255,255,.10); border-radius: 14px;
+  background: transparent; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+#screen-canvas .rv9-backb svg { width: 18px; height: 18px; stroke: #93a5a3; fill: none; }
+
+/* ============ SCREEN 1: TARGET CATEGORY ============ */
+#screen-rv-brief .rv-step-header { padding: 14px 18px 4px; }
+#screen-rv-brief .rv-progress-seg { background: rgba(255,255,255,.09); }
+#screen-rv-brief .rv-progress-seg.done { background: var(--rv9-teal); }
+#screen-rv-brief .rv-progress-seg.active { background: rgba(74,240,200,.5); }
+#screen-rv-brief .rv-step-back { color: #6d7a86; }
+
+#rv-step-1 .rv-step-body {
+  justify-content: flex-start; padding: 10px 16px 0; overflow: hidden;
+}
+#rv-step-1 .rv9-field {
+  position: relative; z-index: 4; flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 0;
+}
+/* Height flexes so the orb, dots and label still clear the CTA on short screens. */
+.rv9-carousel {
+  position: relative; width: 100%; height: clamp(170px, 30vh, 250px);
+  touch-action: none; cursor: grab;
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+.rv9-carousel:active { cursor: grabbing; }
+.rv9-carousel * { user-select: none; -webkit-user-select: none; }
+
+#rv-step-1 .rv-cat-tile {
+  position: absolute; left: 50%; top: 50%;
+  width: 150px; height: 150px; border-radius: 50%; padding: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  will-change: transform, opacity; text-align: center;
+  background:
+    radial-gradient(135% 100% at 50% 10%, rgba(196,206,224,.09) 0%, rgba(48,54,68,.05) 32%, transparent 56%),
+    linear-gradient(180deg, rgba(14,17,23,.66), rgba(3,5,8,.85));
+  border: 1px solid rgba(170,182,202,.13);
+  box-shadow: 0 14px 34px rgba(0,0,0,.6), inset 0 1px 0 rgba(180,238,228,.16), inset 0 -16px 26px rgba(0,0,0,.55);
+}
+/* the carousel drives transform inline, so the old press-scale must not fight it */
+#rv-step-1 .rv-cat-tile:active { transform: none; }
+#rv-step-1 .rv-cat-tile::before {
+  content: ""; position: absolute; inset: 0; border-radius: 50%; pointer-events: none;
+  background: linear-gradient(160deg, rgba(255,255,255,.09), transparent 42%);
+}
+#rv-step-1 .rv-cat-tile .rv9-ic { position: relative; display: flex; align-items: center; justify-content: center; }
+#rv-step-1 .rv-cat-tile .rv9-ic svg { width: 42px; height: 42px; }
+#rv-step-1 .rv-cat-tile .rv9-nm {
+  position: relative; font-family: var(--font-rv-body); font-weight: 500;
+  font-size: 13px; letter-spacing: 1.5px; color: #c7d2e2;
+}
+/* centred hero orb */
+#rv-step-1 .rv-cat-tile.rv9-on {
+  border: 1.5px solid rgba(238,243,252,.95);
+  background:
+    radial-gradient(120% 120% at 50% -4%, rgba(74,220,190,.18) 0%, rgba(10,44,40,.05) 36%, transparent 56%),
+    radial-gradient(circle at 50% 56%, rgba(5,8,15,.86), rgba(1,3,7,.95));
+  box-shadow:
+    0 0 0 1px rgba(224,232,248,.36),
+    0 -16px 36px rgba(141,246,224,.6),
+    0 -3px 13px rgba(190,252,240,.55),
+    0 0 26px rgba(74,240,200,.22),
+    0 0 64px rgba(74,240,200,.13),
+    0 14px 30px rgba(46,180,155,.06),
+    inset 0 0 24px rgba(7,12,24,.65),
+    inset 0 2px 2px rgba(238,246,255,.5);
+}
+#rv-step-1 .rv-cat-tile.rv9-on .rv9-nm { color: #fff; text-shadow: 0 0 12px rgba(150,248,228,.5); }
+#rv-step-1 .rv-cat-tile.rv9-on::after {
+  content: ""; position: absolute; inset: -1px; border-radius: 50%; pointer-events: none;
+  background: conic-gradient(from 308deg, transparent 0deg, rgba(250,251,255,1) 26deg, rgba(176,250,236,.5) 56deg, transparent 80deg);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 2.5px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 2.5px));
+  animation: rv9Rimplay 9s ease-in-out infinite;
+}
+@keyframes rv9Rimplay { 0%,100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
+
+.rv9-dots { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
+.rv9-dots i {
+  width: 7px; height: 7px; border-radius: 50%; background: #232b36;
+  cursor: pointer; transition: all .35s ease;
+}
+.rv9-dots i.rv9-on { background: var(--rv9-teal); box-shadow: 0 0 8px var(--rv9-teal); width: 18px; border-radius: 4px; }
+
+.rv9-biglabel {
+  text-align: center; position: relative; flex: 0 0 auto;
+  margin-top: clamp(6px, 2.2vh, 20px); height: clamp(42px, 7.2vh, 58px);
+}
+.rv9-biglabel .rv9-bn {
+  font-family: var(--font-rv-display); font-weight: 600;
+  font-size: clamp(28px, 8.6vw, 36px);
+  letter-spacing: 5px; color: #fff; line-height: 1;
+  text-shadow: 0 0 22px rgba(120,240,215,.28);
+}
+.rv9-biglabel .rv9-bs {
+  font-family: var(--font-rv-body); font-weight: 300;
+  font-size: clamp(13px, 3.8vw, 15px);
+  color: var(--rv9-muted); margin-top: 6px; min-height: 18px;
+}
+
+#screen-rv-brief .rv-step-foot { padding: 4px 26px calc(18px + var(--safe-bottom)); }
+
+@media (max-height: 720px) {
+  #screen-rv-brief .rv9-h1 { margin-top: 8px; }
+  #screen-rv-brief .rv9-sub { margin-top: 8px; line-height: 1.4; }
+  #screen-rv-brief .rv-step-header { padding: 10px 18px 0; }
+  #screen-rv-brief .rv-step-foot { padding: 0 26px calc(12px + var(--safe-bottom)); }
+  #rv-step-2 .rv9-head { margin-bottom: 18px; }
+}
+
+/* ============ SCREEN 1b: PROTOCOL ============ */
+#rv-step-protocol .rv-step-body { justify-content: flex-start; padding: 8px 24px 0; }
+#rv-step-protocol .rv9-head { text-align: center; margin-bottom: 26px; }
+/* scoped to the step so #protocol-modal keeps its current look */
+#rv-step-protocol .rv-protocol-list {
+  gap: 12px; position: relative; z-index: 4;
+}
+#rv-step-protocol .rv-protocol-item {
+  gap: 13px; align-items: flex-start; border-radius: 16px; padding: 14px 15px;
+  background: linear-gradient(180deg, rgba(9,20,22,.6), rgba(3,8,11,.72));
+  box-shadow: 0 0 0 1px rgba(74,240,200,.14), inset 0 1px 0 rgba(170,250,235,.09);
+}
+#rv-step-protocol .rv-protocol-num {
+  font-family: var(--font-rv-mono); font-size: 11px; letter-spacing: 2px;
+  color: var(--rv9-teal); width: 22px; margin-top: 1px;
+}
+#rv-step-protocol .rv-protocol-text {
+  font-family: var(--font-rv-body); font-weight: 300; font-size: 14px;
+  line-height: 1.6; color: #a8b6b4;
+}
+
+/* ============ SCREEN 2: YOUR TARGET ============ */
+#rv-step-2 .rv-step-body { justify-content: center; padding: 0 22px; }
+#rv-step-2 .rv9-head { margin-bottom: 26px; }
+
+#screen-rv-brief .rv9-trncard {
+  position: relative; z-index: 5; margin: 0; border-radius: 20px;
+  padding: 26px 22px 28px; text-align: center; border: none;
+  background:
+    radial-gradient(120% 150% at 50% 0%, rgba(74,240,200,.07), transparent 60%),
+    linear-gradient(180deg, rgba(9,20,22,.7), rgba(3,8,11,.8));
+  box-shadow:
+    0 0 0 1px rgba(74,240,200,.22),
+    0 0 34px rgba(74,240,200,.08),
+    inset 0 1px 0 rgba(170,250,235,.16),
+    inset 0 -18px 34px rgba(0,0,0,.5);
+}
+#screen-rv-brief .rv9-trncard::before {
+  content: ""; position: absolute; top: -1px; left: 22%; right: 22%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(154,250,230,.85), transparent);
+}
+#screen-rv-brief .rv9-trncard .rv-trn-label {
+  font-family: var(--font-rv-mono); font-size: 11px; letter-spacing: 3px;
+  color: var(--rv9-muted); text-transform: uppercase; margin-bottom: 0;
+}
+/* Sized so the three real states all fit on one line without clipping or
+   shifting: "---- ----", "ASSIGNING..." and "6047  5129". */
+#screen-rv-brief .rv9-trncard .rv-trn-number {
+  font-family: var(--font-rv-mono); font-weight: 400;
+  font-size: clamp(24px, 8vw, 44px); letter-spacing: 3px;
+  color: var(--rv9-teal-bright); margin-top: 16px; line-height: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: clip;
+  text-shadow: 0 0 16px rgba(74,240,200,.65), 0 0 42px rgba(74,240,200,.3);
+  animation: rv9Numglow 6s ease-in-out infinite;
+}
+@keyframes rv9Numglow { 0%,100% { opacity: .92; } 50% { opacity: 1; } }
+#screen-rv-brief .rv9-trncard .rv-trn-hint {
+  font-family: var(--font-rv-body); font-weight: 300; font-size: 14px;
+  line-height: 1.65; color: #93a3a8; letter-spacing: 0; margin-top: 18px;
+}
+
+/* ============ SCREEN 3: SKETCHPAD CHROME ============ */
+#screen-canvas .canvas-header {
+  background: transparent; border-bottom: none;
+  align-items: flex-start; padding: 14px 16px 6px;
+}
+#screen-canvas .canvas-trn-badge {
+  font-family: var(--font-rv-mono); font-size: 12px; letter-spacing: 1px;
+  color: var(--rv9-teal); text-transform: none;
+  border: 1px solid rgba(74,240,200,.3); border-radius: 8px;
+  padding: 5px 9px; background: rgba(6,20,20,.5); display: inline-block;
+  box-shadow: 0 0 14px rgba(74,240,200,.12);
+}
+#screen-canvas .canvas-trn-badge span { color: var(--rv9-teal); letter-spacing: 1px; }
+#screen-canvas #canvas-timer {
+  font-family: var(--font-rv-mono) !important; font-size: 11px !important;
+  color: var(--rv9-muted) !important; margin-top: 6px !important;
+  display: flex; align-items: center; gap: 6px;
+}
+/* pseudo-element, so the JS textContent write on #canvas-timer cannot remove it */
+#screen-canvas #canvas-timer::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%; flex: 0 0 auto;
+  background: var(--rv9-teal); box-shadow: 0 0 7px var(--rv9-teal);
+  animation: rv9Blip 2.4s ease-in-out infinite;
+}
+@keyframes rv9Blip { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+
+#screen-canvas .canvas-tools { gap: 7px; }
+#screen-canvas .stroke-bar { gap: 8px; padding-right: 3px; }
+#screen-canvas .stroke-option { background: #47585a; }
+#screen-canvas .stroke-option.active { background: var(--rv9-teal); box-shadow: 0 0 9px var(--rv9-teal); }
+
+#screen-canvas .rv9-tbtn {
+  width: 33px; height: 33px; padding: 0; border-radius: 9px;
+  border: 1px solid rgba(255,255,255,.08); background: rgba(255,255,255,.025);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+  color: #93a5a3; letter-spacing: 0; font-size: 0;
+}
+#screen-canvas .rv9-tbtn svg { width: 15px; height: 15px; stroke: #93a5a3; fill: none; }
+#screen-canvas .rv9-tbtn.active,
+#screen-canvas .rv9-tbtn.erase.active {
+  border-color: rgba(74,240,200,.5); background: rgba(74,240,200,.09); box-shadow: none;
+  color: var(--rv9-teal);
+}
+#screen-canvas .rv9-tbtn.active svg,
+#screen-canvas .rv9-tbtn.erase.active svg { stroke: var(--rv9-teal); }
+
+#screen-canvas .canvas-tabs {
+  background: transparent; gap: 26px; padding: 10px 20px 0;
+  border-bottom: 1px solid rgba(255,255,255,.055);
+}
+#screen-canvas .canvas-tab {
+  flex: 0 0 auto; text-align: left; padding: 0 0 12px;
+  font-family: var(--font-rv-display); font-weight: 600; font-size: 17px;
+  letter-spacing: 2px; color: #5b6b69; border-bottom: none; position: relative;
+}
+#screen-canvas .canvas-tab.active { color: #f1faf8; border-bottom-color: transparent; }
+#screen-canvas .canvas-tab.active::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px;
+  background: var(--rv9-teal); box-shadow: 0 0 9px var(--rv9-teal); border-radius: 2px;
+}
+
+/* Surface treatment only. #panel-container and #sketch-panel keep their exact
+   box metrics so initCanvas() measures the same size it always did. */
+#screen-canvas #sketch-panel { border-radius: 16px; overflow: hidden; }
+#screen-canvas #sketch-panel::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 16px;
+  background-image: radial-gradient(rgba(74,240,200,.085) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: .5;
+  box-shadow: 0 0 0 1px rgba(74,240,200,.15), inset 0 0 44px rgba(0,0,0,.55);
+}
+
+#screen-canvas .canvas-footer {
+  background: transparent; border-top: none; gap: 11px; align-items: center;
+  padding: 8px 16px calc(18px + var(--safe-bottom));
+}
+
+/* ============ SCREEN 4: IMPRESSIONS ============ */
+#screen-canvas #notes-panel {
+  padding: 0; gap: 0;
+  background: radial-gradient(120% 60% at 50% 38%, #06080d 0%, #030406 44%, #010102 76%, #000 100%);
+}
+#screen-canvas #notes-panel .rv9-stars { z-index: 0; }
+#screen-canvas .rv9-stagenote {
+  position: relative; z-index: 4; flex-shrink: 0;
+  display: flex; align-items: center; gap: 8px; padding: 14px 18px 10px;
+  font-family: var(--font-rv-mono); font-size: 10px; letter-spacing: 2px;
+  color: #6d7e7c; text-transform: uppercase;
+}
+#screen-canvas .rv9-stagenote::before {
+  content: ""; width: 5px; height: 5px; border-radius: 50%; flex: 0 0 auto;
+  background: var(--rv9-teal); box-shadow: 0 0 7px var(--rv9-teal);
+}
+#screen-canvas .impressions-pad {
+  position: relative; z-index: 4; gap: 0; padding: 0 15px 14px;
+  -webkit-mask: linear-gradient(#000 94%, transparent);
+  mask: linear-gradient(#000 94%, transparent);
+}
+#screen-canvas .impressions-pad::-webkit-scrollbar { display: none; }
+#screen-canvas .imp-section {
+  border-bottom: none; margin-bottom: 12px; border-radius: 16px; padding: 14px 15px 13px;
+  background: linear-gradient(180deg, rgba(9,20,22,.6), rgba(3,8,11,.72));
+  box-shadow: 0 0 0 1px rgba(74,240,200,.14), inset 0 1px 0 rgba(170,250,235,.09);
+  transition: box-shadow .2s ease;
+}
+#screen-canvas .imp-section:focus-within {
+  box-shadow: 0 0 0 1px rgba(74,240,200,.45), 0 0 20px rgba(74,240,200,.10), inset 0 1px 0 rgba(170,250,235,.16);
+}
+#screen-canvas .imp-label {
+  display: flex; align-items: center; gap: 9px; margin-bottom: 9px;
+  font-family: var(--font-rv-mono); font-size: 10px; letter-spacing: 2.4px;
+  color: var(--rv9-teal);
+}
+#screen-canvas .imp-label svg {
+  width: 15px; height: 15px; flex: 0 0 auto;
+  stroke: var(--rv9-teal); fill: none; stroke-width: 1.7;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+#screen-canvas .rv9-input {
+  font-family: var(--font-rv-body); font-weight: 300; font-size: 15.5px;
+  line-height: 1.45; color: #e6efee; padding: 2px 0 6px; min-height: 30px;
+  caret-color: var(--rv9-teal);
+}
+#screen-canvas .rv9-input::placeholder { color: #4e5c5b; font-size: 15px; }
+#screen-canvas .rv9-rule {
+  height: 1px; background: linear-gradient(90deg, rgba(74,240,200,.22), rgba(74,240,200,.03));
+}
+
+/* ============ SCREEN 5: SESSION ANALYSIS ============ */
+#screen-results .screen-inner { padding: 0 22px calc(4px + var(--safe-bottom)); gap: 0; }
+#screen-results .rv9-rhead {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 10px; padding: 18px 0 4px;
+}
+#screen-results .rv9-rhead .section-label {
+  font-family: var(--font-rv-display); font-weight: 600; font-size: 22px;
+  letter-spacing: 2px; color: #f4f8f7; text-transform: uppercase; white-space: nowrap;
+}
+#screen-results #result-trn-label {
+  font-family: var(--font-rv-mono); font-size: 10.5px; letter-spacing: .5px;
+  color: var(--rv9-muted); white-space: nowrap;
+}
+
+#screen-results .result-score-ring {
+  background: transparent; border: none; border-radius: 0; overflow: visible;
+  padding: 10px 0 6px; justify-content: center;
+}
+#screen-results .ring-svg { width: min(190px, 58vw); height: min(190px, 58vw); }
+#screen-results .ring-track { stroke: rgba(74,240,200,.08); stroke-width: 6; }
+#screen-results .ring-fill { stroke-width: 5; filter: drop-shadow(0 0 5px rgba(74,240,200,.55)); }
+#screen-results .ring-pct {
+  font-family: var(--font-rv-display); font-weight: 700; font-size: 56px;
+  letter-spacing: 0; line-height: 1; color: #fff; text-shadow: 0 0 18px rgba(154,250,230,.35);
+}
+#screen-results .ring-label {
+  font-family: var(--font-rv-body); font-weight: 500; font-size: 12px;
+  letter-spacing: 3px; color: var(--rv9-teal); margin-top: 5px; text-transform: uppercase;
+}
+
+#screen-results .result-target-row { gap: 12px; margin-top: 14px; }
+#screen-results .result-thumb {
+  border: none; border-radius: 16px; overflow: hidden;
+  background: linear-gradient(180deg, rgba(9,20,22,.6), rgba(3,8,11,.7));
+  box-shadow: 0 0 0 1px rgba(74,240,200,.16), inset 0 1px 0 rgba(170,250,235,.10);
+}
+#screen-results .result-thumb-label {
+  font-family: var(--font-rv-mono); font-size: 9.5px; letter-spacing: 2px;
+  color: var(--rv9-muted); padding: 11px 12px 0;
+}
+#screen-results .result-thumb img {
+  margin: 8px; width: calc(100% - 16px); border-radius: 11px;
+  background: radial-gradient(circle at 50% 40%, rgba(10,26,26,.6), rgba(2,6,9,.8)) !important;
+}
+
+#screen-results .summary-card {
+  margin-top: 14px; border: none; border-radius: 18px; padding: 17px 18px 19px;
+  background: linear-gradient(180deg, rgba(9,20,22,.6), rgba(3,8,11,.7));
+  box-shadow: 0 0 0 1px rgba(74,240,200,.16), inset 0 1px 0 rgba(170,250,235,.10);
+}
+#screen-results #score-reasoning-card { border-left: none !important; }
+#screen-results .summary-card .mono-label {
+  font-family: var(--font-rv-mono); font-size: 9.5px; letter-spacing: 2px;
+  color: var(--rv9-teal);
+}
+#screen-results .summary-text {
+  font-family: var(--font-rv-body); font-weight: 300; font-size: 14.5px;
+  line-height: 1.62; color: #c3d2d0;
+}
+#screen-results .rv-grade-error {
+  margin-top: 14px; border: none; border-left: 2px solid var(--danger); border-radius: 18px;
+  padding: 17px 18px 19px;
+  background: linear-gradient(180deg, rgba(24,12,12,.6), rgba(8,4,5,.7));
+  box-shadow: 0 0 0 1px rgba(240,90,74,.18);
+}
+#screen-results .result-error-title {
+  font-family: var(--font-rv-display); font-weight: 600; font-size: 20px; letter-spacing: 2px;
+}
+#screen-results .result-error-body { font-family: var(--font-rv-body); font-weight: 300; font-size: 14px; }
+
+#screen-results .rv9-sec {
+  font-family: var(--font-rv-display); font-weight: 600; font-size: 16px;
+  letter-spacing: 3px; color: #e7f3f1; text-transform: uppercase; margin: 18px 0 9px;
+}
+#screen-results .hit-list { gap: 7px; }
+#screen-results .hit-item {
+  align-items: center; gap: 11px; padding: 12px 14px; border-radius: 12px;
+  background: rgba(255,255,255,.018); border: 1px solid rgba(255,255,255,.05);
+}
+#screen-results .hit-item::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto;
+  background: #394746; order: 0;
+}
+#screen-results .hit-item:has(.hit-badge.hit)::before { background: var(--rv9-teal); box-shadow: 0 0 8px var(--rv9-teal); }
+#screen-results .hit-item:has(.hit-badge.aol)::before { background: var(--rv9-amber); box-shadow: 0 0 8px rgba(240,169,74,.6); }
+#screen-results .hit-item:has(.hit-badge.aol) { border-color: rgba(240,169,74,.24); background: rgba(240,169,74,.05); }
+#screen-results .hit-text {
+  order: 1; font-family: var(--font-rv-body); font-weight: 400; font-size: 14px;
+  color: #d5e3e1; line-height: 1.4;
+}
+#screen-results .hit-item:has(.hit-badge.noise) .hit-text { color: #778886; }
+#screen-results .hit-badge {
+  order: 2; margin-left: auto; margin-top: 0; padding: 0; flex: 0 0 auto;
+  background: none !important; border: none !important; border-radius: 0;
+  font-family: var(--font-rv-mono); font-size: 9.5px; letter-spacing: 1px;
+  color: var(--rv9-muted);
+}
+#screen-results .hit-badge.aol { color: var(--rv9-amber); }
+
+/* Actions pin to the bottom of the scrollport so the list fades under them. */
+#screen-results .rv9-actions {
+  position: sticky; bottom: 0; z-index: 6;
+  padding: 16px 0 calc(10px + var(--safe-bottom));
+  background: linear-gradient(180deg, rgba(2,4,6,0) 0%, rgba(2,4,6,.82) 30%, rgba(1,2,3,.96) 100%);
+}
+
+#screen-results .grading-overlay {
+  background: radial-gradient(120% 60% at 50% 38%, #06080d 0%, #030406 44%, #010102 76%, #000 100%);
+}
+#screen-results .grading-spinner { border-color: rgba(74,240,200,.12); border-top-color: var(--rv9-teal); }
+#screen-results .grading-label {
+  font-family: var(--font-rv-display); font-weight: 600; font-size: 16px;
+  letter-spacing: 3px; color: #e7f3f1;
+}
+#screen-results #grading-status { font-family: var(--font-rv-mono); font-size: 11px; color: var(--rv9-muted); }
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .rv9-coreglow,
+  .rv9-orbit .rv9-arc,
+  .rv9-orbit .rv9-satwrap,
+  .rv9-pulse,
+  .rv9-drift,
+  .rv9-edge i,
+  #screen-canvas #canvas-timer::before,
+  #screen-rv-brief .rv9-trncard .rv-trn-number,
+  #rv-step-1 .rv-cat-tile.rv9-on::after {
+    animation: none !important;
+  }
+  .rv9-pulse { opacity: 0; }
+  .rv9-edge i { opacity: .5; }
+}
+/* ===== RV FLOW VISUAL SYSTEM (v9) END ===== */
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -3830,8 +4492,14 @@ html, body {
   ═══════════════════════════════════ -->
   <div id="screen-rv-brief" class="screen" style="padding:0;">
 
+    <canvas class="rv9-stars" data-rv9-stars aria-hidden="true"></canvas>
+    <div class="rv9-vignette" aria-hidden="true"></div>
+
     <!-- ── STEP 1: CATEGORY ───────────────── -->
     <div class="rv-step active" id="rv-step-1">
+      <div class="rv9-orbit" aria-hidden="true"><div class="rv9-arc"></div><div class="rv9-satwrap"><div class="rv9-sat"></div></div></div>
+      <div class="rv9-orbit2" aria-hidden="true"></div>
+      <div class="rv9-coreglow" aria-hidden="true"></div>
       <div class="rv-step-header">
         <button class="rv-step-back" onclick="goHome()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
@@ -3845,39 +4513,47 @@ html, body {
         </button>
       </div>
       <div class="rv-step-body">
-        <div class="rv-step-tag">Step 1 of 2</div>
-        <div class="rv-step-title">Target Category</div>
-        <div class="rv-step-sub">Select a category or receive a fully random target.</div>
-        <div class="rv-cat-grid">
-          <div class="rv-cat-tile rv-cat-all selected" id="rcat-all" onclick="rvSelectCat('all')">
-            <div class="rv-cat-tile-icon">◉</div>
-            <div class="rv-cat-tile-label">All</div>
-            <div class="rv-cat-tile-sub">Random target</div>
+        <div class="rv9-head">
+          <div class="rv9-step">STEP 1 OF 2</div>
+          <h1 class="rv9-h1">TARGET CATEGORY</h1>
+          <p class="rv9-sub">Swipe to choose a category, or keep ALL for random.</p>
+        </div>
+        <div class="rv9-field">
+          <div class="rv9-carousel" id="rv9-carousel">
+            <div class="rv9-pulse" aria-hidden="true"></div>
+            <div class="rv9-pulse rv9-p2" aria-hidden="true"></div>
+            <div class="rv-cat-tile rv-cat-all selected" id="rcat-all" onclick="rvSelectCat('all')" data-key="all" data-name="ALL" data-sub="Random target">
+              <div class="rv9-ic"><svg viewBox="0 0 48 48" fill="none" stroke="#dff7f1" stroke-width="1.7"><circle cx="24" cy="24" r="13"/><circle cx="24" cy="24" r="6"/><circle cx="34" cy="15" r="3" fill="#9df7e4" stroke="none"/></svg></div>
+              <div class="rv9-nm">ALL</div>
+            </div>
+            <div class="rv-cat-tile" id="rcat-structures" onclick="rvSelectCat('structures')" data-key="structures" data-name="STRUCTURES" data-sub="7 targets">
+              <div class="rv9-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#aebed4" stroke-width="1.4" stroke-linecap="round"><path d="M3 9l9-5 9 5"/><path d="M4 9h16"/><path d="M6 9v8M10 9v8M14 9v8M18 9v8"/><path d="M3 20h18"/></svg></div>
+              <div class="rv9-nm">STRUCTURES</div>
+            </div>
+            <div class="rv-cat-tile" id="rcat-objects" onclick="rvSelectCat('objects')" data-key="objects" data-name="OBJECTS" data-sub="9 targets">
+              <div class="rv9-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#aebed4" stroke-width="1.4" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/></svg></div>
+              <div class="rv9-nm">OBJECTS</div>
+            </div>
+            <div class="rv-cat-tile" id="rcat-animals" onclick="rvSelectCat('animals')" data-key="animals" data-name="ANIMALS" data-sub="10 targets">
+              <div class="rv9-ic"><svg viewBox="0 0 24 24" fill="#aebed4" stroke="none"><ellipse cx="7" cy="9" rx="1.9" ry="2.6"/><ellipse cx="12" cy="7.4" rx="1.9" ry="2.7"/><ellipse cx="17" cy="9" rx="1.9" ry="2.6"/><path d="M12 12c-3 0-5.4 2.2-5.4 4.6 0 1.7 1.5 2.7 3 2.4 1-.2 1.6-.6 2.4-.6s1.4.4 2.4.6c1.5.3 3-.7 3-2.4C17.4 14.2 15 12 12 12z"/></svg></div>
+              <div class="rv9-nm">ANIMALS</div>
+            </div>
+            <div class="rv-cat-tile" id="rcat-landscapes" onclick="rvSelectCat('landscapes')" data-key="landscapes" data-name="LANDSCAPES" data-sub="11 targets">
+              <div class="rv9-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#aebed4" stroke-width="1.5" stroke-linejoin="round"><path d="M3 19l5.5-9 4 6 2-3L21 19z"/><path d="M8.5 10l1.6 2.6"/></svg></div>
+              <div class="rv9-nm">LANDSCAPES</div>
+            </div>
           </div>
-          <div class="rv-cat-tile" id="rcat-landscapes" onclick="rvSelectCat('landscapes')">
-            <div class="rv-cat-tile-icon">🏔</div>
-            <div class="rv-cat-tile-label">Landscapes</div>
-            <div class="rv-cat-tile-sub">11 targets</div>
-          </div>
-          <div class="rv-cat-tile" id="rcat-structures" onclick="rvSelectCat('structures')">
-            <div class="rv-cat-tile-icon">🏛</div>
-            <div class="rv-cat-tile-label">Structures</div>
-            <div class="rv-cat-tile-sub">7 targets</div>
-          </div>
-          <div class="rv-cat-tile" id="rcat-objects" onclick="rvSelectCat('objects')">
-            <div class="rv-cat-tile-icon">◈</div>
-            <div class="rv-cat-tile-label">Objects</div>
-            <div class="rv-cat-tile-sub">9 targets</div>
-          </div>
-          <div class="rv-cat-tile" id="rcat-animals" onclick="rvSelectCat('animals')">
-            <div class="rv-cat-tile-icon">◭</div>
-            <div class="rv-cat-tile-label">Animals</div>
-            <div class="rv-cat-tile-sub">10 targets</div>
+          <div class="rv9-dots" id="rv9-dots"></div>
+          <div class="rv9-biglabel">
+            <div class="rv9-bn" id="rv9-bn">ALL</div>
+            <div class="rv9-bs" id="rv9-bs">Random target</div>
           </div>
         </div>
       </div>
       <div class="rv-step-foot">
-        <button class="btn btn-primary" onclick="rvGoStep(2)">Continue</button>
+        <button class="btn btn-primary rv9-cont" onclick="rvGoStep(2)">
+          <span class="rv9-drift"></span><span class="rv9-edge"><i></i></span><span class="rv9-lbl">CONTINUE</span>
+        </button>
       </div>
     </div>
 
@@ -3894,9 +4570,11 @@ html, body {
         <div style="width:30px;"></div>
       </div>
       <div class="rv-step-body">
-        <div class="rv-step-tag">Protocol</div>
-        <div class="rv-step-title">How This Works</div>
-        <div class="rv-step-sub">Read this once. It won't appear again.</div>
+        <div class="rv9-head">
+          <div class="rv9-step">PROTOCOL</div>
+          <h1 class="rv9-h1">HOW THIS WORKS</h1>
+          <p class="rv9-sub">Read this once. It won't appear again.</p>
+        </div>
         <div class="rv-protocol-list">
           <div class="rv-protocol-item">
             <div class="rv-protocol-num">01</div>
@@ -3917,7 +4595,9 @@ html, body {
         </div>
       </div>
       <div class="rv-step-foot">
-        <button class="btn btn-primary" onclick="rvGoStep(2)">Got It  -  Continue</button>
+        <button class="btn btn-primary rv9-cont" onclick="rvGoStep(2)">
+          <span class="rv9-drift"></span><span class="rv9-edge"><i></i></span><span class="rv9-lbl">CONTINUE</span>
+        </button>
       </div>
     </div>
 
@@ -3936,20 +4616,22 @@ html, body {
         </button>
       </div>
       <div class="rv-step-body" style="justify-content:center; align-items:stretch; text-align:center;">
-        <div class="rv-step-tag" style="text-align:center;">Step 2 of 2</div>
-        <div class="rv-step-title" style="text-align:center; margin-bottom:28px;">Your Target</div>
-        <div class="rv-trn-box">
+        <div class="rv9-rings" aria-hidden="true"></div>
+        <div class="rv9-head">
+          <div class="rv9-step">STEP 2 OF 2</div>
+          <h1 class="rv9-h1">YOUR TARGET</h1>
+        </div>
+        <div class="rv-trn-box rv9-trncard">
           <div class="rv-trn-label">Target Reference Number</div>
           <div class="rv-trn-number revealed" id="trn-display">---- ----</div>
-          <div class="rv-trn-hint" style="margin-top:14px;">
+          <div class="rv-trn-hint">
             Hold this number in mind.<br>Clear all other thoughts before beginning.
           </div>
         </div>
       </div>
       <div class="rv-step-foot">
-        <button class="btn btn-primary" id="begin-session-btn" onclick="openCanvas()" disabled aria-disabled="true">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-          BEGIN SESSION
+        <button class="btn btn-primary rv9-cont" id="begin-session-btn" onclick="openCanvas()" disabled aria-disabled="true">
+          <span class="rv9-drift"></span><span class="rv9-edge"><i></i></span><span class="rv9-lbl">BEGIN SESSION</span>
         </button>
       </div>
     </div>
@@ -3958,6 +4640,7 @@ html, body {
     <span id="brief-session-count" style="display:none;">0</span>
     <span id="brief-avg-score" style="display:none;">-</span>
 
+    <div class="rv9-grain" aria-hidden="true"></div>
   </div>
 
   <!-- PROTOCOL MODAL (accessible via ⓘ anytime) -->
@@ -4060,6 +4743,8 @@ html, body {
        SCREEN: RV - CANVAS
   ═══════════════════════════════════ -->
   <div id="screen-canvas" class="screen" style="bottom:0;">
+    <canvas class="rv9-stars" data-rv9-stars aria-hidden="true"></canvas>
+    <div class="rv9-vignette" aria-hidden="true"></div>
     <div class="canvas-shell">
 
       <!-- Header -->
@@ -4070,18 +4755,22 @@ html, body {
         </div>
         <div class="canvas-tools">
           <div class="stroke-bar">
-            <div class="stroke-option active" style="width:8px;height:8px;" data-size="2" onclick="setStroke(2,this)"></div>
-            <div class="stroke-option" style="width:12px;height:12px;" data-size="5" onclick="setStroke(5,this)"></div>
-            <div class="stroke-option" style="width:16px;height:16px;" data-size="10" onclick="setStroke(10,this)"></div>
+            <div class="stroke-option active" style="width:7px;height:7px;" data-size="2" onclick="setStroke(2,this)"></div>
+            <div class="stroke-option" style="width:11px;height:11px;" data-size="5" onclick="setStroke(5,this)"></div>
+            <div class="stroke-option" style="width:15px;height:15px;" data-size="10" onclick="setStroke(10,this)"></div>
           </div>
-          <div class="tool-btn" onclick="undoStroke()" id="undo-btn" title="Undo">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13C5 7 10 4 16 6s8 8 5 13"/></svg>
+          <div class="tool-btn rv9-tbtn" onclick="undoStroke()" id="undo-btn" title="Undo" role="button" aria-label="Undo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M3 13C5 7 10 4 16 6s8 8 5 13"/></svg>
           </div>
-          <div class="tool-btn" onclick="redoStroke()" id="redo-btn" title="Redo">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M21 13C19 7 14 4 8 6S0 14 3 19"/></svg>
+          <div class="tool-btn rv9-tbtn" onclick="redoStroke()" id="redo-btn" title="Redo" role="button" aria-label="Redo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M21 13C19 7 14 4 8 6S0 14 3 19"/></svg>
           </div>
-          <div class="tool-btn erase" id="eraser-btn" onclick="toggleEraser()">Erase</div>
-          <div class="tool-btn" onclick="clearCanvas()">Clear</div>
+          <div class="tool-btn rv9-tbtn erase" id="eraser-btn" onclick="toggleEraser()" title="Erase" role="button" aria-label="Erase">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21h13"/><path d="M3 16l8-8 6 6-7 7H6z"/><path d="M11 8l5-5 4 4-5 5"/></svg>
+          </div>
+          <div class="tool-btn rv9-tbtn" onclick="clearCanvas()" title="Clear" role="button" aria-label="Clear">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+          </div>
         </div>
       </div>
 
@@ -4101,32 +4790,38 @@ html, body {
 
         <!-- Notes panel  -  overlays sketch, toggled via opacity only -->
         <div id="notes-panel">
-          <div class="notes-panel-label">Sensory Data</div>
+          <canvas class="rv9-stars" data-rv9-stars aria-hidden="true"></canvas>
+          <div class="rv9-stagenote">Record only what you perceive</div>
           <div class="impressions-pad">
 
             <div class="imp-section">
-              <div class="imp-label">Form / Shape</div>
-              <textarea class="imp-field" id="imp-form" rows="2" placeholder="Shapes, structures, outlines, spatial forms..."></textarea>
+              <div class="imp-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19l7-13 4 7 2-3 3 9z"/></svg><span>Form / Shape</span></div>
+              <textarea class="imp-field rv9-input" id="imp-form" rows="2" placeholder="what shape comes through"></textarea>
+              <div class="rv9-rule"></div>
             </div>
 
             <div class="imp-section">
-              <div class="imp-label">Texture / Surface</div>
-              <textarea class="imp-field" id="imp-texture" rows="2" placeholder="Rough, smooth, hard, soft, wet, metallic..."></textarea>
+              <div class="imp-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h18M3 12h18M3 16h18" stroke-dasharray="3 3"/></svg><span>Texture / Surface</span></div>
+              <textarea class="imp-field rv9-input" id="imp-texture" rows="2" placeholder="how does the surface feel"></textarea>
+              <div class="rv9-rule"></div>
             </div>
 
             <div class="imp-section">
-              <div class="imp-label">Motion / Movement</div>
-              <textarea class="imp-field" id="imp-motion" rows="2" placeholder="Still, rotating, flowing, fast, slow..."></textarea>
+              <div class="imp-label"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h11"/><path d="M10 7l5 5-5 5"/><path d="M18 7v10"/></svg><span>Motion / Movement</span></div>
+              <textarea class="imp-field rv9-input" id="imp-motion" rows="2" placeholder="is anything moving"></textarea>
+              <div class="rv9-rule"></div>
             </div>
 
             <div class="imp-section">
-              <div class="imp-label">Emotion / Atmosphere</div>
-              <textarea class="imp-field" id="imp-emotion" rows="2" placeholder="Vast, festive, calm, eerie, crowded..."></textarea>
+              <div class="imp-label"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M9 14c1 1.2 2 1.7 3 1.7s2-.5 3-1.7"/><path d="M9.2 9.6h.01M14.8 9.6h.01"/></svg><span>Emotion / Atmosphere</span></div>
+              <textarea class="imp-field rv9-input" id="imp-emotion" rows="2" placeholder="how does it feel to be there"></textarea>
+              <div class="rv9-rule"></div>
             </div>
 
             <div class="imp-section">
-              <div class="imp-label">Color / Light</div>
-              <textarea class="imp-field" id="imp-color" rows="2" placeholder="Dark, bright, warm glow, colored lights..."></textarea>
+              <div class="imp-label"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17"/></svg><span>Color / Light</span></div>
+              <textarea class="imp-field rv9-input" id="imp-color" rows="2" placeholder="how bright, what tone"></textarea>
+              <div class="rv9-rule"></div>
             </div>
 
           </div>
@@ -4136,24 +4831,27 @@ html, body {
 
       <!-- Footer -->
       <div class="canvas-footer">
-        <button class="btn btn-ghost" style="flex:0 0 auto;width:auto;padding:14px 18px;font-size:14px;" onclick="goToBrief()">
-          <svg viewBox="0 0 24 24" style="width:16px;height:16px;"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        <button class="btn btn-ghost rv9-backb" onclick="goToBrief()" aria-label="Back to brief">
+          <svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
         </button>
-        <button class="btn btn-primary" style="flex:1;" onclick="submitSession()">
-          SUBMIT &amp; GRADE
+        <button class="btn btn-primary rv9-cont" style="flex:1;" onclick="submitSession()">
+          <span class="rv9-drift"></span><span class="rv9-edge"><i></i></span><span class="rv9-lbl rv9-lbl-long">SUBMIT &amp; GRADE</span>
         </button>
       </div>
 
     </div>
+    <div class="rv9-grain" aria-hidden="true"></div>
   </div>
 
   <!-- ══════════════════════════════════
        SCREEN: RV - RESULTS
   ═══════════════════════════════════ -->
   <div id="screen-results" class="screen">
+    <canvas class="rv9-stars" data-rv9-stars aria-hidden="true"></canvas>
+    <div class="rv9-vignette" aria-hidden="true"></div>
     <div class="screen-inner">
 
-      <div style="display:flex;align-items:center;justify-content:space-between;">
+      <div class="rv9-rhead">
         <div class="section-label">Session Analysis</div>
         <div class="mono-sm" id="result-trn-label">TRN: --------</div>
       </div>
@@ -4197,13 +4895,15 @@ html, body {
       </div>
 
       <!-- Hits & Noise -->
-      <div class="section-label fade-in-delay-3">Data Points</div>
+      <div class="section-label fade-in-delay-3 rv9-sec">Data Points</div>
       <div class="hit-list fade-in-delay-3" id="hit-list"></div>
 
       <!-- Actions -->
-      <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px;" class="fade-in-delay-4">
-        <button class="btn btn-primary" onclick="startRVSession()">NEW SESSION</button>
-        <button class="btn btn-ghost" onclick="navigate('history')">VIEW SESSION LOG</button>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px;" class="fade-in-delay-4 rv9-actions">
+        <button class="btn btn-primary rv9-cont" onclick="startRVSession()">
+          <span class="rv9-drift"></span><span class="rv9-edge"><i></i></span><span class="rv9-lbl">NEW SESSION</span>
+        </button>
+        <button class="btn btn-ghost rv9-ghost" onclick="navigate('history')">VIEW SESSION LOG</button>
       </div>
 
     </div>
@@ -4213,6 +4913,7 @@ html, body {
       <div class="grading-label">AI Analyst Processing</div>
       <div class="mono-sm" id="grading-status">Encoding sketch data...</div>
     </div>
+    <div class="rv9-grain" aria-hidden="true"></div>
   </div>
 
   <!-- ══════════════════════════════════
@@ -9468,6 +10169,326 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ═══════════════════════════════════════════════════════
+//  RV FLOW VISUAL SYSTEM (v9)
+//  Presentation only. Nothing here touches session state, grading, the
+//  sketch canvas, or the worker. It drives the decorative starfields and
+//  the category carousel, and defers every selection to rvSelectCat().
+// ═══════════════════════════════════════════════════════
+(function () {
+  const motionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
+  const reduceMotion = () => !!(motionQuery && motionQuery.matches);
+
+  // ── Starfield ────────────────────────────────────────
+  // Four hosts carry a field but only the one the user can actually see is
+  // allowed to animate, so there is never more than one rAF loop alive.
+  function createStarfield(canvas) {
+    const ctx = canvas.getContext && canvas.getContext('2d');
+    if (!ctx) return null;
+
+    let W = 0, H = 0, parts = [], raf = 0, sized = false;
+    let streak = null, nextStreak = performance.now() + 9000;
+    const rnd = n => Math.random() * n;
+
+    function seed() {
+      const area = W * H;
+      parts = [];
+      const nFar = Math.round(area / 5200), nMid = Math.round(area / 27000), nNear = Math.round(area / 90000);
+      for (let i = 0; i < nFar; i++)  parts.push({ z:0.3, x:rnd(W), y:rnd(H), r:rnd(0.6)+0.3, a:rnd(0.22)+0.08, vx:0.008, vy:-0.012, tw:rnd(6.28), ts:0.018+rnd(0.01),  teal:false });
+      for (let i = 0; i < nMid; i++)  parts.push({ z:0.6, x:rnd(W), y:rnd(H), r:rnd(0.9)+0.7, a:rnd(0.3)+0.18,  vx:0.016, vy:-0.026, tw:rnd(6.28), ts:0.022+rnd(0.012), teal:Math.random()>0.86 });
+      for (let i = 0; i < nNear; i++) parts.push({ z:1,   x:rnd(W), y:rnd(H), r:rnd(1.1)+1.0, a:rnd(0.34)+0.22, vx:0.03,  vy:-0.045, tw:rnd(6.28), ts:0.028+rnd(0.014), teal:Math.random()>0.75 });
+    }
+
+    function measure() {
+      const host = canvas.parentElement;
+      if (!host) return false;
+      const r = host.getBoundingClientRect();
+      if (!r.width || !r.height) return false;
+      W = canvas.width = Math.round(r.width);
+      H = canvas.height = Math.round(r.height);
+      seed();
+      sized = true;
+      return true;
+    }
+
+    function drawStars(advance) {
+      ctx.clearRect(0, 0, W, H);
+      for (const p of parts) {
+        if (advance) {
+          p.x += p.vx * p.z * (Math.sin(p.tw * 0.35) * 0.6 + 0.4);
+          p.y += p.vy * p.z;
+          p.tw += p.ts;
+          if (p.y < -8) p.y = H + 8;
+          if (p.x > W + 8) p.x = -8;
+          if (p.x < -8) p.x = W + 8;
+        }
+        const a = p.a * (0.42 + 0.58 * Math.sin(p.tw));
+        if (a <= 0.01) continue;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, 7);
+        ctx.fillStyle = 'rgba(' + (p.teal ? '130,245,220' : '238,250,248') + ',' + a + ')';
+        ctx.shadowBlur = p.z === 1 ? 5 : 3;
+        ctx.shadowColor = 'rgba(' + (p.teal ? '110,244,214' : '205,250,240') + ',' + a + ')';
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+    }
+
+    function tick(now) {
+      drawStars(true);
+      if (!streak && now > nextStreak) {
+        const sx = rnd(W * 0.7) + W * 0.15, sy = rnd(H * 0.22) + 20, ang = Math.PI * (0.12 + rnd(0.1));
+        streak = { x: sx, y: sy, vx: Math.cos(ang) * 7, vy: Math.sin(ang) * 7, life: 1 };
+      }
+      if (streak) {
+        streak.x += streak.vx; streak.y += streak.vy; streak.life -= 0.03;
+        if (streak.life <= 0) { streak = null; nextStreak = now + 8000 + rnd(9000); }
+        else {
+          const g = ctx.createLinearGradient(streak.x, streak.y, streak.x - streak.vx * 9, streak.y - streak.vy * 9);
+          g.addColorStop(0, 'rgba(215,250,242,' + (0.5 * streak.life) + ')');
+          g.addColorStop(1, 'rgba(215,250,242,0)');
+          ctx.strokeStyle = g; ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(streak.x, streak.y);
+          ctx.lineTo(streak.x - streak.vx * 9, streak.y - streak.vy * 9);
+          ctx.stroke();
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    }
+
+    return {
+      start() {
+        if (raf) return;
+        if (!sized && !measure()) return;
+        if (reduceMotion()) { drawStars(false); return; }
+        streak = null;
+        nextStreak = performance.now() + 9000;
+        raf = requestAnimationFrame(tick);
+      },
+      stop() {
+        if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      },
+      resize() {
+        sized = false;
+        measure();
+        if (raf || reduceMotion()) drawStars(false);
+      },
+      get running() { return !!raf; }
+    };
+  }
+
+  const hosts = [];
+  function registerStarfields() {
+    document.querySelectorAll('canvas[data-rv9-stars]').forEach(cv => {
+      const host = cv.parentElement;
+      if (!host) return;
+      const field = createStarfield(cv);
+      if (field) hosts.push({ host, field });
+    });
+  }
+
+  function hostVisible(host) {
+    const canvasScreen = document.getElementById('screen-canvas');
+    const notesPanel = document.getElementById('notes-panel');
+    const notesUp = !!(notesPanel && notesPanel.classList.contains('panel-visible'));
+    if (host.id === 'notes-panel') {
+      return !!(canvasScreen && canvasScreen.classList.contains('active')) && notesUp;
+    }
+    if (host.id === 'screen-canvas') {
+      // the impressions panel is opaque and carries its own field
+      return host.classList.contains('active') && !notesUp;
+    }
+    return host.classList.contains('active');
+  }
+
+  let syncQueued = false;
+  function syncStarfields() {
+    syncQueued = false;
+    const pageHidden = document.visibilityState === 'hidden';
+    hosts.forEach(({ host, field }) => {
+      if (!pageHidden && hostVisible(host)) field.start();
+      else field.stop();
+    });
+  }
+  function queueSync() {
+    if (syncQueued) return;
+    syncQueued = true;
+    requestAnimationFrame(syncStarfields);
+  }
+
+  // ── Category carousel ────────────────────────────────
+  function initCarousel() {
+    const carousel = document.getElementById('rv9-carousel');
+    const dotsWrap = document.getElementById('rv9-dots');
+    const bn = document.getElementById('rv9-bn');
+    const bs = document.getElementById('rv9-bs');
+    if (!carousel || !dotsWrap || !bn || !bs) return null;
+
+    const items = Array.prototype.slice.call(carousel.querySelectorAll('.rv-cat-tile'));
+    const N = items.length;
+    if (!N) return null;
+    const SPREAD = 104;
+
+    let pos = 0;
+    let anim = null;
+    let dragging = false, startX = 0, startPos = 0, lastX = 0, lastT = 0, dragV = 0, moved = false, shownIdx = -1;
+
+    items.forEach(el => { el.style.transition = 'box-shadow .45s ease,border-color .45s ease,background .45s ease'; });
+    const dots = items.map((_, i) => {
+      const d = document.createElement('i');
+      d.onclick = () => glideTo(i);
+      dotsWrap.appendChild(d);
+      return d;
+    });
+    const wrapDist = d => { d = ((d % N) + N) % N; if (d > N / 2) d -= N; return d; };
+
+    function render() {
+      let best = Infinity, bi = 0;
+      items.forEach((el, i) => {
+        const d = wrapDist(i - pos), ad = Math.abs(d);
+        const isAll = (i === 0), centered = Math.max(0, 1 - ad);
+        const base = isAll ? 1 : 0.86;
+        const maxS = base + centered * (isAll ? 0 : 0.10);
+        const scale = maxS * Math.max(0.46, 1 - ad * 0.27);
+        const op = ad > 2.5 ? 0 : (ad < 0.5 ? 1 : Math.max(0.22, 1 - ad * 0.36));
+        el.style.transform = 'translate(-50%,-50%) translateX(' + (d * SPREAD).toFixed(2) + 'px) scale(' + scale.toFixed(4) + ')';
+        el.style.opacity = op.toFixed(3);
+        el.style.zIndex = String(20 - Math.round(ad * 4));
+        el.classList.toggle('rv9-on', ad < 0.5);
+        if (ad < best) { best = ad; bi = i; }
+      });
+      if (bi !== shownIdx) {
+        shownIdx = bi;
+        bn.textContent = items[bi].dataset.name || '';
+        bs.textContent = items[bi].dataset.sub || '';
+        dots.forEach((dt, k) => dt.classList.toggle('rv9-on', k === bi));
+      }
+      return bi;
+    }
+
+    // Hand the landed category back to the app's own selector. This also
+    // corrects a stray tile onclick fired mid-drag, because it always runs last.
+    function commit() {
+      const el = items[shownIdx] || items[0];
+      const key = el && el.dataset.key;
+      if (!key) return;
+      if (el.classList.contains('selected')) return;
+      if (typeof rvSelectCat === 'function') rvSelectCat(key);
+    }
+
+    function tweenTo(t) {
+      const from = pos, dist = t - from;
+      if (Math.abs(dist) < 0.0005) { pos = t; render(); commit(); return; }
+      const dur = Math.min(620, 300 + Math.abs(dist) * 220), t0 = performance.now();
+      const id = {};
+      anim = id;
+      (function step(now) {
+        if (anim !== id) return;
+        const k = Math.min(1, (now - t0) / dur);
+        const e = 1 - Math.pow(1 - k, 3);
+        pos = from + dist * e;
+        render();
+        if (k < 1) requestAnimationFrame(step);
+        else { pos = t; anim = null; render(); commit(); }
+      })(t0);
+    }
+    function glideTo(i) { tweenTo(pos + wrapDist(i - pos)); }
+
+    carousel.addEventListener('pointerdown', e => {
+      anim = null;
+      dragging = true; moved = false;
+      startX = lastX = e.clientX; startPos = pos; lastT = performance.now(); dragV = 0;
+      try { carousel.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    carousel.addEventListener('pointermove', e => {
+      if (!dragging) return;
+      const now = performance.now(), dt = Math.max(1, now - lastT);
+      dragV = 0.6 * dragV + 0.4 * ((e.clientX - lastX) / dt);
+      lastX = e.clientX; lastT = now;
+      const total = e.clientX - startX;
+      if (Math.abs(total) > 6) moved = true;
+      pos = startPos - total / SPREAD;
+      render();
+    });
+    function end() {
+      if (!dragging) return;
+      dragging = false;
+      let t = Math.round(pos);
+      if (Math.abs(dragV) > 0.35) t = dragV > 0 ? Math.floor(pos) : Math.ceil(pos);
+      t = Math.max(Math.round(startPos) - 1, Math.min(Math.round(startPos) + 1, t));
+      tweenTo(t);
+    }
+    carousel.addEventListener('pointerup', end);
+    carousel.addEventListener('pointercancel', end);
+
+    // A drag must never reach a tile's own onclick, or releasing over a
+    // neighbour would select a category the carousel is not landing on.
+    carousel.addEventListener('click', e => {
+      if (!moved) return;
+      e.stopPropagation();
+      e.preventDefault();
+    }, true);
+
+    items.forEach((el, i) => el.addEventListener('click', () => {
+      if (moved) return;
+      if (Math.abs(wrapDist(i - pos)) < 0.1) return;
+      glideTo(i);
+    }));
+
+    // Snap to whatever the app currently has selected, without re-selecting.
+    function syncFromState() {
+      let idx = items.findIndex(el => el.classList.contains('selected'));
+      if (idx < 0) idx = 0;
+      anim = null;
+      pos = idx;
+      render();
+    }
+
+    render();
+    return { syncFromState };
+  }
+
+  function init() {
+    registerStarfields();
+
+    const carousel = initCarousel();
+
+    const watch = ['screen-rv-brief', 'screen-canvas', 'screen-results', 'notes-panel', 'rv-step-1'];
+    const observer = new MutationObserver(records => {
+      let stepShown = false;
+      records.forEach(r => {
+        const el = r.target;
+        if ((el.id === 'rv-step-1' || el.id === 'screen-rv-brief') && el.classList.contains('active')) stepShown = true;
+      });
+      if (stepShown && carousel) carousel.syncFromState();
+      queueSync();
+    });
+    watch.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el, { attributes: true, attributeFilter: ['class'] });
+    });
+
+    let resizeTimer = 0;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        hosts.forEach(({ host, field }) => { if (hostVisible(host)) field.resize(); });
+      }, 180);
+    });
+
+    document.addEventListener('visibilitychange', queueSync);
+    if (motionQuery && motionQuery.addEventListener) {
+      motionQuery.addEventListener('change', () => { hosts.forEach(({ field }) => field.stop()); queueSync(); });
+    }
+
+    queueSync();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+
+// ═══════════════════════════════════════════════════════
 //  ZENER PROTOCOL
 // ═══════════════════════════════════════════════════════
 
@@ -14009,7 +15030,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.08.03.1';
+const APP_VERSION = '2026.08.09.2';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
