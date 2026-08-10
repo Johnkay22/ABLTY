@@ -4012,6 +4012,7 @@ html, body {
 }
 @keyframes rv9Rimplay { 0%,100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
 
+
 .rv9-dots { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
 .rv9-dots i {
   width: 7px; height: 7px; border-radius: 50%; background: #232b36;
@@ -10193,6 +10194,40 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Starfield ────────────────────────────────────────
   // Four hosts carry a field but only the one the user can actually see is
   // allowed to animate, so there is never more than one rAF loop alive.
+
+  // Glow sprites are baked once and blitted. Canvas shadowBlur runs a blur pass
+  // per draw call, which is the single most expensive Canvas 2D operation on
+  // mobile GPUs and is not viable for ~80 particles at 60fps.
+  const SPRITE_CACHE = new Map();
+  function glowSprite(radius, blur, teal) {
+    // quantise the radius so a handful of sprites cover every particle
+    const rq = Math.max(0.25, Math.round(radius * 4) / 4);
+    const key = (teal ? 't' : 'w') + '_' + blur + '_' + rq;
+    let sprite = SPRITE_CACHE.get(key);
+    if (sprite) return sprite;
+
+    const core = teal ? '130,245,220' : '238,250,248';
+    const glow = teal ? '110,244,214' : '205,250,240';
+    const R = Math.ceil(rq + blur * 1.5) + 2;
+    const size = R * 2;
+    const cv = document.createElement('canvas');
+    cv.width = size; cv.height = size;
+    const g = cv.getContext('2d');
+    // The original dot is baked at full alpha exactly once, blur and all, so
+    // the look is unchanged. Twinkle is applied later via globalAlpha, which
+    // scales core and glow together just as the old per-draw alpha did.
+    g.beginPath();
+    g.arc(R, R, rq, 0, 7);
+    g.fillStyle = 'rgba(' + core + ',1)';
+    g.shadowBlur = blur;
+    g.shadowColor = 'rgba(' + glow + ',1)';
+    g.fill();
+
+    sprite = { cv, half: R };
+    SPRITE_CACHE.set(key, sprite);
+    return sprite;
+  }
+
   function createStarfield(canvas) {
     const ctx = canvas.getContext && canvas.getContext('2d');
     if (!ctx) return null;
@@ -10205,9 +10240,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const area = W * H;
       parts = [];
       const nFar = Math.round(area / 5200), nMid = Math.round(area / 27000), nNear = Math.round(area / 90000);
-      for (let i = 0; i < nFar; i++)  parts.push({ z:0.3, x:rnd(W), y:rnd(H), r:rnd(0.6)+0.3, a:rnd(0.22)+0.08, vx:0.008, vy:-0.012, tw:rnd(6.28), ts:0.018+rnd(0.01),  teal:false });
-      for (let i = 0; i < nMid; i++)  parts.push({ z:0.6, x:rnd(W), y:rnd(H), r:rnd(0.9)+0.7, a:rnd(0.3)+0.18,  vx:0.016, vy:-0.026, tw:rnd(6.28), ts:0.022+rnd(0.012), teal:Math.random()>0.86 });
-      for (let i = 0; i < nNear; i++) parts.push({ z:1,   x:rnd(W), y:rnd(H), r:rnd(1.1)+1.0, a:rnd(0.34)+0.22, vx:0.03,  vy:-0.045, tw:rnd(6.28), ts:0.028+rnd(0.014), teal:Math.random()>0.75 });
+      const add = (z, r, a, vx, vy, ts, teal) => {
+        const blur = z === 1 ? 5 : 3;
+        parts.push({ z, x: rnd(W), y: rnd(H), a, vx, vy, tw: rnd(6.28), ts, sprite: glowSprite(r, blur, teal) });
+      };
+      for (let i = 0; i < nFar; i++)  add(0.3, rnd(0.6) + 0.3, rnd(0.22) + 0.08, 0.008, -0.012, 0.018 + rnd(0.01),  false);
+      for (let i = 0; i < nMid; i++)  add(0.6, rnd(0.9) + 0.7, rnd(0.3) + 0.18,  0.016, -0.026, 0.022 + rnd(0.012), Math.random() > 0.86);
+      for (let i = 0; i < nNear; i++) add(1,   rnd(1.1) + 1.0, rnd(0.34) + 0.22, 0.03,  -0.045, 0.028 + rnd(0.014), Math.random() > 0.75);
     }
 
     function measure() {
@@ -10235,14 +10274,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const a = p.a * (0.42 + 0.58 * Math.sin(p.tw));
         if (a <= 0.01) continue;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, 7);
-        ctx.fillStyle = 'rgba(' + (p.teal ? '130,245,220' : '238,250,248') + ',' + a + ')';
-        ctx.shadowBlur = p.z === 1 ? 5 : 3;
-        ctx.shadowColor = 'rgba(' + (p.teal ? '110,244,214' : '205,250,240') + ',' + a + ')';
-        ctx.fill();
+        // twinkle rides on globalAlpha, so the sprite stays cacheable
+        ctx.globalAlpha = a;
+        ctx.drawImage(p.sprite.cv, p.x - p.sprite.half, p.y - p.sprite.half);
       }
-      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
     }
 
     function tick(now) {
@@ -10474,6 +10510,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let idx = items.findIndex(el => el.classList.contains('selected'));
       if (idx < 0) idx = 0;
       anim = null;
+      dragging = false;
       pos = idx;
       render();
     }
@@ -10492,14 +10529,19 @@ document.addEventListener('DOMContentLoaded', () => {
       let stepShown = false;
       records.forEach(r => {
         const el = r.target;
-        if ((el.id === 'rv-step-1' || el.id === 'screen-rv-brief') && el.classList.contains('active')) stepShown = true;
+        if (el.id !== 'rv-step-1' && el.id !== 'screen-rv-brief') return;
+        // Only a screen that has just become visible should resync the
+        // carousel. Any other class change on these nodes, such as the
+        // interaction pause flag, must not interrupt a swipe in progress.
+        const had = (r.oldValue || '').split(/\s+/).indexOf('active') !== -1;
+        if (!had && el.classList.contains('active')) stepShown = true;
       });
       if (stepShown && carousel) carousel.syncFromState();
       queueSync();
     });
     watch.forEach(id => {
       const el = document.getElementById(id);
-      if (el) observer.observe(el, { attributes: true, attributeFilter: ['class'] });
+      if (el) observer.observe(el, { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
     });
 
     let resizeTimer = 0;
@@ -15074,7 +15116,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.08.10.1';
+const APP_VERSION = '2026.08.10.2';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
