@@ -4915,7 +4915,7 @@ html, body {
         <button class="btn btn-primary rv9-cont" onclick="startRVSession()">
           <span class="rv9-drift"></span><span class="rv9-edge"><i></i></span><span class="rv9-lbl">NEW SESSION</span>
         </button>
-        <button class="btn btn-ghost rv9-ghost" onclick="navigate('history')">VIEW SESSION LOG</button>
+        <button class="btn btn-ghost rv9-ghost" onclick="viewRVSessionLog()">VIEW SESSION LOG</button>
       </div>
 
     </div>
@@ -12102,6 +12102,16 @@ function openPsiAnalytics(anchorId) {
   navigate('analytics');
   requestAnimationFrame(() => {
     openAnalyticsDetail('psi', anchorId || '');
+  });
+}
+
+// Session log for the protocol the user just finished, rather than the
+// analytics overview they would otherwise land on.
+function viewRVSessionLog() {
+  navigate('analytics');
+  requestAnimationFrame(() => {
+    openAnalyticsDetail('log', 'combined-log-list');
+    if (typeof setLogFilter === 'function') setLogFilter('rv');
   });
 }
 
