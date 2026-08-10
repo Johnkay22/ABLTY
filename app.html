@@ -4012,6 +4012,16 @@ html, body {
 }
 @keyframes rv9Rimplay { 0%,100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
 
+/* Ambient motion stands down while the carousel is being dragged or is
+   settling, so the whole frame budget goes to the gesture. The core glow is
+   included because an animated 24px blur is the costliest layer on the screen. */
+#rv-step-1.rv9-interacting .rv9-arc,
+#rv-step-1.rv9-interacting .rv9-satwrap,
+#rv-step-1.rv9-interacting .rv9-pulse,
+#rv-step-1.rv9-interacting .rv9-coreglow,
+#rv-step-1.rv9-interacting .rv-cat-tile .rv9-halo::after {
+  animation-play-state: paused;
+}
 
 .rv9-dots { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
 .rv9-dots i {
@@ -10335,6 +10345,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // While the carousel is being dragged or is settling, every ambient animation
+  // on that screen stands down. Interaction smoothness beats ambient motion.
+  let interacting = false;
+  function setInteracting(on) {
+    if (interacting === on) return;
+    interacting = on;
+    const step = document.getElementById('rv-step-1');
+    if (step) step.classList.toggle('rv9-interacting', on);
+    queueSync();
+  }
+
   function hostVisible(host) {
     const canvasScreen = document.getElementById('screen-canvas');
     const notesPanel = document.getElementById('notes-panel');
@@ -10345,6 +10366,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (host.id === 'screen-canvas') {
       // the impressions panel is opaque and carries its own field
       return host.classList.contains('active') && !notesUp;
+    }
+    if (host.id === 'screen-rv-brief') {
+      return host.classList.contains('active') && !interacting;
     }
     return host.classList.contains('active');
   }
@@ -10434,10 +10458,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function tweenTo(t) {
       const from = pos, dist = t - from;
-      if (Math.abs(dist) < 0.0005) { pos = t; render(); commit(); return; }
+      if (Math.abs(dist) < 0.0005) { pos = t; render(); commit(); setInteracting(false); return; }
       const dur = Math.min(620, 300 + Math.abs(dist) * 220), t0 = performance.now();
       const id = {};
       anim = id;
+      setInteracting(true);
       (function step(now) {
         if (anim !== id) return;
         const k = Math.min(1, (now - t0) / dur);
@@ -10445,7 +10470,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pos = from + dist * e;
         render();
         if (k < 1) requestAnimationFrame(step);
-        else { pos = t; anim = null; render(); commit(); }
+        else { pos = t; anim = null; render(); commit(); setInteracting(false); }
       })(t0);
     }
     function glideTo(i) { tweenTo(pos + wrapDist(i - pos)); }
@@ -10467,6 +10492,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dragging = true; moved = false;
       startX = lastX = e.clientX; startPos = pos; lastT = performance.now(); dragV = 0;
       pendingTotal = null;
+      setInteracting(true);
       try { carousel.setPointerCapture(e.pointerId); } catch (err) {}
     });
     carousel.addEventListener('pointermove', e => {
@@ -10513,6 +10539,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dragging = false;
       pos = idx;
       render();
+      setInteracting(false);
     }
 
     render();
