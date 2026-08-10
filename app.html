@@ -4012,6 +4012,17 @@ html, body {
 }
 @keyframes rv9Rimplay { 0%,100% { transform: rotate(-7deg); } 50% { transform: rotate(7deg); } }
 
+/* Ambient motion stands down while the carousel is being dragged or is
+   settling, so the whole frame budget goes to the gesture. The core glow is
+   included because an animated 24px blur is the costliest layer on the screen. */
+#rv-step-1.rv9-interacting .rv9-arc,
+#rv-step-1.rv9-interacting .rv9-satwrap,
+#rv-step-1.rv9-interacting .rv9-pulse,
+#rv-step-1.rv9-interacting .rv9-coreglow,
+#rv-step-1.rv9-interacting .rv-cat-tile .rv9-halo::after {
+  animation-play-state: paused;
+}
+
 .rv9-dots { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
 .rv9-dots i {
   width: 7px; height: 7px; border-radius: 50%; background: #232b36;
@@ -10193,6 +10204,40 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Starfield ────────────────────────────────────────
   // Four hosts carry a field but only the one the user can actually see is
   // allowed to animate, so there is never more than one rAF loop alive.
+
+  // Glow sprites are baked once and blitted. Canvas shadowBlur runs a blur pass
+  // per draw call, which is the single most expensive Canvas 2D operation on
+  // mobile GPUs and is not viable for ~80 particles at 60fps.
+  const SPRITE_CACHE = new Map();
+  function glowSprite(radius, blur, teal) {
+    // quantise the radius so a handful of sprites cover every particle
+    const rq = Math.max(0.25, Math.round(radius * 4) / 4);
+    const key = (teal ? 't' : 'w') + '_' + blur + '_' + rq;
+    let sprite = SPRITE_CACHE.get(key);
+    if (sprite) return sprite;
+
+    const core = teal ? '130,245,220' : '238,250,248';
+    const glow = teal ? '110,244,214' : '205,250,240';
+    const R = Math.ceil(rq + blur * 1.5) + 2;
+    const size = R * 2;
+    const cv = document.createElement('canvas');
+    cv.width = size; cv.height = size;
+    const g = cv.getContext('2d');
+    // The original dot is baked at full alpha exactly once, blur and all, so
+    // the look is unchanged. Twinkle is applied later via globalAlpha, which
+    // scales core and glow together just as the old per-draw alpha did.
+    g.beginPath();
+    g.arc(R, R, rq, 0, 7);
+    g.fillStyle = 'rgba(' + core + ',1)';
+    g.shadowBlur = blur;
+    g.shadowColor = 'rgba(' + glow + ',1)';
+    g.fill();
+
+    sprite = { cv, half: R };
+    SPRITE_CACHE.set(key, sprite);
+    return sprite;
+  }
+
   function createStarfield(canvas) {
     const ctx = canvas.getContext && canvas.getContext('2d');
     if (!ctx) return null;
@@ -10204,10 +10249,17 @@ document.addEventListener('DOMContentLoaded', () => {
     function seed() {
       const area = W * H;
       parts = [];
-      const nFar = Math.round(area / 5200), nMid = Math.round(area / 27000), nNear = Math.round(area / 90000);
-      for (let i = 0; i < nFar; i++)  parts.push({ z:0.3, x:rnd(W), y:rnd(H), r:rnd(0.6)+0.3, a:rnd(0.22)+0.08, vx:0.008, vy:-0.012, tw:rnd(6.28), ts:0.018+rnd(0.01),  teal:false });
-      for (let i = 0; i < nMid; i++)  parts.push({ z:0.6, x:rnd(W), y:rnd(H), r:rnd(0.9)+0.7, a:rnd(0.3)+0.18,  vx:0.016, vy:-0.026, tw:rnd(6.28), ts:0.022+rnd(0.012), teal:Math.random()>0.86 });
-      for (let i = 0; i < nNear; i++) parts.push({ z:1,   x:rnd(W), y:rnd(H), r:rnd(1.1)+1.0, a:rnd(0.34)+0.22, vx:0.03,  vy:-0.045, tw:rnd(6.28), ts:0.028+rnd(0.014), teal:Math.random()>0.75 });
+      // Ambient dust does not need density on a small or high density screen.
+      const lite = (window.devicePixelRatio || 1) > 2 || window.innerWidth < 420;
+      const f = lite ? 0.5 : 1;
+      const nFar = Math.round(area / 5200 * f), nMid = Math.round(area / 27000 * f), nNear = Math.max(1, Math.round(area / 90000 * f));
+      const add = (z, r, a, vx, vy, ts, teal) => {
+        const blur = z === 1 ? 5 : 3;
+        parts.push({ z, x: rnd(W), y: rnd(H), a, vx, vy, tw: rnd(6.28), ts, sprite: glowSprite(r, blur, teal) });
+      };
+      for (let i = 0; i < nFar; i++)  add(0.3, rnd(0.6) + 0.3, rnd(0.22) + 0.08, 0.008, -0.012, 0.018 + rnd(0.01),  false);
+      for (let i = 0; i < nMid; i++)  add(0.6, rnd(0.9) + 0.7, rnd(0.3) + 0.18,  0.016, -0.026, 0.022 + rnd(0.012), Math.random() > 0.86);
+      for (let i = 0; i < nNear; i++) add(1,   rnd(1.1) + 1.0, rnd(0.34) + 0.22, 0.03,  -0.045, 0.028 + rnd(0.014), Math.random() > 0.75);
     }
 
     function measure() {
@@ -10235,14 +10287,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const a = p.a * (0.42 + 0.58 * Math.sin(p.tw));
         if (a <= 0.01) continue;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.r, 0, 7);
-        ctx.fillStyle = 'rgba(' + (p.teal ? '130,245,220' : '238,250,248') + ',' + a + ')';
-        ctx.shadowBlur = p.z === 1 ? 5 : 3;
-        ctx.shadowColor = 'rgba(' + (p.teal ? '110,244,214' : '205,250,240') + ',' + a + ')';
-        ctx.fill();
+        // twinkle rides on globalAlpha, so the sprite stays cacheable
+        ctx.globalAlpha = a;
+        ctx.drawImage(p.sprite.cv, p.x - p.sprite.half, p.y - p.sprite.half);
       }
-      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
     }
 
     function tick(now) {
@@ -10299,6 +10348,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // While the carousel is being dragged or is settling, every ambient animation
+  // on that screen stands down. Interaction smoothness beats ambient motion.
+  let interacting = false;
+  function setInteracting(on) {
+    if (interacting === on) return;
+    interacting = on;
+    const step = document.getElementById('rv-step-1');
+    if (step) step.classList.toggle('rv9-interacting', on);
+    queueSync();
+  }
+
   function hostVisible(host) {
     const canvasScreen = document.getElementById('screen-canvas');
     const notesPanel = document.getElementById('notes-panel');
@@ -10309,6 +10369,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (host.id === 'screen-canvas') {
       // the impressions panel is opaque and carries its own field
       return host.classList.contains('active') && !notesUp;
+    }
+    if (host.id === 'screen-rv-brief') {
+      return host.classList.contains('active') && !interacting;
     }
     return host.classList.contains('active');
   }
@@ -10346,6 +10409,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let dragging = false, startX = 0, startPos = 0, lastX = 0, lastT = 0, dragV = 0, moved = false, shownIdx = -1;
 
     const halos = items.map(el => el.querySelector('.rv9-halo'));
+    const lastZ = items.map(() => null);
     const dots = items.map((_, i) => {
       const d = document.createElement('i');
       d.onclick = () => glideTo(i);
@@ -10369,8 +10433,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const op = Math.max(0.22, 1 - ad * 0.36) * Math.min(1, Math.max(0, (2.6 - ad) / 0.6));
         el.style.transform = 'translate(-50%,-50%) translateX(' + (d * SPREAD).toFixed(2) + 'px) scale(' + scale.toFixed(4) + ')';
         el.style.opacity = op.toFixed(3);
-        // fine grained so overlapping tiles swap order exactly when they cross
-        el.style.zIndex = String(1000 - Math.round(ad * 100));
+        // fine grained so overlapping tiles swap order exactly when they cross,
+        // but only written when it actually changes to avoid needless recalc
+        const z = 1000 - Math.round(ad * 100);
+        if (lastZ[i] !== z) { lastZ[i] = z; el.style.zIndex = String(z); }
         // smoothstep, so the glow eases in rather than tracking position linearly
         const halo = halos[i];
         if (halo) halo.style.opacity = (centered * centered * (3 - 2 * centered)).toFixed(3);
@@ -10398,10 +10464,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function tweenTo(t) {
       const from = pos, dist = t - from;
-      if (Math.abs(dist) < 0.0005) { pos = t; render(); commit(); return; }
+      if (Math.abs(dist) < 0.0005) { pos = t; render(); commit(); setInteracting(false); return; }
       const dur = Math.min(620, 300 + Math.abs(dist) * 220), t0 = performance.now();
       const id = {};
       anim = id;
+      setInteracting(true);
       (function step(now) {
         if (anim !== id) return;
         const k = Math.min(1, (now - t0) / dur);
@@ -10409,7 +10476,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pos = from + dist * e;
         render();
         if (k < 1) requestAnimationFrame(step);
-        else { pos = t; anim = null; render(); commit(); }
+        else { pos = t; anim = null; render(); commit(); setInteracting(false); }
       })(t0);
     }
     function glideTo(i) { tweenTo(pos + wrapDist(i - pos)); }
@@ -10431,6 +10498,7 @@ document.addEventListener('DOMContentLoaded', () => {
       dragging = true; moved = false;
       startX = lastX = e.clientX; startPos = pos; lastT = performance.now(); dragV = 0;
       pendingTotal = null;
+      setInteracting(true);
       try { carousel.setPointerCapture(e.pointerId); } catch (err) {}
     });
     carousel.addEventListener('pointermove', e => {
@@ -10474,8 +10542,10 @@ document.addEventListener('DOMContentLoaded', () => {
       let idx = items.findIndex(el => el.classList.contains('selected'));
       if (idx < 0) idx = 0;
       anim = null;
+      dragging = false;
       pos = idx;
       render();
+      setInteracting(false);
     }
 
     render();
@@ -10492,14 +10562,19 @@ document.addEventListener('DOMContentLoaded', () => {
       let stepShown = false;
       records.forEach(r => {
         const el = r.target;
-        if ((el.id === 'rv-step-1' || el.id === 'screen-rv-brief') && el.classList.contains('active')) stepShown = true;
+        if (el.id !== 'rv-step-1' && el.id !== 'screen-rv-brief') return;
+        // Only a screen that has just become visible should resync the
+        // carousel. Any other class change on these nodes, such as the
+        // interaction pause flag, must not interrupt a swipe in progress.
+        const had = (r.oldValue || '').split(/\s+/).indexOf('active') !== -1;
+        if (!had && el.classList.contains('active')) stepShown = true;
       });
       if (stepShown && carousel) carousel.syncFromState();
       queueSync();
     });
     watch.forEach(id => {
       const el = document.getElementById(id);
-      if (el) observer.observe(el, { attributes: true, attributeFilter: ['class'] });
+      if (el) observer.observe(el, { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
     });
 
     let resizeTimer = 0;
@@ -15074,7 +15149,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.08.10.1';
+const APP_VERSION = '2026.08.10.2';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
