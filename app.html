@@ -196,7 +196,8 @@ html, body {
 #screen-canvas.active ~ #nav,
 #screen-zener-session.active ~ #nav,
 #screen-timestamp-session.active ~ #nav,
-#screen-rc-task.active ~ #nav {
+#screen-rc-task.active ~ #nav,
+#screen-academy-lesson.active ~ #nav {
   visibility: hidden !important;
   opacity: 0 !important;
   pointer-events: none !important;
@@ -4380,6 +4381,170 @@ html, body {
 }
 /* ===== RV FLOW VISUAL SYSTEM (v9) END ===== */
 
+/* ═══════════════════════════════════════════════════════════
+   RV ACADEMY (Module 00)  -  START
+   Every Academy class is namespaced `acad-`. Nothing in this
+   block modifies an existing rule; additions only.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Home module card chevron ──────────────────────────────
+   Shared affordance across all four home cards. Sits outside
+   .card-overlay so it centres on the card, not on the text. */
+.module-card-chev {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.5);
+  pointer-events: none;
+}
+.module-card-chev svg { width: 18px; height: 18px; display: block; }
+.module-card-chev.chev-accent { color: var(--accent); }
+.module-card-chev.chev-dream  { color: #a082ff; }
+
+/* Keeps card titles clear of the chevron. Applied per card so
+   the analytics .card-overlay users are untouched. */
+.card-overlay-chev { padding-right: 40px; }
+
+/* ── Module 00 home card ───────────────────────────────────
+   Horizontal layout: copy left, glyph right, chevron far right.
+   Deliberately does not reuse .card-visual/.card-overlay, which
+   are built for the centred-graphic + bottom-gradient cards. */
+.module-card.acad-home-module { border-color: rgba(74,240,200,0.22); }
+
+.acad-home-card {
+  position: relative;
+  min-height: 130px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 18px 46px 18px 16px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 18% 28%, rgba(74,240,200,0.20) 0%, transparent 58%),
+    radial-gradient(ellipse at 74% 80%, rgba(74,240,200,0.10) 0%, transparent 52%),
+    #07100e;
+}
+.acad-home-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(74,240,200,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(74,240,200,0.07) 1px, transparent 1px);
+  background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(ellipse at 45% 50%, black 5%, transparent 72%);
+  mask-image: radial-gradient(ellipse at 45% 50%, black 5%, transparent 72%);
+  pointer-events: none;
+}
+/* Title block and glyph share a row; the subtitle spans the full
+   card width beneath so it stays on one line as in the design. */
+.acad-home-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+.acad-home-copy {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.acad-home-tag {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 7px;
+}
+.acad-home-title {
+  font-family: var(--font-display);
+  font-size: clamp(22px, 6.2vw, 26px);
+  letter-spacing: 2px;
+  line-height: 0.9;
+  color: #fff;
+  /* The <br> supplies the only intended break; never let the
+     display font's fallback metrics wrap it to a third line. */
+  white-space: nowrap;
+}
+.acad-home-sub {
+  position: relative;
+  z-index: 1;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 10px;
+}
+.acad-home-glyph {
+  flex: 0 0 auto;
+  width: 72px;
+  height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+}
+.acad-home-glyph svg {
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 6px rgba(74,240,200,0.55)) drop-shadow(0 0 16px rgba(74,240,200,0.22));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acad-home-glyph svg { filter: none; }
+}
+
+/* ── Academy screens (Phase A shells) ──────────────────────
+   The lesson screen is immersive: it reclaims the nav strip via
+   inline bottom:0 and is hidden from #nav by the rule near L196. */
+#screen-academy-lesson {
+  background: var(--bg);
+}
+.acad-lesson-shell {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: calc(env(safe-area-inset-top) + 24px) 28px calc(env(safe-area-inset-bottom) + 24px);
+  text-align: center;
+}
+.acad-exit {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 16px);
+  left: 16px;
+  z-index: 12;
+  background: none;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.acad-exit:hover { color: var(--text); background: var(--card2); }
+
+/* ═══════════════════════════════════════════════════════════
+   RV ACADEMY (Module 00)  -  END
+   ═══════════════════════════════════════════════════════════ */
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -4435,8 +4600,38 @@ html, body {
         </div>
       </div>
 
+      <!-- RV ACADEMY CARD (Module 00) -->
+      <div class="module-card acad-home-module fade-in-delay-1" onclick="navigate('academy')">
+        <div class="acad-home-card">
+          <div class="acad-home-row">
+            <div class="acad-home-copy">
+              <div class="acad-home-tag">Module 00</div>
+              <div class="acad-home-title">REMOTE VIEWING<br>ACADEMY</div>
+            </div>
+            <div class="acad-home-glyph">
+              <svg viewBox="0 0 40 40" aria-hidden="true">
+                <path d="M4 15.5 L20 5 L36 15.5 Z"/>
+                <path d="M5.5 18.5 H34.5"/>
+                <path d="M8.5 18.5 V31"/>
+                <path d="M14.25 18.5 V31"/>
+                <path d="M20 18.5 V31"/>
+                <path d="M25.75 18.5 V31"/>
+                <path d="M31.5 18.5 V31"/>
+                <path d="M6 31 H34"/>
+                <path d="M4.5 34.2 H35.5"/>
+                <path d="M3 37.4 H37"/>
+              </svg>
+            </div>
+          </div>
+          <div class="acad-home-sub">Learn the protocols. Build the skill.</div>
+        </div>
+        <div class="module-card-chev chev-accent">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 5 16 12 9 19"/></svg>
+        </div>
+      </div>
+
       <!-- REMOTE VIEWING CARD -->
-      <div class="module-card fade-in-delay-1" data-feature="rv" onclick="startRVSession()">
+      <div class="module-card fade-in-delay-2" data-feature="rv" onclick="startRVSession()">
         <div class="card-visual rv-bg">
           <div class="reticle">
             <div class="reticle-ring"></div>
@@ -4449,15 +4644,18 @@ html, body {
           <!-- Scan line sweep -->
           <div style="position:absolute;inset:0;background:linear-gradient(180deg,transparent 40%,rgba(74,240,200,0.04) 50%,transparent 60%);animation:rvScan 4s ease-in-out infinite;"></div>
         </div>
-        <div class="card-overlay">
+        <div class="card-overlay card-overlay-chev">
           <div class="card-tag">Module 01</div>
-          <div class="display-md">REMOTE VIEWING</div>
+          <div class="display-md">REMOTE VIEWING SESSION</div>
           <div class="mono-sm" style="margin-top:4px">AI-Graded · Blind Target Sessions</div>
+        </div>
+        <div class="module-card-chev">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 5 16 12 9 19"/></svg>
         </div>
       </div>
 
       <!-- PSI TRAINING CARD -->
-      <div class="module-card fade-in-delay-2" onclick="navigate('psi')">
+      <div class="module-card fade-in-delay-3" onclick="navigate('psi')">
         <div class="card-visual psi-bg">
           <div class="circuit"></div>
           <!-- Zener symbols floating -->
@@ -4467,15 +4665,18 @@ html, body {
             <svg width="22" height="22" viewBox="0 0 80 80" fill="none" stroke="rgba(74,240,200,0.9)" stroke-width="3" stroke-linecap="round"><polygon points="40,12 47,33 70,33 52,46 59,68 40,55 21,68 28,46 10,33 33,33"/></svg>
           </div>
         </div>
-        <div class="card-overlay">
+        <div class="card-overlay card-overlay-chev">
           <div class="card-tag">Module 02</div>
           <div class="display-md">PSI TRAINING</div>
           <div class="mono-sm" style="margin-top:4px">Zener ESP · Presentiment</div>
         </div>
+        <div class="module-card-chev chev-accent">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 5 16 12 9 19"/></svg>
+        </div>
       </div>
 
       <!-- DREAM LAB CARD -->
-      <div class="module-card fade-in-delay-3" data-feature="dream-lab" onclick="gatedNavigate('dream-lab', 'Dream Lab', 'Journal dreams, run WBTB timers, train lucid dreaming. Create a free account to unlock.')">
+      <div class="module-card fade-in-delay-4" data-feature="dream-lab" onclick="gatedNavigate('dream-lab', 'Dream Lab', 'Journal dreams, run WBTB timers, train lucid dreaming. Create a free account to unlock.')">
         <div class="card-visual dream-bg">
           <div class="dream-particles" id="dream-particles"></div>
           <!-- Moon phase + wave graphic -->
@@ -4494,10 +4695,13 @@ html, body {
             </svg>
           </div>
         </div>
-        <div class="card-overlay">
+        <div class="card-overlay card-overlay-chev">
           <div class="card-tag">Module 03  -  Active</div>
           <div class="display-md">DREAM LAB</div>
           <div class="mono-sm" style="margin-top:4px">Lucid Dream Training · <span id="home-rc-streak" style="color:var(--accent);">0 day streak</span></div>
+        </div>
+        <div class="module-card-chev chev-dream">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 5 16 12 9 19"/></svg>
         </div>
       </div>
 
@@ -6595,6 +6799,49 @@ Privacy questions and data requests: <a href="mailto:abltyapp@gmail.com">abltyap
     </div>
   </div>
 
+  <!-- ══════════════════════════════════
+       SCREEN: RV ACADEMY  -  LANDING
+       Bottom nav VISIBLE. Phase A shell.
+  ═══════════════════════════════════ -->
+  <div id="screen-academy" class="screen">
+    <div class="screen-inner">
+
+      <div class="screen-hdr">
+        <button class="screen-hdr-back" onclick="navigate('home')" aria-label="Back to Home">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        </button>
+        <div>
+          <div class="screen-hdr-title">RV ACADEMY</div>
+          <div class="screen-hdr-sub">Learn the protocols. Build the skill.</div>
+        </div>
+      </div>
+
+      <div id="acad-landing-root">
+        <!-- Phase D renders the landing states here. -->
+        <div class="mono-sm" style="margin-top:4px;">Academy landing  -  Phase A shell.</div>
+        <button class="btn btn-primary" style="margin-top:14px;" onclick="navigate('academy-lesson')">Begin Lesson 01</button>
+      </div>
+
+    </div><!-- /screen-inner -->
+  </div><!-- /academy landing -->
+
+  <!-- ══════════════════════════════════
+       SCREEN: RV ACADEMY  -  LESSON RUNNER
+       Bottom nav HIDDEN (see rule near L196).
+       Immersive: inline bottom:0 reclaims the nav strip.
+       Phase A shell.
+  ═══════════════════════════════════ -->
+  <div id="screen-academy-lesson" class="screen" style="bottom:0;">
+    <button class="acad-exit" onclick="navigate('academy')" aria-label="Exit lesson">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+    <div id="acad-lesson-root" class="acad-lesson-shell">
+      <!-- Phase B mounts the ambient canvas; Phase C mounts the lesson engine. -->
+      <div class="mono-sm">Lesson runner  -  Phase A shell.</div>
+      <div class="mono-sm" style="color:var(--dim);">Bottom nav should be hidden on this screen.</div>
+    </div>
+  </div><!-- /academy lesson -->
+
   <nav id="nav">
 <div class="nav-item active" id="nav-home" onclick="navigate('home')">
       <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
@@ -6797,6 +7044,8 @@ const SCREENS = {
   'privacy':               'screen-privacy',
   'app-preferences':       'screen-app-preferences',
   'my-profile':            'screen-my-profile',
+  'academy':               'screen-academy',
+  'academy-lesson':        'screen-academy-lesson',
 };
 let currentScreen = 'home';
 
@@ -6849,6 +7098,8 @@ function showScreen(name, hideNav = false) {
     terms:                  'nav-home',
     privacy:                'nav-home',
     'app-preferences':      'nav-home',
+    academy:                'nav-home',
+    'academy-lesson':       'nav-home',
   };
   const activeNav = document.getElementById(navMap[name]);
   if (activeNav) activeNav.classList.add('active');
@@ -6890,6 +7141,8 @@ const BACK_MAP = {
   privacy:              'profile',
   'app-preferences':    'profile',
   'my-profile':         'profile',
+  academy:              'home',
+  'academy-lesson':     'academy',
 };
 
 let _suppressHistoryPush = false;
@@ -15149,7 +15402,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.08.10.3';
+const APP_VERSION = '2026.08.10.4';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
