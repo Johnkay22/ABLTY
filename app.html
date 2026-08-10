@@ -3978,9 +3978,16 @@ html, body {
 #rv-step-1 .rv-cat-tile .rv9-nm {
   position: relative; font-family: var(--font-rv-body); font-weight: 500;
   font-size: 13px; letter-spacing: 1.5px; color: #c7d2e2;
+  transition: color .28s ease, text-shadow .28s ease;
 }
-/* centred hero orb */
-#rv-step-1 .rv-cat-tile.rv9-on {
+/* Centred hero orb.
+   The glow lives on its own overlay whose opacity the carousel drives from
+   how centred the tile is, so it fades continuously with the swipe instead of
+   snapping on at a threshold. Fading one composited layer is also far cheaper
+   than transitioning an eight layer box-shadow on every frame. */
+#rv-step-1 .rv-cat-tile .rv9-halo {
+  position: absolute; inset: -1px; border-radius: 50%; pointer-events: none;
+  opacity: 0; will-change: opacity;
   border: 1.5px solid rgba(238,243,252,.95);
   background:
     radial-gradient(120% 120% at 50% -4%, rgba(74,220,190,.18) 0%, rgba(10,44,40,.05) 36%, transparent 56%),
@@ -3996,7 +4003,7 @@ html, body {
     inset 0 2px 2px rgba(238,246,255,.5);
 }
 #rv-step-1 .rv-cat-tile.rv9-on .rv9-nm { color: #fff; text-shadow: 0 0 12px rgba(150,248,228,.5); }
-#rv-step-1 .rv-cat-tile.rv9-on::after {
+#rv-step-1 .rv-cat-tile .rv9-halo::after {
   content: ""; position: absolute; inset: -1px; border-radius: 50%; pointer-events: none;
   background: conic-gradient(from 308deg, transparent 0deg, rgba(250,251,255,1) 26deg, rgba(176,250,236,.5) 56deg, transparent 80deg);
   -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3.5px), #000 calc(100% - 2.5px));
@@ -4354,7 +4361,7 @@ html, body {
   .rv9-edge i,
   #screen-canvas #canvas-timer::before,
   #screen-rv-brief .rv9-trncard .rv-trn-number,
-  #rv-step-1 .rv-cat-tile.rv9-on::after {
+  #rv-step-1 .rv-cat-tile .rv9-halo::after {
     animation: none !important;
   }
   .rv9-pulse { opacity: 0; }
@@ -4523,22 +4530,27 @@ html, body {
             <div class="rv9-pulse" aria-hidden="true"></div>
             <div class="rv9-pulse rv9-p2" aria-hidden="true"></div>
             <div class="rv-cat-tile rv-cat-all selected" id="rcat-all" onclick="rvSelectCat('all')" data-key="all" data-name="ALL" data-sub="Random target">
+              <span class="rv9-halo" aria-hidden="true"></span>
               <div class="rv9-ic"><svg viewBox="0 0 48 48" fill="none" stroke="#dff7f1" stroke-width="1.7"><circle cx="24" cy="24" r="13"/><circle cx="24" cy="24" r="6"/><circle cx="34" cy="15" r="3" fill="#9df7e4" stroke="none"/></svg></div>
               <div class="rv9-nm">ALL</div>
             </div>
             <div class="rv-cat-tile" id="rcat-structures" onclick="rvSelectCat('structures')" data-key="structures" data-name="STRUCTURES" data-sub="7 targets">
+              <span class="rv9-halo" aria-hidden="true"></span>
               <div class="rv9-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#aebed4" stroke-width="1.4" stroke-linecap="round"><path d="M3 9l9-5 9 5"/><path d="M4 9h16"/><path d="M6 9v8M10 9v8M14 9v8M18 9v8"/><path d="M3 20h18"/></svg></div>
               <div class="rv9-nm">STRUCTURES</div>
             </div>
             <div class="rv-cat-tile" id="rcat-objects" onclick="rvSelectCat('objects')" data-key="objects" data-name="OBJECTS" data-sub="9 targets">
+              <span class="rv9-halo" aria-hidden="true"></span>
               <div class="rv9-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#aebed4" stroke-width="1.4" stroke-linejoin="round"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 3v18M4 7.5l8 4.5 8-4.5"/></svg></div>
               <div class="rv9-nm">OBJECTS</div>
             </div>
             <div class="rv-cat-tile" id="rcat-animals" onclick="rvSelectCat('animals')" data-key="animals" data-name="ANIMALS" data-sub="10 targets">
+              <span class="rv9-halo" aria-hidden="true"></span>
               <div class="rv9-ic"><svg viewBox="0 0 24 24" fill="#aebed4" stroke="none"><ellipse cx="7" cy="9" rx="1.9" ry="2.6"/><ellipse cx="12" cy="7.4" rx="1.9" ry="2.7"/><ellipse cx="17" cy="9" rx="1.9" ry="2.6"/><path d="M12 12c-3 0-5.4 2.2-5.4 4.6 0 1.7 1.5 2.7 3 2.4 1-.2 1.6-.6 2.4-.6s1.4.4 2.4.6c1.5.3 3-.7 3-2.4C17.4 14.2 15 12 12 12z"/></svg></div>
               <div class="rv9-nm">ANIMALS</div>
             </div>
             <div class="rv-cat-tile" id="rcat-landscapes" onclick="rvSelectCat('landscapes')" data-key="landscapes" data-name="LANDSCAPES" data-sub="11 targets">
+              <span class="rv9-halo" aria-hidden="true"></span>
               <div class="rv9-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#aebed4" stroke-width="1.5" stroke-linejoin="round"><path d="M3 19l5.5-9 4 6 2-3L21 19z"/><path d="M8.5 10l1.6 2.6"/></svg></div>
               <div class="rv9-nm">LANDSCAPES</div>
             </div>
@@ -4903,7 +4915,7 @@ html, body {
         <button class="btn btn-primary rv9-cont" onclick="startRVSession()">
           <span class="rv9-drift"></span><span class="rv9-edge"><i></i></span><span class="rv9-lbl">NEW SESSION</span>
         </button>
-        <button class="btn btn-ghost rv9-ghost" onclick="navigate('history')">VIEW SESSION LOG</button>
+        <button class="btn btn-ghost rv9-ghost" onclick="viewRVSessionLog()">VIEW SESSION LOG</button>
       </div>
 
     </div>
@@ -10333,7 +10345,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let anim = null;
     let dragging = false, startX = 0, startPos = 0, lastX = 0, lastT = 0, dragV = 0, moved = false, shownIdx = -1;
 
-    items.forEach(el => { el.style.transition = 'box-shadow .45s ease,border-color .45s ease,background .45s ease'; });
+    const halos = items.map(el => el.querySelector('.rv9-halo'));
     const dots = items.map((_, i) => {
       const d = document.createElement('i');
       d.onclick = () => glideTo(i);
@@ -10342,6 +10354,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     const wrapDist = d => { d = ((d % N) + N) % N; if (d > N / 2) d -= N; return d; };
 
+    // Every value below is a continuous function of distance from centre.
+    // The resting frames (a tile sitting at 0, 1 or 2 steps out) are unchanged,
+    // but nothing snaps at a threshold part way through a swipe any more.
     function render() {
       let best = Infinity, bi = 0;
       items.forEach((el, i) => {
@@ -10350,10 +10365,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const base = isAll ? 1 : 0.86;
         const maxS = base + centered * (isAll ? 0 : 0.10);
         const scale = maxS * Math.max(0.46, 1 - ad * 0.27);
-        const op = ad > 2.5 ? 0 : (ad < 0.5 ? 1 : Math.max(0.22, 1 - ad * 0.36));
+        // no step at ad 0.5, and the far items fade out instead of being cut
+        const op = Math.max(0.22, 1 - ad * 0.36) * Math.min(1, Math.max(0, (2.6 - ad) / 0.6));
         el.style.transform = 'translate(-50%,-50%) translateX(' + (d * SPREAD).toFixed(2) + 'px) scale(' + scale.toFixed(4) + ')';
         el.style.opacity = op.toFixed(3);
-        el.style.zIndex = String(20 - Math.round(ad * 4));
+        // fine grained so overlapping tiles swap order exactly when they cross
+        el.style.zIndex = String(1000 - Math.round(ad * 100));
+        // smoothstep, so the glow eases in rather than tracking position linearly
+        const halo = halos[i];
+        if (halo) halo.style.opacity = (centered * centered * (3 - 2 * centered)).toFixed(3);
         el.classList.toggle('rv9-on', ad < 0.5);
         if (ad < best) { best = ad; bi = i; }
       });
@@ -10394,10 +10414,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function glideTo(i) { tweenTo(pos + wrapDist(i - pos)); }
 
+    // Pointer events can arrive several times per frame, or in bursts. Tracking
+    // is still read from every event so velocity stays accurate, but painting is
+    // folded into one render per frame so the motion is frame synced.
+    let pendingTotal = null, moveRaf = 0;
+    function flushDrag() {
+      moveRaf = 0;
+      if (pendingTotal === null) return;
+      pos = startPos - pendingTotal / SPREAD;
+      pendingTotal = null;
+      render();
+    }
+
     carousel.addEventListener('pointerdown', e => {
       anim = null;
       dragging = true; moved = false;
       startX = lastX = e.clientX; startPos = pos; lastT = performance.now(); dragV = 0;
+      pendingTotal = null;
       try { carousel.setPointerCapture(e.pointerId); } catch (err) {}
     });
     carousel.addEventListener('pointermove', e => {
@@ -10407,12 +10440,13 @@ document.addEventListener('DOMContentLoaded', () => {
       lastX = e.clientX; lastT = now;
       const total = e.clientX - startX;
       if (Math.abs(total) > 6) moved = true;
-      pos = startPos - total / SPREAD;
-      render();
+      pendingTotal = total;
+      if (!moveRaf) moveRaf = requestAnimationFrame(flushDrag);
     });
     function end() {
       if (!dragging) return;
       dragging = false;
+      if (moveRaf) { cancelAnimationFrame(moveRaf); flushDrag(); }
       let t = Math.round(pos);
       if (Math.abs(dragV) > 0.35) t = dragV > 0 ? Math.floor(pos) : Math.ceil(pos);
       t = Math.max(Math.round(startPos) - 1, Math.min(Math.round(startPos) + 1, t));
@@ -12068,6 +12102,16 @@ function openPsiAnalytics(anchorId) {
   navigate('analytics');
   requestAnimationFrame(() => {
     openAnalyticsDetail('psi', anchorId || '');
+  });
+}
+
+// Session log for the protocol the user just finished, rather than the
+// analytics overview they would otherwise land on.
+function viewRVSessionLog() {
+  navigate('analytics');
+  requestAnimationFrame(() => {
+    openAnalyticsDetail('log', 'combined-log-list');
+    if (typeof setLogFilter === 'function') setLogFilter('rv');
   });
 }
 
@@ -15030,7 +15074,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.08.09.2';
+const APP_VERSION = '2026.08.10.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
