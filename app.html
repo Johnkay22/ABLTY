@@ -5286,7 +5286,12 @@ html, body {
   box-shadow: 0 0 7px var(--acad-glow);
 }
 
-/* ── Academy landing (Phase D renders into this) ───────────── */
+/* ── Academy landing ───────────────────────────────────────── */
+#acad-landing-root {
+  display: flex;
+  justify-content: center;
+  padding: 6px 0 calc(20px + var(--safe-bottom));
+}
 .acad-wrap { display: flex; flex-direction: column; align-items: center; gap: 26px; width: 100%; max-width: 370px; }
 .acad-title {
   font-family: var(--font-display);
@@ -7746,11 +7751,8 @@ Privacy questions and data requests: <a href="mailto:abltyapp@gmail.com">abltyap
         </div>
       </div>
 
-      <div id="acad-landing-root">
-        <!-- Phase D renders the first-visit and returning states here. -->
-        <div class="mono-sm" style="margin-top:4px;">Academy landing  -  shell.</div>
-        <button class="btn btn-primary" style="margin-top:14px;" onclick="ACAD.runLesson(ACAD.LESSONS[0].fn)">Begin Lesson 01</button>
-      </div>
+      <!-- Rendered by ACAD.renderLanding() on every entry. -->
+      <div id="acad-landing-root"></div>
 
     </div><!-- /screen-inner -->
   </div><!-- /academy landing -->
@@ -9934,7 +9936,8 @@ async function confirmDeleteAccount() {
       'ablty_timestamp','ablty_timestamp_all','ablty_ts_cloud_cache','ablty_ts_pending',
       'ablty_photopair','ablty_pp_cloud_cache','ablty_pp_pending','ablty_rv_cloud_cache',
       'ablty_pending_username','ablty_pending_legal_acceptance',
-      'ablty_push_enabled','ablty_rc_settings'
+      'ablty_push_enabled','ablty_rc_settings',
+      ...(typeof ACAD_STORAGE_KEYS !== 'undefined' ? ACAD_STORAGE_KEYS : [])
     ];
     localKeys.forEach((k) => { try { localStorage.removeItem(k); } catch(_) {} });
 
@@ -15222,6 +15225,13 @@ function clearLocalGuestData() {
   ];
   statKeys.forEach((k) => { try { localStorage.removeItem(k); } catch(e) {} });
 
+  // Academy progress is training data, and blind reps and AOL breaks are
+  // statistical. "Start fresh" must mean genuinely fresh.
+  if (typeof ACAD_STORAGE_KEYS !== 'undefined') {
+    ACAD_STORAGE_KEYS.forEach((k) => { try { localStorage.removeItem(k); } catch(e) {} });
+  }
+  if (typeof ACAD !== 'undefined' && ACAD.reload) { ACAD.reload(); ACAD.renderLanding(); }
+
   // Clear dynamic date-keyed daily counters
   try {
     const toRemove = [];
@@ -16336,7 +16346,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.08.10.4';
+const APP_VERSION = '2026.08.10.5';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -17479,6 +17489,10 @@ const ACAD = (() => {
   const ACAD_PROG = { done: {}, reps: 0, breaks: 0, recaps: {} };
 
   function loadProgress() {
+    // Always reset first, so re-reading after a purge clears the
+    // in-memory copy instead of leaving stale stats on the landing.
+    ACAD_PROG.done = {}; ACAD_PROG.recaps = {};
+    ACAD_PROG.reps = 0; ACAD_PROG.breaks = 0;
     try {
       const raw = store.get(ACAD_PROG_KEY);
       if (!raw) return;
@@ -18655,6 +18669,81 @@ const ACAD = (() => {
     await waitBtn(b);
   }
 
+  // ── academy landing ─────────────────────────────────
+  // Ported from the prototype's academy() scene. Two states: first
+  // visit, and returning once at least one lesson is complete.
+  function renderLanding() {
+    const root = document.getElementById('acad-landing-root');
+    if (!root) return;
+    root.innerHTML = '';
+    const fresh = doneCount() === 0;
+    const w = el('div', 'acad-wrap');
+    w.appendChild(el('div', 'acad-kicker', 'Psi Training'));
+    w.appendChild(el('div', 'acad-title', 'REMOTE VIEWING<br><span class="acad-hl">ACADEMY</span>'));
+
+    if (fresh) {
+      w.appendChild(el('p', 'acad-blurb',
+        'Remote viewing is a trained skill for describing a place you have never seen. <strong>The U.S. government spent two decades and twenty million dollars developing it</strong>, and the method they built is public record.<br><br>This academy teaches that method as it was actually taught, in order, one stage at a time.'));
+      const f = el('div', 'acad-factrow');
+      ['27 LESSONS','6 STAGES','DECLASSIFIED METHOD'].forEach(x => f.appendChild(el('span', 'acad-tag', x)));
+      w.appendChild(f);
+      w.appendChild(el('div', 'acad-seclabel', 'the path'));
+      const sl = el('div', 'acad-stagelist');
+      [['I','Ideogram & Gestalt','the reflex, the decode'],
+       ['II','Sensory Contact','texture, sound, temperature'],
+       ['III','Dimension & Sketch','size, motion, the drawing'],
+       ['IV','The Matrix','full structured sessions']].forEach((s, i) => {
+        const r = el('div', 'acad-stagerow' + (i > 0 ? ' acad-dim' : ''));
+        r.innerHTML = '<div class="acad-snum">' + s[0] + '</div><div><div class="acad-sname">' + s[1] +
+                      '</div><div class="acad-sdesc">' + s[2] + '</div></div><div class="acad-slock">' +
+                      (i === 0 ? 'START' : 'LOCKED') + '</div>';
+        sl.appendChild(r);
+      });
+      w.appendChild(sl);
+      const b = el('button', 'acad-btn', 'Begin Lesson 01');
+      b.addEventListener('click', e => { e.stopPropagation(); runLesson(LESSONS[0].fn); });
+      w.appendChild(b);
+    } else {
+      const sr = el('div', 'acad-statrow');
+      [[doneCount(),'lessons done'],[ACAD_PROG.reps,'blind reps'],[ACAD_PROG.breaks,'aol breaks']].forEach(s => {
+        const b = el('div', 'acad-statbox');
+        b.innerHTML = '<div class="acad-sv">' + s[0] + '</div><div class="acad-sl">' + s[1] + '</div>';
+        sr.appendChild(b);
+      });
+      w.appendChild(sr);
+      const nx = nextLesson();
+      if (nx) {
+        const c = el('div', 'acad-contcard');
+        c.innerHTML = '<div><div class="acad-ck">continue</div><div class="acad-ct">' + nx.id + ' · ' + nx.t + '</div></div><div class="acad-cg">&#8594;</div>';
+        c.addEventListener('click', e => { e.stopPropagation(); runLesson(nx.fn); });
+        w.appendChild(c);
+      }
+      w.appendChild(el('div', 'acad-seclabel', 'stage I · all lessons'));
+      const cards = el('div', 'acad-lcards');
+      LESSONS.forEach((o, ix) => {
+        const done = !!ACAD_PROG.done[o.id];
+        const open = isOpen(ix);
+        const sub = done ? 'completed'
+                  : (open ? o.s : (o.built === false ? 'coming soon' : 'finish ' + LESSONS[ix - 1].id + ' first'));
+        const c = el('div', 'acad-lcard' + (open ? '' : ' acad-locked'));
+        c.innerHTML = '<div class="acad-lnum">' + o.id + '</div><div><div class="acad-lname">' + o.t +
+                      '</div><div class="acad-lsub">' + sub + '</div></div><div class="' +
+                      (done ? 'acad-ldone' : 'acad-lgo') + '">' +
+                      (!open ? '●' : (done ? '↻' : '→')) + '</div>';
+        if (open) {
+          c.addEventListener('click', e => {
+            e.stopPropagation();
+            if (done) runLesson(() => reviewOrReplay(o));
+            else runLesson(o.fn);
+          });
+        }
+        cards.appendChild(c);
+      });
+      w.appendChild(cards);
+    }
+    root.appendChild(w);
+  }
+
   // ── exit confirm ────────────────────────────────────
   function confirmExit() {
     return new Promise(res => {
@@ -18694,10 +18783,16 @@ const ACAD = (() => {
     const token = ++runToken;
     navigate('academy-lesson');
     try {
-      // The intro sequence plays once, on first entry only.
-      if (store.get(ACAD_INTRO_KEY) !== '1') {
+      // The intro sequence plays once, on first entry only. Anyone with
+      // a completed lesson has necessarily seen it, so treat existing
+      // progress as equivalent to the flag; otherwise a restored or
+      // partially purged profile would replay the intro, and reviewing a
+      // finished lesson would sit behind it.
+      if (store.get(ACAD_INTRO_KEY) !== '1' && doneCount() === 0) {
         await gate();
         await openSequence();
+        store.set(ACAD_INTRO_KEY, '1');
+      } else if (store.get(ACAD_INTRO_KEY) !== '1') {
         store.set(ACAD_INTRO_KEY, '1');
       }
       await fn();
@@ -18749,6 +18844,17 @@ const ACAD = (() => {
         if (running && !host.classList.contains('active')) teardown();
       }).observe(host, { attributes: true, attributeFilter: ['class'] });
     }
+
+    // The landing re-renders whenever its screen becomes active, so
+    // progress made in a lesson is reflected the moment you return.
+    // Watching the class keeps this additive: navigate() is untouched.
+    const landing = document.getElementById('screen-academy');
+    if (landing) {
+      new MutationObserver(() => {
+        if (landing.classList.contains('active')) renderLanding();
+      }).observe(landing, { attributes: true, attributeFilter: ['class'] });
+      if (landing.classList.contains('active')) renderLanding();
+    }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
   else wire();
@@ -18756,7 +18862,8 @@ const ACAD = (() => {
   return {
     LESSONS, isOpen, nextLesson, doneCount,
     get progress() { return ACAD_PROG; },
-    runLesson, reviewOrReplay, teardown,
+    runLesson, reviewOrReplay, teardown, renderLanding,
+    reload: loadProgress,
     STORAGE_KEYS: ACAD_STORAGE_KEYS,
   };
 })();
