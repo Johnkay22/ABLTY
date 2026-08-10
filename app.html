@@ -10249,7 +10249,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function seed() {
       const area = W * H;
       parts = [];
-      const nFar = Math.round(area / 5200), nMid = Math.round(area / 27000), nNear = Math.round(area / 90000);
+      // Ambient dust does not need density on a small or high density screen.
+      const lite = (window.devicePixelRatio || 1) > 2 || window.innerWidth < 420;
+      const f = lite ? 0.5 : 1;
+      const nFar = Math.round(area / 5200 * f), nMid = Math.round(area / 27000 * f), nNear = Math.max(1, Math.round(area / 90000 * f));
       const add = (z, r, a, vx, vy, ts, teal) => {
         const blur = z === 1 ? 5 : 3;
         parts.push({ z, x: rnd(W), y: rnd(H), a, vx, vy, tw: rnd(6.28), ts, sprite: glowSprite(r, blur, teal) });
