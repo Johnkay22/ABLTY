@@ -10409,6 +10409,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let dragging = false, startX = 0, startPos = 0, lastX = 0, lastT = 0, dragV = 0, moved = false, shownIdx = -1;
 
     const halos = items.map(el => el.querySelector('.rv9-halo'));
+    const lastZ = items.map(() => null);
     const dots = items.map((_, i) => {
       const d = document.createElement('i');
       d.onclick = () => glideTo(i);
@@ -10432,8 +10433,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const op = Math.max(0.22, 1 - ad * 0.36) * Math.min(1, Math.max(0, (2.6 - ad) / 0.6));
         el.style.transform = 'translate(-50%,-50%) translateX(' + (d * SPREAD).toFixed(2) + 'px) scale(' + scale.toFixed(4) + ')';
         el.style.opacity = op.toFixed(3);
-        // fine grained so overlapping tiles swap order exactly when they cross
-        el.style.zIndex = String(1000 - Math.round(ad * 100));
+        // fine grained so overlapping tiles swap order exactly when they cross,
+        // but only written when it actually changes to avoid needless recalc
+        const z = 1000 - Math.round(ad * 100);
+        if (lastZ[i] !== z) { lastZ[i] = z; el.style.zIndex = String(z); }
         // smoothstep, so the glow eases in rather than tracking position linearly
         const halo = halos[i];
         if (halo) halo.style.opacity = (centered * centered * (3 - 2 * centered)).toFixed(3);
