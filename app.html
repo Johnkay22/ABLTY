@@ -5399,6 +5399,52 @@ html, body {
 .acad-lcard .acad-ldone { font-family: var(--font-mono); font-size: 11px; color: var(--acad-teal); }
 .acad-lcard.acad-locked { opacity: .42; pointer-events: none; }
 
+/* ── Exit confirm (new in the port; no prototype equivalent) ── */
+.acad-confirm {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+  background: rgba(8,9,11,.82);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transition: opacity .25s var(--acad-ease-soft);
+}
+.acad-confirm.acad-in { opacity: 1; }
+.acad-confirm-card {
+  width: 100%;
+  max-width: 330px;
+  border: 1px solid var(--acad-hair);
+  border-radius: 18px;
+  padding: 24px 22px;
+  text-align: center;
+  background: linear-gradient(rgba(24,26,30,.96), rgba(15,16,19,.98));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.acad-confirm-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  letter-spacing: 1.5px;
+  color: var(--acad-text);
+}
+.acad-confirm-body {
+  font-family: var(--font-body);
+  font-weight: 300;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: #A7ADB7;
+  max-width: 26ch;
+  margin-bottom: 8px;
+}
+.acad-confirm .acad-btn { animation: none; opacity: 1; width: 100%; }
+
 /* ── Reduced motion ────────────────────────────────────────
    The ambient canvas paints a single static frame (handled in JS).
    Here the looping decorative animations stand down; the opacity
@@ -7701,9 +7747,9 @@ Privacy questions and data requests: <a href="mailto:abltyapp@gmail.com">abltyap
       </div>
 
       <div id="acad-landing-root">
-        <!-- Phase D renders the landing states here. -->
-        <div class="mono-sm" style="margin-top:4px;">Academy landing  -  Phase A shell.</div>
-        <button class="btn btn-primary" style="margin-top:14px;" onclick="navigate('academy-lesson')">Begin Lesson 01</button>
+        <!-- Phase D renders the first-visit and returning states here. -->
+        <div class="mono-sm" style="margin-top:4px;">Academy landing  -  shell.</div>
+        <button class="btn btn-primary" style="margin-top:14px;" onclick="ACAD.runLesson(ACAD.LESSONS[0].fn)">Begin Lesson 01</button>
       </div>
 
     </div><!-- /screen-inner -->
@@ -17392,12 +17438,26 @@ const ACAD_AMB = (() => {
 })();
 
 // ═══════════════════════════════════════════════════════
-//  RV ACADEMY  -  LESSON CHROME
-//  Exit control and the narration voice toggle. Browser speech
-//  synthesis is a placeholder; recorded narration replaces it in
-//  a later phase. Defaults to ON.
+//  RV ACADEMY  -  LESSON ENGINE
+//  Ported from the prototype. All teaching copy, expandable panel
+//  content, recaps and sequencing are verbatim.
+//
+//  Structural differences from the prototype, all deliberate:
+//   - The prototype ran `while(true){ academy(); lesson(); }` with the
+//     landing as a stage scene. Here the landing is its own screen, so
+//     a lesson is a single awaited run that returns to it.
+//   - Every await point is abortable, so the exit control can discard
+//     an in-progress lesson without leaving orphaned timers or a
+//     half-run lesson still mounting scenes onto a screen the user left.
+//   - Progress persists to localStorage instead of living in memory.
 // ═══════════════════════════════════════════════════════
 const ACAD_VOICE_KEY = 'ablty_academy_voice';
+const ACAD_PROG_KEY  = 'ablty_academy_progress';
+const ACAD_AOL_KEY   = 'ablty_academy_aol_log';
+const ACAD_INTRO_KEY = 'ablty_academy_intro_seen';
+// Every Academy key, in one place, so the purge lists cannot drift.
+const ACAD_STORAGE_KEYS = [ACAD_VOICE_KEY, ACAD_PROG_KEY, ACAD_AOL_KEY, ACAD_INTRO_KEY];
+
 let acadVoiceOn = true;
 
 function acadHush() {
@@ -17414,20 +17474,1291 @@ function acadSetVoice(on) {
   if (!acadVoiceOn) acadHush();
 }
 
-(function initAcademyChrome() {
+const ACAD = (() => {
+  // ── progress ────────────────────────────────────────
+  const ACAD_PROG = { done: {}, reps: 0, breaks: 0, recaps: {} };
+
+  function loadProgress() {
+    try {
+      const raw = store.get(ACAD_PROG_KEY);
+      if (!raw) return;
+      const p = JSON.parse(raw);
+      if (p && typeof p === 'object') {
+        ACAD_PROG.done   = (p.done   && typeof p.done   === 'object') ? p.done   : {};
+        ACAD_PROG.recaps = (p.recaps && typeof p.recaps === 'object') ? p.recaps : {};
+        ACAD_PROG.reps   = Number(p.reps)   || 0;
+        ACAD_PROG.breaks = Number(p.breaks) || 0;
+      }
+    } catch(e) {}
+  }
+
+  function saveProgress() {
+    try { store.set(ACAD_PROG_KEY, JSON.stringify(ACAD_PROG)); } catch(e) {}
+  }
+
+  // Defect fix 4: an AOL declaration logs where in the exercise it
+  // happened and when, not just a bare counter.
+  function logAolBreak(lessonId, stageLabel) {
+    ACAD_PROG.breaks++;
+    saveProgress();
+    try {
+      const log = safeParseArray(store.get(ACAD_AOL_KEY));
+      log.unshift({ lesson: lessonId || null, stage: stageLabel || 'unknown', ts: new Date().toISOString() });
+      store.set(ACAD_AOL_KEY, JSON.stringify(log.slice(0, 200)));
+    } catch(e) {}
+  }
+
+  // ── abort plumbing ──────────────────────────────────
+  const ACAD_ABORT = { acadAbort: true };
+  let runToken = 0;
+  let running = false;
+  const aborters = new Set();
+
+  // Wraps a promise so the exit control can reject it and run its
+  // cleanup (clearTimeout, removeEventListener) instead of leaking.
+  function acadPromise(executor) {
+    return new Promise((resolve, reject) => {
+      let cleanup = null;
+      let settled = false;
+      const ab = () => {
+        if (settled) return;
+        settled = true;
+        if (cleanup) { try { cleanup(); } catch(e) {} }
+        reject(ACAD_ABORT);
+      };
+      aborters.add(ab);
+      const settle = (v) => {
+        if (settled) return;
+        settled = true;
+        aborters.delete(ab);
+        if (cleanup) { try { cleanup(); } catch(e) {} }
+        resolve(v);
+      };
+      cleanup = executor(settle) || null;
+      if (settled && cleanup) { try { cleanup(); } catch(e) {} }
+    });
+  }
+
+  function abortAll() {
+    const list = [...aborters];
+    aborters.clear();
+    list.forEach(f => { try { f(); } catch(e) {} });
+  }
+
+  const delay = (ms) => acadPromise(res => {
+    const t = setTimeout(res, ms);
+    return () => clearTimeout(t);
+  });
+
+  // ── audio + haptics ─────────────────────────────────
+  let audioCtx = null;
+  function initAudio() {
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+    }
+    if (audioCtx && audioCtx.state === 'suspended') { try { audioCtx.resume(); } catch(e) {} }
+  }
+  function tone(f, dur, type, gain) {
+    if (!audioCtx) return;
+    try {
+      const o = audioCtx.createOscillator(), gn = audioCtx.createGain();
+      o.type = type || 'sine';
+      o.frequency.value = f;
+      o.connect(gn); gn.connect(audioCtx.destination);
+      const tt = audioCtx.currentTime;
+      gn.gain.setValueAtTime(0, tt);
+      gn.gain.linearRampToValueAtTime(gain || 0.12, tt + 0.02);
+      gn.gain.exponentialRampToValueAtTime(0.0001, tt + (dur || 0.18));
+      o.start(tt); o.stop(tt + (dur || 0.18) + 0.05);
+    } catch(e) {}
+  }
+  function chime() { tone(528, 0.6, 'sine', 0.12); setTimeout(() => tone(792, 0.7, 'sine', 0.07), 110); }
+  function haptic(ms) { if (navigator.vibrate) { try { navigator.vibrate(ms); } catch(e) {} } }
+
+  // ── placeholder voice ───────────────────────────────
+  let ttsVoice = null;
+  function pickVoice() {
+    if (!('speechSynthesis' in window)) return;
+    const vs = speechSynthesis.getVoices();
+    if (!vs.length) return;
+    const pref = ['Ava','Daniel','Alex','Evan','Nathan','Google UK English Male','Google US English'];
+    for (const n of pref) { const v = vs.find(x => x.name.includes(n)); if (v) { ttsVoice = v; return; } }
+    ttsVoice = vs.find(v => /en[-_]/i.test(v.lang)) || vs[0];
+  }
+  if ('speechSynthesis' in window) { speechSynthesis.onvoiceschanged = pickVoice; pickVoice(); }
+
+  function speak(text) {
+    if (!acadVoiceOn || !('speechSynthesis' in window)) return;
+    try {
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      if (ttsVoice) u.voice = ttsVoice;
+      u.rate = 0.88; u.pitch = 0.82;
+      speechSynthesis.speak(u);
+    } catch(e) {}
+  }
+  const hush = acadHush;
+
+  // ── dom helpers ─────────────────────────────────────
+  const stage = () => document.getElementById('acad-stage');
+
+  function el(t, c, h) {
+    const e = document.createElement(t);
+    if (c) e.className = c;
+    if (h != null) e.innerHTML = h;
+    return e;
+  }
+
+  function clearStage() {
+    return acadPromise(res => {
+      const st = stage();
+      if (!st) { res(); return; }
+      const cur = st.querySelector('.acad-scene');
+      if (cur) {
+        cur.classList.remove('acad-in');
+        const t = setTimeout(() => { st.innerHTML = ''; res(); }, 680);
+        return () => clearTimeout(t);
+      }
+      st.innerHTML = '';
+      res();
+    });
+  }
+
+  async function mount(node) {
+    await clearStage();
+    const st = stage();
+    if (!st) throw ACAD_ABORT;
+    const sc = el('div', 'acad-scene');
+    sc.appendChild(node);
+    st.appendChild(sc);
+    requestAnimationFrame(() => requestAnimationFrame(() => sc.classList.add('acad-in')));
+    return sc;
+  }
+
+  // Tap handler that ignores scroll-drags. Returns a detach fn.
+  function onCleanTap(fn) {
+    const st = stage();
+    if (!st) return () => {};
+    let sx = 0, sy = 0, t0 = 0;
+    const dn = e => { sx = e.clientX; sy = e.clientY; t0 = Date.now(); };
+    const up = e => {
+      if (Math.abs(e.clientX - sx) > 12 || Math.abs(e.clientY - sy) > 12) return;
+      if (Date.now() - t0 > 700) return;
+      fn();
+    };
+    st.addEventListener('pointerdown', dn);
+    st.addEventListener('pointerup', up);
+    return () => { st.removeEventListener('pointerdown', dn); st.removeEventListener('pointerup', up); };
+  }
+
+  function waitTap() {
+    return acadPromise(res => {
+      const st = stage();
+      if (!st) { res(); return; }
+      let sx = 0, sy = 0;
+      const dn = e => { sx = e.clientX; sy = e.clientY; };
+      const up = e => {
+        if (Math.abs(e.clientX - sx) > 12 || Math.abs(e.clientY - sy) > 12) return;
+        res();
+      };
+      st.addEventListener('pointerdown', dn);
+      st.addEventListener('pointerup', up);
+      return () => { st.removeEventListener('pointerdown', dn); st.removeEventListener('pointerup', up); };
+    });
+  }
+
+  // Resolves when the button is clicked; abortable.
+  function waitBtn(btn) {
+    return acadPromise(res => {
+      const pd = e => e.stopPropagation();
+      const ck = e => { e.stopPropagation(); res(); };
+      btn.addEventListener('pointerdown', pd);
+      btn.addEventListener('click', ck);
+      return () => { btn.removeEventListener('pointerdown', pd); btn.removeEventListener('click', ck); };
+    });
+  }
+
+  function cueEl(label) {
+    return el('div', 'acad-cue', '<div class="acad-cdot"></div><div class="acad-clbl">' + (label || 'tap to continue') + '</div>');
+  }
+
+  const stripB = s => s.replace(/\[\[|\]\]|\{\{|\}\}/g, '');
+  const lineHTML = raw => raw
+    .replace(/\[\[(.+?)\]\]/g, '<span class="acad-acc">$1</span>')
+    .replace(/\{\{(.+?)\}\}/g, '<span class="acad-acca">$1</span>');
+  const LINE_MS = 2200;
+
+  // Holds a narration screen open: first tap completes the reveal,
+  // second tap advances.
+  function holdForTap(cue, finish, ms) {
+    return acadPromise(res => {
+      let full = false;
+      const done = () => { full = true; cue.classList.add('acad-show'); };
+      const tm = setTimeout(done, ms);
+      const detach = onCleanTap(() => {
+        if (!full) { clearTimeout(tm); finish(); done(); }
+        else res();
+      });
+      return () => { clearTimeout(tm); detach(); };
+    });
+  }
+
+  // ── glyph emblems ───────────────────────────────────
+  const GLYPHS = {
+    aperture:'<svg viewBox="0 0 40 40"><circle class="acad-pd" cx="20" cy="20" r="13"/><circle class="acad-pd" cx="20" cy="20" r="6.5"/><circle cx="20" cy="20" r="1.7" fill="currentColor" stroke="none"/></svg>',
+    chance:'<svg viewBox="0 0 40 40"><path d="M7 30h26" stroke-dasharray="3 4" opacity=".55"/><path class="acad-pd" d="M12 30V23"/><path class="acad-pd" d="M20 30V16"/><path class="acad-pd" d="M28 30V10"/></svg>',
+    focus:'<svg viewBox="0 0 40 40"><circle class="acad-pd" cx="20" cy="20" r="11"/><path d="M20 4.5v4.5M20 31v4.5M4.5 20H9M31 20h4.5"/><circle cx="20" cy="20" r="1.8" fill="currentColor" stroke="none"/></svg>',
+    unseen:'<svg viewBox="0 0 40 40"><path class="acad-pd" d="M6 18c4.5 5.5 23.5 5.5 28 0"/><path d="M11 22.5l-2.6 3.1M20 24v3.6M29 22.5l2.6 3.1"/></svg>',
+    reflex:'<svg viewBox="0 0 40 40"><path class="acad-pd" d="M6 26c4-13 7-13 9 0s5 13 9-2 6-11 10-3"/></svg>',
+    settle:'<svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="2" fill="currentColor" stroke="none"/><circle class="acad-pd" cx="20" cy="20" r="8" opacity=".75"/><circle class="acad-pd" cx="20" cy="20" r="14" opacity=".35"/></svg>',
+    overlay:'<svg viewBox="0 0 40 40"><circle class="acad-pd" cx="15" cy="21" r="10" stroke-dasharray="2.5 3.2"/><rect class="acad-pd" x="18" y="10" width="15" height="15" rx="1.5"/></svg>'
+  };
+
+  const ICONS = {
+    eye:'<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>',
+    tap:'<svg viewBox="0 0 24 24"><circle cx="12" cy="14.5" r="2.4"/><path d="M7.2 9.4a6.5 6.5 0 0 1 9.6 0"/><path d="M4.6 6.6a10.2 10.2 0 0 1 14.8 0"/></svg>',
+    no:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M6.2 6.2l11.6 11.6"/></svg>',
+    check:'<svg viewBox="0 0 24 24"><path class="acad-pathdraw" d="M5 12.5l4.6 4.6L19 7.5"/></svg>'
+  };
+
+  // Expandable "why this matters" panel, shared by beat/textEntry/verdict.
+  function morePanel(w, label, title, paras) {
+    const mb = el('button', 'acad-morebtn', '<span>' + label + '</span><span class="acad-mchev">⌄</span>');
+    const mp = el('div', 'acad-morepanel');
+    const mi = el('div', 'acad-moreinner');
+    mi.innerHTML = '<div class="acad-mh">' + (title || 'in the method') + '</div>' + paras.map(p => '<p>' + p + '</p>').join('');
+    mp.appendChild(mi);
+    mb.addEventListener('pointerdown', e => e.stopPropagation());
+    mb.addEventListener('click', e => {
+      e.stopPropagation();
+      const open = mp.classList.toggle('acad-open');
+      mb.classList.toggle('acad-open', open);
+      mb.querySelector('span').textContent = open ? 'hide' : label;
+      initAudio(); tone(open ? 520 : 380, 0.09, 'sine', 0.05); haptic(9);
+    });
+    w.appendChild(mb); w.appendChild(mp);
+  }
+
+  // Amber AOL break control. Defect fix 1: this is now available on the
+  // free-text B screen as well as the chip screens, because B is where
+  // overlay most often fires.
+  function aolControl(w, ctx) {
+    const ab = el('button', 'acad-aolbtn', 'AOL break');
+    const slot = el('div', 'acad-aolslot');
+    ab.addEventListener('pointerdown', e => e.stopPropagation());
+    ab.addEventListener('click', e => {
+      e.stopPropagation();
+      roundAolCount++;
+      logAolBreak(ctx && ctx.lesson, (ctx && ctx.stage) || 'decode');
+      initAudio(); tone(196, 0.28, 'sine', 0.07); haptic([14, 30, 14]); ACAD_AMB.pulse();
+      slot.innerHTML = '';
+      slot.appendChild(el('div', 'acad-aoltoast', 'noted · set aside'));
+    });
+    const aw = el('div', 'acad-btncol');
+    aw.appendChild(ab); aw.appendChild(slot);
+    w.appendChild(aw);
+  }
+
+  // ── beat: composed narration screen ─────────────────
+  async function beat(o) {
+    const w = el('div', 'acad-caption');
+    if (o.glyph) w.appendChild(el('div', 'acad-emblem' + (o.amber ? ' acad-amber' : ''), GLYPHS[o.glyph]));
+    if (o.kicker) w.appendChild(el('div', 'acad-kicker acad-kin', o.kicker));
+    const line = el('div', 'acad-line' + (o.small ? ' acad-sm' : ''), lineHTML(o.line));
+    w.appendChild(line);
+    let divi = null, sub = null;
+    if (o.sub) {
+      divi = el('div', 'acad-divider'); w.appendChild(divi);
+      sub = el('div', 'acad-subline', lineHTML(o.sub)); w.appendChild(sub);
+    }
+    let chips = null;
+    if (o.chips) {
+      chips = el('div', 'acad-chiprow');
+      o.chips.forEach(c => chips.appendChild(el('span', 'acad-tag', c)));
+      w.appendChild(chips);
+    }
+    if (o.more) morePanel(w, 'why this matters', o.moreTitle, o.more);
+    const cue = cueEl();
+    w.appendChild(cue);
+    await mount(w);
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      line.classList.add('acad-in');
+      if (divi) setTimeout(() => divi.classList.add('acad-in'), 850);
+      if (sub) setTimeout(() => sub.classList.add('acad-in'), 1000);
+      if (chips) setTimeout(() => chips.classList.add('acad-in'), 1700);
+    }));
+    speak(stripB(o.line + (o.sub ? ' ' + o.sub : '')));
+    const total = LINE_MS + (o.sub ? 1200 : 0) + (o.chips ? 600 : 0);
+    await holdForTap(cue, () => {
+      line.classList.add('acad-fast', 'acad-in');
+      if (divi) divi.classList.add('acad-in');
+      if (sub) sub.classList.add('acad-fast', 'acad-in');
+      if (chips) chips.classList.add('acad-in');
+    }, total);
+    hush();
+    w.classList.add('acad-out');
+    await delay(680);
+  }
+
+  // ── progress ticks ──────────────────────────────────
+  const progressEl = () => document.getElementById('acad-progress');
+  function setupProgress(n) {
+    const p = progressEl();
+    if (!p) return;
+    p.innerHTML = '';
+    for (let i = 0; i < n; i++) p.appendChild(el('div', 'acad-tick'));
+    p.style.display = 'flex';
+  }
+  function progressOn(i) {
+    const p = progressEl();
+    const t = p && p.children[i];
+    if (t) t.classList.add('acad-on');
+  }
+  function hideProgress() {
+    const p = progressEl();
+    if (p) p.style.display = 'none';
+  }
+
+  // ── stepper ─────────────────────────────────────────
+  async function stepper(steps) {
+    const wrap = el('div', 'acad-caption');
+    const box = el('div', 'acad-stepper');
+    steps.forEach((s, i) => {
+      const row = el('div', 'acad-steprow');
+      row.innerHTML =
+        '<div class="acad-sdotcol"><div class="acad-sdot"></div>' + (i < steps.length - 1 ? '<div class="acad-sline"></div>' : '') + '</div>' +
+        '<div class="acad-sicon">' + (s.letter ? '<div class="acad-sletter">' + s.letter + '</div>' : ICONS[s.icon]) + '</div>' +
+        '<div class="acad-stext">' + s.text + '</div>';
+      box.appendChild(row);
+    });
+    const cue = cueEl();
+    wrap.appendChild(box); wrap.appendChild(cue);
+    await mount(wrap);
+    await delay(300);
+    const rows = box.querySelectorAll('.acad-steprow');
+    for (let i = 0; i < rows.length; i++) {
+      rows[i].classList.add('acad-on');
+      ACAD_AMB.pulse();
+      tone(340 + i * 55, 0.35, 'sine', 0.05); haptic(10);
+      await delay(1750);
+    }
+    cue.classList.add('acad-show');
+    await waitTap();
+  }
+
+  // ── mark round ──────────────────────────────────────
+  let lastMark = null;
+  let roundAolCount = 0;
+  const DRAW_SECONDS = 5, CAPTURE_MS = 1400;
+  const WORDS = {
+    WATER:{kind:'water',vo:"There. Notice the way it moved and the shape it took. That's how most hands answer water, [[not because you decided it, but because you felt it]]."},
+    STRUCTURE:{kind:'structure',vo:"Structure tends to come out angular, with hard edges and straight lines, and you can feel how different that is from the flow of water."},
+    MOUNTAIN:{kind:'mountain',vo:"A rise and a fall, up and then down, the gesture your hand already understood [[before you had time to think]]."}
+  };
+  const coordGen = () => (1000 + Math.floor(Math.random() * 9000)) + ' ' + (1000 + Math.floor(Math.random() * 9000));
+
+  async function markRound(word, cue, swapPool) {
+    ACAD_AMB.set('off');
+    const wrap = el('div', 'acad-roundwrap');
+    const zone = el('div', 'acad-wordzone');
+    const timer = el('div', 'acad-timer');
+    const fill = el('div', 'acad-fill'); timer.appendChild(fill);
+    const pad = el('div', 'acad-pad');
+    const cv = el('canvas');
+    const hint = el('div', 'acad-padhint', 'your first instinct');
+    pad.appendChild(cv); pad.appendChild(hint);
+    wrap.appendChild(zone); wrap.appendChild(timer); wrap.appendChild(pad);
+    await mount(wrap);
+
+    const dpr = Math.min(devicePixelRatio || 1, 3);
+    const rect = pad.getBoundingClientRect();
+    cv.width = rect.width * dpr; cv.height = rect.height * dpr;
+    const ctx = cv.getContext('2d');
+    ctx.scale(dpr, dpr);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 4.5;
+    ctx.strokeStyle = '#4AF0C8';
+    ctx.shadowColor = 'rgba(74,240,200,.85)';
+    ctx.shadowBlur = 10;
+    const clearPad = () => ctx.clearRect(0, 0, cv.width, cv.height);
+
+    let drawing = false, last = null, armed = false, onFirstStroke = null;
+    const pos = e => { const r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+    cv.addEventListener('pointerdown', e => {
+      if (!armed) return;
+      drawing = true; hint.style.opacity = '0'; last = pos(e);
+      tone(660, 0.05, 'sine', 0.04);
+      if (onFirstStroke) { const cb = onFirstStroke; onFirstStroke = null; cb(); }
+    });
+    cv.addEventListener('pointermove', e => {
+      if (!drawing) return;
+      const p = pos(e);
+      ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+      last = p;
+    });
+    const stopDraw = () => { drawing = false; };
+    cv.addEventListener('pointerup', stopDraw);
+    cv.addEventListener('pointerleave', stopDraw);
+
+    async function countdown() {
+      for (let n = 3; n >= 1; n--) {
+        zone.innerHTML = '';
+        zone.appendChild(el('div', 'acad-countnum', String(n)));
+        ACAD_AMB.pulse();
+        tone(220 + (3 - n) * 50, 0.14, 'sine', 0.11); haptic(16);
+        await delay(720);
+      }
+      zone.innerHTML = '';
+    }
+
+    while (true) {
+      clearPad();
+      hint.style.opacity = '1';
+      armed = false;
+      fill.style.transition = 'none';
+      fill.style.width = '100%';
+      await countdown();
+
+      zone.innerHTML = '';
+      if (cue === 'coord') zone.appendChild(el('div', 'acad-coordword', coordGen()));
+      else zone.appendChild(el('div', 'acad-promptword', word));
+      ACAD_AMB.bloom();
+      tone(523, 0.22, 'triangle', 0.13); haptic(26);
+      armed = true;
+      requestAnimationFrame(() => {
+        fill.style.transition = 'width ' + DRAW_SECONDS + 's linear';
+        fill.style.width = '0%';
+      });
+
+      const outcome = await acadPromise(res => {
+        let done = false;
+        const to = setTimeout(() => { if (!done) { done = true; onFirstStroke = null; res('timeout'); } }, DRAW_SECONDS * 1000);
+        onFirstStroke = () => { if (!done) { done = true; clearTimeout(to); res('mark'); } };
+        return () => { clearTimeout(to); onFirstStroke = null; };
+      });
+
+      if (outcome === 'mark') {
+        const wNow = getComputedStyle(fill).width;
+        fill.style.transition = 'none';
+        fill.style.width = wNow;
+        await delay(CAPTURE_MS);
+        armed = false; drawing = false;
+        lastMark = cv.toDataURL();
+        return { word };
+      } else {
+        armed = false;
+        zone.innerHTML = '';
+        zone.appendChild(el('div', 'acad-rollmsg', 'answer the next one'));
+        tone(150, 0.32, 'sine', 0.06);
+        await delay(1200);
+        if (swapPool && swapPool.length > 1) {
+          const k = swapPool.filter(x => x !== word);
+          word = k[Math.floor(Math.random() * k.length)];
+        }
+      }
+    }
+  }
+
+  // ── reveal ──────────────────────────────────────────
+  const ARCH = {
+    water:'<svg viewBox="0 0 100 60"><path class="acad-pathdraw" d="M8,32 Q19,15 30,32 T52,32 T74,32 T92,29" fill="none" stroke="#5B9EF4" stroke-width="3" stroke-linecap="round"/></svg>',
+    structure:'<svg viewBox="0 0 100 60"><path class="acad-pathdraw" d="M10,48 L10,16 L58,16 L58,48 L90,48" fill="none" stroke="#5B9EF4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    mountain:'<svg viewBox="0 0 100 60"><path class="acad-pathdraw" d="M8,48 L36,16 L52,33 L68,13 L92,48" fill="none" stroke="#5B9EF4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  };
+
+  async function reveal(kind, vo, word) {
+    ACAD_AMB.set('hero');
+    const wrap = el('div', 'acad-revealwrap');
+    if (word) wrap.appendChild(el('div', 'acad-kicker acad-kin', word));
+    const cards = el('div', 'acad-cards');
+    const c1 = el('div', 'acad-cardcol');
+    const you = el('div', 'acad-card');
+    if (lastMark) { const img = el('img'); img.src = lastMark; you.appendChild(img); }
+    c1.appendChild(you); c1.appendChild(el('div', 'acad-clabel acad-you', 'YOUR MARK'));
+    const c2 = el('div', 'acad-cardcol');
+    const ref = el('div', 'acad-card acad-ref', ARCH[kind]);
+    c2.appendChild(ref); c2.appendChild(el('div', 'acad-clabel acad-ref', 'MOST PEOPLE'));
+    cards.appendChild(c1); cards.appendChild(c2);
+    const line = el('div', 'acad-line acad-sm');
+    const cue = cueEl();
+    wrap.appendChild(cards);
+    // Defect fix 2: without this caption users read the archetype as a
+    // shape they were supposed to reproduce.
+    wrap.appendChild(el('div', 'acad-refnote', 'one common response · yours does not need to match'));
+    wrap.appendChild(line); wrap.appendChild(cue);
+    await mount(wrap);
+    ACAD_AMB.bloom(); chime();
+    await delay(650);
+    line.innerHTML = lineHTML(vo);
+    requestAnimationFrame(() => requestAnimationFrame(() => line.classList.add('acad-in')));
+    speak(stripB(vo));
+    await holdForTap(cue, () => line.classList.add('acad-fast', 'acad-in'), LINE_MS + 300);
+    hush();
+    await delay(160);
+  }
+
+  // ── chip selection screen ───────────────────────────
+  async function chipScreen(o) {
+    const w = el('div', 'acad-caption');
+    if (o.markImg) {
+      const m = el('div', 'acad-minimark');
+      const im = el('img'); im.src = o.markImg; m.appendChild(im);
+      w.appendChild(m);
+    }
+    if (o.kicker) w.appendChild(el('div', 'acad-kicker acad-kin', o.kicker));
+    const line = el('div', 'acad-line acad-sm', lineHTML(o.line));
+    w.appendChild(line);
+    const grid = el('div', 'acad-chipgrid');
+    const picks = new Set();
+    let confirmBtn = null, resolveSel = null;
+    const allChips = o.chips.concat(o.allowOther ? ['+ ADD YOUR OWN'] : []);
+    allChips.forEach(c => {
+      const isAdd = (c === '+ ADD YOUR OWN');
+      const ch = el('button', 'acad-selchip' + (isAdd ? ' acad-addown' : ''), c);
+      ch.addEventListener('pointerdown', e => e.stopPropagation());
+      ch.addEventListener('click', () => {
+        if (isAdd) {
+          const v = prompt('Describe it in your own words:');
+          if (v && v.trim()) {
+            const nc = el('button', 'acad-selchip acad-sel', v.trim().toUpperCase());
+            nc.addEventListener('pointerdown', e => e.stopPropagation());
+            picks.add(v.trim().toUpperCase());
+            grid.insertBefore(nc, ch);
+            if (confirmBtn) confirmBtn.style.visibility = 'visible';
+            if (!o.multi) setTimeout(() => { if (resolveSel) { const r = resolveSel; resolveSel = null; r(); } }, 400);
+          }
+          return;
+        }
+        initAudio(); tone(560, 0.06, 'sine', 0.05); haptic(8);
+        if (o.multi) {
+          if (picks.has(c)) { picks.delete(c); ch.classList.remove('acad-sel'); }
+          else { picks.add(c); ch.classList.add('acad-sel'); }
+          if (confirmBtn) confirmBtn.style.visibility = picks.size ? 'visible' : 'hidden';
+        } else {
+          picks.clear(); picks.add(c);
+          grid.querySelectorAll('.acad-selchip').forEach(x => x.classList.remove('acad-sel'));
+          ch.classList.add('acad-sel');
+          setTimeout(() => { if (resolveSel) { const r = resolveSel; resolveSel = null; r(); } }, 450);
+        }
+      });
+      grid.appendChild(ch);
+    });
+    w.appendChild(grid);
+    if (o.multi) {
+      confirmBtn = el('button', 'acad-btn', o.confirm || 'Next');
+      confirmBtn.style.visibility = 'hidden';
+      w.appendChild(confirmBtn);
+    }
+    if (o.aol) aolControl(w, { lesson: o.lesson, stage: o.aolStage || o.kicker });
+    await mount(w);
+    requestAnimationFrame(() => requestAnimationFrame(() => line.classList.add('acad-in')));
+    speak(stripB(o.line));
+    if (o.multi) await waitBtn(confirmBtn);
+    else await acadPromise(res => { resolveSel = res; return () => { resolveSel = null; }; });
+    hush();
+    return [...picks];
+  }
+
+  // ── choice screen ───────────────────────────────────
+  async function choose(kicker, line, opts) {
+    const w = el('div', 'acad-caption');
+    if (kicker) w.appendChild(el('div', 'acad-kicker acad-kin', kicker));
+    let ln = null;
+    if (line) { ln = el('div', 'acad-line acad-sm', lineHTML(line)); w.appendChild(ln); }
+    const col = el('div', 'acad-btncol');
+    const buttons = opts.map(o => {
+      const b = el('button', 'acad-btn' + (o.ghost ? ' acad-ghost' : ''), o.label);
+      col.appendChild(b);
+      return { b, val: o.val };
+    });
+    w.appendChild(col);
+    await mount(w);
+    if (ln) {
+      requestAnimationFrame(() => requestAnimationFrame(() => ln.classList.add('acad-in')));
+      speak(stripB(line));
+    }
+    const v = await acadPromise(res => {
+      const offs = buttons.map(({ b, val }) => {
+        const pd = e => e.stopPropagation();
+        const ck = e => { e.stopPropagation(); res(val); };
+        b.addEventListener('pointerdown', pd);
+        b.addEventListener('click', ck);
+        return () => { b.removeEventListener('pointerdown', pd); b.removeEventListener('click', ck); };
+      });
+      return () => offs.forEach(f => f());
+    });
+    hush();
+    return v;
+  }
+
+  // ── gestalt families ────────────────────────────────
+  const FAMILIES = {
+    WATER:['water','ocean','sea','lake','river','waves','liquid','pond','bay','stream','coast','shore','wet'],
+    MOUNTAIN:['mountain','peak','hill','ridge','cliff','summit','volcano','range','rock','elevation'],
+    STRUCTURE:['structure','building','city','tower','bridge','house','manmade','construction','architecture','monument','wall','town'],
+    LAND:['land','ground','desert','plain','field','earth','terrain','soil','flat','dirt','valley']
+  };
+  function familyOf(word) {
+    const w = (word || '').toLowerCase().trim();
+    if (!w) return null;
+    for (const f in FAMILIES) {
+      if (FAMILIES[f].some(t => w === t || w.includes(t) || t.includes(w))) return f;
+    }
+    return null;
+  }
+
+  // ── free text B component ───────────────────────────
+  async function textEntry(o) {
+    const w = el('div', 'acad-caption');
+    if (o.markImg) {
+      const m = el('div', 'acad-minimark');
+      const im = el('img'); im.src = o.markImg; m.appendChild(im);
+      w.appendChild(m);
+    }
+    if (o.kicker) w.appendChild(el('div', 'acad-kicker acad-kin', o.kicker));
+    const line = el('div', 'acad-line acad-sm', lineHTML(o.line));
+    w.appendChild(line);
+    if (o.hint) w.appendChild(el('div', 'acad-entryhint', o.hint));
+    const inp = document.createElement('input');
+    inp.className = 'acad-tinput';
+    inp.type = 'text';
+    inp.placeholder = o.placeholder || 'one word';
+    inp.autocomplete = 'off';
+    inp.autocapitalize = 'none';
+    inp.spellcheck = false;
+    inp.addEventListener('pointerdown', e => e.stopPropagation());
+    w.appendChild(inp);
+    if (o.more) morePanel(w, 'how specific?', o.moreTitle, o.more);
+    const b = el('button', 'acad-btn', o.confirm || 'Record it');
+    w.appendChild(b);
+    // Defect fix 1: the AOL break belongs here too. B is where overlay
+    // most often fires, and the prototype lost the control when B
+    // became free text.
+    if (o.aol) aolControl(w, { lesson: o.lesson, stage: o.aolStage || 'B component' });
+    await mount(w);
+    requestAnimationFrame(() => requestAnimationFrame(() => line.classList.add('acad-in')));
+    speak(stripB(o.line));
+    const val = await acadPromise(res => {
+      const go = () => { const v = inp.value.trim(); if (v) res(v); };
+      const pd = e => e.stopPropagation();
+      const ck = e => { e.stopPropagation(); go(); };
+      const kd = e => { if (e.key === 'Enter') go(); };
+      b.addEventListener('pointerdown', pd);
+      b.addEventListener('click', ck);
+      inp.addEventListener('keydown', kd);
+      return () => {
+        b.removeEventListener('pointerdown', pd);
+        b.removeEventListener('click', ck);
+        inp.removeEventListener('keydown', kd);
+      };
+    });
+    hush();
+    return val;
+  }
+
+  // ── blind verdict ───────────────────────────────────
+  async function verdict(target, call) {
+    ACAD_AMB.set('hero');
+    const fam = familyOf(call);
+    const hit = (fam === target);
+    const known = !!fam;
+    const w = el('div', 'acad-caption');
+    w.appendChild(el('div', 'acad-kicker acad-kin', 'the target was'));
+    const m = el('div', 'acad-minimark');
+    if (lastMark) { const im = el('img'); im.src = lastMark; m.appendChild(im); }
+    w.appendChild(m);
+    const d = el('div', 'acad-display', target);
+    if (hit) { d.style.color = 'var(--acad-teal)'; d.style.textShadow = '0 0 32px rgba(74,240,200,.25)'; }
+    w.appendChild(d);
+    let msg;
+    if (hit && call.toUpperCase() !== target) {
+      msg = 'You wrote "' + call + '". That reads as the [[' + target.toLowerCase() + ' gestalt]], so your decode landed. Stage I only ever asks for the gestalt, never the exact site.';
+    } else if (hit) {
+      msg = 'You wrote "' + call + '". That is the [[' + target.toLowerCase() + ' gestalt]]. Your decode landed.';
+    } else if (known) {
+      msg = 'You wrote "' + call + '", which is the ' + fam.toLowerCase() + ' gestalt. Different family this time, and that is [[normal and expected]] early.';
+    } else {
+      msg = 'You wrote "' + call + '". The target was the ' + target.toLowerCase() + ' gestalt. What matters here is that you [[ran the structure]], not the call.';
+    }
+    const line = el('div', 'acad-line acad-sm', lineHTML(msg));
+    w.appendChild(line);
+    morePanel(w, 'why this matters', 'how progress is actually measured', [
+      'A single blind trial means <em>nothing</em> on its own. With four gestalt families, pure chance alone lands one in four.',
+      'The original program judged a viewer on <em>clean structure sustained across many sessions</em>, never on any one call. Accuracy only becomes meaningful once enough reps accumulate for statistics to speak.',
+      'So a miss here is not a failure, and a hit here is not proof. Both are reps, and reps are the skill.'
+    ]);
+    const cue = cueEl();
+    w.appendChild(cue);
+    await mount(w);
+    ACAD_AMB.bloom();
+    if (hit) chime();
+    haptic(hit ? [24, 60, 24] : 18);
+    setTimeout(() => line.classList.add('acad-in'), 750);
+    speak(stripB(msg));
+    await holdForTap(cue, () => line.classList.add('acad-fast', 'acad-in'), LINE_MS + 1100);
+    hush();
+    w.classList.add('acad-out');
+    await delay(680);
+  }
+
+  // ── shared scenes ───────────────────────────────────
+  async function gate() {
+    ACAD_AMB.set('soft');
+    const w = el('div', 'acad-caption');
+    w.appendChild(el('div', 'acad-kicker', 'Remote Viewing · The Program'));
+    const cue = cueEl('tap to begin');
+    cue.classList.add('acad-show');
+    w.appendChild(cue);
+    await mount(w);
+    await waitTap();
+    initAudio();
+    // Priming utterance: iOS will not speak later without a gesture-time call.
+    if (acadVoiceOn && 'speechSynthesis' in window) {
+      try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch(e) {}
+    }
+  }
+
+  async function openSequence() {
+    ACAD_AMB.set('hero');
+    await beat({
+      glyph:'aperture', kicker:'The Program',
+      line:"You're about to take the first step into exploring the [[full potential of your consciousness]]."
+    });
+    await beat({
+      glyph:'chance', kicker:'The research was real',
+      line:"For more than twenty years, the United States government trained ordinary people to describe places they had [[never seen]].",
+      sub:"Even the skeptic hired to debunk the program admitted the results were too consistent to be chance.",
+      chips:['20+ YEARS','U.S. FUNDED','DECLASSIFIED']
+    });
+    await beat({
+      glyph:'focus', kicker:'What it takes',
+      line:"The ability is already in you, and the research is real.",
+      sub:"What it takes now is what any real skill demands, [[your time and your focus]]."
+    });
+  }
+
+  async function titleScene(k, t, d) {
+    ACAD_AMB.set('hero');
+    const w = el('div', 'acad-caption');
+    w.appendChild(el('div', 'acad-kicker', k));
+    w.appendChild(el('div', 'acad-display', t));
+    w.appendChild(el('div', 'acad-kicker acad-faint', d));
+    const cue = cueEl();
+    w.appendChild(cue);
+    await mount(w);
+    ACAD_AMB.bloom();
+    await delay(1600);
+    cue.classList.add('acad-show');
+    await waitTap();
+  }
+
+  async function readyGate(label) {
+    ACAD_AMB.set('soft');
+    const w = el('div', 'acad-caption');
+    w.appendChild(el('div', 'acad-kicker', label));
+    const b = el('button', 'acad-btn', 'Start');
+    w.appendChild(b);
+    await mount(w);
+    await waitBtn(b);
+  }
+
+  async function nameTheMark() {
+    ACAD_AMB.set('hero');
+    const w = el('div', 'acad-caption');
+    w.appendChild(el('div', 'acad-kicker acad-kin', 'that mark has a name'));
+    const d = el('div', 'acad-display', 'IDEOGRAM');
+    d.style.color = 'var(--acad-teal)';
+    d.style.textShadow = '0 0 32px rgba(74,240,200,.25)';
+    w.appendChild(d);
+    const line = el('div', 'acad-line acad-sm', lineHTML("Your hand records a target's feeling and motion before your analytical mind can name it. That recording is [[real data]]."));
+    w.appendChild(line);
+    const cue = cueEl();
+    w.appendChild(cue);
+    await mount(w);
+    ACAD_AMB.bloom(); chime(); haptic(30);
+    setTimeout(() => line.classList.add('acad-in'), 1000);
+    speak("That mark has a name. An ideogram. Your hand records a target's feeling and motion before your analytical mind can name it, and that recording is real data, the foundation of everything that follows.");
+    await holdForTap(cue, () => line.classList.add('acad-fast', 'acad-in'), LINE_MS + 1300);
+    hush();
+    w.classList.add('acad-out');
+    await delay(680);
+  }
+
+  async function completeCard(lesson, title, nextChip, id, recap, spaced) {
+    ACAD_AMB.set('hero');
+    hideProgress();
+    if (id) {
+      ACAD_PROG.done[id] = true;
+      if (recap) ACAD_PROG.recaps[id] = recap;
+      saveProgress();
+    }
+    const w = el('div', 'acad-caption');
+    w.appendChild(el('div', 'acad-check', ICONS.check));
+    w.appendChild(el('div', 'acad-kicker', lesson + ' complete'));
+    w.appendChild(el('div', 'acad-display', title));
+    if (recap) {
+      const r = el('div', 'acad-recap');
+      r.innerHTML = '<div class="acad-rl">what you learned</div><ul>' + recap.map(x => '<li>' + x + '</li>').join('') + '</ul>';
+      w.appendChild(r);
+    }
+    w.appendChild(el('div', 'acad-chip', nextChip));
+    w.appendChild(el('p', 'acad-note', spaced
+      ? 'You ran live sessions today. <em>Rest before the next practice set.</em>'
+      : 'Continue when you are ready.'));
+    const b = el('button', 'acad-btn acad-ghost', '&#8592; back to academy');
+    w.appendChild(b);
+    await mount(w);
+    ACAD_AMB.bloom();
+    speak(lesson + ' complete.');
+    await waitBtn(b);
+    hush();
+  }
+
+  // ── LESSON 01 · THE MARK ────────────────────────────
+  async function lesson01() {
+    await titleScene('Lesson 01', 'THE MARK', 'approx. 90 seconds');
+    ACAD_AMB.set('hero');
+    await beat({
+      glyph:'unseen', kicker:'Remote Viewing',
+      line:"You describe a place you [[cannot see]].",
+      sub:"But that is not where you begin. The very first skill is not seeing, it is a reflex."
+    });
+    await beat({
+      glyph:'reflex', kicker:'The reflex',
+      line:"The instant a target arrives, the hand moves [[before the mind can think]].",
+      sub:"One fast mark that captures how a thing feels and moves.",
+      moreTitle:'why speed matters',
+      more:[
+        'The manual is blunt about this: the ideogram must be produced <em>without hesitation</em>. Any pause is your analytical mind stepping in to guess, and its guesses are almost always wrong this early.',
+        'The mark itself is not the answer. It is a <em>recording</em> of the target’s motion and feeling, made by the part of you that reacts faster than thought.',
+        'That is why you get only a few seconds. The limit is not a game mechanic, it is the discipline enforced.'
+      ]
+    });
+    ACAD_AMB.set('soft');
+    await stepper([
+      {icon:'eye',text:'A word will appear.'},
+      {icon:'tap',text:'The instant you see it, let your hand answer with one fast mark.'},
+      {icon:'no',text:'Do not picture it, and do not draw a picture of it, just move.'}
+    ]);
+    await readyGate('three marks · go fast');
+    setupProgress(3);
+    const order = ['WATER','STRUCTURE','MOUNTAIN'];
+    for (let i = 0; i < 3; i++) {
+      const r = await markRound(order[i], 'word', order);
+      await reveal(WORDS[r.word].kind, WORDS[r.word].vo, r.word);
+      if (i === 0) await nameTheMark();
+      progressOn(i);
+    }
+    ACAD_AMB.set('hero');
+    hideProgress();
+    await beat({
+      glyph:'settle', kicker:'Session end',
+      line:"That is enough. [[Let it settle.]]",
+      sub:"Next, you learn to read what your hand wrote."
+    });
+    await completeCard('Lesson 01', 'THE MARK', 'NEXT · THE DECODE', '01', [
+      'The ideogram: a fast, reflexive mark made before the analytical mind engages.',
+      'Speed is the point. Hesitation means you started thinking instead of feeling.',
+      'Your hand answers a target’s feeling and motion, and that is usable data.'
+    ], false);
+  }
+
+  // ── LESSON 02 · THE DECODE ──────────────────────────
+  const MOTION = ['RISING','FALLING','ACROSS','ANGLE UP','ANGLE DOWN','CURVING','FLAT','PEAK'];
+  const FEEL = ['SOLID','LIQUID','ENERGETIC','AIRY','WARM','COOL'];
+  const GESTALTS = ['WATER','STRUCTURE','MOUNTAIN','LAND','ENERGY'];
+
+  const B_MORE = [
+    'Stage I asks for the <em>major gestalt</em> only: the single broadest impression of what kind of place this is. Water. Land. Mountain. Something built by people.',
+    'It never asks for the specific site. Naming a particular place, like a certain river or a named building, is not a better answer. It is <em>analytic overlay</em>, your memory supplying detail the mark never carried.',
+    'Detail comes later and in order. Stage II adds textures and temperatures, Stage III adds size and shape. Right now, broad is correct.'
+  ];
+
+  async function lesson02() {
+    await titleScene('Lesson 02', 'THE DECODE', 'approx. 3 minutes');
+    ACAD_AMB.set('hero');
+    await beat({
+      glyph:'reflex', kicker:'Where you are',
+      line:"Your hand already knows how to [[answer]].",
+      sub:"Today you learn to read what it wrote. The method calls this sequence I, A, B.",
+      moreTitle:'the structure, and why order matters',
+      more:[
+        '<em>I</em> is the ideogram, the raw mark. <em>A</em> is what it physically did, decoded as motion first and then feeling. <em>B</em> is your first spontaneous word for what the thing is.',
+        'The order is not arbitrary. Motion comes before feeling because motion is the most primitive information in the mark, and feeling is one step more interpreted. Naming comes last, once the raw data is already on the page.',
+        'Doing it out of order lets your mind name the target first and then invent motion to justify the name. That is backwards, and it is how sessions go wrong.'
+      ]
+    });
+    ACAD_AMB.set('soft');
+    await stepper([
+      {letter:'I',text:'The ideogram. The mark your hand makes.'},
+      {letter:'A',text:'How it moved, then how it felt.'},
+      {letter:'B',text:'One word. Your first instinct for what it is.'}
+    ]);
+
+    /* warm-up: known word, decode in structure */
+    ACAD_AMB.set('hero');
+    await beat({
+      glyph:'focus', kicker:'Warm up',
+      line:"One more mark, word in view.",
+      sub:"Then you will decode it, in structure. Motion first, feeling second."
+    });
+    await readyGate('one mark · then decode');
+    await markRound('ENERGY', 'word', null);
+    await chipScreen({markImg:lastMark,kicker:'A component · motion',line:"How did it [[move]]?",chips:MOTION,multi:true,confirm:'Next',allowOther:true});
+    await chipScreen({markImg:lastMark,kicker:'A component · feeling',line:"What did it [[feel]] like?",chips:FEEL,allowOther:true});
+    await beat({
+      glyph:'aperture', kicker:'B component',
+      line:"The word was in view, so B was easy: [[energy]].",
+      sub:"Motion, then feeling, then one word. That is the full sequence, and you just ran it."
+    });
+
+    /* the flip: blind coordinate */
+    await beat({
+      glyph:'unseen', kicker:'Now blind',
+      line:"This time, the word stays [[hidden]].",
+      sub:"In the real program, targets were cued by coordinates. Numbers, and nothing else. Your hand answers anyway.",
+      moreTitle:'why a meaningless number',
+      more:[
+        'The coordinate carries no information. It is not a map reference you could look up, and it is not a clue. It exists purely as a <em>label</em> that points at a target without describing it.',
+        'That is the entire point. If the cue told you anything, your memory and reasoning would answer instead of your perception, and the session would be worthless as evidence.',
+        'So the number is arbitrary on purpose. Your job is not to decode the digits, it is to mark, decode, and record whatever arrives, then let verification happen afterward.'
+      ]
+    });
+    let reps = 0;
+    while (true) {
+      await readyGate(reps === 0 ? 'your first blind round' : 'blind round ' + (reps + 1) + ' of 3');
+      const target = GESTALTS.slice(0, 4)[Math.floor(Math.random() * 4)];
+      await markRound(target, 'coord', null);
+      await chipScreen({markImg:lastMark,kicker:'A component · motion',line:"How did it [[move]]?",chips:MOTION,multi:true,confirm:'Next',allowOther:true});
+      await chipScreen({markImg:lastMark,kicker:'A component · feeling',line:"What did it [[feel]] like?",chips:FEEL,allowOther:true});
+      const call = await textEntry({markImg:lastMark,kicker:'B component',
+        line:"One broad word. [[What kind of place is it?]]",
+        hint:'stay general · <b>water</b> · <b>land</b> · <b>mountain</b> · <b>something built</b>',
+        placeholder:'your word',
+        moreTitle:'how specific should you be?',
+        more:B_MORE});
+      await verdict(target, call);
+      ACAD_PROG.reps++;
+      saveProgress();
+      reps++;
+      if (reps >= 3) break;
+      const again = await choose('practice', "Hits and misses both count as reps. [[The loop is the skill.]]", [
+        {label:'Run another',val:true},
+        {label:'Finish for today',val:false,ghost:true}
+      ]);
+      if (!again) break;
+    }
+
+    ACAD_AMB.set('hero');
+    await beat({
+      glyph:'settle', kicker:'Session end',
+      line:"That is enough. [[Let it settle.]]",
+      sub:"Next, the enemy of every session: your own imagination, and how to catch it."
+    });
+    await completeCard('Lesson 02', 'THE DECODE', 'NEXT · AOL & THE BREAK', '02', [
+      'I · A · B: the ideogram, then how it moved and felt, then one word.',
+      'Motion is decoded first, feeling second. That order is part of the structure.',
+      'Blind rounds are cued by coordinates only, exactly as the original program ran them.',
+      'Hits and misses both count. Reps in structure are what build the skill.'
+    ], true);
+  }
+
+  // ── LESSON 03 · AOL & THE BREAK ─────────────────────
+  async function aolDrill() {
+    ACAD_AMB.set('soft');
+    const items = [
+      {t:'FLOWING'},{t:'COLD'},{t:'LOOKS LIKE A RIVER',aol:true},
+      {t:'ROUGH'},{t:'A CASTLE',aol:true},{t:'RISING'}
+    ];
+    const w = el('div', 'acad-caption');
+    w.appendChild(el('div', 'acad-kicker acad-kin', 'the drill'));
+    const line = el('div', 'acad-line acad-sm', lineHTML("Six impressions from one session. Select the ones that are {{overlay}}."));
+    w.appendChild(line);
+    const grid = el('div', 'acad-chipgrid');
+    const picks = new Set();
+    let checkBtn = null;
+    items.forEach(it => {
+      const ch = el('button', 'acad-selchip', it.t);
+      ch.addEventListener('pointerdown', e => e.stopPropagation());
+      ch.addEventListener('click', () => {
+        initAudio(); tone(500, 0.06, 'sine', 0.05); haptic(8);
+        if (picks.has(it)) { picks.delete(it); ch.classList.remove('acad-selam'); }
+        else { picks.add(it); ch.classList.add('acad-selam'); }
+        checkBtn.style.visibility = picks.size ? 'visible' : 'hidden';
+      });
+      it.el = ch;
+      grid.appendChild(ch);
+    });
+    w.appendChild(grid);
+    checkBtn = el('button', 'acad-btn', 'Check');
+    checkBtn.style.visibility = 'hidden';
+    w.appendChild(checkBtn);
+    const cue = cueEl();
+    w.appendChild(cue);
+    await mount(w);
+    requestAnimationFrame(() => requestAnimationFrame(() => line.classList.add('acad-in')));
+    speak("Six impressions from one session. Select the ones that are overlay.");
+    await waitBtn(checkBtn);
+    hush();
+    let perfect = true;
+    items.forEach(it => {
+      it.el.classList.add('acad-lockchip');
+      it.el.classList.remove('acad-selam');
+      if (it.aol) it.el.classList.add('acad-isaol');
+      if (!!it.aol !== picks.has(it)) perfect = false;
+      if (picks.has(it) && !it.aol) it.el.classList.add('acad-dimchip');
+    });
+    checkBtn.remove();
+    ACAD_AMB.bloom();
+    if (perfect) chime();
+    haptic(perfect ? [24, 60, 24] : 18);
+    const msg = perfect
+      ? "Both caught. Named things and comparisons are {{overlay}}, and raw sensations are [[signal]]."
+      : "The two named things were the {{overlay}}. Raw sensations like flowing, cold, rough, and rising are [[signal]].";
+    line.classList.add('acad-fast');
+    line.innerHTML = lineHTML(msg);
+    requestAnimationFrame(() => requestAnimationFrame(() => line.classList.add('acad-in')));
+    speak(stripB(msg));
+    await delay(700);
+    cue.classList.add('acad-show');
+    await waitTap();
+    hush();
+    w.classList.add('acad-out');
+    await delay(680);
+  }
+
+  async function lesson03() {
+    roundAolCount = 0;
+    await titleScene('Lesson 03', 'AOL & THE BREAK', 'approx. 3 minutes');
+    ACAD_AMB.set('hero');
+    await beat({
+      glyph:'overlay', amber:true, kicker:'The enemy',
+      line:"Not everything your mind gives you is [[signal]].",
+      sub:"Some of it is your imagination filling the silence. The method calls it analytic overlay. {{AOL}}.",
+      moreTitle:'what overlay actually is',
+      more:[
+        'Your mind hates incomplete information. Give it a few fragments and it will reach into memory, find the closest match, and hand you a finished picture as if it came from the target.',
+        'That finished picture is <em>analytic overlay</em>. It is not lying to you and it is not a defect, it is ordinary pattern completion doing its job at the worst possible moment.',
+        'Overlay is heaviest early in training and early in each session, exactly when you have the least real data. Expect it, and learn its signature.'
+      ]
+    });
+    await beat({
+      glyph:'unseen', kicker:'How to catch it',
+      line:"Signal stays raw, like [[flowing, cold, wide]].",
+      sub:"The moment it becomes a named thing, {{it looks like a river}}, that is memory talking, not the site."
+    });
+    await beat({
+      glyph:'overlay', amber:true, kicker:'The break',
+      line:"You do not fight it. You [[declare it]] and set it aside.",
+      sub:"An AOL break clears the image, keeps the record honest, and is never a failure.",
+      moreTitle:'why declaring beats suppressing',
+      more:[
+        'Trying to force an image out of your head makes it louder, and it burns the attention you need for the signal. So the method does the opposite: you write it down, name it as overlay, and move on.',
+        'Declaring does two things at once. It <em>clears the channel</em> so the image stops competing for your focus, and it keeps the session record honest by marking which data was overlay rather than perception.',
+        'A session with ten declared breaks and clean structure is a good session. A session with zero declared breaks and overlay quietly mixed into the data is not.'
+      ]
+    });
+    await aolDrill();
+    // Defect fix 3: without this, a broad gestalt in B reads as the very
+    // overlay the lesson just taught users to catch.
+    await beat({
+      glyph:'aperture', kicker:'One clarification',
+      line:"A broad word in the B slot is [[structure]], not overlay.",
+      sub:"Water, land, mountain, something built: those are the gestalt B asks for. Overlay is a {{specific identification}}, a comparison, or a finished mental picture."
+    });
+    await beat({
+      glyph:'focus', kicker:'Now live',
+      line:"One blind round, with the {{break}} in your hands.",
+      sub:"If a sharp, named image pops into your head while you decode, tap the amber break, then keep going."
+    });
+    await readyGate('blind round · amber break active');
+    const target = GESTALTS.slice(0, 4)[Math.floor(Math.random() * 4)];
+    await markRound(target, 'coord', null);
+    await chipScreen({markImg:lastMark,kicker:'A component · motion',line:"How did it [[move]]?",chips:MOTION,multi:true,confirm:'Next',allowOther:true,aol:true,lesson:'03',aolStage:'A component · motion'});
+    await chipScreen({markImg:lastMark,kicker:'A component · feeling',line:"What did it [[feel]] like?",chips:FEEL,allowOther:true,aol:true,lesson:'03',aolStage:'A component · feeling'});
+    const call = await textEntry({markImg:lastMark,kicker:'B component',
+      line:"One broad word. [[What kind of place is it?]]",
+      hint:'stay general · <b>water</b> · <b>land</b> · <b>mountain</b> · <b>something built</b>',
+      placeholder:'your word',
+      moreTitle:'how specific should you be?',
+      more:B_MORE,
+      aol:true, lesson:'03', aolStage:'B component'});
+    await verdict(target, call);
+    ACAD_PROG.reps++;
+    saveProgress();
+    if (roundAolCount > 0) {
+      await beat({
+        glyph:'overlay', amber:true, kicker:'The discipline',
+        line:"You caught your imagination and [[set it aside]].",
+        sub:"Declared breaks this round: " + roundAolCount + ". That habit, noticing and declaring, is what keeps a session honest."
+      });
+    } else {
+      await beat({
+        glyph:'overlay', amber:true, kicker:'The discipline',
+        line:"No breaks declared this round.",
+        sub:"When a sharp, named image appears mid-decode, that is the moment for the amber break. It will happen."
+      });
+    }
+    ACAD_AMB.set('hero');
+    await beat({
+      glyph:'settle', kicker:'Session end',
+      line:"That is enough. [[Let it settle.]]",
+      sub:"Next comes repetition. Phase one practice, where the ideogram vocabulary becomes yours."
+    });
+    await completeCard('Lesson 03', 'AOL & THE BREAK', 'NEXT · PHASE I PRACTICE', '03', [
+      'AOL is analytic overlay: your memory naming things the signal did not give you.',
+      'Signal stays raw (flowing, cold, rough). Overlay names and compares (a castle, looks like a river).',
+      'Declaring an AOL break clears the image and keeps the session record honest.',
+      'A break is never a failure. Catching it is the discipline.'
+    ], true);
+  }
+
+  // ── lesson catalogue ────────────────────────────────
+  const LESSONS = [
+    {id:'01',t:'The Mark',s:'the ideogram reflex',fn:lesson01},
+    {id:'02',t:'The Decode',s:'I · A · B',fn:lesson02},
+    {id:'03',t:'AOL & The Break',s:'catching the imagination',fn:lesson03},
+    {id:'04',t:'Phase I Practice',s:'building the vocabulary',built:false},
+    {id:'05',t:'Phase II · The Interface',s:'multi-gestalt sites',built:false}
+  ];
+  // A lesson is open only if it is built AND the previous one is complete.
+  function isOpen(i) {
+    const l = LESSONS[i];
+    if (l.built === false) return false;
+    if (i === 0) return true;
+    return !!ACAD_PROG.done[LESSONS[i - 1].id];
+  }
+  function nextLesson() {
+    const i = LESSONS.findIndex((l, ix) => isOpen(ix) && !ACAD_PROG.done[l.id]);
+    return i < 0 ? null : LESSONS[i];
+  }
+  const doneCount = () => Object.keys(ACAD_PROG.done).filter(k => ACAD_PROG.done[k]).length;
+
+  // ── review or replay ────────────────────────────────
+  async function reviewOrReplay(o) {
+    const pick = await choose('Lesson ' + o.id + ' · ' + o.t, "You have completed this lesson.", [
+      {label:'Review what I learned',val:'review'},
+      {label:'Replay the lesson',val:'replay',ghost:true}
+    ]);
+    if (pick === 'replay') { await o.fn(); return; }
+    ACAD_AMB.set('hero');
+    const w = el('div', 'acad-caption');
+    w.appendChild(el('div', 'acad-kicker', 'Lesson ' + o.id));
+    w.appendChild(el('div', 'acad-display', o.t.toUpperCase()));
+    const r = el('div', 'acad-recap');
+    r.innerHTML = '<div class="acad-rl">what you learned</div><ul>' +
+      (ACAD_PROG.recaps[o.id] || []).map(x => '<li>' + x + '</li>').join('') + '</ul>';
+    w.appendChild(r);
+    const b = el('button', 'acad-btn acad-ghost', '← back to academy');
+    w.appendChild(b);
+    await mount(w);
+    ACAD_AMB.bloom();
+    await waitBtn(b);
+  }
+
+  // ── exit confirm ────────────────────────────────────
+  function confirmExit() {
+    return new Promise(res => {
+      const host = document.getElementById('screen-academy-lesson');
+      if (!host) { res(true); return; }
+      const ov = el('div', 'acad-confirm');
+      const card = el('div', 'acad-confirm-card');
+      card.appendChild(el('div', 'acad-confirm-title', 'LEAVE LESSON?'));
+      card.appendChild(el('div', 'acad-confirm-body', 'This lesson is still in progress. Your place in it will not be saved.'));
+      const leave = el('button', 'acad-btn', 'Leave lesson');
+      const stay = el('button', 'acad-btn acad-ghost', 'Keep going');
+      card.appendChild(leave); card.appendChild(stay);
+      ov.appendChild(card);
+      host.appendChild(ov);
+      requestAnimationFrame(() => ov.classList.add('acad-in'));
+      const close = (v) => { ov.remove(); res(v); };
+      leave.addEventListener('click', e => { e.stopPropagation(); close(true); });
+      stay.addEventListener('click', e => { e.stopPropagation(); close(false); });
+      ov.addEventListener('pointerdown', e => e.stopPropagation());
+    });
+  }
+
+  // ── runner ──────────────────────────────────────────
+  function teardown() {
+    runToken++;
+    abortAll();
+    running = false;
+    hush();
+    hideProgress();
+    const st = stage();
+    if (st) st.innerHTML = '';
+  }
+
+  async function runLesson(fn) {
+    if (running) return;
+    running = true;
+    const token = ++runToken;
+    navigate('academy-lesson');
+    try {
+      // The intro sequence plays once, on first entry only.
+      if (store.get(ACAD_INTRO_KEY) !== '1') {
+        await gate();
+        await openSequence();
+        store.set(ACAD_INTRO_KEY, '1');
+      }
+      await fn();
+    } catch (e) {
+      if (e !== ACAD_ABORT) {
+        console.error('[ACADEMY]', e);
+        if (typeof showToast === 'function') showToast('The lesson hit a problem. Returning to the Academy.', 'warn');
+      }
+      if (token !== runToken) return; // exit already navigated away
+    } finally {
+      if (token === runToken) {
+        running = false;
+        hush();
+        hideProgress();
+        const st = stage();
+        if (st) st.innerHTML = '';
+      }
+    }
+    if (token === runToken) navigate('academy');
+  }
+
+  async function onExit() {
+    if (running) {
+      const ok = await confirmExit();
+      if (!ok) return;
+    }
+    teardown();
+    navigate('academy');
+  }
+
+  // ── wiring ──────────────────────────────────────────
   function wire() {
+    loadProgress();
     acadSetVoice(store.get(ACAD_VOICE_KEY) !== '0');
 
     const voice = document.getElementById('acad-voicebtn');
     if (voice) voice.addEventListener('click', () => acadSetVoice(!acadVoiceOn));
 
-    const exit = document.getElementById('acad-exit-btn');
-    // Phase C replaces this with a confirm-before-discard prompt once
-    // a lesson can actually be in progress.
-    if (exit) exit.addEventListener('click', () => { acadHush(); navigate('academy'); });
+    const exitBtn = document.getElementById('acad-exit-btn');
+    if (exitBtn) exitBtn.addEventListener('click', onExit);
+
+    // The hardware back button routes through BACK_MAP and navigates
+    // without passing the exit control, so a lesson would otherwise keep
+    // running and mount scenes onto a screen the user already left.
+    // Watching the screen's own .active class catches every exit path.
+    const host = document.getElementById('screen-academy-lesson');
+    if (host) {
+      new MutationObserver(() => {
+        if (running && !host.classList.contains('active')) teardown();
+      }).observe(host, { attributes: true, attributeFilter: ['class'] });
+    }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', wire);
   else wire();
+
+  return {
+    LESSONS, isOpen, nextLesson, doneCount,
+    get progress() { return ACAD_PROG; },
+    runLesson, reviewOrReplay, teardown,
+    STORAGE_KEYS: ACAD_STORAGE_KEYS,
+  };
 })();
 </script>
 
