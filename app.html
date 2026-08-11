@@ -5193,6 +5193,47 @@ html, body {
 }
 .acad-entryhint b { color: var(--acad-teal); font-weight: 400; }
 
+/* Inline "add your own" entry, opened in place inside the chip grid.
+   Shares .acad-tinput's type and teal focus state with the B component
+   field; this replaces the raw window.prompt() the prototype used. */
+.acad-addrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+.acad-tinput.acad-inline {
+  width: min(200px, 50vw);
+  font-size: 15px;
+  padding: 11px 15px;
+  border-radius: 99px;
+}
+.acad-addgo,
+.acad-addcancel {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: rgba(20,22,26,.4);
+  transition: all .25s var(--acad-ease-soft);
+}
+.acad-addgo { border: 1px solid rgba(74,240,200,.45); color: var(--acad-teal); }
+.acad-addgo:active { transform: scale(.94); box-shadow: 0 0 16px rgba(74,240,200,.2); }
+.acad-addgo[disabled] { opacity: .3; pointer-events: none; }
+.acad-addcancel { border: 1px solid var(--acad-hair); color: var(--acad-faint); }
+.acad-addcancel:active { transform: scale(.94); }
+.acad-addgo svg,
+.acad-addcancel svg {
+  width: 15px; height: 15px;
+  stroke: currentColor; fill: none;
+  stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
+}
+
 /* expandable detail */
 .acad-morebtn {
   font-family: var(--font-mono);
@@ -16346,7 +16387,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.08.10.5';
+const APP_VERSION = '2026.08.10.6';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -18024,24 +18065,66 @@ const ACAD = (() => {
     const grid = el('div', 'acad-chipgrid');
     const picks = new Set();
     let confirmBtn = null, resolveSel = null;
+
+    // Commits a typed value as a selected chip, exactly as tapping a
+    // preset chip would.
+    function addOwnChip(label, addChip) {
+      const nc = el('button', 'acad-selchip acad-sel', label);
+      nc.addEventListener('pointerdown', e => e.stopPropagation());
+      picks.add(label);
+      grid.insertBefore(nc, addChip);
+      initAudio(); tone(560, 0.06, 'sine', 0.05); haptic(8);
+      if (confirmBtn) confirmBtn.style.visibility = 'visible';
+      if (!o.multi) setTimeout(() => { if (resolveSel) { const r = resolveSel; resolveSel = null; r(); } }, 400);
+    }
+
+    // Opens an inline field in place of the "+ ADD YOUR OWN" chip.
+    // Dismissable without entering anything, via the × , Escape, or
+    // confirming while empty.
+    function openAddOwn(addChip) {
+      if (grid.querySelector('.acad-addrow')) return;
+      addChip.style.display = 'none';
+      const row = el('div', 'acad-addrow');
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'acad-tinput acad-inline';
+      inp.placeholder = 'in your own words';
+      inp.autocomplete = 'off';
+      inp.autocapitalize = 'none';
+      inp.spellcheck = false;
+      inp.setAttribute('aria-label', 'Describe it in your own words');
+      const go = el('button', 'acad-addgo', '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="4 12 10 18 20 6"/></svg>');
+      go.setAttribute('aria-label', 'Add');
+      go.disabled = true;
+      const cancel = el('button', 'acad-addcancel', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>');
+      cancel.setAttribute('aria-label', 'Cancel');
+      [inp, go, cancel].forEach(n => n.addEventListener('pointerdown', e => e.stopPropagation()));
+      row.appendChild(inp); row.appendChild(go); row.appendChild(cancel);
+      grid.insertBefore(row, addChip);
+
+      const close = () => { row.remove(); addChip.style.display = ''; };
+      const commit = () => {
+        const v = inp.value.trim();
+        close();
+        if (v) addOwnChip(v.toUpperCase(), addChip);
+      };
+      inp.addEventListener('input', () => { go.disabled = !inp.value.trim(); });
+      go.addEventListener('click', e => { e.stopPropagation(); commit(); });
+      cancel.addEventListener('click', e => { e.stopPropagation(); close(); });
+      inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter')  { e.preventDefault(); commit(); }
+        if (e.key === 'Escape') { e.preventDefault(); close(); }
+      });
+      requestAnimationFrame(() => { try { inp.focus(); } catch(e) {} });
+    }
+
     const allChips = o.chips.concat(o.allowOther ? ['+ ADD YOUR OWN'] : []);
     allChips.forEach(c => {
       const isAdd = (c === '+ ADD YOUR OWN');
       const ch = el('button', 'acad-selchip' + (isAdd ? ' acad-addown' : ''), c);
       ch.addEventListener('pointerdown', e => e.stopPropagation());
       ch.addEventListener('click', () => {
-        if (isAdd) {
-          const v = prompt('Describe it in your own words:');
-          if (v && v.trim()) {
-            const nc = el('button', 'acad-selchip acad-sel', v.trim().toUpperCase());
-            nc.addEventListener('pointerdown', e => e.stopPropagation());
-            picks.add(v.trim().toUpperCase());
-            grid.insertBefore(nc, ch);
-            if (confirmBtn) confirmBtn.style.visibility = 'visible';
-            if (!o.multi) setTimeout(() => { if (resolveSel) { const r = resolveSel; resolveSel = null; r(); } }, 400);
-          }
-          return;
-        }
+        if (isAdd) { openAddOwn(ch); return; }
         initAudio(); tone(560, 0.06, 'sine', 0.05); haptic(8);
         if (o.multi) {
           if (picks.has(c)) { picks.delete(c); ch.classList.remove('acad-sel'); }
