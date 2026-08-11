@@ -5096,6 +5096,32 @@ html, body {
 }
 .acad-note em { font-style: normal; color: var(--acad-text); }
 
+/* Verdict outcome label. Four outcomes  -  hit, interface, different
+   family, unrecognised  -  each with its own wording and colour, so the
+   result is readable at a glance rather than only in the sentence. */
+.acad-vtag {
+  font-family: var(--font-mono);
+  font-size: var(--acad-fs-micro);
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  border-radius: 99px;
+  padding: 7px 14px;
+  border: 1px solid var(--acad-hair);
+  color: var(--acad-dim);
+}
+.acad-vtag.acad-vhit {
+  color: var(--acad-teal);
+  border-color: rgba(74,240,200,.45);
+  box-shadow: 0 0 18px rgba(74,240,200,.14);
+}
+.acad-vtag.acad-viface {
+  color: var(--acad-blue);
+  border-color: rgba(91,158,244,.45);
+  box-shadow: 0 0 18px rgba(91,158,244,.14);
+}
+.acad-vtag.acad-vmiss    { color: var(--acad-dim);   border-color: var(--acad-hair); }
+.acad-vtag.acad-vunknown { color: var(--acad-faint); border-style: dashed; }
+
 /* selection chips (decode screens) */
 .acad-chipgrid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-width: 344px; }
 .acad-selchip {
@@ -18201,11 +18227,11 @@ const ACAD = (() => {
   const FAMILIES = {
     WATER: [
       'water','ocean','sea','lake','river','waves','wave','liquid','pond','bay',
-      'stream','coast','shore','wet','creek','canal','lagoon','reservoir','estuary',
-      'harbour','harbor',
-      'waterfall','waterway','waterfront','waterline','riverbank','riverbed',
-      'riverside','seashore','seaside','seabed','shoreline','coastline',
-      'lakeside','lakeshore','streambed',
+      'stream','wet','creek','canal','lagoon','reservoir',
+      // named by the manual as valid B components
+      'ice','swamp',
+      'waterfall','waterway','waterline','riverbed','riverside','seabed',
+      'lakeside','streambed',
       'body of water','open water'
     ],
     MOUNTAIN: [
@@ -18224,9 +18250,21 @@ const ACAD = (() => {
     ],
     LAND: [
       'land','ground','desert','plain','field','earth','terrain','soil','flat','dirt','valley',
+      // named by the manual as a valid B component
+      'sand',
       'meadow','prairie','countryside','landscape',
       'farmland','grassland','woodland','moorland','wasteland',
       'open land','flat land','dry land'
+    ],
+    // Where two gestalts meet. The manual's own example of an interface
+    // is "a beach on an ocean", which is Phase II material, so these are
+    // never Stage I targets and never count as a hit. coast and shore
+    // were previously misfiled under WATER by the same logic.
+    INTERFACE: [
+      'beach','beaches','shoreline','coastline','coast','shore','estuary','delta',
+      'riverbank','waterfront','harbor','harbour','isthmus','peninsula',
+      // direct compounds of shore/coast, moved for the same reason
+      'seashore','seaside','lakeshore'
     ]
   };
 
@@ -18367,8 +18405,14 @@ const ACAD = (() => {
   async function verdict(target, call) {
     ACAD_AMB.set('hero');
     const fam = familyOf(call);
-    const hit = (fam === target);
-    const known = !!fam;
+    // INTERFACE is never a Stage I target, so it is never a hit. It is
+    // also not a plain miss: it is a Phase II perception arriving during
+    // a Phase I exercise, and gets its own response.
+    const isIface = (fam === 'INTERFACE');
+    const hit = !isIface && fam === target;
+    const known = !!fam && !isIface;
+    const cap = (s) => String(s || '').charAt(0).toUpperCase() + String(s || '').slice(1);
+
     const w = el('div', 'acad-caption');
     w.appendChild(el('div', 'acad-kicker acad-kin', 'the target was'));
     const m = el('div', 'acad-minimark');
@@ -18376,17 +18420,33 @@ const ACAD = (() => {
     w.appendChild(m);
     const d = el('div', 'acad-display', target);
     if (hit) { d.style.color = 'var(--acad-teal)'; d.style.textShadow = '0 0 32px rgba(74,240,200,.25)'; }
+    else if (isIface) { d.style.color = 'var(--acad-blue)'; d.style.textShadow = '0 0 32px rgba(91,158,244,.25)'; }
     w.appendChild(d);
-    let msg;
+
+    // The four outcomes must be tellable apart at a glance, not only by
+    // reading the sentence: each carries its own label and colour.
+    let msg, tagText, tagClass;
     if (hit && call.toUpperCase() !== target) {
       msg = 'You wrote "' + call + '". That reads as the [[' + target.toLowerCase() + ' gestalt]], so your decode landed. Stage I only ever asks for the gestalt, never the exact site.';
+      tagText = 'decode landed'; tagClass = 'acad-vhit';
     } else if (hit) {
       msg = 'You wrote "' + call + '". That is the [[' + target.toLowerCase() + ' gestalt]]. Your decode landed.';
+      tagText = 'decode landed'; tagClass = 'acad-vhit';
+    } else if (isIface) {
+      // No amber marker here: amber means AOL and noise in this app's
+      // colour language, and an interface is a valid perception, not
+      // overlay. The blue tag carries the interface signal instead.
+      msg = '"' + cap(call) + '" is an interface, where two gestalts meet. Stage I begins with single-gestalt sites, so the broad call here would be [[' + target.toLowerCase() + ']]. You will work with interfaces directly in Phase II.';
+      tagText = 'interface · phase II'; tagClass = 'acad-viface';
     } else if (known) {
       msg = 'You wrote "' + call + '", which is the ' + fam.toLowerCase() + ' gestalt. Different family this time, and that is [[normal and expected]] early.';
+      tagText = 'different gestalt family'; tagClass = 'acad-vmiss';
     } else {
-      msg = 'You wrote "' + call + '". The target was the ' + target.toLowerCase() + ' gestalt. What matters here is that you [[ran the structure]], not the call.';
+      msg = '"' + cap(call) + '" is not one of the broad gestalt categories. The target was the ' + target.toLowerCase() + ' gestalt. Stay broad: [[water, land, mountain, or something built]].';
+      tagText = 'not recognised'; tagClass = 'acad-vunknown';
     }
+    w.appendChild(el('div', 'acad-vtag ' + tagClass, tagText));
+
     const line = el('div', 'acad-line acad-sm', lineHTML(msg));
     w.appendChild(line);
     morePanel(w, 'why this matters', 'how progress is actually measured', [
@@ -18399,7 +18459,7 @@ const ACAD = (() => {
     await mount(w);
     ACAD_AMB.bloom();
     if (hit) chime();
-    haptic(hit ? [24, 60, 24] : 18);
+    haptic(hit ? [24, 60, 24] : (isIface ? [16, 40] : 18));
     setTimeout(() => line.classList.add('acad-in'), 750);
     speak(stripB(msg));
     await holdForTap(cue, () => line.classList.add('acad-fast', 'acad-in'), LINE_MS + 1100);
