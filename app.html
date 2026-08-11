@@ -18839,10 +18839,17 @@ const ACAD = (() => {
   }
 
   // ── exit confirm ────────────────────────────────────
+  let confirmOpen = false;
+  const isConfirmOpen = () => confirmOpen;
+
   function confirmExit() {
+    // One dialog at a time, however the exit was triggered. Repeated
+    // taps on X or repeated back presses must not stack overlays.
+    if (confirmOpen) return Promise.resolve(null);
     return new Promise(res => {
       const host = document.getElementById('screen-academy-lesson');
       if (!host) { res(true); return; }
+      confirmOpen = true;
       const ov = el('div', 'acad-confirm');
       const card = el('div', 'acad-confirm-card');
       card.appendChild(el('div', 'acad-confirm-title', 'LEAVE LESSON?'));
@@ -18853,11 +18860,53 @@ const ACAD = (() => {
       ov.appendChild(card);
       host.appendChild(ov);
       requestAnimationFrame(() => ov.classList.add('acad-in'));
-      const close = (v) => { ov.remove(); res(v); };
+      const close = (v) => { confirmOpen = false; ov.remove(); res(v); };
       leave.addEventListener('click', e => { e.stopPropagation(); close(true); });
       stay.addEventListener('click', e => { e.stopPropagation(); close(false); });
       ov.addEventListener('pointerdown', e => e.stopPropagation());
     });
+  }
+
+  // ── hardware back guard ─────────────────────────────
+  // On Android, back is a reflex, and losing a lesson mid-flow to a
+  // stray thumb is a real defect. Back during an active lesson must
+  // behave exactly like the X button.
+  //
+  // The app's shared popstate handler reads BACK_MAP[currentScreen] and
+  // already has an `if (!dest) return;` path that navigates nothing and
+  // re-pushes nothing. So rather than touch that handler, the guard
+  // simply removes the one entry it would read, for exactly as long as
+  // a lesson is running, and adds its own listener alongside it. Both
+  // the entry and the listener are restored the instant the lesson
+  // ends, so every other screen's back behaviour is untouched.
+  let backGuardOn = false;
+  let savedBackDest;
+
+  function onPopWhileRunning() {
+    // A back press has already consumed one history entry. Push one
+    // back whenever we are not leaving, so the stack depth is unchanged
+    // and the next press is still intercepted.
+    if (isConfirmOpen()) { history.pushState({ screen: 'academy-lesson' }, '', ''); return; }
+    confirmExit().then(ok => {
+      if (ok === null) return;
+      if (ok) { teardown(); navigate('academy'); }
+      else history.pushState({ screen: 'academy-lesson' }, '', '');
+    });
+  }
+
+  function beginBackGuard() {
+    if (backGuardOn) return;
+    backGuardOn = true;
+    savedBackDest = BACK_MAP['academy-lesson'];
+    delete BACK_MAP['academy-lesson'];
+    window.addEventListener('popstate', onPopWhileRunning);
+  }
+
+  function endBackGuard() {
+    if (!backGuardOn) return;
+    backGuardOn = false;
+    window.removeEventListener('popstate', onPopWhileRunning);
+    if (savedBackDest !== undefined) BACK_MAP['academy-lesson'] = savedBackDest;
   }
 
   // ── runner ──────────────────────────────────────────
@@ -18865,6 +18914,7 @@ const ACAD = (() => {
     runToken++;
     abortAll();
     running = false;
+    endBackGuard();
     hush();
     hideProgress();
     const st = stage();
@@ -18876,6 +18926,7 @@ const ACAD = (() => {
     running = true;
     const token = ++runToken;
     navigate('academy-lesson');
+    beginBackGuard();
     try {
       // The intro sequence plays once, on first entry only. Anyone with
       // a completed lesson has necessarily seen it, so treat existing
@@ -18899,6 +18950,7 @@ const ACAD = (() => {
     } finally {
       if (token === runToken) {
         running = false;
+        endBackGuard();
         hush();
         hideProgress();
         const st = stage();
