@@ -18105,17 +18105,111 @@ const ACAD = (() => {
   }
 
   // ── gestalt families ────────────────────────────────
+  // Matching is whole-word only. The original check was
+  //   w === t || w.includes(t) || t.includes(w)
+  // and both substring arms were wrong: the reverse arm made a single
+  // letter ("a") match "water" and report a WATER hit, and the forward
+  // arm made "island" match "land". Both inflated apparent accuracy and
+  // corrupted the exercise feedback, so both are gone.
+  //
+  // Compounds that used to resolve by accident under the forward
+  // substring arm ("waterfall" contains "water") are now listed
+  // explicitly, so they still resolve.
   const FAMILIES = {
-    WATER:['water','ocean','sea','lake','river','waves','liquid','pond','bay','stream','coast','shore','wet'],
-    MOUNTAIN:['mountain','peak','hill','ridge','cliff','summit','volcano','range','rock','elevation'],
-    STRUCTURE:['structure','building','city','tower','bridge','house','manmade','construction','architecture','monument','wall','town'],
-    LAND:['land','ground','desert','plain','field','earth','terrain','soil','flat','dirt','valley']
+    WATER: [
+      'water','ocean','sea','lake','river','waves','wave','liquid','pond','bay',
+      'stream','coast','shore','wet','creek','canal','lagoon','reservoir','estuary',
+      'harbour','harbor',
+      'waterfall','waterway','waterfront','waterline','riverbank','riverbed',
+      'riverside','seashore','seaside','seabed','shoreline','coastline',
+      'lakeside','lakeshore','streambed',
+      'body of water','open water'
+    ],
+    MOUNTAIN: [
+      'mountain','peak','hill','ridge','cliff','summit','volcano','range','rock','elevation',
+      'crag','foothill',
+      'mountainside','mountaintop','mountainrange','hillside','hilltop','ridgeline',
+      'cliffside','clifftop','rockface','bedrock',
+      'mountain range','rock face'
+    ],
+    STRUCTURE: [
+      'structure','building','city','tower','bridge','house','manmade','construction',
+      'architecture','monument','wall','town',
+      'cityscape','rooftop','roadway','walkway','township','courtyard','doorway',
+      'skyscraper','warehouse','dwelling',
+      'something built','man made','built structure','man made structure','built environment'
+    ],
+    LAND: [
+      'land','ground','desert','plain','field','earth','terrain','soil','flat','dirt','valley',
+      'meadow','prairie','countryside','landscape',
+      'farmland','grassland','woodland','moorland','wasteland',
+      'open land','flat land','dry land'
+    ]
   };
+
+  // Lowercase, strip punctuation, collapse hyphens and whitespace.
+  function acadNormalize(s) {
+    return String(s == null ? '' : s)
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, ' ')
+      .replace(/-/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  // Simple plurals only: lakes -> lake, mountains -> mountain,
+  // valleys -> valley, beaches -> beach. Leaves grass, glass alone.
+  function acadSingular(tok) {
+    if (tok.length > 4 && /ies$/.test(tok))                   return tok.slice(0, -3) + 'y';
+    if (tok.length > 4 && /(sses|shes|ches|xes|zes)$/.test(tok)) return tok.slice(0, -2);
+    if (tok.length > 3 && /s$/.test(tok) && !/ss$/.test(tok)) return tok.slice(0, -1);
+    return tok;
+  }
+
+  const acadTokens = (s) => acadNormalize(s).split(' ').filter(Boolean).map(acadSingular);
+
+  // Build once: single-word synonyms as a Set, multi-word synonyms as
+  // token arrays matched only on a contiguous token run, so a phrase can
+  // never match across a word boundary.
+  const FAMILY_ORDER = Object.keys(FAMILIES);
+  const FAMILY_INDEX = {};
+  FAMILY_ORDER.forEach(f => {
+    const singles = new Set(), phrases = [];
+    FAMILIES[f].forEach(term => {
+      const toks = acadTokens(term);
+      if (toks.length === 1) singles.add(toks[0]);
+      else if (toks.length > 1) phrases.push(toks);
+    });
+    FAMILY_INDEX[f] = { singles, phrases };
+  });
+
+  function acadHasRun(toks, phrase) {
+    if (phrase.length > toks.length) return false;
+    for (let i = 0; i <= toks.length - phrase.length; i++) {
+      let ok = true;
+      for (let j = 0; j < phrase.length; j++) {
+        if (toks[i + j] !== phrase[j]) { ok = false; break; }
+      }
+      if (ok) return true;
+    }
+    return false;
+  }
+
   function familyOf(word) {
-    const w = (word || '').toLowerCase().trim();
-    if (!w) return null;
-    for (const f in FAMILIES) {
-      if (FAMILIES[f].some(t => w === t || w.includes(t) || t.includes(w))) return f;
+    const toks = acadTokens(word);
+    if (!toks.length) return null;
+    const joined = toks.join(' ');
+    // Whole-input match and multi-word phrases take priority, so
+    // "something built" resolves as STRUCTURE rather than on a stray token.
+    for (const f of FAMILY_ORDER) {
+      const { singles, phrases } = FAMILY_INDEX[f];
+      if (singles.has(joined)) return f;
+      for (const p of phrases) if (acadHasRun(toks, p)) return f;
+    }
+    // Otherwise any single whole token may carry the gestalt,
+    // so "the ocean" and "big rocky mountain" still resolve.
+    for (const f of FAMILY_ORDER) {
+      if (toks.some(t => FAMILY_INDEX[f].singles.has(t))) return f;
     }
     return null;
   }
