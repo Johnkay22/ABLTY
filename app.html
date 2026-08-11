@@ -18240,38 +18240,56 @@ const ACAD = (() => {
       .trim();
   }
 
-  // Simple plurals only: lakes -> lake, mountains -> mountain,
-  // valleys -> valley, beaches -> beach. Leaves grass, glass alone.
-  function acadSingular(tok) {
-    if (tok.length > 4 && /ies$/.test(tok))                   return tok.slice(0, -3) + 'y';
-    if (tok.length > 4 && /(sses|shes|ches|xes|zes)$/.test(tok)) return tok.slice(0, -2);
-    if (tok.length > 3 && /s$/.test(tok) && !/ss$/.test(tok)) return tok.slice(0, -1);
-    return tok;
+  // Candidate singular forms for one token, simple plurals only.
+  //
+  // English -oes is genuinely ambiguous: volcanoes drops "es" to reach
+  // volcano, but canoes drops only "s" to reach canoe. Committing to
+  // either rule breaks the other, so instead of guessing a single answer
+  // this returns every plausible form and a hit on any of them counts.
+  // That also keeps -ies (cities -> city) and -ches (beaches -> beach)
+  // working, and leaves grass and glass alone.
+  function acadForms(tok) {
+    const out = [tok];
+    const add = (v) => { if (v.length >= 3 && out.indexOf(v) < 0) out.push(v); };
+    if (tok.length > 4 && /ies$/.test(tok)) add(tok.slice(0, -3) + 'y');
+    if (tok.length > 4 && /(sses|shes|ches|xes|zes)$/.test(tok)) add(tok.slice(0, -2));
+    if (tok.length > 5 && /es$/.test(tok)) add(tok.slice(0, -2));
+    if (tok.length > 3 && /s$/.test(tok) && !/ss$/.test(tok)) add(tok.slice(0, -1));
+    return out;
   }
 
-  const acadTokens = (s) => acadNormalize(s).split(' ').filter(Boolean).map(acadSingular);
+  const acadTokens = (s) => acadNormalize(s).split(' ').filter(Boolean);
 
-  // Build once: single-word synonyms as a Set, multi-word synonyms as
-  // token arrays matched only on a contiguous token run, so a phrase can
-  // never match across a word boundary.
+  // Build once: single-word synonyms as a Set holding every form of each
+  // term, so matching is symmetric and a plural on either side resolves.
+  // Multi-word synonyms stay as token arrays, matched only on a
+  // contiguous token run so a phrase can never match across a boundary.
   const FAMILY_ORDER = Object.keys(FAMILIES);
   const FAMILY_INDEX = {};
   FAMILY_ORDER.forEach(f => {
     const singles = new Set(), phrases = [];
     FAMILIES[f].forEach(term => {
       const toks = acadTokens(term);
-      if (toks.length === 1) singles.add(toks[0]);
+      if (toks.length === 1) acadForms(toks[0]).forEach(v => singles.add(v));
       else if (toks.length > 1) phrases.push(toks);
     });
     FAMILY_INDEX[f] = { singles, phrases };
   });
+
+  const acadTokenHit = (tok, singles) => acadForms(tok).some(v => singles.has(v));
+
+  // Two tokens are the same word if any of their candidate forms coincide.
+  function acadSameToken(a, b) {
+    const fa = acadForms(a);
+    return acadForms(b).some(v => fa.indexOf(v) >= 0);
+  }
 
   function acadHasRun(toks, phrase) {
     if (phrase.length > toks.length) return false;
     for (let i = 0; i <= toks.length - phrase.length; i++) {
       let ok = true;
       for (let j = 0; j < phrase.length; j++) {
-        if (toks[i + j] !== phrase[j]) { ok = false; break; }
+        if (!acadSameToken(toks[i + j], phrase[j])) { ok = false; break; }
       }
       if (ok) return true;
     }
@@ -18281,18 +18299,17 @@ const ACAD = (() => {
   function familyOf(word) {
     const toks = acadTokens(word);
     if (!toks.length) return null;
-    const joined = toks.join(' ');
     // Whole-input match and multi-word phrases take priority, so
     // "something built" resolves as STRUCTURE rather than on a stray token.
     for (const f of FAMILY_ORDER) {
       const { singles, phrases } = FAMILY_INDEX[f];
-      if (singles.has(joined)) return f;
+      if (toks.length === 1 && acadTokenHit(toks[0], singles)) return f;
       for (const p of phrases) if (acadHasRun(toks, p)) return f;
     }
     // Otherwise any single whole token may carry the gestalt,
     // so "the ocean" and "big rocky mountain" still resolve.
     for (const f of FAMILY_ORDER) {
-      if (toks.some(t => FAMILY_INDEX[f].singles.has(t))) return f;
+      if (toks.some(t => acadTokenHit(t, FAMILY_INDEX[f].singles))) return f;
     }
     return null;
   }
