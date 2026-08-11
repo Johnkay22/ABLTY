@@ -5096,6 +5096,32 @@ html, body {
 }
 .acad-note em { font-style: normal; color: var(--acad-text); }
 
+/* Verdict outcome label. Four outcomes  -  hit, interface, different
+   family, unrecognised  -  each with its own wording and colour, so the
+   result is readable at a glance rather than only in the sentence. */
+.acad-vtag {
+  font-family: var(--font-mono);
+  font-size: var(--acad-fs-micro);
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  border-radius: 99px;
+  padding: 7px 14px;
+  border: 1px solid var(--acad-hair);
+  color: var(--acad-dim);
+}
+.acad-vtag.acad-vhit {
+  color: var(--acad-teal);
+  border-color: rgba(74,240,200,.45);
+  box-shadow: 0 0 18px rgba(74,240,200,.14);
+}
+.acad-vtag.acad-viface {
+  color: var(--acad-blue);
+  border-color: rgba(91,158,244,.45);
+  box-shadow: 0 0 18px rgba(91,158,244,.14);
+}
+.acad-vtag.acad-vmiss    { color: var(--acad-dim);   border-color: var(--acad-hair); }
+.acad-vtag.acad-vunknown { color: var(--acad-faint); border-style: dashed; }
+
 /* selection chips (decode screens) */
 .acad-chipgrid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-width: 344px; }
 .acad-selchip {
@@ -5192,6 +5218,47 @@ html, body {
   max-width: 30ch;
 }
 .acad-entryhint b { color: var(--acad-teal); font-weight: 400; }
+
+/* Inline "add your own" entry, opened in place inside the chip grid.
+   Shares .acad-tinput's type and teal focus state with the B component
+   field; this replaces the raw window.prompt() the prototype used. */
+.acad-addrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+}
+.acad-tinput.acad-inline {
+  width: min(200px, 50vw);
+  font-size: 15px;
+  padding: 11px 15px;
+  border-radius: 99px;
+}
+.acad-addgo,
+.acad-addcancel {
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: rgba(20,22,26,.4);
+  transition: all .25s var(--acad-ease-soft);
+}
+.acad-addgo { border: 1px solid rgba(74,240,200,.45); color: var(--acad-teal); }
+.acad-addgo:active { transform: scale(.94); box-shadow: 0 0 16px rgba(74,240,200,.2); }
+.acad-addgo[disabled] { opacity: .3; pointer-events: none; }
+.acad-addcancel { border: 1px solid var(--acad-hair); color: var(--acad-faint); }
+.acad-addcancel:active { transform: scale(.94); }
+.acad-addgo svg,
+.acad-addcancel svg {
+  width: 15px; height: 15px;
+  stroke: currentColor; fill: none;
+  stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
+}
 
 /* expandable detail */
 .acad-morebtn {
@@ -16346,7 +16413,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.08.10.5';
+const APP_VERSION = '2026.08.10.6';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -18024,24 +18091,66 @@ const ACAD = (() => {
     const grid = el('div', 'acad-chipgrid');
     const picks = new Set();
     let confirmBtn = null, resolveSel = null;
+
+    // Commits a typed value as a selected chip, exactly as tapping a
+    // preset chip would.
+    function addOwnChip(label, addChip) {
+      const nc = el('button', 'acad-selchip acad-sel', label);
+      nc.addEventListener('pointerdown', e => e.stopPropagation());
+      picks.add(label);
+      grid.insertBefore(nc, addChip);
+      initAudio(); tone(560, 0.06, 'sine', 0.05); haptic(8);
+      if (confirmBtn) confirmBtn.style.visibility = 'visible';
+      if (!o.multi) setTimeout(() => { if (resolveSel) { const r = resolveSel; resolveSel = null; r(); } }, 400);
+    }
+
+    // Opens an inline field in place of the "+ ADD YOUR OWN" chip.
+    // Dismissable without entering anything, via the × , Escape, or
+    // confirming while empty.
+    function openAddOwn(addChip) {
+      if (grid.querySelector('.acad-addrow')) return;
+      addChip.style.display = 'none';
+      const row = el('div', 'acad-addrow');
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'acad-tinput acad-inline';
+      inp.placeholder = 'in your own words';
+      inp.autocomplete = 'off';
+      inp.autocapitalize = 'none';
+      inp.spellcheck = false;
+      inp.setAttribute('aria-label', 'Describe it in your own words');
+      const go = el('button', 'acad-addgo', '<svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="4 12 10 18 20 6"/></svg>');
+      go.setAttribute('aria-label', 'Add');
+      go.disabled = true;
+      const cancel = el('button', 'acad-addcancel', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>');
+      cancel.setAttribute('aria-label', 'Cancel');
+      [inp, go, cancel].forEach(n => n.addEventListener('pointerdown', e => e.stopPropagation()));
+      row.appendChild(inp); row.appendChild(go); row.appendChild(cancel);
+      grid.insertBefore(row, addChip);
+
+      const close = () => { row.remove(); addChip.style.display = ''; };
+      const commit = () => {
+        const v = inp.value.trim();
+        close();
+        if (v) addOwnChip(v.toUpperCase(), addChip);
+      };
+      inp.addEventListener('input', () => { go.disabled = !inp.value.trim(); });
+      go.addEventListener('click', e => { e.stopPropagation(); commit(); });
+      cancel.addEventListener('click', e => { e.stopPropagation(); close(); });
+      inp.addEventListener('keydown', e => {
+        if (e.key === 'Enter')  { e.preventDefault(); commit(); }
+        if (e.key === 'Escape') { e.preventDefault(); close(); }
+      });
+      requestAnimationFrame(() => { try { inp.focus(); } catch(e) {} });
+    }
+
     const allChips = o.chips.concat(o.allowOther ? ['+ ADD YOUR OWN'] : []);
     allChips.forEach(c => {
       const isAdd = (c === '+ ADD YOUR OWN');
       const ch = el('button', 'acad-selchip' + (isAdd ? ' acad-addown' : ''), c);
       ch.addEventListener('pointerdown', e => e.stopPropagation());
       ch.addEventListener('click', () => {
-        if (isAdd) {
-          const v = prompt('Describe it in your own words:');
-          if (v && v.trim()) {
-            const nc = el('button', 'acad-selchip acad-sel', v.trim().toUpperCase());
-            nc.addEventListener('pointerdown', e => e.stopPropagation());
-            picks.add(v.trim().toUpperCase());
-            grid.insertBefore(nc, ch);
-            if (confirmBtn) confirmBtn.style.visibility = 'visible';
-            if (!o.multi) setTimeout(() => { if (resolveSel) { const r = resolveSel; resolveSel = null; r(); } }, 400);
-          }
-          return;
-        }
+        if (isAdd) { openAddOwn(ch); return; }
         initAudio(); tone(560, 0.06, 'sine', 0.05); haptic(8);
         if (o.multi) {
           if (picks.has(c)) { picks.delete(c); ch.classList.remove('acad-sel'); }
@@ -18105,17 +18214,140 @@ const ACAD = (() => {
   }
 
   // ── gestalt families ────────────────────────────────
+  // Matching is whole-word only. The original check was
+  //   w === t || w.includes(t) || t.includes(w)
+  // and both substring arms were wrong: the reverse arm made a single
+  // letter ("a") match "water" and report a WATER hit, and the forward
+  // arm made "island" match "land". Both inflated apparent accuracy and
+  // corrupted the exercise feedback, so both are gone.
+  //
+  // Compounds that used to resolve by accident under the forward
+  // substring arm ("waterfall" contains "water") are now listed
+  // explicitly, so they still resolve.
   const FAMILIES = {
-    WATER:['water','ocean','sea','lake','river','waves','liquid','pond','bay','stream','coast','shore','wet'],
-    MOUNTAIN:['mountain','peak','hill','ridge','cliff','summit','volcano','range','rock','elevation'],
-    STRUCTURE:['structure','building','city','tower','bridge','house','manmade','construction','architecture','monument','wall','town'],
-    LAND:['land','ground','desert','plain','field','earth','terrain','soil','flat','dirt','valley']
+    WATER: [
+      'water','ocean','sea','lake','river','waves','wave','liquid','pond','bay',
+      'stream','wet','creek','canal','lagoon','reservoir',
+      // named by the manual as valid B components
+      'ice','swamp',
+      'waterfall','waterway','waterline','riverbed','riverside','seabed',
+      'lakeside','streambed',
+      'body of water','open water'
+    ],
+    MOUNTAIN: [
+      'mountain','peak','hill','ridge','cliff','summit','volcano','range','rock','elevation',
+      'crag','foothill',
+      'mountainside','mountaintop','mountainrange','hillside','hilltop','ridgeline',
+      'cliffside','clifftop','rockface','bedrock',
+      'mountain range','rock face'
+    ],
+    STRUCTURE: [
+      'structure','building','city','tower','bridge','house','manmade','construction',
+      'architecture','monument','wall','town',
+      'cityscape','rooftop','roadway','walkway','township','courtyard','doorway',
+      'skyscraper','warehouse','dwelling',
+      'something built','man made','built structure','man made structure','built environment'
+    ],
+    LAND: [
+      'land','ground','desert','plain','field','earth','terrain','soil','flat','dirt','valley',
+      // named by the manual as a valid B component
+      'sand',
+      'meadow','prairie','countryside','landscape',
+      'farmland','grassland','woodland','moorland','wasteland',
+      'open land','flat land','dry land'
+    ],
+    // Where two gestalts meet. The manual's own example of an interface
+    // is "a beach on an ocean", which is Phase II material, so these are
+    // never Stage I targets and never count as a hit. coast and shore
+    // were previously misfiled under WATER by the same logic.
+    INTERFACE: [
+      'beach','beaches','shoreline','coastline','coast','shore','estuary','delta',
+      'riverbank','waterfront','harbor','harbour','isthmus','peninsula',
+      // direct compounds of shore/coast, moved for the same reason
+      'seashore','seaside','lakeshore'
+    ]
   };
+
+  // Lowercase, strip punctuation, collapse hyphens and whitespace.
+  function acadNormalize(s) {
+    return String(s == null ? '' : s)
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, ' ')
+      .replace(/-/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  // Candidate singular forms for one token, simple plurals only.
+  //
+  // English -oes is genuinely ambiguous: volcanoes drops "es" to reach
+  // volcano, but canoes drops only "s" to reach canoe. Committing to
+  // either rule breaks the other, so instead of guessing a single answer
+  // this returns every plausible form and a hit on any of them counts.
+  // That also keeps -ies (cities -> city) and -ches (beaches -> beach)
+  // working, and leaves grass and glass alone.
+  function acadForms(tok) {
+    const out = [tok];
+    const add = (v) => { if (v.length >= 3 && out.indexOf(v) < 0) out.push(v); };
+    if (tok.length > 4 && /ies$/.test(tok)) add(tok.slice(0, -3) + 'y');
+    if (tok.length > 4 && /(sses|shes|ches|xes|zes)$/.test(tok)) add(tok.slice(0, -2));
+    if (tok.length > 5 && /es$/.test(tok)) add(tok.slice(0, -2));
+    if (tok.length > 3 && /s$/.test(tok) && !/ss$/.test(tok)) add(tok.slice(0, -1));
+    return out;
+  }
+
+  const acadTokens = (s) => acadNormalize(s).split(' ').filter(Boolean);
+
+  // Build once: single-word synonyms as a Set holding every form of each
+  // term, so matching is symmetric and a plural on either side resolves.
+  // Multi-word synonyms stay as token arrays, matched only on a
+  // contiguous token run so a phrase can never match across a boundary.
+  const FAMILY_ORDER = Object.keys(FAMILIES);
+  const FAMILY_INDEX = {};
+  FAMILY_ORDER.forEach(f => {
+    const singles = new Set(), phrases = [];
+    FAMILIES[f].forEach(term => {
+      const toks = acadTokens(term);
+      if (toks.length === 1) acadForms(toks[0]).forEach(v => singles.add(v));
+      else if (toks.length > 1) phrases.push(toks);
+    });
+    FAMILY_INDEX[f] = { singles, phrases };
+  });
+
+  const acadTokenHit = (tok, singles) => acadForms(tok).some(v => singles.has(v));
+
+  // Two tokens are the same word if any of their candidate forms coincide.
+  function acadSameToken(a, b) {
+    const fa = acadForms(a);
+    return acadForms(b).some(v => fa.indexOf(v) >= 0);
+  }
+
+  function acadHasRun(toks, phrase) {
+    if (phrase.length > toks.length) return false;
+    for (let i = 0; i <= toks.length - phrase.length; i++) {
+      let ok = true;
+      for (let j = 0; j < phrase.length; j++) {
+        if (!acadSameToken(toks[i + j], phrase[j])) { ok = false; break; }
+      }
+      if (ok) return true;
+    }
+    return false;
+  }
+
   function familyOf(word) {
-    const w = (word || '').toLowerCase().trim();
-    if (!w) return null;
-    for (const f in FAMILIES) {
-      if (FAMILIES[f].some(t => w === t || w.includes(t) || t.includes(w))) return f;
+    const toks = acadTokens(word);
+    if (!toks.length) return null;
+    // Whole-input match and multi-word phrases take priority, so
+    // "something built" resolves as STRUCTURE rather than on a stray token.
+    for (const f of FAMILY_ORDER) {
+      const { singles, phrases } = FAMILY_INDEX[f];
+      if (toks.length === 1 && acadTokenHit(toks[0], singles)) return f;
+      for (const p of phrases) if (acadHasRun(toks, p)) return f;
+    }
+    // Otherwise any single whole token may carry the gestalt,
+    // so "the ocean" and "big rocky mountain" still resolve.
+    for (const f of FAMILY_ORDER) {
+      if (toks.some(t => acadTokenHit(t, FAMILY_INDEX[f].singles))) return f;
     }
     return null;
   }
@@ -18173,8 +18405,14 @@ const ACAD = (() => {
   async function verdict(target, call) {
     ACAD_AMB.set('hero');
     const fam = familyOf(call);
-    const hit = (fam === target);
-    const known = !!fam;
+    // INTERFACE is never a Stage I target, so it is never a hit. It is
+    // also not a plain miss: it is a Phase II perception arriving during
+    // a Phase I exercise, and gets its own response.
+    const isIface = (fam === 'INTERFACE');
+    const hit = !isIface && fam === target;
+    const known = !!fam && !isIface;
+    const cap = (s) => String(s || '').charAt(0).toUpperCase() + String(s || '').slice(1);
+
     const w = el('div', 'acad-caption');
     w.appendChild(el('div', 'acad-kicker acad-kin', 'the target was'));
     const m = el('div', 'acad-minimark');
@@ -18182,17 +18420,33 @@ const ACAD = (() => {
     w.appendChild(m);
     const d = el('div', 'acad-display', target);
     if (hit) { d.style.color = 'var(--acad-teal)'; d.style.textShadow = '0 0 32px rgba(74,240,200,.25)'; }
+    else if (isIface) { d.style.color = 'var(--acad-blue)'; d.style.textShadow = '0 0 32px rgba(91,158,244,.25)'; }
     w.appendChild(d);
-    let msg;
+
+    // The four outcomes must be tellable apart at a glance, not only by
+    // reading the sentence: each carries its own label and colour.
+    let msg, tagText, tagClass;
     if (hit && call.toUpperCase() !== target) {
       msg = 'You wrote "' + call + '". That reads as the [[' + target.toLowerCase() + ' gestalt]], so your decode landed. Stage I only ever asks for the gestalt, never the exact site.';
+      tagText = 'decode landed'; tagClass = 'acad-vhit';
     } else if (hit) {
       msg = 'You wrote "' + call + '". That is the [[' + target.toLowerCase() + ' gestalt]]. Your decode landed.';
+      tagText = 'decode landed'; tagClass = 'acad-vhit';
+    } else if (isIface) {
+      // No amber marker here: amber means AOL and noise in this app's
+      // colour language, and an interface is a valid perception, not
+      // overlay. The blue tag carries the interface signal instead.
+      msg = '"' + cap(call) + '" is an interface, where two gestalts meet. Stage I begins with single-gestalt sites, so the broad call here would be [[' + target.toLowerCase() + ']]. You will work with interfaces directly in Phase II.';
+      tagText = 'interface · phase II'; tagClass = 'acad-viface';
     } else if (known) {
       msg = 'You wrote "' + call + '", which is the ' + fam.toLowerCase() + ' gestalt. Different family this time, and that is [[normal and expected]] early.';
+      tagText = 'different gestalt family'; tagClass = 'acad-vmiss';
     } else {
-      msg = 'You wrote "' + call + '". The target was the ' + target.toLowerCase() + ' gestalt. What matters here is that you [[ran the structure]], not the call.';
+      msg = '"' + cap(call) + '" is not one of the broad gestalt categories. The target was the ' + target.toLowerCase() + ' gestalt. Stay broad: [[water, land, mountain, or something built]].';
+      tagText = 'not recognised'; tagClass = 'acad-vunknown';
     }
+    w.appendChild(el('div', 'acad-vtag ' + tagClass, tagText));
+
     const line = el('div', 'acad-line acad-sm', lineHTML(msg));
     w.appendChild(line);
     morePanel(w, 'why this matters', 'how progress is actually measured', [
@@ -18205,7 +18459,7 @@ const ACAD = (() => {
     await mount(w);
     ACAD_AMB.bloom();
     if (hit) chime();
-    haptic(hit ? [24, 60, 24] : 18);
+    haptic(hit ? [24, 60, 24] : (isIface ? [16, 40] : 18));
     setTimeout(() => line.classList.add('acad-in'), 750);
     speak(stripB(msg));
     await holdForTap(cue, () => line.classList.add('acad-fast', 'acad-in'), LINE_MS + 1100);
@@ -18745,10 +18999,17 @@ const ACAD = (() => {
   }
 
   // ── exit confirm ────────────────────────────────────
+  let confirmOpen = false;
+  const isConfirmOpen = () => confirmOpen;
+
   function confirmExit() {
+    // One dialog at a time, however the exit was triggered. Repeated
+    // taps on X or repeated back presses must not stack overlays.
+    if (confirmOpen) return Promise.resolve(null);
     return new Promise(res => {
       const host = document.getElementById('screen-academy-lesson');
       if (!host) { res(true); return; }
+      confirmOpen = true;
       const ov = el('div', 'acad-confirm');
       const card = el('div', 'acad-confirm-card');
       card.appendChild(el('div', 'acad-confirm-title', 'LEAVE LESSON?'));
@@ -18759,11 +19020,53 @@ const ACAD = (() => {
       ov.appendChild(card);
       host.appendChild(ov);
       requestAnimationFrame(() => ov.classList.add('acad-in'));
-      const close = (v) => { ov.remove(); res(v); };
+      const close = (v) => { confirmOpen = false; ov.remove(); res(v); };
       leave.addEventListener('click', e => { e.stopPropagation(); close(true); });
       stay.addEventListener('click', e => { e.stopPropagation(); close(false); });
       ov.addEventListener('pointerdown', e => e.stopPropagation());
     });
+  }
+
+  // ── hardware back guard ─────────────────────────────
+  // On Android, back is a reflex, and losing a lesson mid-flow to a
+  // stray thumb is a real defect. Back during an active lesson must
+  // behave exactly like the X button.
+  //
+  // The app's shared popstate handler reads BACK_MAP[currentScreen] and
+  // already has an `if (!dest) return;` path that navigates nothing and
+  // re-pushes nothing. So rather than touch that handler, the guard
+  // simply removes the one entry it would read, for exactly as long as
+  // a lesson is running, and adds its own listener alongside it. Both
+  // the entry and the listener are restored the instant the lesson
+  // ends, so every other screen's back behaviour is untouched.
+  let backGuardOn = false;
+  let savedBackDest;
+
+  function onPopWhileRunning() {
+    // A back press has already consumed one history entry. Push one
+    // back whenever we are not leaving, so the stack depth is unchanged
+    // and the next press is still intercepted.
+    if (isConfirmOpen()) { history.pushState({ screen: 'academy-lesson' }, '', ''); return; }
+    confirmExit().then(ok => {
+      if (ok === null) return;
+      if (ok) { teardown(); navigate('academy'); }
+      else history.pushState({ screen: 'academy-lesson' }, '', '');
+    });
+  }
+
+  function beginBackGuard() {
+    if (backGuardOn) return;
+    backGuardOn = true;
+    savedBackDest = BACK_MAP['academy-lesson'];
+    delete BACK_MAP['academy-lesson'];
+    window.addEventListener('popstate', onPopWhileRunning);
+  }
+
+  function endBackGuard() {
+    if (!backGuardOn) return;
+    backGuardOn = false;
+    window.removeEventListener('popstate', onPopWhileRunning);
+    if (savedBackDest !== undefined) BACK_MAP['academy-lesson'] = savedBackDest;
   }
 
   // ── runner ──────────────────────────────────────────
@@ -18771,6 +19074,7 @@ const ACAD = (() => {
     runToken++;
     abortAll();
     running = false;
+    endBackGuard();
     hush();
     hideProgress();
     const st = stage();
@@ -18782,6 +19086,7 @@ const ACAD = (() => {
     running = true;
     const token = ++runToken;
     navigate('academy-lesson');
+    beginBackGuard();
     try {
       // The intro sequence plays once, on first entry only. Anyone with
       // a completed lesson has necessarily seen it, so treat existing
@@ -18805,6 +19110,7 @@ const ACAD = (() => {
     } finally {
       if (token === runToken) {
         running = false;
+        endBackGuard();
         hush();
         hideProgress();
         const st = stage();
