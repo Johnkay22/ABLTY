@@ -1547,6 +1547,16 @@ html, body {
 }
 .modal-close-btn:hover { border-color: var(--border2); }
 
+/* The shared .modal-box is unbounded and html/body are overflow:hidden, so this
+   three-section modal would clip on short viewports with no way to reach the
+   AOL text or close button. 48px accounts for the overlay's vertical padding. */
+#data-points-info-modal .modal-box {
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px - env(safe-area-inset-top, 0px) - var(--safe-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
 .dp-info-list { display: flex; flex-direction: column; gap: 16px; margin-top: 14px; margin-bottom: 4px; }
 .dp-info-item { display: flex; align-items: flex-start; gap: 10px; }
 .dp-info-item.dp-info-divider { padding-top: 14px; border-top: 1px solid var(--border); }
@@ -16492,7 +16502,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.08.13.2';
+const APP_VERSION = '2026.08.13.3';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
