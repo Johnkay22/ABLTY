@@ -4331,6 +4331,7 @@ html, body {
   background: #394746; order: 0;
 }
 #screen-results .hit-item:has(.hit-badge.hit)::before { background: var(--rv9-teal); box-shadow: 0 0 8px var(--rv9-teal); }
+#screen-results .hit-item:has(.hit-badge.noise)::before { background: var(--noise); box-shadow: 0 0 8px var(--noise); }
 #screen-results .hit-item:has(.hit-badge.aol)::before { background: var(--rv9-amber); box-shadow: 0 0 8px rgba(240,169,74,.6); }
 #screen-results .hit-item:has(.hit-badge.aol) { border-color: rgba(240,169,74,.24); background: rgba(240,169,74,.05); }
 #screen-results .hit-text {
@@ -4344,6 +4345,8 @@ html, body {
   font-family: var(--font-rv-mono); font-size: 9.5px; letter-spacing: 1px;
   color: var(--rv9-muted);
 }
+#screen-results .hit-badge.hit { color: var(--rv9-teal); }
+#screen-results .hit-badge.noise { color: var(--noise); }
 #screen-results .hit-badge.aol { color: var(--rv9-amber); }
 
 /* Actions pin to the bottom of the scrollport so the list fades under them. */
@@ -16414,7 +16417,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.08.10.7';
+const APP_VERSION = '2026.08.13.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
