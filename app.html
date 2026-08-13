@@ -4389,7 +4389,7 @@ html, body {
 
 /* ── Home module card chevron ──────────────────────────────
    Shared affordance across all four home cards. Sits outside
-   .card-overlay so it centres on the card, not on the text. */
+   .card-overlay so it centers on the card, not on the text. */
 .module-card-chev {
   position: absolute;
   right: 12px;
@@ -4413,7 +4413,7 @@ html, body {
 /* ── Module 00 home card ───────────────────────────────────
    Horizontal layout: copy left, glyph right, chevron far right.
    Deliberately does not reuse .card-visual/.card-overlay, which
-   are built for the centred-graphic + bottom-gradient cards. */
+   are built for the centered-graphic + bottom-gradient cards. */
 .module-card.acad-home-module { border-color: rgba(74,240,200,0.22); }
 
 .acad-home-card {
@@ -4507,7 +4507,7 @@ html, body {
 
 /* ── Academy design tokens ─────────────────────────────────
    Scoped to the two Academy screens so they can never leak.
-   NOTE: the prototype's --dim is a LIGHT grey (#9BA1AB) while the
+   NOTE: the prototype's --dim is a LIGHT gray (#9BA1AB) while the
    app's global --dim is near-black (#3a3f48). Reusing the global
    name would render Academy body copy almost invisible, so every
    Academy token is renamed --acad-*. */
@@ -5097,8 +5097,9 @@ html, body {
 .acad-note em { font-style: normal; color: var(--acad-text); }
 
 /* Verdict outcome label. Four outcomes  -  hit, interface, different
-   family, unrecognised  -  each with its own wording and colour, so the
-   result is readable at a glance rather than only in the sentence. */
+   family, outside the categories  -  each with its own wording and
+   color, so the result is readable at a glance rather than only in the
+   sentence. */
 .acad-vtag {
   font-family: var(--font-mono);
   font-size: var(--acad-fs-micro);
@@ -17403,7 +17404,7 @@ const ACAD_AMB = (() => {
     aura(R * 2.35 + b3, R * 0.32, (0.028 + 0.010 * Math.sin(t * 1.1 + 4.0)) * cur, false);
     aura(R * 3.15 + b4, R * 0.40, (0.018 + 0.007 * Math.sin(t * 0.9 + 1.0)) * cur, false);
 
-    // light orbs travelling the orbits, swelling as they go
+    // light orbs traveling the orbits, swelling as they go
     orb(R * 1.00 + b1,  t * 0.60,      R * (0.50 + 0.10 * Math.sin(t * 1.1)),       0.09  * cur, true);
     orb(R * 1.62 + b2, -t * 0.42 + 2.1, R * (0.65 + 0.12 * Math.sin(t * 0.9 + 1.0)), 0.055 * cur, true);
     orb(R * 1.62 + b2,  t * 0.5 + 5.0,  R * (0.40 + 0.08 * Math.sin(t * 1.3 + 2.5)), 0.04  * cur, true);
@@ -18424,7 +18425,7 @@ const ACAD = (() => {
     w.appendChild(d);
 
     // The four outcomes must be tellable apart at a glance, not only by
-    // reading the sentence: each carries its own label and colour.
+    // reading the sentence: each carries its own label and color.
     let msg, tagText, tagClass;
     if (hit && call.toUpperCase() !== target) {
       msg = 'You wrote "' + call + '". That reads as the [[' + target.toLowerCase() + ' gestalt]], so your decode landed. Stage I only ever asks for the gestalt, never the exact site.';
@@ -18434,7 +18435,7 @@ const ACAD = (() => {
       tagText = 'decode landed'; tagClass = 'acad-vhit';
     } else if (isIface) {
       // No amber marker here: amber means AOL and noise in this app's
-      // colour language, and an interface is a valid perception, not
+      // color language, and an interface is a valid perception, not
       // overlay. The blue tag carries the interface signal instead.
       msg = '"' + cap(call) + '" is an interface, where two gestalts meet. Stage I begins with single-gestalt sites, so the broad call here would be [[' + target.toLowerCase() + ']]. You will work with interfaces directly in Phase II.';
       tagText = 'interface · phase II'; tagClass = 'acad-viface';
@@ -18443,7 +18444,10 @@ const ACAD = (() => {
       tagText = 'different gestalt family'; tagClass = 'acad-vmiss';
     } else {
       msg = '"' + cap(call) + '" is not one of the broad gestalt categories. The target was the ' + target.toLowerCase() + ' gestalt. Stay broad: [[water, land, mountain, or something built]].';
-      tagText = 'not recognised'; tagClass = 'acad-vunknown';
+      // "not recognized" would read as a judgment on the answer. The
+      // point of this outcome is that the app does not know the word,
+      // not that the user was wrong.
+      tagText = 'outside the categories'; tagClass = 'acad-vunknown';
     }
     w.appendChild(el('div', 'acad-vtag ' + tagClass, tagText));
 
@@ -18880,7 +18884,7 @@ const ACAD = (() => {
     ], true);
   }
 
-  // ── lesson catalogue ────────────────────────────────
+  // ── lesson catalog ──────────────────────────────────
   const LESSONS = [
     {id:'01',t:'The Mark',s:'the ideogram reflex',fn:lesson01},
     {id:'02',t:'The Decode',s:'I · A · B',fn:lesson02},
@@ -19038,7 +19042,7 @@ const ACAD = (() => {
   // simply removes the one entry it would read, for exactly as long as
   // a lesson is running, and adds its own listener alongside it. Both
   // the entry and the listener are restored the instant the lesson
-  // ends, so every other screen's back behaviour is untouched.
+  // ends, so every other screen's back behavior is untouched.
   let backGuardOn = false;
   let savedBackDest;
 
