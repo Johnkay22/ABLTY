@@ -1547,6 +1547,25 @@ html, body {
 }
 .modal-close-btn:hover { border-color: var(--border2); }
 
+.dp-info-list { display: flex; flex-direction: column; gap: 16px; margin-top: 14px; margin-bottom: 4px; }
+.dp-info-item { display: flex; align-items: flex-start; gap: 10px; }
+.dp-info-item.dp-info-divider { padding-top: 14px; border-top: 1px solid var(--border); }
+.dp-info-bullet {
+  width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; margin-top: 5px;
+}
+.dp-info-bullet.hit { background: var(--hit); box-shadow: 0 0 8px var(--hit); }
+.dp-info-bullet.noise { background: var(--noise); box-shadow: 0 0 8px var(--noise); }
+.dp-info-bullet.aol { background: var(--warn); box-shadow: 0 0 8px rgba(240,169,74,.6); }
+.dp-info-content { flex: 1; min-width: 0; }
+.dp-info-label {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 1.5px;
+  text-transform: uppercase; margin-bottom: 4px;
+}
+.dp-info-label.hit { color: var(--hit); }
+.dp-info-label.noise { color: var(--noise); }
+.dp-info-label.aol { color: var(--warn); }
+.dp-info-content .modal-body { margin: 0; }
+
 /* ── Reality Check ───────────────────────────── */
 .rc-onboard-option {
   padding: 14px 16px;
@@ -4321,6 +4340,17 @@ html, body {
   font-family: var(--font-rv-display); font-weight: 600; font-size: 16px;
   letter-spacing: 3px; color: #e7f3f1; text-transform: uppercase; margin: 18px 0 9px;
 }
+#screen-results .rv9-sec-row {
+  display: flex; align-items: center; gap: 8px; margin: 18px 0 9px;
+}
+#screen-results .rv9-sec-row .rv9-sec { margin: 0; }
+#screen-results .rv9-info-btn {
+  width: 20px; height: 20px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.03);
+  color: var(--rv9-muted); font-family: var(--font-rv-mono); font-size: 11px;
+  line-height: 1; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0; padding: 0;
+}
 #screen-results .hit-list { gap: 7px; }
 #screen-results .hit-item {
   align-items: center; gap: 11px; padding: 12px 14px; border-radius: 12px;
@@ -5937,6 +5967,36 @@ html, body {
     </div>
   </div>
 
+  <div class="modal-overlay" id="data-points-info-modal" style="display:none;" onclick="closeDataPointsInfoModal(event)">
+    <div class="modal-box">
+      <div class="section-label">DATA POINTS</div>
+      <div class="dp-info-list">
+        <div class="dp-info-item">
+          <div class="dp-info-bullet hit" aria-hidden="true"></div>
+          <div class="dp-info-content">
+            <div class="dp-info-label hit">Hit</div>
+            <div class="modal-body">This impression matched a recognizable feature of the target.</div>
+          </div>
+        </div>
+        <div class="dp-info-item">
+          <div class="dp-info-bullet noise" aria-hidden="true"></div>
+          <div class="dp-info-content">
+            <div class="dp-info-label noise">Noise</div>
+            <div class="modal-body">This impression did not match the target and was likely unrelated information, imagination, or distraction.</div>
+          </div>
+        </div>
+        <div class="dp-info-item dp-info-divider">
+          <div class="dp-info-bullet aol" aria-hidden="true"></div>
+          <div class="dp-info-content">
+            <div class="dp-info-label aol">AOL, Analytical Overlay</div>
+            <div class="modal-body">When your conscious mind fills in details through analysis, memory, or assumption rather than raw perception. AOL items are flagged separately because they often sound plausible but did not come from the target.</div>
+          </div>
+        </div>
+      </div>
+      <button class="modal-close-btn" onclick="closeDataPointsInfoModal()">Got It</button>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="psi-info-modal" style="display:none;" onclick="closePsiInfoModal(event)">
     <div class="modal-box">
       <div class="section-label">PSI ANALYTICS</div>
@@ -6128,7 +6188,10 @@ html, body {
       </div>
 
       <!-- Hits & Noise -->
-      <div class="section-label fade-in-delay-3 rv9-sec">Data Points</div>
+      <div class="rv9-sec-row fade-in-delay-3" id="rv-data-points-header">
+        <div class="section-label rv9-sec">Data Points</div>
+        <button type="button" class="rv9-info-btn" onclick="openDataPointsInfoModal()" aria-label="What are data points?">?</button>
+      </div>
       <div class="hit-list fade-in-delay-3" id="hit-list"></div>
 
       <!-- Actions -->
@@ -8673,7 +8736,7 @@ function renderResults(result, target, notes) {
   const score   = Number(result.gestalt_score ?? result.overall_score ?? 0);
   const ring    = document.getElementById('score-ring');
   const scoreWrap = document.querySelector('#screen-results .result-score-ring');
-  const dataPointsLabel = document.querySelector('#screen-results .section-label.fade-in-delay-3');
+  const dataPointsHeader = document.getElementById('rv-data-points-header');
   const pctEl   = document.getElementById('score-pct');
   const summary = document.getElementById('result-summary');
   const hitList = document.getElementById('hit-list');
@@ -8682,7 +8745,7 @@ function renderResults(result, target, notes) {
 
   // Toggle result views: normal scored UI vs honest grading-failed UI.
   if (scoreWrap) scoreWrap.style.display = hasGradingFailure ? 'none' : 'flex';
-  if (dataPointsLabel) dataPointsLabel.style.display = hasGradingFailure ? 'none' : 'block';
+  if (dataPointsHeader) dataPointsHeader.style.display = hasGradingFailure ? 'none' : 'flex';
   if (hitList) hitList.style.display = hasGradingFailure ? 'none' : 'flex';
 
   if (!hasGradingFailure && ring) {
@@ -14621,6 +14684,18 @@ function closeCalibrationInfoModal(event) {
   modal.style.display = 'none';
 }
 
+function openDataPointsInfoModal() {
+  const modal = document.getElementById('data-points-info-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeDataPointsInfoModal(event) {
+  const modal = document.getElementById('data-points-info-modal');
+  if (!modal) return;
+  if (event && event.target !== modal && !event.target.classList.contains('modal-close-btn')) return;
+  modal.style.display = 'none';
+}
+
 
 
 // ═══════════════════════════════════════════════════════
@@ -16417,7 +16492,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.08.13.1';
+const APP_VERSION = '2026.08.13.2';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
