@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ABLTY — Tester Setup</title>
+<meta name="description" content="Private setup instructions for ABLTY prelaunch testers.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0a0d0e">
+<link rel="icon" href="/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="manifest" href="/manifest.json">
+
+<script>
+  // If this page is opened as an installed app, send it straight to ABLTY.
+  // iOS Safari pins whatever URL is on screen when you "Add to Home Screen",
+  // so a tester can end up with an icon pointing here instead of the app.
+  // Running before first paint means that icon still lands in the app.
+  (function(){
+    try {
+      var standalone = window.matchMedia('(display-mode: standalone)').matches
+        || window.matchMedia('(display-mode: fullscreen)').matches
+        || window.navigator.standalone === true;
+      if (standalone) window.location.replace('/app.html');
+    } catch(e) {}
+  })();
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<style>
+  :root{
+    --bg:#0a0d0e;
+    --bg-panel:rgba(20,26,28,0.55);
+    --text:#f5f5f7;
+    --muted:#8d9599;
+    --dim:#565c60;
+    --faint:#3a4044;
+    --accent:#3ee6a8;
+    --accent-bright:#4af0c8;
+    --accent-dim:#1c6a4d;
+    --border:#1a2022;
+    --border2:#252d30;
+    --display:'Bebas Neue',sans-serif;
+    --mono:'DM Mono',monospace;
+    --body:'DM Sans',sans-serif;
+  }
+
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--bg);color:var(--text);font-family:var(--body);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  img{max-width:100%;display:block}
+
+  .atmosphere{
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+      radial-gradient(ellipse 90% 50% at 70% 5%, rgba(62,230,168,0.10), transparent 60%),
+      radial-gradient(ellipse 70% 40% at 20% 60%, rgba(62,230,168,0.04), transparent 65%),
+      var(--bg);
+  }
+  .grain{
+    position:fixed;inset:0;z-index:1;pointer-events:none;opacity:0.2;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  }
+
+  .container{
+    position:relative;z-index:3;
+    max-width:680px;margin:0 auto;
+    padding:18px 20px 48px;
+  }
+
+  .topbar{display:flex;align-items:center;padding-bottom:4px}
+  .logo{height:64px;width:auto;display:block}
+
+  /* ── HERO ───────────────────────────────── */
+  .hero{padding:10px 0 30px;border-bottom:1px solid var(--border)}
+  .badge{
+    display:inline-flex;align-items:center;gap:8px;
+    font-family:var(--mono);font-size:10px;letter-spacing:3.5px;color:var(--accent);
+    text-transform:uppercase;border:1px solid var(--accent-dim);
+    padding:6px 14px;border-radius:2px;background:rgba(10,13,14,0.8);
+  }
+  .badge .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent);animation:pulse 2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.35}}
+
+  .hero-title{
+    font-family:var(--display);
+    font-size:clamp(46px, 13vw, 74px);
+    line-height:0.9;letter-spacing:1px;color:var(--text);margin-top:18px;
+  }
+  .hero-title .accent{color:var(--accent);text-shadow:0 0 40px rgba(62,230,168,0.35)}
+  .hero-sub{font-family:var(--body);font-size:15px;line-height:1.6;color:var(--muted);margin-top:14px}
+  .hero-sub strong{color:var(--text);font-weight:500}
+
+  /* ── SECTIONS ───────────────────────────── */
+  .section{padding:38px 0 0}
+  .sec-head{display:flex;align-items:baseline;gap:12px;margin-bottom:16px}
+  .sec-num{
+    font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--accent);
+    border:1px solid var(--accent-dim);border-radius:2px;padding:4px 8px;flex-shrink:0;
+    background:rgba(62,230,168,0.05);
+  }
+  .sec-title{font-family:var(--display);font-size:clamp(26px,6.5vw,34px);letter-spacing:2px;color:var(--text);line-height:1}
+  .sec-intro{font-family:var(--body);font-size:14px;line-height:1.65;color:var(--muted);margin-bottom:18px}
+  .sec-intro strong{color:var(--text);font-weight:500}
+
+  .panel{
+    background:var(--bg-panel);border:1px solid var(--border2);border-radius:12px;
+    padding:20px 18px;backdrop-filter:blur(10px);
+  }
+
+  /* ── PLATFORM TABS ──────────────────────── */
+  .tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+  .tab{
+    font-family:var(--mono);font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;
+    color:var(--muted);background:rgba(15,20,22,0.5);border:1px solid var(--border);
+    border-radius:9px;padding:12px 6px;text-align:center;cursor:pointer;
+    transition:border-color 0.25s, background 0.25s, color 0.25s;
+    -webkit-tap-highlight-color:transparent;user-select:none;
+  }
+  .tab:hover{border-color:var(--accent-dim)}
+  .tab.active{border-color:var(--accent);background:rgba(62,230,168,0.07);color:var(--accent);box-shadow:0 0 24px rgba(62,230,168,0.1)}
+  .tab .tab-hint{display:block;font-size:8.5px;letter-spacing:1px;color:var(--dim);margin-top:4px}
+  .tab.active .tab-hint{color:var(--accent-dim)}
+
+  .pane{display:none}
+  .pane.active{display:block}
+
+  /* ── STEP LIST ──────────────────────────── */
+  ol.steps{list-style:none;counter-reset:s;display:flex;flex-direction:column;gap:14px}
+  ol.steps li{counter-increment:s;display:flex;gap:12px;align-items:flex-start}
+  ol.steps li::before{
+    content:counter(s);
+    font-family:var(--display);font-size:15px;letter-spacing:1px;color:var(--accent);
+    width:24px;height:24px;flex-shrink:0;border-radius:50%;
+    border:1px solid var(--accent-dim);background:rgba(62,230,168,0.06);
+    display:flex;align-items:center;justify-content:center;line-height:1;padding-top:2px;
+  }
+  ol.steps li .txt{font-family:var(--body);font-size:14px;line-height:1.6;color:var(--muted);padding-top:2px}
+  ol.steps li .txt strong{color:var(--text);font-weight:600}
+  ol.steps li .txt em{color:var(--accent);font-style:normal}
+
+  .ico{
+    display:inline-flex;vertical-align:-3px;margin:0 2px;
+    width:15px;height:15px;color:var(--accent);
+  }
+  .ico svg{width:100%;height:100%}
+
+  /* ── CALLOUT ────────────────────────────── */
+  .callout{
+    margin-top:18px;border-left:2px solid var(--accent-dim);
+    background:rgba(62,230,168,0.04);border-radius:0 8px 8px 0;padding:12px 14px;
+  }
+  .callout-label{font-family:var(--mono);font-size:9.5px;letter-spacing:2.5px;color:var(--accent);text-transform:uppercase;margin-bottom:6px}
+  .callout-body{font-family:var(--body);font-size:13px;line-height:1.6;color:var(--muted)}
+  .callout-body strong{color:var(--text);font-weight:500}
+
+  .callout.warn{border-left-color:#c9a227;background:rgba(201,162,39,0.05)}
+  .callout.warn .callout-label{color:#e0b93c}
+
+  /* ── BUTTONS ────────────────────────────── */
+  .btn{
+    display:block;width:100%;text-align:center;text-decoration:none;
+    background:var(--accent);color:#000;border:none;border-radius:9px;padding:15px 20px;
+    font-family:var(--display);font-size:18px;letter-spacing:2px;cursor:pointer;
+    transition:opacity 0.15s, transform 0.15s;-webkit-tap-highlight-color:transparent;
+    box-shadow:0 0 22px rgba(62,230,168,0.2);
+  }
+  .btn:hover{opacity:0.92}
+  .btn:active{transform:scale(0.985)}
+  .btn-ghost{
+    background:transparent;color:var(--accent);
+    border:1px solid var(--accent-dim);box-shadow:none;
+  }
+  .btn + .btn{margin-top:10px}
+  .btn-wrap{margin-top:16px}
+
+  /* ── INSTALLED STATE ────────────────────── */
+  #installed-note{display:none;margin-bottom:22px}
+  #installed-note .panel{border-color:var(--accent-dim);background:linear-gradient(135deg, rgba(62,230,168,0.07), rgba(10,13,14,0.8))}
+
+  /* ── CHECKLIST ──────────────────────────── */
+  .checklist{display:flex;flex-direction:column;gap:1px;background:var(--border);border:1px solid var(--border2);border-radius:12px;overflow:hidden}
+  .check-row{
+    display:flex;align-items:flex-start;gap:11px;padding:13px 14px;
+    background:rgba(15,20,22,0.6);
+  }
+  .check-row .chev{color:var(--accent);flex-shrink:0;font-weight:bold;font-size:12px;line-height:1.5;margin-top:1px}
+  .check-name{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;color:var(--text);text-transform:uppercase;line-height:1.5}
+  .check-desc{font-family:var(--body);font-size:12.5px;line-height:1.55;color:var(--muted);margin-top:3px}
+
+  /* ── FEEDBACK ───────────────────────────── */
+  .fb-list{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+  .fb-item{display:flex;gap:9px;font-family:var(--body);font-size:13.5px;line-height:1.55;color:var(--muted)}
+  .fb-item .chev{color:var(--accent);flex-shrink:0;font-weight:bold;font-size:11px;margin-top:3px}
+
+  .mail-row{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    margin-top:16px;background:rgba(8,12,13,0.7);border:1px solid var(--border2);
+    border-radius:9px;padding:12px 14px;
+  }
+  .mail-addr{font-family:var(--mono);font-size:12.5px;letter-spacing:0.5px;color:var(--accent);word-break:break-all}
+  .copy-btn{
+    font-family:var(--mono);font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;
+    background:transparent;color:var(--muted);border:1px solid var(--border2);border-radius:6px;
+    padding:7px 11px;cursor:pointer;flex-shrink:0;transition:color 0.2s,border-color 0.2s;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .copy-btn:hover{color:var(--accent);border-color:var(--accent-dim)}
+  .copy-btn.done{color:var(--accent);border-color:var(--accent-dim)}
+
+  /* ── FOOTER ─────────────────────────────── */
+  .fineprint{
+    margin-top:38px;padding-top:20px;border-top:1px solid var(--border);
+    font-family:var(--body);font-size:12px;line-height:1.7;color:var(--dim);
+  }
+  .fineprint strong{color:var(--muted);font-weight:500}
+  .footer{
+    margin-top:22px;display:flex;justify-content:space-between;
+    font-family:var(--mono);font-size:9.5px;letter-spacing:2px;color:var(--faint);text-transform:uppercase;
+  }
+
+  /* ── ENTRANCE ───────────────────────────── */
+  .fade-up{opacity:0;transform:translateY(14px);animation:fu 0.7s cubic-bezier(0.2,0.7,0.3,1) forwards}
+  .d1{animation-delay:0.04s}.d2{animation-delay:0.12s}.d3{animation-delay:0.2s}.d4{animation-delay:0.28s}
+  @keyframes fu{to{opacity:1;transform:translateY(0)}}
+  @media (prefers-reduced-motion:reduce){
+    .fade-up{animation:none;opacity:1;transform:none}
+    .badge .dot{animation:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="atmosphere"></div>
+<div class="grain"></div>
+
+<div class="container">
+
+  <div class="topbar fade-up d1">
+    <img src="/assets/logo.png" class="logo" alt="ABLTY">
+  </div>
+
+  <!-- ── HERO ─────────────────────────────── -->
+  <section class="hero fade-up d2">
+    <div class="badge"><span class="dot"></span>Prelaunch build — private</div>
+    <h1 class="hero-title">YOU'RE<br>TESTING<br><span class="accent">ABLTY.</span></h1>
+    <p class="hero-sub">
+      Thanks for taking this for a spin before it goes public. Setup takes about two minutes.
+      <strong>Follow the three steps below in order</strong> — the second one trips people up if you skip ahead.
+    </p>
+  </section>
+
+  <!-- ── ALREADY INSTALLED ────────────────── -->
+  <!-- Fallback only: the head script normally redirects installed launches
+       to /app.html before this ever paints. -->
+  <div id="installed-note" class="section">
+    <div class="panel">
+      <div class="callout-label" style="color:var(--accent)">You're in the installed app</div>
+      <div class="callout-body">
+        Install is done. Tap through to ABLTY, then follow <strong>Step 02</strong> to make your
+        account and <strong>Step 03</strong> to get Premium switched on.
+      </div>
+      <div class="btn-wrap"><a class="btn" href="/app.html">OPEN ABLTY</a></div>
+    </div>
+  </div>
+
+  <!-- ── STEP 01 — INSTALL ────────────────── -->
+  <section class="section fade-up d3">
+    <div class="sec-head">
+      <span class="sec-num">01</span>
+      <h2 class="sec-title">INSTALL THE APP</h2>
+    </div>
+    <p class="sec-intro">
+      ABLTY is a web app that installs straight to your home screen — no App Store, no download.
+      <strong>It only runs installed</strong>, so this step isn't optional.
+    </p>
+
+    <div class="panel">
+      <div class="tabs" id="tabs">
+        <div class="tab" data-pane="ios">iPhone<span class="tab-hint">/ iPad</span></div>
+        <div class="tab" data-pane="android">Android<span class="tab-hint">Chrome</span></div>
+        <div class="tab" data-pane="desktop">Desktop<span class="tab-hint">Chrome / Edge</span></div>
+      </div>
+
+      <!-- iOS -->
+      <div class="pane" id="pane-ios">
+        <ol class="steps">
+          <li><span class="txt">Open this page in <strong>Safari</strong>. Chrome and Firefox on iPhone can't install apps — if you're in one of those, tap the address bar, copy the link, and paste it into Safari.</span></li>
+          <li><span class="txt">Tap the <strong>Share</strong> button
+            <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V3"/><path d="M8 7l4-4 4 4"/><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/></svg></span>
+            at the bottom of the screen (the square with the arrow coming out of it).</span></li>
+          <li><span class="txt">Scroll down the share sheet and tap <strong>Add to Home Screen</strong>, then <strong>Add</strong> in the top corner.</span></li>
+          <li><span class="txt">Close Safari completely. From now on, <em>always open ABLTY from the new home-screen icon</em> — not from a browser tab.</span></li>
+        </ol>
+      </div>
+
+      <!-- Android -->
+      <div class="pane" id="pane-android">
+        <ol class="steps">
+          <li><span class="txt">Open this page in <strong>Chrome</strong>.</span></li>
+          <li><span class="txt">Tap the <strong>Install ABLTY</strong> button below. If you don't see it, open the <strong>⋮</strong> menu in the top-right and choose <strong>Install app</strong> (some phones call it <strong>Add to Home screen</strong>).</span></li>
+          <li><span class="txt">Confirm with <strong>Install</strong>. The ABLTY icon lands on your home screen or in your app drawer.</span></li>
+          <li><span class="txt">From now on, <em>always open ABLTY from that icon</em> — not from a browser tab.</span></li>
+        </ol>
+        <div class="btn-wrap"><button class="btn" id="install-btn-android" type="button">INSTALL ABLTY</button></div>
+      </div>
+
+      <!-- Desktop -->
+      <div class="pane" id="pane-desktop">
+        <ol class="steps">
+          <li><span class="txt">Open this page in <strong>Chrome</strong> or <strong>Edge</strong>. (Safari on Mac: <strong>File → Add to Dock</strong>.)</span></li>
+          <li><span class="txt">Click the <strong>Install ABLTY</strong> button below, or the small install icon
+            <span class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M12 8v6"/><path d="M9.5 11.5L12 14l2.5-2.5"/></svg></span>
+            at the right edge of the address bar.</span></li>
+          <li><span class="txt">Confirm with <strong>Install</strong>. ABLTY opens in its own window.</span></li>
+          <li><span class="txt">Heads up — ABLTY is built phone-first. Desktop works, but <em>test on your phone if you can</em>: reality checks, the WBTB alarm, and sketching all need it.</span></li>
+        </ol>
+        <div class="btn-wrap"><button class="btn" id="install-btn-desktop" type="button">INSTALL ABLTY</button></div>
+      </div>
+
+      <div class="callout warn">
+        <div class="callout-label">Not a bug</div>
+        <div class="callout-body">
+          If you open ABLTY in a regular browser tab, you'll get a screen that says
+          <strong>"Browser mode disabled."</strong> That's on purpose. Close the tab and use the home-screen icon.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── STEP 02 — ACCOUNT ────────────────── -->
+  <section class="section fade-up d4">
+    <div class="sec-head">
+      <span class="sec-num">02</span>
+      <h2 class="sec-title">MAKE YOUR ACCOUNT</h2>
+    </div>
+    <p class="sec-intro">
+      You can poke around as a guest, but an account is what unlocks the dream tools, syncs your data,
+      and lets me turn on Premium for you.
+    </p>
+
+    <div class="panel">
+      <ol class="steps">
+        <li><span class="txt"><strong>Open ABLTY from the home-screen icon.</strong></span></li>
+        <li><span class="txt">Go to <strong>Settings</strong> and sign up with an email and password, or with Google.</span></li>
+        <li><span class="txt">If you used email, you'll get a confirmation message. <strong>Tap the link in it.</strong></span></li>
+        <li><span class="txt">That link opens your browser and says <strong>"Email verified — browser mode disabled."</strong> <em>That's the expected result.</em> Close the tab and reopen ABLTY from the icon — you'll already be signed in.</span></li>
+      </ol>
+
+      <div class="callout">
+        <div class="callout-label">If the email doesn't show up</div>
+        <div class="callout-body">
+          Check spam and promotions. Still nothing after a few minutes, message me and I'll confirm the account manually.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── STEP 03 — PREMIUM ────────────────── -->
+  <section class="section fade-up d4">
+    <div class="sec-head">
+      <span class="sec-num">03</span>
+      <h2 class="sec-title">GET PREMIUM TURNED ON</h2>
+    </div>
+    <p class="sec-intro">
+      As a tester you get <strong>full Premium access, free</strong> — no card, no checkout, nothing to cancel.
+      I switch it on by hand on my end.
+    </p>
+
+    <div class="panel">
+      <ol class="steps">
+        <li><span class="txt">Once your account exists, <strong>send me the email address you signed up with.</strong></span></li>
+        <li><span class="txt">I'll flip your account to Premium — usually within a few hours.</span></li>
+        <li><span class="txt">Fully close ABLTY (swipe it out of your recent apps) and reopen it from the icon. <em>Premium unlocks on the next open.</em></span></li>
+        <li><span class="txt">Check <strong>Settings</strong> — your tier should read <strong>PREMIUM</strong>. If it still says Free, force-close and reopen once more, then tell me.</span></li>
+      </ol>
+
+      <div class="callout">
+        <div class="callout-label">What Premium opens up</div>
+        <div class="callout-body">
+          Unlimited remote viewing sessions (free is capped at 2 a day), the full WBTB Re-Entry Protocol
+          including the RC drill and lucidity reading, your ability profile, community targets and leaderboards,
+          and session export.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── WHAT TO TRY ──────────────────────── -->
+  <section class="section fade-up d4">
+    <div class="sec-head">
+      <span class="sec-num">04</span>
+      <h2 class="sec-title">WHAT TO PUT THROUGH ITS PACES</h2>
+    </div>
+    <p class="sec-intro">
+      No obligation to do all of it. But if you want a steer, these are the parts I most need eyes on —
+      roughly in the order I'd try them.
+    </p>
+
+    <div class="checklist">
+      <div class="check-row"><span class="chev">›</span><div>
+        <div class="check-name">RV Academy</div>
+        <div class="check-desc">The training module. Start here if remote viewing is new to you — it explains the protocol before you run one.</div>
+      </div></div>
+      <div class="check-row"><span class="chev">›</span><div>
+        <div class="check-name">Remote Viewing Session</div>
+        <div class="check-desc">Sketch a blind target, then get AI-graded against the real one. The centerpiece — I want to know if the scoring feels fair.</div>
+      </div></div>
+      <div class="check-row"><span class="chev">›</span><div>
+        <div class="check-name">Zener Cards</div>
+        <div class="check-desc">25-trial ESP card run. Quick. Tells me whether the pacing and feedback feel right.</div>
+      </div></div>
+      <div class="check-row"><span class="chev">›</span><div>
+        <div class="check-name">Presentiment</div>
+        <div class="check-desc">Precognitive timing test. Tap when you feel the event coming.</div>
+      </div></div>
+      <div class="check-row"><span class="chev">›</span><div>
+        <div class="check-name">Dream Journal</div>
+        <div class="check-desc">Log a dream — ideally first thing after you wake. It tags entries automatically and tracks lucidity and recall over time.</div>
+      </div></div>
+      <div class="check-row"><span class="chev">›</span><div>
+        <div class="check-name">Reality Check Pager</div>
+        <div class="check-desc">Turn on notifications and let it nudge you through a day. I especially need to know if these actually land on your phone.</div>
+      </div></div>
+      <div class="check-row"><span class="chev">›</span><div>
+        <div class="check-name">WBTB Timer + Re-Entry Protocol</div>
+        <div class="check-desc">The overnight one. Set it before bed, and when it wakes you, walk the guided protocol. Needs a real night — worth it if you're up for it.</div>
+      </div></div>
+      <div class="check-row"><span class="chev">›</span><div>
+        <div class="check-name">Stats &amp; Analytics</div>
+        <div class="check-desc">After a few sessions, see whether your numbers read clearly or just look like noise.</div>
+      </div></div>
+    </div>
+  </section>
+
+  <!-- ── FEEDBACK ─────────────────────────── -->
+  <section class="section fade-up d4">
+    <div class="sec-head">
+      <span class="sec-num">05</span>
+      <h2 class="sec-title">TELL ME WHAT BROKE</h2>
+    </div>
+    <p class="sec-intro">
+      Blunt is better than polite. If something confused you for even a second, that's a bug in my design, not in you.
+    </p>
+
+    <div class="panel">
+      <div class="callout-label" style="color:var(--accent)">Useful things to include</div>
+      <div class="fb-list">
+        <div class="fb-item"><span class="chev">›</span><span>Your phone and OS version — <strong style="color:var(--text);font-weight:500">"iPhone 14, iOS 18.2"</strong> is plenty.</span></div>
+        <div class="fb-item"><span class="chev">›</span><span>Which screen you were on and what you tapped right before it went wrong.</span></div>
+        <div class="fb-item"><span class="chev">›</span><span>What you expected versus what actually happened.</span></div>
+        <div class="fb-item"><span class="chev">›</span><span>A screenshot, if it's something you can see.</span></div>
+        <div class="fb-item"><span class="chev">›</span><span>Anything that felt slow, confusing, or made you want to close the app.</span></div>
+      </div>
+
+      <div class="mail-row">
+        <a class="mail-addr" href="mailto:abltyapp@gmail.com?subject=ABLTY%20tester%20feedback">abltyapp@gmail.com</a>
+        <button class="copy-btn" id="copy-mail" type="button">Copy</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FINE PRINT ───────────────────────── -->
+  <div class="fineprint fade-up d4">
+    <strong>A few honest caveats.</strong> This is a prelaunch build, so expect rough edges — that's the point of you being here.
+    Your sessions and dream entries are real, saved data, but I may need to reset or migrate things before launch,
+    so don't treat it as your only copy of anything you'd hate to lose.
+    Push notifications and the overnight timer are the least battle-tested parts of the app.
+    And please keep this link to yourself — it isn't public yet.
+  </div>
+
+  <div class="footer">
+    <div>ABLTY © 2026</div>
+    <div>Tester build</div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ── Platform detection ────────────────────────────────
+  var ua = navigator.userAgent || '';
+  var isIOS = /iPad|iPhone|iPod/.test(ua)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var isAndroid = /Android/i.test(ua);
+  var defaultPane = isIOS ? 'ios' : (isAndroid ? 'android' : 'desktop');
+
+  // ── Tabs ──────────────────────────────────────────────
+  var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
+
+  function selectPane(name){
+    tabs.forEach(function(t){
+      t.classList.toggle('active', t.getAttribute('data-pane') === name);
+    });
+    ['ios','android','desktop'].forEach(function(p){
+      var el = document.getElementById('pane-' + p);
+      if (el) el.classList.toggle('active', p === name);
+    });
+  }
+
+  tabs.forEach(function(t){
+    t.addEventListener('click', function(){ selectPane(t.getAttribute('data-pane')); });
+  });
+  selectPane(defaultPane);
+
+  // ── Already-installed state ───────────────────────────
+  var standalone = window.matchMedia('(display-mode: standalone)').matches
+    || window.matchMedia('(display-mode: fullscreen)').matches
+    || window.navigator.standalone === true;
+
+  if (standalone) {
+    var note = document.getElementById('installed-note');
+    if (note) note.style.display = 'block';
+  }
+
+  // ── beforeinstallprompt (Android / desktop Chrome) ─────
+  var deferredPrompt = null;
+  var installBtns = ['install-btn-android','install-btn-desktop']
+    .map(function(id){ return document.getElementById(id); })
+    .filter(Boolean);
+
+  function setBtnLabel(text, ghost){
+    installBtns.forEach(function(b){
+      b.textContent = text;
+      b.classList.toggle('btn-ghost', !!ghost);
+    });
+  }
+
+  // Until the browser offers a prompt, the button can't do anything useful.
+  setBtnLabel('USE YOUR BROWSER MENU TO INSTALL', true);
+  installBtns.forEach(function(b){ b.disabled = true; b.style.cursor = 'default'; });
+
+  window.addEventListener('beforeinstallprompt', function(e){
+    e.preventDefault();
+    deferredPrompt = e;
+    setBtnLabel('INSTALL ABLTY', false);
+    installBtns.forEach(function(b){ b.disabled = false; b.style.cursor = 'pointer'; });
+  });
+
+  installBtns.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function(){
+        deferredPrompt = null;
+        setBtnLabel('INSTALLING…', true);
+        installBtns.forEach(function(b){ b.disabled = true; b.style.cursor = 'default'; });
+      }).catch(function(){});
+    });
+  });
+
+  window.addEventListener('appinstalled', function(){
+    setBtnLabel('INSTALLED — OPEN FROM YOUR ICON', true);
+    installBtns.forEach(function(b){ b.disabled = true; b.style.cursor = 'default'; });
+  });
+
+  // ── Copy email ────────────────────────────────────────
+  var copyBtn = document.getElementById('copy-mail');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function(){
+      var addr = 'abltyapp@gmail.com';
+      var done = function(){
+        copyBtn.textContent = 'Copied';
+        copyBtn.classList.add('done');
+        setTimeout(function(){
+          copyBtn.textContent = 'Copy';
+          copyBtn.classList.remove('done');
+        }, 1800);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(addr).then(done).catch(function(){});
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = addr;
+        ta.setAttribute('readonly','');
+        ta.style.position = 'absolute';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); done(); } catch(e) {}
+        document.body.removeChild(ta);
+      }
+    });
+  }
+})();
+</script>
+
+</body>
+</html>

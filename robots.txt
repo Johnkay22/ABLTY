@@ -5,6 +5,7 @@
 User-agent: *
 Allow: /
 Disallow: /app.html
+Disallow: /test/
 Disallow: /signal-scanner-prototype.html
 Disallow: /CLAUDE.md
 Disallow: /CLAUDE_HANDOFF.md
@@ -20,61 +21,73 @@ Disallow: /MOBILE_QA_CHECKLIST.md
 User-agent: GPTBot
 Allow: /
 Disallow: /app.html
+Disallow: /test/
 Disallow: /signal-scanner-prototype.html
 
 User-agent: OAI-SearchBot
 Allow: /
 Disallow: /app.html
+Disallow: /test/
 Disallow: /signal-scanner-prototype.html
 
 User-agent: ChatGPT-User
 Allow: /
 Disallow: /app.html
+Disallow: /test/
 Disallow: /signal-scanner-prototype.html
 
 User-agent: ClaudeBot
 Allow: /
 Disallow: /app.html
+Disallow: /test/
 Disallow: /signal-scanner-prototype.html
 
 User-agent: Claude-User
 Allow: /
 Disallow: /app.html
+Disallow: /test/
 Disallow: /signal-scanner-prototype.html
 
 User-agent: Claude-SearchBot
 Allow: /
 Disallow: /app.html
+Disallow: /test/
 Disallow: /signal-scanner-prototype.html
 
 User-agent: anthropic-ai
 Allow: /
 Disallow: /app.html
+Disallow: /test/
 Disallow: /signal-scanner-prototype.html
 
 User-agent: PerplexityBot
 Allow: /
 Disallow: /app.html
+Disallow: /test/
 Disallow: /signal-scanner-prototype.html
 
 User-agent: Perplexity-User
 Allow: /
 Disallow: /app.html
+Disallow: /test/
 Disallow: /signal-scanner-prototype.html
 
 User-agent: Google-Extended
 Allow: /
 Disallow: /app.html
+Disallow: /test/
 Disallow: /signal-scanner-prototype.html
 
 User-agent: Applebot-Extended
 Allow: /
 Disallow: /app.html
+Disallow: /test/
 Disallow: /signal-scanner-prototype.html
 
 User-agent: meta-externalagent
 Allow: /
 Disallow: /app.html
+Disallow: /test/
 Disallow: /signal-scanner-prototype.html
 
 Sitemap: https://ablty.app/sitemap.xml
