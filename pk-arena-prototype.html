@@ -42,6 +42,14 @@
   .intent button{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 8px;color:var(--muted);font:500 12px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;cursor:pointer}
   .intent button.on{color:var(--text);border-color:var(--accent);background:rgba(74,240,200,.08)}
   .intent button small{display:block;margin-top:6px;font:400 10px/1.2 var(--mono);letter-spacing:.04em;text-transform:none;color:var(--dim)}
+  .mode{display:grid;grid-template-columns:auto 1fr 1fr;gap:8px;align-items:stretch}
+  .mode>span{align-self:center;padding:0 6px;font:400 9px/1.2 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+  .mode button{background:transparent;border:1px solid var(--line);border-radius:10px;padding:9px 8px;color:var(--muted);font:500 11px/1 var(--mono);letter-spacing:.12em;cursor:pointer}
+  .mode button.on{color:var(--accent);border-color:var(--line2);background:rgba(74,240,200,.06)}
+  .mode button small{display:block;margin-top:5px;font:400 9px/1.2 var(--mono);letter-spacing:.02em;color:var(--dim)}
+  .arena{touch-action:none;user-select:none;-webkit-user-select:none;cursor:crosshair}
+  .arena.hint:after{content:"HOLD ANYWHERE TO OPEN THE CHANNEL";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font:500 11px/1 var(--mono);letter-spacing:.2em;color:var(--accent);text-shadow:0 0 14px rgba(74,240,200,.6);pointer-events:none;animation:pulse 1.6s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:.35}50%{opacity:1}}
   .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
   .metric{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px 8px;text-align:center}
   .metric b{display:block;font:400 26px/1 var(--display);letter-spacing:.04em}
@@ -110,6 +118,12 @@
 
   <div class="intent" id="intent"></div>
 
+  <div class="mode" id="mode">
+    <span>Channel</span>
+    <button data-m="hold" class="on">HOLD<small>bits flow only while you touch</small></button>
+    <button data-m="auto">AUTO<small>bits flow on their own</small></button>
+  </div>
+
   <div class="metrics">
     <div class="metric"><b id="mN">0</b><span>bits</span></div>
     <div class="metric" id="mDevBox"><b id="mDev">0</b><span>deviation</span></div>
@@ -152,6 +166,8 @@
       <li>Runs are fixed length. You cannot stop early, so the statistics stay honest.</li>
       <li>The seal hash is shown before the run and confirmed after, so nothing is chosen in hindsight.</li>
     </ul>
+    <h3>The channel</h3>
+    <p>In <strong>HOLD</strong> mode the sealed bits only flow while your thumb is on the arena. Where you touch, how you move, and how hard you press never change a single bit; the glow, the trail and the sparks streaming to the target are feedback, not input. Teal sparks are bits that went your way, faint ones went against. <strong>AUTO</strong> mode runs the same stream hands-free, so you can compare the two. PEAR operators often reported doing better in a relaxed, engaged state than under strain; the channel is there to help you find that state, and the mode is recorded with each run so the difference can be measured.</p>
     <h3>Arenas</h3>
     <ul>
       <li><strong>Cascade</strong> — modeled on the PEAR lab's Random Mechanical Cascade: 9,000 balls through 330 pegs into 19 bins. Here, each peg bounce is one random bit. Push the pile.</li>
@@ -187,30 +203,73 @@ const bitAt=(bytes,i)=>(bytes[i>>3]>>(i&7))&1;
 /* ---------- arenas ---------- */
 const ARENAS={
   cascade:{
-    copy:'<strong>Push the pile.</strong> 200 balls fall through 12 rows of pegs. Every bounce is one sealed random bit. Intend the mountain to lean.',
+    copy:'<strong>Push the pile.</strong> Hold the arena to open the hopper. 200 balls fall through 12 rows of pegs; every bounce is one sealed random bit. Intend the mountain to lean.',
     labels:{high:['RIGHT','lean the pile right'],low:['LEFT','lean the pile left'],baseline:['BASELINE','just watch']},
     bits:200*12,aspect:1.05
   },
   drift:{
-    copy:'<strong>Hold the orb.</strong> 1,000 bits at 50 per second. Each bit nudges the orb. Intend it across the envelope and keep it there.',
+    copy:'<strong>Channel the orb.</strong> Press and hold anywhere; energy streams from your thumb to the orb while you hold. 1,000 bits at 50 per second, each one a nudge. Drive it across the envelope.',
     labels:{high:['RIGHT','drift right'],low:['LEFT','drift left'],baseline:['BASELINE','just watch']},
     bits:1000,aspect:0.9
   },
   emerge:{
-    copy:'<strong>Bring one forward.</strong> Two images share the frame. The bit stream decides which surfaces. Choose one, then will it into view.',
+    copy:'<strong>Bring one forward.</strong> Two images share the frame. Hold the frame and the bit stream decides which surfaces. Choose one, then will it into view.',
     labels:{high:['SOLAR','image A emerges'],low:['TIDAL','image B emerges'],baseline:['BASELINE','just watch']},
     bits:1000,aspect:1.0
   }
 };
 
 /* ---------- state ---------- */
-const S={arena:'cascade',intent:'high',running:false,batch:null,idx:0,hits:0,n:0,dev:[],startT:0,hist:[],crossed:false};
+const S={arena:'cascade',intent:'high',mode:'hold',running:false,batch:null,idx:0,hits:0,n:0,dev:[],startT:0,hist:[],crossed:false};
 const LS='pkArenaProtoHistory';
 try{S.hist=JSON.parse(localStorage.getItem(LS)||'[]');}catch(e){S.hist=[];}
+
+/* ---------- touch channel ----------
+   The finger never touches the bits. In HOLD mode it only gates when the
+   sealed stream is allowed to flow; glow, trail and sparks are feedback. */
+const T={down:false,x:0,y:0,trail:[],sparks:[],pulse:0};
+function channelOpen(){return S.mode==='auto'||T.down;}
+function pointerPos(e){const r=stage.getBoundingClientRect();return {x:e.clientX-r.left,y:e.clientY-r.top};}
+function onDown(e){if(e.button&&e.button!==0)return;e.preventDefault();T.down=true;const p=pointerPos(e);T.x=p.x;T.y=p.y;T.trail.push({x:p.x,y:p.y,t:performance.now()});stage.setPointerCapture&&stage.setPointerCapture(e.pointerId);$('arena').classList.remove('hint');if(!S.running)draw();}
+function onMove(e){if(!T.down)return;const p=pointerPos(e);T.x=p.x;T.y=p.y;const last=T.trail[T.trail.length-1];if(!last||Math.hypot(p.x-last.x,p.y-last.y)>2)T.trail.push({x:p.x,y:p.y,t:performance.now()});if(!S.running)draw();}
+function onUp(){T.down=false;if(!S.running)draw();}
+
+function spawnSpark(good){
+  if(!T.down)return;
+  const tgt=arenaImpl[S.arena].target?arenaImpl[S.arena].target():{x:W/2,y:H/2};
+  T.sparks.push({x0:T.x,y0:T.y,x1:tgt.x,y1:tgt.y,t:0,good,bend:(Math.random()-.5)*60,life:320+Math.random()*160});
+}
+function drawTouch(now,dt){
+  // fading trail
+  const cutoff=now-700;T.trail=T.trail.filter(p=>p.t>cutoff);
+  ctx.save();ctx.globalCompositeOperation='lighter';
+  for(let i=1;i<T.trail.length;i++){const a=T.trail[i-1],b=T.trail[i];const k=(b.t-cutoff)/700;ctx.strokeStyle=`rgba(74,240,200,${.35*k})`;ctx.lineWidth=2+10*k;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}
+  // sparks
+  for(const s of T.sparks){s.t+=dt/s.life;const k=Math.min(1,s.t);const mx=(s.x0+s.x1)/2+s.bend,my=(s.y0+s.y1)/2-Math.abs(s.bend);
+    const x=(1-k)*(1-k)*s.x0+2*(1-k)*k*mx+k*k*s.x1,y=(1-k)*(1-k)*s.y0+2*(1-k)*k*my+k*k*s.y1;
+    ctx.fillStyle=s.good?`rgba(74,240,200,${1-k})`:`rgba(255,255,255,${.35*(1-k)})`;ctx.beginPath();ctx.arc(x,y,s.good?2.4:1.6,0,7);ctx.fill();}
+  T.sparks=T.sparks.filter(s=>s.t<1);
+  // thumb glow
+  if(T.down){T.pulse+=dt/900;const r=26+6*Math.sin(T.pulse*6.283);const open=S.running&&channelOpen();
+    const g=ctx.createRadialGradient(T.x,T.y,0,T.x,T.y,r*2.2);g.addColorStop(0,open?'rgba(255,255,255,.55)':'rgba(255,255,255,.3)');g.addColorStop(.3,open?'rgba(74,240,200,.55)':'rgba(74,240,200,.3)');g.addColorStop(1,'rgba(74,240,200,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(T.x,T.y,r*2.2,0,7);ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(T.x,T.y,r,0,7);ctx.stroke();
+    ctx.strokeStyle='rgba(74,240,200,.35)';ctx.beginPath();ctx.arc(T.x,T.y,r*1.5+4*Math.sin(T.pulse*6.283+1),0,7);ctx.stroke();}
+  ctx.restore();
+}
+function updateStatusPill(){
+  if(!S.running)return;
+  const open=channelOpen();
+  $('statusPill').textContent=open?(S.mode==='hold'?'CHANNELING':'RUNNING'):'HOLD TO CHANNEL';
+  $('statusPill').className='pill'+(open?'':' hot');
+  $('arena').classList.toggle('hint',S.mode==='hold'&&!open&&S.n===0);
+}
 
 /* ---------- dom ---------- */
 const $=id=>document.getElementById(id);
 const stage=$('stage'),ctx=stage.getContext('2d');
+stage.addEventListener('pointerdown',onDown);stage.addEventListener('pointermove',onMove);
+stage.addEventListener('pointerup',onUp);stage.addEventListener('pointercancel',onUp);stage.addEventListener('lostpointercapture',onUp);
 const resChart=$('resChart'),careerChart=$('careerChart');
 let W=0,H=0,DPR=1;
 
@@ -232,6 +291,7 @@ function renderIntent(){
   $('condPill').textContent=L[S.intent][0];
 }
 $('intent').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||S.running)return;S.intent=b.dataset.i;renderIntent();draw();});
+$('mode').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||S.running)return;S.mode=b.dataset.m;[...$('mode').querySelectorAll('button')].forEach(x=>x.classList.toggle('on',x===b));});
 $('helpBtn').onclick=()=>$('modal').classList.add('show');
 $('closeBtn').onclick=()=>$('modal').classList.remove('show');
 $('resetBtn').onclick=()=>{if(confirm('Clear all prototype history on this device?')){S.hist=[];localStorage.removeItem(LS);renderCareer();}};
@@ -246,28 +306,29 @@ function setMetrics(){
 }
 
 /* ---------- run engine ---------- */
-function resetRun(){S.running=false;S.batch=null;S.idx=0;S.hits=0;S.n=0;S.dev=[];S.crossed=false;$('seal').textContent='unsealed';$('seal').className='seal';$('statusPill').textContent='READY';$('statusPill').className='pill dim';$('goBtn').disabled=false;$('goBtn').textContent='SEAL & RUN';$('result').classList.remove('show');arenaImpl[S.arena].reset();setMetrics();}
+function resetRun(){S.running=false;S.batch=null;S.idx=0;S.hits=0;S.n=0;S.dev=[];S.crossed=false;T.sparks=[];$('arena').classList.remove('hint');$('seal').textContent='unsealed';$('seal').className='seal';$('statusPill').textContent='READY';$('statusPill').className='pill dim';$('goBtn').disabled=false;$('goBtn').textContent='SEAL & RUN';$('result').classList.remove('show');arenaImpl[S.arena].reset();setMetrics();}
 async function startRun(){
   if(S.running)return;
   resetRun();
   $('goBtn').disabled=true;$('goBtn').textContent='SEALING…';
   S.batch=await sealBatch(ARENAS[S.arena].bits);
   $('seal').textContent='SEALED · '+S.batch.hash.slice(0,12);$('seal').className='seal ok';
-  $('statusPill').textContent='RUNNING';$('statusPill').className='pill';
-  $('goBtn').textContent='RUNNING…';
-  S.running=true;S.startT=performance.now();arenaImpl[S.arena].start();
+  $('goBtn').textContent=S.mode==='hold'?'HOLD THE ARENA…':'RUNNING…';
+  S.running=true;S.startT=performance.now();lastT=0;arenaImpl[S.arena].start();updateStatusPill();
   requestAnimationFrame(frame);
 }
 function consume(){const b=bitAt(S.batch.bytes,S.idx++);S.n++;S.hits+=b;S.dev.push(S.hits-S.n/2);
   const z=zScore(S.hits,S.n);const dir=S.intent==='low'?-1:1;
-  if(!S.crossed&&S.intent!=='baseline'&&S.n>50&&z*dir>1.96){S.crossed=true;$('flash').classList.add('on');setTimeout(()=>$('flash').classList.remove('on'),120);}
+  const good=S.intent==='baseline'?false:(b?1:-1)*dir>0;
+  if(S.n%3===0)spawnSpark(good);
+  if(!S.crossed&&S.intent!=='baseline'&&S.n>50&&z*dir>1.96){S.crossed=true;$('flash').classList.add('on');setTimeout(()=>$('flash').classList.remove('on'),120);navigator.vibrate&&navigator.vibrate(12);}
   return b;}
-let lastT=0;
+let lastT=0,frameDt=16;
 function frame(t){
   if(!S.running)return;
-  const dt=Math.min(50,t-(lastT||t));lastT=t;
+  const dt=Math.min(50,t-(lastT||t));lastT=t;frameDt=dt;
   const done=arenaImpl[S.arena].step(dt,t);
-  setMetrics();draw();
+  setMetrics();updateStatusPill();draw();
   if(done)finishRun();else requestAnimationFrame(frame);
 }
 async function finishRun(){
@@ -276,9 +337,9 @@ async function finishRun(){
   let verify='VERIFIED';
   if(crypto.subtle){const d=await crypto.subtle.digest('SHA-256',S.batch.bytes);const h=[...new Uint8Array(d)].map(b=>b.toString(16).padStart(2,'0')).join('');verify=h===S.batch.hash?'VERIFIED':'MISMATCH';}
   $('seal').textContent=verify+' · '+S.batch.hash.slice(0,12);
-  $('statusPill').textContent='COMPLETE';$('statusPill').className='pill dim';
+  $('statusPill').textContent='COMPLETE';$('statusPill').className='pill dim';$('arena').classList.remove('hint');
   $('goBtn').disabled=false;$('goBtn').textContent='RUN AGAIN';
-  const run={arena:S.arena,intent:S.intent,n:S.n,hits:S.hits,z:+z.toFixed(3),ts:Date.now()};
+  const run={arena:S.arena,intent:S.intent,mode:S.mode,n:S.n,hits:S.hits,z:+z.toFixed(3),ts:Date.now()};
   S.hist.push(run);localStorage.setItem(LS,JSON.stringify(S.hist));
   showResult(run,p);renderCareer();
 }
@@ -292,7 +353,7 @@ function showResult(run,p){
   else{v='Leaned against your intention. This happens; PEAR called it the "psi-missing" side of the distribution.';cls='neg';}
   $('resTitle').innerHTML=`RUN COMPLETE · <em>${L}</em>`;
   $('resVerdict').textContent=v;$('resVerdict').className='verdict '+cls;
-  $('resKv').innerHTML=`<span>bits <b>${run.n}</b></span><span>hits <b>${run.hits}</b> (${(100*run.hits/run.n).toFixed(1)}%)</span><span>deviation <b>${dev>0?'+':''}${dev}</b></span><span>z <b>${run.z>0?'+':''}${run.z.toFixed(2)}</b> · p ${fmtP(p)}</span>`;
+  $('resKv').innerHTML=`<span>bits <b>${run.n}</b></span><span>hits <b>${run.hits}</b> (${(100*run.hits/run.n).toFixed(1)}%)</span><span>deviation <b>${dev>0?'+':''}${dev}</b></span><span>z <b>${run.z>0?'+':''}${run.z.toFixed(2)}</b> · p ${fmtP(p)}</span><span>channel <b>${(run.mode||'auto').toUpperCase()}</b></span>`;
   $('result').classList.add('show');drawRunChart();
 }
 
@@ -339,7 +400,7 @@ const arenaImpl={};
   function reset(){balls=[];bins=new Array(BINS).fill(0);spawned=0;spawnAcc=0;}
   function start(){reset();}
   function step(dt){
-    spawnAcc+=dt;
+    if(channelOpen()){spawnAcc+=dt;}else spawnAcc=0;
     while(spawnAcc>=SPAWN_MS&&spawned<BALLS){spawnAcc-=SPAWN_MS;spawned++;balls.push({c:0,row:0,t:0,next:consume()?1:-1,wob:Math.random()*6.28});}
     for(const b of balls){b.t+=dt/ROW_MS;while(b.t>=1&&b.row<ROWS){b.t-=1;b.c+=b.next;b.row++;if(b.row<ROWS)b.next=consume()?1:-1;}}
     const landed=balls.filter(b=>b.row>=ROWS);for(const b of landed)bins[(b.c+ROWS)/2]++;
@@ -373,20 +434,23 @@ const arenaImpl={};
       ctx.fillStyle='#fff';ctx.shadowColor='rgba(74,240,200,.9)';ctx.shadowBlur=8;ctx.beginPath();ctx.arc(x,y,3,0,7);ctx.fill();ctx.shadowBlur=0;}
     // counter
     ctx.fillStyle='rgba(154,163,173,.8)';ctx.font='400 10px DM Mono, monospace';ctx.textAlign='right';ctx.fillText(`${total} / ${BALLS} balls`,W-14,H-8);
-    // spawner
-    ctx.fillStyle='rgba(74,240,200,.5)';ctx.fillRect(cx-8,top-6,16,2);
+    // spawner (hopper) — glows while the channel is open
+    const open=S.running&&channelOpen();
+    if(open){const g=ctx.createRadialGradient(cx,top-5,0,cx,top-5,22);g.addColorStop(0,'rgba(74,240,200,.6)');g.addColorStop(1,'rgba(74,240,200,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,top-5,22,0,7);ctx.fill();}
+    ctx.fillStyle=open?'#4af0c8':'rgba(74,240,200,.5)';ctx.fillRect(cx-8,top-6,16,2);
   }
-  arenaImpl.cascade={layout,reset,start,step,draw};
+  arenaImpl.cascade={layout,reset,start,step,draw,target:()=>({x:L.cx,y:L.top-5})};
 })();
 
 /* DRIFT */
 (function(){
-  const RATE=50;let acc=0,trail=[];
+  const RATE=50;let acc=0,trail=[],orb={x:0,y:0};
   function reset(){acc=0;trail=[];}
   function start(){reset();}
-  function step(dt){acc+=dt*RATE/1000;const N=ARENAS.drift.bits;while(acc>=1&&S.n<N){acc-=1;consume();}return S.n>=N;}
+  function step(dt){if(channelOpen())acc+=dt*RATE/1000;else acc=0;const N=ARENAS.drift.bits;while(acc>=1&&S.n<N){acc-=1;consume();}return S.n>=N;}
   function draw(){
     const N=ARENAS.drift.bits,trackY=H*0.30,cx=W/2;
+    const open=S.running&&channelOpen();
     const dev=S.n?S.hits-S.n/2:0;const env=1.96*Math.sqrt(Math.max(S.n,1))/2;const envMax=1.96*Math.sqrt(N)/2;
     const scale=(W*0.42)/(envMax*1.35);
     // track
@@ -396,11 +460,15 @@ const arenaImpl={};
     ctx.strokeStyle='rgba(74,240,200,.5)';ctx.setLineDash([2,3]);for(const s of[1,-1]){const x=cx+s*env*scale;ctx.beginPath();ctx.moveTo(x,trackY-18);ctx.lineTo(x,trackY+18);ctx.stroke();}ctx.setLineDash([]);
     ctx.fillStyle='rgba(94,102,112,.9)';ctx.font='400 9px DM Mono, monospace';ctx.textAlign='center';ctx.fillText('−1.96σ',cx-env*scale,trackY+32);ctx.fillText('+1.96σ',cx+env*scale,trackY+32);
     // orb
-    const ox=Math.max(20,Math.min(W-20,cx+dev*scale));
+    const ox=Math.max(20,Math.min(W-20,cx+dev*scale));orb.x=ox;orb.y=trackY;
     trail.push(ox);if(trail.length>40)trail.shift();
     trail.forEach((x,i)=>{ctx.fillStyle=`rgba(74,240,200,${(i/trail.length)*0.18})`;ctx.beginPath();ctx.arc(x,trackY,10-8*(1-i/trail.length),0,7);ctx.fill();});
-    const g=ctx.createRadialGradient(ox,trackY,2,ox,trackY,22);g.addColorStop(0,'#fff');g.addColorStop(.35,'#4af0c8');g.addColorStop(1,'rgba(74,240,200,0)');
-    ctx.fillStyle=g;ctx.beginPath();ctx.arc(ox,trackY,22,0,7);ctx.fill();
+    // tether from thumb to orb while channeling
+    if(open&&T.down){ctx.save();ctx.globalCompositeOperation='lighter';const tg=ctx.createLinearGradient(T.x,T.y,ox,trackY);tg.addColorStop(0,'rgba(74,240,200,.05)');tg.addColorStop(1,'rgba(74,240,200,.45)');ctx.strokeStyle=tg;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(T.x,T.y);ctx.quadraticCurveTo((T.x+ox)/2,Math.min(T.y,trackY)-30,ox,trackY);ctx.stroke();ctx.restore();}
+    const z=zScore(S.hits,S.n),dir=S.intent==='low'?-1:1,heat=S.intent==='baseline'?0:Math.max(0,Math.min(1,z*dir/2.5));
+    const R=22+(open?6:0)+heat*14;
+    const g=ctx.createRadialGradient(ox,trackY,2,ox,trackY,R);g.addColorStop(0,'#fff');g.addColorStop(.35,'#4af0c8');g.addColorStop(1,'rgba(74,240,200,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.arc(ox,trackY,R,0,7);ctx.fill();
     // deviation plot
     const py0=H*0.50,ph=H*0.46;drawInline(py0,ph,N);
   }
@@ -411,7 +479,7 @@ const arenaImpl={};
     if(S.dev.length){ctx.strokeStyle='#4af0c8';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(X(0),Y(0));S.dev.forEach((d,i)=>ctx.lineTo(X(i+1),Y(d)));ctx.stroke();ctx.lineWidth=1;}
     ctx.fillStyle='rgba(94,102,112,.9)';ctx.font='400 9px DM Mono, monospace';ctx.textAlign='left';ctx.fillText('CUMULATIVE DEVIATION',pad,y0+8);
   }
-  arenaImpl.drift={reset,start,step,draw};
+  arenaImpl.drift={reset,start,step,draw,target:()=>({x:orb.x,y:orb.y})};
 })();
 
 /* EMERGE */
@@ -430,10 +498,11 @@ const arenaImpl={};
   }
   function reset(){acc=0;}
   function start(){reset();}
-  function step(dt){acc+=dt*RATE/1000;const N=ARENAS.emerge.bits;while(acc>=1&&S.n<N){acc-=1;consume();}return S.n>=N;}
+  let box={x:0,y:0,s:0};
+  function step(dt){if(channelOpen())acc+=dt*RATE/1000;else acc=0;const N=ARENAS.emerge.bits;while(acc>=1&&S.n<N){acc-=1;consume();}return S.n>=N;}
   function draw(){
     const s=Math.min(W-40,H-70);if(size!==Math.round(s))makeImages(Math.round(s));
-    const x=(W-s)/2,y=44;
+    const x=(W-s)/2,y=44;box={x,y,s};
     const z=zScore(S.hits,S.n);const a=0.5+0.45*Math.max(-1,Math.min(1,z/3));
     ctx.save();ctx.beginPath();ctx.roundRect?ctx.roundRect(x,y,s,s,16):ctx.rect(x,y,s,s);ctx.clip();
     ctx.globalAlpha=1;ctx.drawImage(imgB,x,y,s,s);ctx.globalAlpha=a;ctx.drawImage(imgA,x,y,s,s);ctx.globalAlpha=1;ctx.restore();
@@ -444,10 +513,12 @@ const arenaImpl={};
     ctx.font='500 10px DM Mono, monospace';ctx.fillStyle='#ffb14a';ctx.textAlign='left';ctx.fillText(`SOLAR ${(a*100).toFixed(0)}%`,x,by-6);
     ctx.fillStyle='#6ff8ff';ctx.textAlign='right';ctx.fillText(`TIDAL ${((1-a)*100).toFixed(0)}%`,x+s,by-6);
   }
-  arenaImpl.emerge={reset,start,step,draw};
+  arenaImpl.emerge={reset,start,step,draw,target:()=>({x:box.x+box.s/2,y:box.y+box.s/2})};
 })();
 
-function draw(){ctx.clearRect(0,0,W,H);arenaImpl[S.arena].draw();}
+function draw(){ctx.clearRect(0,0,W,H);arenaImpl[S.arena].draw();drawTouch(performance.now(),frameDt);}
+// keep the glow/trail animating when idle or when the channel is closed
+(function idle(){if(!S.running&&(T.down||T.trail.length||T.sparks.length)){frameDt=16;draw();}requestAnimationFrame(idle);})();
 
 /* ---------- boot ---------- */
 $('copy').innerHTML=ARENAS[S.arena].copy;
