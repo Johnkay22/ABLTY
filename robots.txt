@@ -7,12 +7,7 @@ Allow: /
 Disallow: /app.html
 Disallow: /signal-scanner-prototype.html
 Disallow: /CLAUDE.md
-Disallow: /CLAUDE_HANDOFF.md
-Disallow: /CURRENT_STATE_BASELINE.md
-Disallow: /KNOWN_ISSUES.md
-Disallow: /LAUNCH-STATUS.markdown
-Disallow: /LAUNCH_READINESS_AUDIT.txt
-Disallow: /MOBILE_QA_CHECKLIST.md
+Disallow: /LAUNCH-PLAN.md
 
 # --- AI / LLM crawlers: explicitly welcome ---
 # (Each named group must repeat the rules; bots use their most specific match.)
