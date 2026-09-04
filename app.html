@@ -4646,32 +4646,6 @@ html, body {
   transition: color 0.2s, background 0.2s;
 }
 .acad-exit:active { color: var(--acad-text); background: rgba(255,255,255,0.06); }
-#acad-voicebtn {
-  pointer-events: auto;
-  font-family: var(--font-mono);
-  letter-spacing: .2em;
-  font-size: var(--acad-fs-micro);
-  color: var(--acad-dim);
-  border: 1px solid var(--acad-hair);
-  border-radius: 99px;
-  padding: 8px 13px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: rgba(13,14,16,.5);
-  cursor: pointer;
-  transition: color .3s;
-  flex-shrink: 0;
-}
-.acad-vdot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--acad-teal);
-  box-shadow: 0 0 9px var(--acad-glow);
-  transition: all .3s;
-}
-#acad-voicebtn.acad-off { color: var(--acad-faint); }
-#acad-voicebtn.acad-off .acad-vdot { background: var(--acad-faint); box-shadow: none; }
 #acad-progress {
   position: absolute;
   left: 0; right: 0;
@@ -7914,9 +7888,6 @@ Privacy questions and data requests: <a href="mailto:abltyapp@gmail.com">abltyap
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
       </button>
       <div id="acad-brand">ABLTY</div>
-      <button id="acad-voicebtn" aria-label="Toggle narration">
-        <span class="acad-vdot"></span><span id="acad-voicelbl">VOICE ON</span>
-      </button>
     </div>
     <div id="acad-stage"></div>
     <div id="acad-progress"></div>
@@ -16502,7 +16473,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.08.13.3';
+const APP_VERSION = '2026.09.03.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -17617,28 +17588,11 @@ const ACAD_AMB = (() => {
 //     half-run lesson still mounting scenes onto a screen the user left.
 //   - Progress persists to localStorage instead of living in memory.
 // ═══════════════════════════════════════════════════════
-const ACAD_VOICE_KEY = 'ablty_academy_voice';
 const ACAD_PROG_KEY  = 'ablty_academy_progress';
 const ACAD_AOL_KEY   = 'ablty_academy_aol_log';
 const ACAD_INTRO_KEY = 'ablty_academy_intro_seen';
 // Every Academy key, in one place, so the purge lists cannot drift.
-const ACAD_STORAGE_KEYS = [ACAD_VOICE_KEY, ACAD_PROG_KEY, ACAD_AOL_KEY, ACAD_INTRO_KEY];
-
-let acadVoiceOn = true;
-
-function acadHush() {
-  if ('speechSynthesis' in window) { try { speechSynthesis.cancel(); } catch(e) {} }
-}
-
-function acadSetVoice(on) {
-  acadVoiceOn = !!on;
-  const btn = document.getElementById('acad-voicebtn');
-  const lbl = document.getElementById('acad-voicelbl');
-  if (btn) btn.classList.toggle('acad-off', !acadVoiceOn);
-  if (lbl) lbl.textContent = acadVoiceOn ? 'VOICE ON' : 'VOICE OFF';
-  store.set(ACAD_VOICE_KEY, acadVoiceOn ? '1' : '0');
-  if (!acadVoiceOn) acadHush();
-}
+const ACAD_STORAGE_KEYS = [ACAD_PROG_KEY, ACAD_AOL_KEY, ACAD_INTRO_KEY];
 
 const ACAD = (() => {
   // ── progress ────────────────────────────────────────
@@ -17745,29 +17699,9 @@ const ACAD = (() => {
   function chime() { tone(528, 0.6, 'sine', 0.12); setTimeout(() => tone(792, 0.7, 'sine', 0.07), 110); }
   function haptic(ms) { if (navigator.vibrate) { try { navigator.vibrate(ms); } catch(e) {} } }
 
-  // ── placeholder voice ───────────────────────────────
-  let ttsVoice = null;
-  function pickVoice() {
-    if (!('speechSynthesis' in window)) return;
-    const vs = speechSynthesis.getVoices();
-    if (!vs.length) return;
-    const pref = ['Ava','Daniel','Alex','Evan','Nathan','Google UK English Male','Google US English'];
-    for (const n of pref) { const v = vs.find(x => x.name.includes(n)); if (v) { ttsVoice = v; return; } }
-    ttsVoice = vs.find(v => /en[-_]/i.test(v.lang)) || vs[0];
-  }
-  if ('speechSynthesis' in window) { speechSynthesis.onvoiceschanged = pickVoice; pickVoice(); }
-
-  function speak(text) {
-    if (!acadVoiceOn || !('speechSynthesis' in window)) return;
-    try {
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text);
-      if (ttsVoice) u.voice = ttsVoice;
-      u.rate = 0.88; u.pitch = 0.82;
-      speechSynthesis.speak(u);
-    } catch(e) {}
-  }
-  const hush = acadHush;
+  // Voiceover is post-launch. speak/hush stay as no-ops so lesson call sites are unchanged.
+  function speak() {}
+  function hush() {}
 
   // ── dom helpers ─────────────────────────────────────
   const stage = () => document.getElementById('acad-stage');
@@ -18571,10 +18505,6 @@ const ACAD = (() => {
     await mount(w);
     await waitTap();
     initAudio();
-    // Priming utterance: iOS will not speak later without a gesture-time call.
-    if (acadVoiceOn && 'speechSynthesis' in window) {
-      try { const u = new SpeechSynthesisUtterance(' '); u.volume = 0; speechSynthesis.speak(u); } catch(e) {}
-    }
   }
 
   async function openSequence() {
@@ -19224,10 +19154,6 @@ const ACAD = (() => {
   // ── wiring ──────────────────────────────────────────
   function wire() {
     loadProgress();
-    acadSetVoice(store.get(ACAD_VOICE_KEY) !== '0');
-
-    const voice = document.getElementById('acad-voicebtn');
-    if (voice) voice.addEventListener('click', () => acadSetVoice(!acadVoiceOn));
 
     const exitBtn = document.getElementById('acad-exit-btn');
     if (exitBtn) exitBtn.addEventListener('click', onExit);
