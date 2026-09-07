@@ -4,8 +4,9 @@
 
 **Created:** 2026-08-23, from a live audit of the repo, the deployed Worker, and the Supabase database.
 **Rewritten:** 2026-09-03, after a second live audit of `main` (`54ec92f`) plus Johnny's product decisions. The 2026-08-23 claims that were wrong are corrected here, not left as history.
-**App version at rewrite:** 2026.08.13.3 / sw cache ablty-v69
-**Status:** Phase 0 not started. Task 0.1b is this PR.
+**Status synced:** 2026-09-07, against `main` after #121, #122, and #123 merged.
+**App version on main:** 2026.09.03.1 / sw cache ablty-v70
+**Status:** Phase 0 in progress. Next: 0.1 (high-thinking model). Done: 0.1b (#122), 0.3 (#123).
 
 ---
 
@@ -30,7 +31,7 @@ The app is launch ready when all of the following are true:
 3. **It feels full, not beta.** Two psi test modules (Zener, Presentiment), a complete Academy Stage I, an 80-target RV pool with unique images, Dream Lab with enough reading content to last, and no screen that promises something that does not exist.
 4. **The front door matches reality.** The landing page sells installing a live app, not joining a waitlist.
 
-Launch does not require: Daily Community RV Challenge, Signal Scanner, Academy voiceover, Academy Stages II through VI, Ganzfeld, rank-order judging, CRV structured session mode, the typography migration, Capacitor, or Play Store. Those are post-launch. See the parking lot.
+Launch does not require: Daily Community RV Challenge, Signal Scanner, PK Arena, Academy voiceover, Academy Stages II through VI, Ganzfeld, rank-order judging, CRV structured session mode, the typography migration, Capacitor, or Play Store. Those are post-launch. See the parking lot.
 
 ---
 
@@ -39,9 +40,9 @@ Launch does not require: Daily Community RV Challenge, Signal Scanner, Academy v
 | # | Task | Why | Status | PR | Notes |
 |---|---|---|---|---|---|
 | 0.1 | Signup completeness, in one PR: (a) `auth.users` trigger that inserts `public.profiles` and `public.user_settings` with `ON CONFLICT DO NOTHING`; (b) change `onSignedIn` so legal-acceptance fields are written onto an existing profile when they are null (today they are written only inside `if (!profile)`, so a trigger-created row would never get consent); (c) a small RPC/function, callable by anon, that answers only whether a username is taken, and wire the signup form to show "That username is already being used. Try another."; (d) commit the live-but-untracked schema into `supabase/migrations` (`is_tester`, `community_rv_targets`, `public_usernames` view, and the three early migrations missing from the folder). No orphan backfill. | Profiles are created client-side today. Interrupted signups leave auth accounts with no profile. The username-taken check currently queries `profiles` as anon against an own-row SELECT policy, so it always returns empty and every name looks free. Collisions only surface later as `seeker_xxxx`. A trigger without the legal-write change silently drops consent recording. The repo migrations folder is not a full record of the live database; `community_rv_targets` and `public_usernames` must be tracked because the Daily Community RV Challenge is coming. | [ ] | | Trigger must derive a unique username from `raw_user_meta_data.username`, falling back to `seeker_<8 chars>` only for a same-second race. Do not backfill named orphans: live check on 2026-09-03 found 5 auth users, 5 profiles, 5 settings, 0 orphans. `coryy418` and `gogogonzoflow` no longer exist. Use `apply_migration`. Document that `public_usernames` is SECURITY DEFINER on purpose (leaderboard + availability). |
-| 0.1b | Point `CLAUDE.md` at this file. Rename `LAUNCH-PLAN-3.md` → `LAUNCH-PLAN.md`. Strip stale `robots.txt` disallows for docs that were already deleted. | Claude Code reads `CLAUDE.md` automatically. The six superseded docs were already deleted from the repo; the pointer and the filename were the remaining work. | [x] | this PR | Docs already gone on `main` before this rewrite. |
+| 0.1b | Point `CLAUDE.md` at this file. Rename `LAUNCH-PLAN-3.md` → `LAUNCH-PLAN.md`. Strip stale `robots.txt` disallows for docs that were already deleted. | Claude Code reads `CLAUDE.md` automatically. The six superseded docs were already deleted from the repo; the pointer and the filename were the remaining work. | [x] | [#122](https://github.com/Johnkay22/ABLTY/pull/122) | Merged 2026-09-04. |
 | 0.2 | Verify the password reset loop on a real phone: request, receive email via Resend, tap link, modal opens, set new password, sign in with it. | Code exists (`resetPasswordForEmail` → `/app.html`, `PASSWORD_RECOVERY` opens the change-password modal) but has never been verified end to end. If broken, locked-out users leave. Verification only, no code unless it fails. | [ ] | n/a | |
-| 0.3 | Remove the Academy "VOICE ON/OFF" toggle and all browser `speechSynthesis` narration. Keep lesson copy and Web Audio tones/haptics. Three version bumps. | The toggle promises produced narration and currently drives the phone's built-in TTS. Johnny is shipping Stage I silent at launch; ElevenLabs voiceover is post-launch. | [ ] | | Next PR after this rewrite. Keep empty `speak`/`hush` no-ops or delete call sites without changing lesson flow. Also drop `ACAD_VOICE_KEY` from `ACAD_STORAGE_KEYS`. |
+| 0.3 | Remove the Academy "VOICE ON/OFF" toggle and all browser `speechSynthesis` narration. Keep lesson copy and Web Audio tones/haptics. Three version bumps. | The toggle promised produced narration and drove the phone's built-in TTS. Stage I ships silent at launch; ElevenLabs voiceover is post-launch. | [x] | [#123](https://github.com/Johnkay22/ABLTY/pull/123) | Merged 2026-09-04. Toggle, TTS, and `ablty_academy_voice` are gone. `speak`/`hush` remain no-ops. Version `2026.09.03.1` / `ablty-v70`. Not device-verified (headless Chrome only). |
 
 ---
 
@@ -111,17 +112,18 @@ In recommended order:
 2. Academy progress cloud sync (today device-local `ablty_academy_progress`; loss on app-delete becomes real once Stage II ships)
 3. Academy Stage II onward, releasing stage by stage
 4. Signal Scanner as a third psi test. **Do not treat `signal-scanner-prototype.html` as a finished module.** It is a 15-second UI shell: exactly 3 zones, zone positions from `Math.random()`, unused crypto seed, no hit detection, no chance baseline, no lifetime stats, no storage, sync, analytics, export, or delete-account coverage. Needs a scoring spec from Johnny (hit definition, zone count, RNG, baseline, verdicts) before any build.
-5. Academy voiceover via ElevenLabs (pre-generated files, never live API). The browser TTS path is being removed in 0.3.
-6. Ganzfeld Link paired telepathy protocol
-7. Rank-order blind judging rebuild
-8. CRV structured session mode
-9. Pre-Session Warm-Up integration (Box Breathing plus Pink Noise, v3 spec drafted)
-10. Legal acceptance server-side write (move off the client). Not needed for the 2.1 price change.
-11. Landing page SEO pass
-12. App-wide typography migration (Saira, Saira Condensed, Share Tech Mono)
-13. Google Cloud/Firebase cleanup
-14. Capacitor native app, Ability Profile, leaderboards, Play Store TWA (Play Store waits for validated web revenue)
-15. OBE module (currently teased on the landing page; either build or stop teasing)
+5. PK Arena. Standalone prototype at `pk-arena-prototype.html` (Cascade, Drift, Emerge), merged in [#121](https://github.com/Johnkay22/ABLTY/pull/121). Zero references in `app.html`. Same class of work as Signal Scanner: do not treat the prototype as a shippable module. Johnny has not scoped it for launch.
+6. Academy voiceover via ElevenLabs (pre-generated files, never live API). Browser TTS was removed in 0.3 (#123).
+7. Ganzfeld Link paired telepathy protocol
+8. Rank-order blind judging rebuild
+9. CRV structured session mode
+10. Pre-Session Warm-Up integration (Box Breathing plus Pink Noise, v3 spec drafted)
+11. Legal acceptance server-side write (move off the client). Not needed for the 2.1 price change.
+12. Landing page SEO pass
+13. App-wide typography migration (Saira, Saira Condensed, Share Tech Mono)
+14. Google Cloud/Firebase cleanup
+15. Capacitor native app, Ability Profile, leaderboards, Play Store TWA (Play Store waits for validated web revenue)
+16. OBE module (currently teased on the landing page; either build or stop teasing)
 
 ---
 
@@ -134,7 +136,7 @@ Add new findings here with date found. Move to a phase table only if launch-bloc
 - 2026-09-03: T042 and T064 are the same image. Handled by 3.4.
 - 2026-09-03: `confirmDeleteAccount` local purge omits `ablty_rc`, `ablty_rc_streak`, `ablty_rc_sessions`, `ablty_wbtb`, `ablty_wbtb_protocol`, `ablty_wbtb_guest_sessions`, and lists a non-existent `ablty_rc_settings`. Worker delete-account omits `wbtb_sessions` (safe only because that FK is CASCADE). Fold into a polish/delete-account PR, not a side quest.
 - 2026-09-03: Supabase advisors: `public_usernames` SECURITY DEFINER (keep, document in 0.1), mutable `search_path` on both profile trigger functions (WARN, fix when touching those functions), leaked-password protection off (enable in the Auth dashboard, no code).
-- 2026-09-03: `sw.js` line 1 comment still says "v53" while `CACHE_NAME` is `ablty-v69`. Harmless; fix whenever the cache is bumped.
+- 2026-09-03: `sw.js` line 1 comment still said "v53" while `CACHE_NAME` was `ablty-v69`. Fixed in #123 (`ablty-v70`).
 
 ---
 
@@ -146,7 +148,7 @@ Add new findings here with date found. Move to a phase table only if launch-bloc
 **Stripe:** TEST mode until task 4.4
 **Gemini model:** `gemini-2.5-flash` (grading and dream tagging)
 **Email:** Resend, smtp.resend.com:465
-**Live app version (2026-09-03):** 2026.08.13.3 / `ablty-v69`
+**Live app version (2026-09-07, repo `main`):** 2026.09.03.1 / `ablty-v70`
 
 **Tester provisioning SQL (`profiles` has NO email column, must join `auth.users`):**
 ```sql
