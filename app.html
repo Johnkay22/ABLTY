@@ -15152,24 +15152,24 @@ async function onSignedIn(user) {
     let profile = null;
     const { data: existingProfile } = await sb
       .from('profiles')
-      .select('username, tier, username_changed_at')
+      .select('username, tier, username_changed_at, terms_accepted_at, privacy_accepted_at')
       .eq('id', user.id)
       .maybeSingle();
     profile = existingProfile || null;
 
-    if (!profile) {
-      const _legalRaw = localStorage.getItem('ablty_pending_legal_acceptance');
-      let _legalFields = {};
-      if (_legalRaw) {
-        try {
-          const d = JSON.parse(_legalRaw);
-          _legalFields = { terms_accepted_at: d.at, terms_version: d.version, privacy_accepted_at: d.at, privacy_version: d.version };
-        } catch (e) {
-          console.warn('[ABLTY] Corrupt ablty_pending_legal_acceptance, clearing.', e);
-          localStorage.removeItem('ablty_pending_legal_acceptance');
-        }
+    const _legalRaw = localStorage.getItem('ablty_pending_legal_acceptance');
+    let _legalFields = {};
+    if (_legalRaw) {
+      try {
+        const d = JSON.parse(_legalRaw);
+        _legalFields = { terms_accepted_at: d.at, terms_version: d.version, privacy_accepted_at: d.at, privacy_version: d.version };
+      } catch (e) {
+        console.warn('[ABLTY] Corrupt ablty_pending_legal_acceptance, clearing.', e);
+        localStorage.removeItem('ablty_pending_legal_acceptance');
       }
+    }
 
+    if (!profile) {
       let chosen = desiredUsername;
       let { error: createErr } = await sb
         .from('profiles')
@@ -15193,6 +15193,26 @@ async function onSignedIn(user) {
         .eq('id', user.id)
         .maybeSingle();
       profile = ensuredProfile || (createErr ? null : { username: chosen, tier: 'free', username_changed_at: '' });
+    } else if (_legalFields.terms_accepted_at && (!profile.terms_accepted_at || !profile.privacy_accepted_at)) {
+      // The row already exists (created by the auth.users trigger, or by an
+      // earlier interrupted signup) but has never had consent recorded. Write
+      // only the fields that are still null so a prior acceptance is never
+      // overwritten. Without this branch a trigger-created profile would
+      // silently lose the legal acceptance the user just gave.
+      const legalPatch = {};
+      if (!profile.terms_accepted_at) {
+        legalPatch.terms_accepted_at = _legalFields.terms_accepted_at;
+        legalPatch.terms_version = _legalFields.terms_version;
+      }
+      if (!profile.privacy_accepted_at) {
+        legalPatch.privacy_accepted_at = _legalFields.privacy_accepted_at;
+        legalPatch.privacy_version = _legalFields.privacy_version;
+      }
+      const { error: legalErr } = await sb
+        .from('profiles')
+        .update(legalPatch)
+        .eq('id', user.id);
+      if (legalErr) console.warn('[AUTH] Could not record legal acceptance on existing profile:', legalErr.message);
     }
 
     if (profile) {
@@ -15671,16 +15691,22 @@ async function handleSignup() {
     return;
   }
 
-  const { data: existingUsers } = await sb
-    .from('profiles')
-    .select('id')
-    .eq('username', username)
-    .limit(1);
-
-  if (existingUsers && existingUsers.length) {
-    setAuthError('signup-username','signup-username-err', 'That username is already taken');
-    if (btn) btn.disabled = false;
-    return;
+  // Availability comes from the anon-callable RPC username_is_taken (exact,
+  // case-sensitive match, identical to the UNIQUE constraint on profiles.username).
+  // Reading profiles directly here can never work: the SELECT policy is own-row
+  // only and auth.uid() is null before signup. If the RPC is unavailable we do
+  // not block signup; the constraint plus the seeker_ fallback still hold.
+  try {
+    const { data: taken, error: takenErr } = await sb.rpc('username_is_taken', { check_username: username });
+    if (takenErr) {
+      console.warn('[AUTH] username_is_taken unavailable, deferring to database uniqueness:', takenErr.message);
+    } else if (taken === true) {
+      setAuthError('signup-username','signup-username-err', 'That username is already being used. Try another.');
+      if (btn) btn.disabled = false;
+      return;
+    }
+  } catch (e) {
+    console.warn('[AUTH] username_is_taken failed, deferring to database uniqueness:', e?.message || e);
   }
 
   const { data, error } = await sb.auth.signUp({
@@ -16473,7 +16499,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.09.03.1';
+const APP_VERSION = '2026.09.11.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
