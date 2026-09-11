@@ -2,10 +2,12 @@
 --
 -- Both exist live but appear in no migration. The Daily Community RV Challenge
 -- (post-launch parking lot item 1) depends on both, so they must be tracked.
--- This migration is idempotent and, against the live database, a no-op: every
--- statement re-creates exactly what is already there. It is safe to apply at
--- any point in the 0.1 rollout, and the old and new app.html are indifferent
--- to it (neither reads these objects today).
+-- This migration is idempotent. Against the live database every statement
+-- re-creates what is already there, except the REVOKE on public_usernames at
+-- the end, which is the one intended change: it removes write privileges that
+-- client roles never needed. It is safe to apply at any point in the 0.1
+-- rollout; the old and new app.html are indifferent to it (neither reads or
+-- writes these objects today).
 --
 -- ---------------------------------------------------------------------------
 -- community_rv_targets
@@ -56,11 +58,19 @@ CREATE POLICY "Revealed targets are public" ON public.community_rv_targets
 -- public.username_is_taken(text) (20260911000002), which returns a boolean
 -- only and never lists names.
 --
--- Client roles only ever need SELECT on this view. Supabase's default grants
--- give them more than that; tightening the grants to SELECT-only is logged in
--- LAUNCH-PLAN.md DISCOVERED ISSUES (2026-09-11) and is deliberately not done
--- in this tracking-only migration.
+-- Client roles only ever need SELECT on this view, so the REVOKE below limits
+-- anon and authenticated to exactly that. Supabase's default grants had given
+-- them the full set, and because a simple single-table view is auto-updatable
+-- and a non-security_invoker view is permission-checked as its owner, those
+-- extra grants allowed writes to reach profiles past its own-row RLS. Nothing
+-- in app.html or the Worker writes through the view, so the REVOKE has no
+-- functional effect on the app. Leaderboards and community features keep
+-- SELECT. service_role keeps its grants (it bypasses RLS anyway).
 
 CREATE OR REPLACE VIEW public.public_usernames AS
   SELECT id, username
   FROM public.profiles;
+
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
+  ON public.public_usernames FROM anon, authenticated;
+GRANT SELECT ON public.public_usernames TO anon, authenticated;
