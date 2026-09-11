@@ -9585,7 +9585,7 @@ async function hydrateProfileFromSession(user) {
   try {
     const { data: profile } = await sb
       .from('profiles')
-      .select('username, tier, username_changed_at')
+      .select('username, tier, username_changed_at, terms_accepted_at, privacy_accepted_at')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -9593,6 +9593,11 @@ async function hydrateProfileFromSession(user) {
       localStorage.setItem('ablty_username', profile.username || localStorage.getItem('ablty_username') || 'Seeker');
       localStorage.setItem('ablty_tier', profile.tier || localStorage.getItem('ablty_tier') || 'free');
       localStorage.setItem('ablty_username_changed_at', profile.username_changed_at || localStorage.getItem('ablty_username_changed_at') || '');
+      // Retry path: a legal acceptance whose write failed during sign-in is
+      // still in localStorage; record it on session restore / token refresh.
+      if (localStorage.getItem('ablty_pending_legal_acceptance') && typeof recordPendingLegalAcceptance === 'function') {
+        await recordPendingLegalAcceptance(user, profile);
+      }
     }
     localStorage.setItem('ablty_logged_in', '1');
     if (user?.email) localStorage.setItem('ablty_user_email', String(user.email));
@@ -15066,6 +15071,106 @@ function obStartZener() {
 
 
 // ── AUTH SCREENS ──────────────────────────────────────
+
+// Pending legal acceptance lives in localStorage between the moment the user
+// ticks the Terms box and the moment it is written to their profile row. It is
+// the only copy of that consent until then, so it is (a) removed only after a
+// confirmed write and (b) tied to the account that gave it (userId, or email
+// before an id exists) so it can never be recorded against someone else.
+function normalizeEmailForLegal(v) {
+  return String(v || '').trim().toLowerCase();
+}
+
+// Returns the parsed record, or null. A corrupt record is warned about and
+// removed, matching the long-standing behaviour.
+function readPendingLegalAcceptance() {
+  const raw = localStorage.getItem('ablty_pending_legal_acceptance');
+  if (!raw) return null;
+  try {
+    const d = JSON.parse(raw);
+    if (!d || typeof d !== 'object' || !d.at || !d.version) throw new Error('missing at/version');
+    return d;
+  } catch (e) {
+    console.warn('[ABLTY] Corrupt ablty_pending_legal_acceptance, clearing.', e);
+    localStorage.removeItem('ablty_pending_legal_acceptance');
+    return null;
+  }
+}
+
+// Writes/updates the record. Keeps the original acceptance time if one exists;
+// owner fields are only ever added, never blanked.
+function setPendingLegalAcceptance(owner) {
+  const existing = readPendingLegalAcceptance();
+  const rec = {
+    at: (existing && existing.at) || new Date().toISOString(),
+    version: '2026-07-19',
+  };
+  const userId = (owner && owner.userId) || (existing && existing.userId) || '';
+  const email = normalizeEmailForLegal((owner && owner.email) || (existing && existing.email) || '');
+  if (userId) rec.userId = String(userId);
+  if (email) rec.email = email;
+  localStorage.setItem('ablty_pending_legal_acceptance', JSON.stringify(rec));
+  return rec;
+}
+
+// true  = belongs to this user; false = belongs to someone else;
+// null  = no owner recorded (legacy record from an older app version).
+function pendingLegalAcceptanceBelongsTo(rec, user) {
+  if (!rec || !user) return false;
+  if (rec.userId) return String(rec.userId) === String(user.id || '');
+  if (rec.email) return normalizeEmailForLegal(rec.email) === normalizeEmailForLegal(user.email);
+  return null;
+}
+
+// Resolves the pending record against the signed-in user. Returns the four
+// profile columns to write, or null when there is nothing safe to write.
+// Ownerless records are discarded; someone else's record is left alone.
+function pendingLegalFieldsFor(user) {
+  const rec = readPendingLegalAcceptance();
+  if (!rec) return null;
+  const owned = pendingLegalAcceptanceBelongsTo(rec, user);
+  if (owned === null) {
+    console.warn('[AUTH] Pending legal acceptance has no owner (legacy record); discarding it without recording it.');
+    localStorage.removeItem('ablty_pending_legal_acceptance');
+    return null;
+  }
+  if (!owned) {
+    console.warn('[AUTH] Pending legal acceptance belongs to a different account; not recording it for user', user.id);
+    return null;
+  }
+  return { terms_accepted_at: rec.at, terms_version: rec.version, privacy_accepted_at: rec.at, privacy_version: rec.version };
+}
+
+// Writes the owned pending acceptance onto an EXISTING profile row when its
+// legal fields are null. Returns true only when the acceptance is known to be
+// persisted (written now, or already present), which is the only condition
+// under which the local copy may be removed.
+async function recordPendingLegalAcceptance(user, profile) {
+  if (!sb || !user || !profile) return false;
+  const legalFields = pendingLegalFieldsFor(user);
+  if (!legalFields) return false;
+  const patch = {};
+  if (!profile.terms_accepted_at) {
+    patch.terms_accepted_at = legalFields.terms_accepted_at;
+    patch.terms_version = legalFields.terms_version;
+  }
+  if (!profile.privacy_accepted_at) {
+    patch.privacy_accepted_at = legalFields.privacy_accepted_at;
+    patch.privacy_version = legalFields.privacy_version;
+  }
+  if (!Object.keys(patch).length) {
+    localStorage.removeItem('ablty_pending_legal_acceptance');
+    return true;
+  }
+  const { error } = await sb.from('profiles').update(patch).eq('id', user.id);
+  if (error) {
+    console.warn('[AUTH] Could not record legal acceptance on existing profile; keeping it for retry:', error.message);
+    return false;
+  }
+  localStorage.removeItem('ablty_pending_legal_acceptance');
+  return true;
+}
+
 function onSignupTosChange(cb) {
   const checked = cb.checked;
   const btn = document.getElementById('signup-btn');
@@ -15075,7 +15180,10 @@ function onSignupTosChange(cb) {
   if (gate) gate.style.opacity = checked ? '' : '0.4';
   if (overlay) overlay.style.display = checked ? 'none' : '';
   if (checked) {
-    localStorage.setItem('ablty_pending_legal_acceptance', JSON.stringify({ at: new Date().toISOString(), version: '2026-07-19' }));
+    // No account exists yet; the email typed so far is the only identifier.
+    // handleSignup replaces this with the real user id once signUp returns.
+    localStorage.removeItem('ablty_pending_legal_acceptance');
+    setPendingLegalAcceptance({ email: document.getElementById('signup-email')?.value || '' });
   } else {
     localStorage.removeItem('ablty_pending_legal_acceptance');
   }
@@ -15157,34 +15265,30 @@ async function onSignedIn(user) {
       .maybeSingle();
     profile = existingProfile || null;
 
-    const _legalRaw = localStorage.getItem('ablty_pending_legal_acceptance');
-    let _legalFields = {};
-    if (_legalRaw) {
-      try {
-        const d = JSON.parse(_legalRaw);
-        _legalFields = { terms_accepted_at: d.at, terms_version: d.version, privacy_accepted_at: d.at, privacy_version: d.version };
-      } catch (e) {
-        console.warn('[ABLTY] Corrupt ablty_pending_legal_acceptance, clearing.', e);
-        localStorage.removeItem('ablty_pending_legal_acceptance');
-      }
-    }
-
     if (!profile) {
+      // Only an acceptance that belongs to THIS user is included in the row.
+      // Someone else's pending record is left in localStorage untouched.
+      const legalFields = pendingLegalFieldsFor(user) || {};
       let chosen = desiredUsername;
       let { error: createErr } = await sb
         .from('profiles')
-        .upsert({ id: user.id, username: chosen, tier: 'free', ..._legalFields }, { onConflict: 'id' });
+        .upsert({ id: user.id, username: chosen, tier: 'free', ...legalFields }, { onConflict: 'id' });
 
       if (createErr && createErr.code === '23505' && chosen !== fallbackUsername) {
         chosen = fallbackUsername;
         const retry = await sb
           .from('profiles')
-          .upsert({ id: user.id, username: chosen, tier: 'free', ..._legalFields }, { onConflict: 'id' });
+          .upsert({ id: user.id, username: chosen, tier: 'free', ...legalFields }, { onConflict: 'id' });
         createErr = retry.error || null;
       }
 
       if (!createErr) {
         await sb.from('user_settings').upsert({ user_id: user.id }, { onConflict: 'user_id' });
+        // The row (and the consent inside it) is persisted; the local copy is
+        // no longer the only one. On failure it stays for the next attempt.
+        if (legalFields.terms_accepted_at) localStorage.removeItem('ablty_pending_legal_acceptance');
+      } else if (legalFields.terms_accepted_at) {
+        console.warn('[AUTH] Profile creation failed; keeping pending legal acceptance for retry:', createErr.message);
       }
 
       const { data: ensuredProfile } = await sb
@@ -15193,26 +15297,15 @@ async function onSignedIn(user) {
         .eq('id', user.id)
         .maybeSingle();
       profile = ensuredProfile || (createErr ? null : { username: chosen, tier: 'free', username_changed_at: '' });
-    } else if (_legalFields.terms_accepted_at && (!profile.terms_accepted_at || !profile.privacy_accepted_at)) {
+    } else {
       // The row already exists (created by the auth.users trigger, or by an
-      // earlier interrupted signup) but has never had consent recorded. Write
-      // only the fields that are still null so a prior acceptance is never
-      // overwritten. Without this branch a trigger-created profile would
-      // silently lose the legal acceptance the user just gave.
-      const legalPatch = {};
-      if (!profile.terms_accepted_at) {
-        legalPatch.terms_accepted_at = _legalFields.terms_accepted_at;
-        legalPatch.terms_version = _legalFields.terms_version;
-      }
-      if (!profile.privacy_accepted_at) {
-        legalPatch.privacy_accepted_at = _legalFields.privacy_accepted_at;
-        legalPatch.privacy_version = _legalFields.privacy_version;
-      }
-      const { error: legalErr } = await sb
-        .from('profiles')
-        .update(legalPatch)
-        .eq('id', user.id);
-      if (legalErr) console.warn('[AUTH] Could not record legal acceptance on existing profile:', legalErr.message);
+      // earlier interrupted signup). If this user's acceptance is still only
+      // in localStorage, write it onto the null fields now. The local copy is
+      // removed inside recordPendingLegalAcceptance only after a confirmed
+      // write; a failed write keeps it so the next sign-in or session
+      // restore retries. Without this a trigger-created profile would lose
+      // the acceptance the user just gave.
+      await recordPendingLegalAcceptance(user, profile);
     }
 
     if (profile) {
@@ -15221,7 +15314,6 @@ async function onSignedIn(user) {
       changedAt = profile.username_changed_at || '';
     }
     localStorage.removeItem('ablty_pending_username');
-    localStorage.removeItem('ablty_pending_legal_acceptance');
   } catch(e) {}
 
   localStorage.setItem('ablty_logged_in', '1');
@@ -15740,7 +15832,10 @@ async function handleSignup() {
   if (data?.user?.id) {
     // Persist desired username for first confirmed sign-in profile provisioning.
     localStorage.setItem('ablty_pending_username', username);
-    localStorage.setItem('ablty_pending_legal_acceptance', JSON.stringify({ at: new Date().toISOString(), version: '2026-07-19' }));
+    // Tie the acceptance to the account that just gave it. onSignedIn only
+    // records a pending acceptance onto the profile whose user id (or, for
+    // pre-id records, email) matches.
+    setPendingLegalAcceptance({ userId: data.user.id, email });
   }
 
   if (data?.session?.user && typeof onSignedIn === 'function') {
@@ -15831,7 +15926,25 @@ function initGoogleSignIn() {
       }
 
       localStorage.removeItem('ablty_guest_mode');
-      if (data?.user) await onSignedIn(data.user);
+      if (data?.user) {
+        // Google creates the account here, not via signUp, so this is the
+        // first moment the Terms acceptance ticked on the signup screen can
+        // be tied to a user id. A record is claimed only if it has no id yet
+        // AND either its email matches this Google account, or it has no
+        // email and the signup screen whose checkbox created it is the one
+        // currently open. Anything else is left alone for onSignedIn to judge.
+        const pendingLegal = readPendingLegalAcceptance();
+        if (pendingLegal && !pendingLegal.userId) {
+          const emailMatches = !!pendingLegal.email
+            && normalizeEmailForLegal(pendingLegal.email) === normalizeEmailForLegal(data.user.email);
+          const fromThisSignupScreen = !pendingLegal.email
+            && !!document.getElementById('screen-signup')?.classList.contains('active');
+          if (emailMatches || fromThisSignupScreen) {
+            setPendingLegalAcceptance({ userId: data.user.id, email: data.user.email });
+          }
+        }
+        await onSignedIn(data.user);
+      }
       // Close any open auth or onboarding screens
       ['login','signup','forgot'].forEach(s => closeAuthScreen(s));
       skipOnboarding();
