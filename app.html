@@ -3234,6 +3234,12 @@ html, body {
   transition: opacity 0.2s ease;
 }
 .auth-screen.active { opacity: 1; pointer-events: all; }
+/* Consent gate: above the auth and onboarding screens, below the legal text modal */
+.auth-screen.legal-gate { z-index: 9994; }
+.legal-gate-text {
+  font-family: var(--font-body); font-size: 14px;
+  color: var(--muted); line-height: 1.65;
+}
 .auth-header {
   display: flex; align-items: center;
   padding: 56px 24px 0; gap: 16px; flex-shrink: 0;
@@ -9577,28 +9583,29 @@ function renderTileBadges() {
 function clearLocalAuthCache() {
   ['ablty_logged_in', 'ablty_username', 'ablty_tier', 'ablty_username_changed_at', 'ablty_user_email']
     .forEach((k) => localStorage.removeItem(k));
+  // No session means nobody is waiting at the consent gate.
+  if (_legalGate) resolveLegalGate(false);
   resetDreamJournalState();
 }
 
 async function hydrateProfileFromSession(user) {
   if (!sb || !user?.id) return;
   try {
-    const { data: profile } = await sb
-      .from('profiles')
-      .select('username, tier, username_changed_at, terms_accepted_at, privacy_accepted_at')
-      .eq('id', user.id)
-      .maybeSingle();
-
-    if (profile) {
-      localStorage.setItem('ablty_username', profile.username || localStorage.getItem('ablty_username') || 'Seeker');
-      localStorage.setItem('ablty_tier', profile.tier || localStorage.getItem('ablty_tier') || 'free');
-      localStorage.setItem('ablty_username_changed_at', profile.username_changed_at || localStorage.getItem('ablty_username_changed_at') || '');
-      // Retry path: a legal acceptance whose write failed during sign-in is
-      // still in localStorage; record it on session restore / token refresh.
-      if (localStorage.getItem('ablty_pending_legal_acceptance') && typeof recordPendingLegalAcceptance === 'function') {
-        await recordPendingLegalAcceptance(user, profile);
+    // ensureProfileRow also retries a legal acceptance whose write failed
+    // during sign-in (it is still stored under this user's key) on every
+    // session restore and token refresh.
+    const load = async () => {
+      const loaded = await ensureProfileRow(user);
+      const profile = loaded.profile;
+      if (profile) {
+        localStorage.setItem('ablty_username', profile.username || localStorage.getItem('ablty_username') || 'Seeker');
+        localStorage.setItem('ablty_tier', profile.tier || localStorage.getItem('ablty_tier') || 'free');
+        localStorage.setItem('ablty_username_changed_at', profile.username_changed_at || localStorage.getItem('ablty_username_changed_at') || '');
       }
-    }
+      return loaded;
+    };
+    const consentOk = await ensureLegalConsent(user, await load(), load);
+    if (!consentOk) return;
     localStorage.setItem('ablty_logged_in', '1');
     if (user?.email) localStorage.setItem('ablty_user_email', String(user.email));
   } catch (e) {}
@@ -10056,6 +10063,7 @@ async function confirmDeleteAccount() {
       'ablty_timestamp','ablty_timestamp_all','ablty_ts_cloud_cache','ablty_ts_pending',
       'ablty_photopair','ablty_pp_cloud_cache','ablty_pp_pending','ablty_rv_cloud_cache',
       'ablty_pending_username','ablty_pending_legal_acceptance',
+      'ablty_legal_verified', ...(session?.user?.id ? [legalPendingKey(session.user.id)] : []),
       'ablty_push_enabled','ablty_rc_settings',
       ...(typeof ACAD_STORAGE_KEYS !== 'undefined' ? ACAD_STORAGE_KEYS : [])
     ];
@@ -11412,6 +11420,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   try { loadState(); } catch(e) {}
   try { localStorage.removeItem('ablty_seeker'); } catch(e) {}
+  preflightLegalGate();
   checkAuthCallback();
   if (window.location.search.includes('payment=success')) {
     showToast('Welcome to ABLTY Premium.', 'success', 5000);
@@ -11435,6 +11444,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 300);
         return;
       }
+      if (event === 'INITIAL_SESSION' && !session?.user && _legalGate) resolveLegalGate(false);
       if ((event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') && session?.user) {
         hydrateProfileFromSession(session.user).then(() => {
           renderSettingsState();
@@ -15072,79 +15082,142 @@ function obStartZener() {
 
 // ── AUTH SCREENS ──────────────────────────────────────
 
-// Pending legal acceptance lives in localStorage between the moment the user
-// ticks the Terms box and the moment it is written to their profile row. It is
-// the only copy of that consent until then, so it is (a) removed only after a
-// confirmed write and (b) tied to the account that gave it (userId, or email
-// before an id exists) so it can never be recorded against someone else.
+// ── LEGAL ACCEPTANCE (Terms + Privacy) ────────────────
+//
+// Three localStorage records, each with one clear owner and one clear rule
+// for when it may be removed:
+//
+//  * LEGAL_DRAFT_KEY            An UNSUBMITTED tick of the Terms box on the
+//                               signup screen. No account exists yet, so it
+//                               belongs to nobody. It is consumed the moment
+//                               an account is created (bindPendingLegalAcceptance)
+//                               and may be cleared whenever the signup form is
+//                               reset or the box is unticked.
+//  * legalPendingKey(userId)    An acceptance that DOES belong to an account
+//                               but has not yet been confirmed in the database.
+//                               It is the only copy of that consent, so it is
+//                               removed only after a confirmed write for that
+//                               same user id, or if it is corrupt. Opening the
+//                               signup screen, unticking the box, or another
+//                               account signing in never touches it.
+//  * LEGAL_VERIFIED_KEY         Cache that the database was seen to hold a
+//                               valid acceptance for {userId, version}. Lets an
+//                               already verified account keep working offline.
+//                               Any other user id or legal version misses.
+//
+// After authentication the profile row is the source of truth; local records
+// are only ever used to carry an acceptance through signup or to retry a
+// failed write. The consent gate (ensureLegalConsent) enforces that nobody
+// enters the signed-in app with null legal fields.
+const LEGAL_VERSION = '2026-07-19';
+const LEGAL_DRAFT_KEY = 'ablty_pending_legal_acceptance';
+const LEGAL_VERIFIED_KEY = 'ablty_legal_verified';
+
+function legalPendingKey(userId) {
+  return 'ablty_legal_acceptance_pending:' + String(userId || '');
+}
+
 function normalizeEmailForLegal(v) {
   return String(v || '').trim().toLowerCase();
 }
 
-// Returns the parsed record, or null. A corrupt record is warned about and
-// removed, matching the long-standing behaviour.
-function readPendingLegalAcceptance() {
-  const raw = localStorage.getItem('ablty_pending_legal_acceptance');
+// Parses one acceptance record. A corrupt record (unparseable, or missing the
+// acceptance time or version) is warned about and removed, matching the
+// long-standing behaviour.
+function readLegalRecord(key) {
+  const raw = localStorage.getItem(key);
   if (!raw) return null;
   try {
     const d = JSON.parse(raw);
     if (!d || typeof d !== 'object' || !d.at || !d.version) throw new Error('missing at/version');
     return d;
   } catch (e) {
-    console.warn('[ABLTY] Corrupt ablty_pending_legal_acceptance, clearing.', e);
-    localStorage.removeItem('ablty_pending_legal_acceptance');
+    console.warn('[ABLTY] Corrupt ' + key + ', clearing.', e);
+    localStorage.removeItem(key);
     return null;
   }
 }
 
-// Writes/updates the record. Keeps the original acceptance time if one exists;
-// owner fields are only ever added, never blanked.
-function setPendingLegalAcceptance(owner) {
-  const existing = readPendingLegalAcceptance();
-  const rec = {
-    at: (existing && existing.at) || new Date().toISOString(),
-    version: '2026-07-19',
-  };
-  const userId = (owner && owner.userId) || (existing && existing.userId) || '';
-  const email = normalizeEmailForLegal((owner && owner.email) || (existing && existing.email) || '');
-  if (userId) rec.userId = String(userId);
-  if (email) rec.email = email;
-  localStorage.setItem('ablty_pending_legal_acceptance', JSON.stringify(rec));
+function readLegalDraft() {
+  return readLegalRecord(LEGAL_DRAFT_KEY);
+}
+
+// The draft is written when the signup box is ticked. The tick time is kept
+// if the draft already exists; the email is only a hint for diagnostics and is
+// never used to decide ownership.
+function setLegalDraft(email) {
+  const existing = readLegalDraft();
+  const rec = { at: (existing && existing.at) || new Date().toISOString(), version: LEGAL_VERSION };
+  const em = normalizeEmailForLegal(email);
+  if (em) rec.email = em;
+  localStorage.setItem(LEGAL_DRAFT_KEY, JSON.stringify(rec));
   return rec;
 }
 
-// true  = belongs to this user; false = belongs to someone else;
-// null  = no owner recorded (legacy record from an older app version).
-function pendingLegalAcceptanceBelongsTo(rec, user) {
-  if (!rec || !user) return false;
-  if (rec.userId) return String(rec.userId) === String(user.id || '');
-  if (rec.email) return normalizeEmailForLegal(rec.email) === normalizeEmailForLegal(user.email);
-  return null;
+function clearLegalDraft() {
+  localStorage.removeItem(LEGAL_DRAFT_KEY);
 }
 
-// Resolves the pending record against the signed-in user. Returns the four
-// profile columns to write, or null when there is nothing safe to write.
-// Ownerless records are discarded; someone else's record is left alone.
-function pendingLegalFieldsFor(user) {
-  const rec = readPendingLegalAcceptance();
+// Reads the owner-bound record for one user id. A record stored under a
+// user's key but carrying a different user id is invalid and is removed.
+function readPendingLegalAcceptance(userId) {
+  if (!userId) return null;
+  const key = legalPendingKey(userId);
+  const rec = readLegalRecord(key);
   if (!rec) return null;
-  const owned = pendingLegalAcceptanceBelongsTo(rec, user);
-  if (owned === null) {
-    console.warn('[AUTH] Pending legal acceptance has no owner (legacy record); discarding it without recording it.');
-    localStorage.removeItem('ablty_pending_legal_acceptance');
+  if (String(rec.userId || '') !== String(userId)) {
+    console.warn('[AUTH] Pending legal acceptance record does not match its owner key; discarding it without recording it.');
+    localStorage.removeItem(key);
     return null;
   }
-  if (!owned) {
-    console.warn('[AUTH] Pending legal acceptance belongs to a different account; not recording it for user', user.id);
-    return null;
-  }
+  return rec;
+}
+
+// Called at the moment an account is created (signUp returned a user id, or
+// Google created the user from the signup screen). Moves the draft into the
+// owner-bound record for that user, keeping the tick time. Returns the bound
+// record, or null when there was no draft to bind.
+function bindPendingLegalAcceptance(user) {
+  if (!user || !user.id) return null;
+  const draft = readLegalDraft();
+  if (!draft) return null;
+  const rec = { at: draft.at, version: draft.version, userId: String(user.id) };
+  const em = normalizeEmailForLegal(user.email || draft.email);
+  if (em) rec.email = em;
+  localStorage.setItem(legalPendingKey(user.id), JSON.stringify(rec));
+  clearLegalDraft();
+  return rec;
+}
+
+// The four profile columns for this user's owned pending acceptance, or null
+// when there is nothing safe to write. Only the record stored under this
+// user's own key is ever considered; other accounts' records are invisible.
+function pendingLegalFieldsFor(user) {
+  const rec = readPendingLegalAcceptance(user && user.id);
+  if (!rec) return null;
   return { terms_accepted_at: rec.at, terms_version: rec.version, privacy_accepted_at: rec.at, privacy_version: rec.version };
+}
+
+// A draft that is still present when someone signs in from anywhere other than
+// the signup screen was never submitted with an account, so it can never be
+// recorded for anyone. This also retires ownerless records left by older app
+// versions, which are discarded rather than guessed at.
+function discardUnboundLegalDraft() {
+  if (!localStorage.getItem(LEGAL_DRAFT_KEY)) return;
+  if (document.getElementById('screen-signup')?.classList.contains('active')) return;
+  console.warn('[AUTH] Discarding an unsubmitted legal acceptance draft that was never tied to an account; it is not recorded.');
+  clearLegalDraft();
+}
+
+function profileHasLegalAcceptance(profile) {
+  return !!(profile && profile.terms_accepted_at && profile.privacy_accepted_at);
 }
 
 // Writes the owned pending acceptance onto an EXISTING profile row when its
 // legal fields are null. Returns true only when the acceptance is known to be
 // persisted (written now, or already present), which is the only condition
-// under which the local copy may be removed.
+// under which the local copy may be removed. On success the passed profile
+// object is updated so callers see the persisted state.
 async function recordPendingLegalAcceptance(user, profile) {
   if (!sb || !user || !profile) return false;
   const legalFields = pendingLegalFieldsFor(user);
@@ -15159,7 +15232,7 @@ async function recordPendingLegalAcceptance(user, profile) {
     patch.privacy_version = legalFields.privacy_version;
   }
   if (!Object.keys(patch).length) {
-    localStorage.removeItem('ablty_pending_legal_acceptance');
+    localStorage.removeItem(legalPendingKey(user.id));
     return true;
   }
   const { error } = await sb.from('profiles').update(patch).eq('id', user.id);
@@ -15167,8 +15240,239 @@ async function recordPendingLegalAcceptance(user, profile) {
     console.warn('[AUTH] Could not record legal acceptance on existing profile; keeping it for retry:', error.message);
     return false;
   }
-  localStorage.removeItem('ablty_pending_legal_acceptance');
+  Object.assign(profile, patch);
+  localStorage.removeItem(legalPendingKey(user.id));
   return true;
+}
+
+// ── Verified-acceptance cache (offline continuity) ────
+function readLegalVerified() {
+  const raw = localStorage.getItem(LEGAL_VERIFIED_KEY);
+  if (!raw) return null;
+  try {
+    const d = JSON.parse(raw);
+    if (!d || typeof d !== 'object' || !d.userId || !d.version) throw new Error('missing userId/version');
+    return d;
+  } catch (e) {
+    console.warn('[ABLTY] Corrupt ' + LEGAL_VERIFIED_KEY + ', clearing.', e);
+    localStorage.removeItem(LEGAL_VERIFIED_KEY);
+    return null;
+  }
+}
+
+function markLegalVerified(userId) {
+  if (!userId) return;
+  localStorage.setItem(LEGAL_VERIFIED_KEY, JSON.stringify({ userId: String(userId), version: LEGAL_VERSION, at: new Date().toISOString() }));
+}
+
+function hasLegalVerified(userId) {
+  const c = readLegalVerified();
+  return !!c && String(c.userId) === String(userId || '') && c.version === LEGAL_VERSION;
+}
+
+// ── Consent gate ──────────────────────────────────────
+//
+// One full-screen panel (#screen-legal-gate) with three modes:
+//   checking    the account is being loaded; nothing to do yet
+//   consent     the profile exists but has no recorded acceptance
+//   connection  the profile could not be read and there is no cached
+//               verification for this user id and legal version
+// It sits above the auth and onboarding screens and below the legal text
+// modal, so the Terms and Privacy links open on top of it. There is at most
+// one gate at a time; every caller for the same user shares its promise.
+let _legalGate = null;
+
+function legalGateEl(id) {
+  return document.getElementById(id);
+}
+
+function setLegalGateMode(mode, message) {
+  const g = _legalGate;
+  if (g) g.mode = mode;
+  const title = legalGateEl('legal-gate-title');
+  const text = legalGateEl('legal-gate-text');
+  const consent = legalGateEl('legal-gate-consent');
+  const offline = legalGateEl('legal-gate-offline');
+  const signout = legalGateEl('legal-gate-signout-row');
+  const copy = {
+    checking: ['ONE MOMENT', 'Checking your account details.'],
+    consent: ['BEFORE YOU CONTINUE', 'This account does not yet have a recorded agreement to ABLTY\'s Terms of Service and Privacy Policy. Please review them and confirm below to continue.'],
+    connection: ['CONNECTION NEEDED', 'ABLTY could not reach your account to confirm its details. Check your connection and try again.'],
+  }[mode] || ['ONE MOMENT', ''];
+  if (title) title.textContent = copy[0];
+  if (text) text.textContent = message || copy[1];
+  if (consent) consent.style.display = mode === 'consent' ? 'flex' : 'none';
+  if (offline) offline.style.display = mode === 'connection' ? '' : 'none';
+  if (signout) signout.style.display = mode === 'checking' ? 'none' : '';
+  if (mode === 'consent') {
+    const cb = legalGateEl('legal-gate-check');
+    const btn = legalGateEl('legal-gate-btn');
+    if (cb) cb.checked = false;
+    if (btn) { btn.disabled = true; btn.textContent = 'I AGREE'; }
+    setAuthError('', 'legal-gate-err', '');
+  }
+  const retryBtn = legalGateEl('legal-gate-retry-btn');
+  if (retryBtn) { retryBtn.disabled = false; retryBtn.textContent = 'TRY AGAIN'; }
+}
+
+// Shows (or reuses) the gate for this user and returns a promise that resolves
+// true when the account may enter the app and false when it may not (signed
+// out from the gate, or a different account took over).
+function openLegalGate(userId, mode, opts) {
+  const uid = String(userId || '');
+  if (_legalGate && _legalGate.userId !== uid) resolveLegalGate(false);
+  if (!_legalGate) {
+    let resolve;
+    const promise = new Promise((r) => { resolve = r; });
+    _legalGate = { userId: uid, promise, resolve, mode: null, profile: null, reload: null, timer: null };
+    const el = legalGateEl('screen-legal-gate');
+    if (el) el.classList.add('active');
+  }
+  const g = _legalGate;
+  if (opts && opts.profile) g.profile = opts.profile;
+  if (opts && typeof opts.reload === 'function') g.reload = opts.reload;
+  if (g.timer) { clearTimeout(g.timer); g.timer = null; }
+  // A repeat call for the same mode (for example a token refresh while the
+  // user is reading) must not reset a box they have already ticked.
+  if (g.mode !== mode) setLegalGateMode(mode);
+  return g.promise;
+}
+
+function resolveLegalGate(ok) {
+  const g = _legalGate;
+  _legalGate = null;
+  const el = legalGateEl('screen-legal-gate');
+  if (el) el.classList.remove('active');
+  if (g) {
+    if (g.timer) clearTimeout(g.timer);
+    g.resolve(!!ok);
+  }
+}
+
+// Decides whether this authenticated user may enter the app.
+//   loaded: { profile, unavailable } from ensureProfileRow
+//   reload: re-runs that load for the Try Again button
+// Returns a promise resolving true (enter) or false (do not enter).
+function ensureLegalConsent(user, loaded, reload) {
+  if (!user || !user.id) return Promise.resolve(false);
+  const uid = String(user.id);
+  const profile = loaded && loaded.profile;
+  if (profile && profileHasLegalAcceptance(profile)) {
+    markLegalVerified(uid);
+    if (_legalGate) resolveLegalGate(_legalGate.userId === uid);
+    return Promise.resolve(true);
+  }
+  if (!profile || (loaded && loaded.unavailable)) {
+    // Nothing is known about this account right now. A verification cached
+    // for this exact user id and legal version is the only thing that may
+    // stand in for the database.
+    if (hasLegalVerified(uid)) {
+      if (_legalGate) resolveLegalGate(_legalGate.userId === uid);
+      return Promise.resolve(true);
+    }
+    return openLegalGate(uid, 'connection', { reload });
+  }
+  return openLegalGate(uid, 'consent', { profile, reload });
+}
+
+function onLegalGateCheckChange(cb) {
+  const btn = legalGateEl('legal-gate-btn');
+  if (btn) btn.disabled = !cb.checked;
+}
+
+async function submitLegalGate() {
+  const g = _legalGate;
+  const cb = legalGateEl('legal-gate-check');
+  const btn = legalGateEl('legal-gate-btn');
+  if (!g || !sb || !cb || !cb.checked) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'SAVING'; }
+  setAuthError('', 'legal-gate-err', '');
+
+  // Only the fields that are actually null are written. An acceptance that is
+  // already recorded is never overwritten.
+  const now = new Date().toISOString();
+  const p = g.profile || {};
+  const patch = {};
+  if (!p.terms_accepted_at) { patch.terms_accepted_at = now; patch.terms_version = LEGAL_VERSION; }
+  if (!p.privacy_accepted_at) { patch.privacy_accepted_at = now; patch.privacy_version = LEGAL_VERSION; }
+
+  let failed = false;
+  try {
+    if (Object.keys(patch).length) {
+      const { error } = await sb.from('profiles').update(patch).eq('id', g.userId);
+      if (error) failed = true;
+    }
+    if (!failed) {
+      // The database is the source of truth: read it back before letting
+      // the user in, so a silently unmatched update cannot pass as consent.
+      const { data: fresh, error: readErr } = await sb
+        .from('profiles')
+        .select('terms_accepted_at, privacy_accepted_at')
+        .eq('id', g.userId)
+        .maybeSingle();
+      if (readErr || !profileHasLegalAcceptance(fresh)) failed = true;
+      else {
+        if (g.profile) Object.assign(g.profile, fresh);
+        markLegalVerified(g.userId);
+        localStorage.removeItem(legalPendingKey(g.userId));
+        resolveLegalGate(true);
+        return;
+      }
+    }
+  } catch (e) {
+    failed = true;
+  }
+  console.warn('[AUTH] Legal acceptance could not be saved from the consent gate; the user can retry.');
+  setAuthError('', 'legal-gate-err', 'Your agreement could not be saved. Check your connection and try again.');
+  if (btn) { btn.disabled = false; btn.textContent = 'I AGREE'; }
+}
+
+async function retryLegalGate() {
+  const g = _legalGate;
+  if (!g) return;
+  if (typeof g.reload !== 'function') { location.reload(); return; }
+  const retryBtn = legalGateEl('legal-gate-retry-btn');
+  if (retryBtn) { retryBtn.disabled = true; retryBtn.textContent = 'CHECKING'; }
+  setLegalGateMode('checking');
+  let loaded = { profile: null, unavailable: true };
+  try { loaded = await g.reload(); } catch (e) {}
+  if (_legalGate !== g) return;
+  ensureLegalConsent({ id: g.userId }, loaded, g.reload);
+}
+
+async function legalGateSignOut() {
+  if (sb) { try { await sb.auth.signOut(); } catch (e) {} }
+  _guestSyncHandled = false;
+  clearLocalAuthCache();
+  resolveLegalGate(false);
+  renderSettingsState();
+  renderProfile();
+  renderHomeGreeting();
+}
+
+// Runs synchronously at startup, before anything is painted. If a Supabase
+// session is stored for a user whose acceptance has not been verified on this
+// device, the gate is raised immediately (in checking mode) so the home screen
+// is never shown first and then covered. Session restore resolves it.
+function preflightLegalGate() {
+  try {
+    const ref = String(SUPABASE_URL || '').replace(/^https?:\/\//, '').split('.')[0];
+    if (!ref) return;
+    const raw = localStorage.getItem('sb-' + ref + '-auth-token');
+    if (!raw) return;
+    const sess = JSON.parse(raw);
+    const uid = sess && sess.user && sess.user.id;
+    if (!uid) return;
+    if (hasLegalVerified(uid)) return;
+    openLegalGate(uid, 'checking');
+    // If nothing resolves the gate (for example the SDK never loaded), fall
+    // back to the connection state so the user always has a way forward.
+    _legalGate.timer = setTimeout(() => {
+      if (_legalGate && _legalGate.userId === String(uid) && _legalGate.mode === 'checking') {
+        setLegalGateMode('connection');
+      }
+    }, 12000);
+  } catch (e) {}
 }
 
 function onSignupTosChange(cb) {
@@ -15179,13 +15483,13 @@ function onSignupTosChange(cb) {
   if (btn) btn.disabled = !checked;
   if (gate) gate.style.opacity = checked ? '' : '0.4';
   if (overlay) overlay.style.display = checked ? 'none' : '';
+  // Only the unsubmitted draft is touched here. Acceptances already bound to
+  // an account live under their own keys and are never affected by the box.
   if (checked) {
-    // No account exists yet; the email typed so far is the only identifier.
-    // handleSignup replaces this with the real user id once signUp returns.
-    localStorage.removeItem('ablty_pending_legal_acceptance');
-    setPendingLegalAcceptance({ email: document.getElementById('signup-email')?.value || '' });
+    clearLegalDraft();
+    setLegalDraft(document.getElementById('signup-email')?.value || '');
   } else {
-    localStorage.removeItem('ablty_pending_legal_acceptance');
+    clearLegalDraft();
   }
 }
 
@@ -15208,7 +15512,10 @@ function openAuthScreen(screen) {
     if (btn) btn.disabled = true;
     if (gate) gate.style.opacity = '0.4';
     if (overlay) overlay.style.display = '';
-    localStorage.removeItem('ablty_pending_legal_acceptance');
+    // The box was just reset, so any unsubmitted draft no longer reflects a
+    // ticked box. Acceptances already bound to an account are stored under
+    // their own keys and are not touched here.
+    clearLegalDraft();
   }
 }
 
@@ -15237,84 +15544,109 @@ function validateUsername(val) {
   return '';
 }
 
+const PROFILE_SESSION_COLUMNS = 'username, tier, username_changed_at, terms_accepted_at, privacy_accepted_at';
+
+// Loads this user's profile row, creating it when it does not exist yet.
+// Returns { profile, unavailable }. `unavailable` is true when the row could
+// not be read or created, in which case nothing about the account (including
+// its legal acceptance) may be assumed by the caller.
+async function ensureProfileRow(user) {
+  const normalizeUsername = (v) => {
+    const s = String(v || '').trim();
+    return /^[a-zA-Z0-9_]{3,20}$/.test(s) ? s : '';
+  };
+  const fallbackUsername = (() => {
+    const seed = String(user.id || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toLowerCase() || 'seeker';
+    return ('seeker_' + seed).slice(0, 20);
+  })();
+  const desiredUsername = normalizeUsername(user?.user_metadata?.username)
+    || normalizeUsername(localStorage.getItem('ablty_pending_username'))
+    || fallbackUsername;
+
+  const { data: existingProfile, error: loadErr } = await sb
+    .from('profiles')
+    .select(PROFILE_SESSION_COLUMNS)
+    .eq('id', user.id)
+    .maybeSingle();
+  if (loadErr) {
+    console.warn('[AUTH] Profile could not be loaded:', loadErr.message);
+    return { profile: null, unavailable: true };
+  }
+  let profile = existingProfile || null;
+
+  if (!profile) {
+    // Only an acceptance stored under THIS user's own key is included in the
+    // row. Other accounts' records are invisible here.
+    const legalFields = pendingLegalFieldsFor(user) || {};
+    let chosen = desiredUsername;
+    let { error: createErr } = await sb
+      .from('profiles')
+      .upsert({ id: user.id, username: chosen, tier: 'free', ...legalFields }, { onConflict: 'id' });
+
+    if (createErr && createErr.code === '23505' && chosen !== fallbackUsername) {
+      chosen = fallbackUsername;
+      const retry = await sb
+        .from('profiles')
+        .upsert({ id: user.id, username: chosen, tier: 'free', ...legalFields }, { onConflict: 'id' });
+      createErr = retry.error || null;
+    }
+
+    if (!createErr) {
+      await sb.from('user_settings').upsert({ user_id: user.id }, { onConflict: 'user_id' });
+      // The row (and the consent inside it) is persisted; the local copy is
+      // no longer the only one. On failure it stays for the next attempt.
+      if (legalFields.terms_accepted_at) localStorage.removeItem(legalPendingKey(user.id));
+    } else if (legalFields.terms_accepted_at) {
+      console.warn('[AUTH] Profile creation failed; keeping pending legal acceptance for retry:', createErr.message);
+    }
+
+    const { data: ensuredProfile } = await sb
+      .from('profiles')
+      .select(PROFILE_SESSION_COLUMNS)
+      .eq('id', user.id)
+      .maybeSingle();
+    profile = ensuredProfile || (createErr ? null : { username: chosen, tier: 'free', username_changed_at: '', ...legalFields });
+  } else {
+    // The row already exists (created by the auth.users trigger, or by an
+    // earlier interrupted signup). If this user's acceptance is still only
+    // in localStorage, write it onto the null fields now. The local copy is
+    // removed inside recordPendingLegalAcceptance only after a confirmed
+    // write; a failed write keeps it so the next sign-in or session
+    // restore retries. Without this a trigger-created profile would lose
+    // the acceptance the user just gave.
+    await recordPendingLegalAcceptance(user, profile);
+  }
+
+  return { profile, unavailable: !profile };
+}
+
+// Returns true when the user entered the app, false when they did not (for
+// example they signed out from the consent gate).
 async function onSignedIn(user) {
-  if (!sb || !user) return;
+  if (!sb || !user) return false;
 
   let username = 'Seeker';
   let tier = 'free';
   let changedAt = '';
+  let loaded = { profile: null, unavailable: true };
 
   try {
-    const normalizeUsername = (v) => {
-      const s = String(v || '').trim();
-      return /^[a-zA-Z0-9_]{3,20}$/.test(s) ? s : '';
-    };
-    const fallbackUsername = (() => {
-      const seed = String(user.id || '').replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toLowerCase() || 'seeker';
-      return ('seeker_' + seed).slice(0, 20);
-    })();
-    const desiredUsername = normalizeUsername(user?.user_metadata?.username)
-      || normalizeUsername(localStorage.getItem('ablty_pending_username'))
-      || fallbackUsername;
-
-    let profile = null;
-    const { data: existingProfile } = await sb
-      .from('profiles')
-      .select('username, tier, username_changed_at, terms_accepted_at, privacy_accepted_at')
-      .eq('id', user.id)
-      .maybeSingle();
-    profile = existingProfile || null;
-
-    if (!profile) {
-      // Only an acceptance that belongs to THIS user is included in the row.
-      // Someone else's pending record is left in localStorage untouched.
-      const legalFields = pendingLegalFieldsFor(user) || {};
-      let chosen = desiredUsername;
-      let { error: createErr } = await sb
-        .from('profiles')
-        .upsert({ id: user.id, username: chosen, tier: 'free', ...legalFields }, { onConflict: 'id' });
-
-      if (createErr && createErr.code === '23505' && chosen !== fallbackUsername) {
-        chosen = fallbackUsername;
-        const retry = await sb
-          .from('profiles')
-          .upsert({ id: user.id, username: chosen, tier: 'free', ...legalFields }, { onConflict: 'id' });
-        createErr = retry.error || null;
-      }
-
-      if (!createErr) {
-        await sb.from('user_settings').upsert({ user_id: user.id }, { onConflict: 'user_id' });
-        // The row (and the consent inside it) is persisted; the local copy is
-        // no longer the only one. On failure it stays for the next attempt.
-        if (legalFields.terms_accepted_at) localStorage.removeItem('ablty_pending_legal_acceptance');
-      } else if (legalFields.terms_accepted_at) {
-        console.warn('[AUTH] Profile creation failed; keeping pending legal acceptance for retry:', createErr.message);
-      }
-
-      const { data: ensuredProfile } = await sb
-        .from('profiles')
-        .select('username, tier, username_changed_at')
-        .eq('id', user.id)
-        .maybeSingle();
-      profile = ensuredProfile || (createErr ? null : { username: chosen, tier: 'free', username_changed_at: '' });
-    } else {
-      // The row already exists (created by the auth.users trigger, or by an
-      // earlier interrupted signup). If this user's acceptance is still only
-      // in localStorage, write it onto the null fields now. The local copy is
-      // removed inside recordPendingLegalAcceptance only after a confirmed
-      // write; a failed write keeps it so the next sign-in or session
-      // restore retries. Without this a trigger-created profile would lose
-      // the acceptance the user just gave.
-      await recordPendingLegalAcceptance(user, profile);
-    }
-
-    if (profile) {
-      username = profile.username || username;
-      tier = profile.tier || tier;
-      changedAt = profile.username_changed_at || '';
+    discardUnboundLegalDraft();
+    loaded = await ensureProfileRow(user);
+    if (loaded.profile) {
+      username = loaded.profile.username || username;
+      tier = loaded.profile.tier || tier;
+      changedAt = loaded.profile.username_changed_at || '';
     }
     localStorage.removeItem('ablty_pending_username');
   } catch(e) {}
+
+  // Consent gate. Nobody enters the signed-in experience, and no guest data
+  // is merged into an account, until the database holds an acceptance for
+  // this user (or, when it cannot be reached, this device has previously
+  // verified one for this exact user id and legal version).
+  const consentOk = await ensureLegalConsent(user, loaded, () => ensureProfileRow(user));
+  if (!consentOk) return false;
 
   localStorage.setItem('ablty_logged_in', '1');
   localStorage.setItem('ablty_username', username);
@@ -15355,6 +15687,7 @@ async function onSignedIn(user) {
   } catch(e) {
     updateSyncStatus('local');
   }
+  return true;
 }
 
 function mapRVSessionRow(session, sessionType = 'personal') {
@@ -15832,10 +16165,11 @@ async function handleSignup() {
   if (data?.user?.id) {
     // Persist desired username for first confirmed sign-in profile provisioning.
     localStorage.setItem('ablty_pending_username', username);
-    // Tie the acceptance to the account that just gave it. onSignedIn only
-    // records a pending acceptance onto the profile whose user id (or, for
-    // pre-id records, email) matches.
-    setPendingLegalAcceptance({ userId: data.user.id, email });
+    // The account now exists: move the ticked acceptance from the shared
+    // draft into this user's own record. From here on only a sign-in by this
+    // exact user id can consume it, and only a confirmed write removes it.
+    if (!readLegalDraft() && document.getElementById('signup-tos-check')?.checked) setLegalDraft(email);
+    bindPendingLegalAcceptance({ id: data.user.id, email });
   }
 
   if (data?.session?.user && typeof onSignedIn === 'function') {
@@ -15927,23 +16261,21 @@ function initGoogleSignIn() {
 
       localStorage.removeItem('ablty_guest_mode');
       if (data?.user) {
-        // Google creates the account here, not via signUp, so this is the
-        // first moment the Terms acceptance ticked on the signup screen can
-        // be tied to a user id. A record is claimed only if it has no id yet
-        // AND either its email matches this Google account, or it has no
-        // email and the signup screen whose checkbox created it is the one
-        // currently open. Anything else is left alone for onSignedIn to judge.
-        const pendingLegal = readPendingLegalAcceptance();
-        if (pendingLegal && !pendingLegal.userId) {
-          const emailMatches = !!pendingLegal.email
-            && normalizeEmailForLegal(pendingLegal.email) === normalizeEmailForLegal(data.user.email);
-          const fromThisSignupScreen = !pendingLegal.email
-            && !!document.getElementById('screen-signup')?.classList.contains('active');
-          if (emailMatches || fromThisSignupScreen) {
-            setPendingLegalAcceptance({ userId: data.user.id, email: data.user.email });
-          }
+        // signInWithIdToken signs in an existing user OR creates a new one.
+        // The only acceptance that can be tied to this account here is the
+        // box ticked on the signup screen that is open right now (the Google
+        // button there is disabled until it is ticked). From the login or
+        // onboarding screens nothing is claimed; a new account created there
+        // is asked to accept by the consent gate inside onSignedIn before it
+        // can enter the app, and an existing account with a recorded
+        // acceptance passes straight through.
+        const onSignupScreen = !!document.getElementById('screen-signup')?.classList.contains('active');
+        if (onSignupScreen) {
+          if (!readLegalDraft() && document.getElementById('signup-tos-check')?.checked) setLegalDraft(data.user.email);
+          bindPendingLegalAcceptance({ id: data.user.id, email: data.user.email });
         }
-        await onSignedIn(data.user);
+        const entered = await onSignedIn(data.user);
+        if (entered === false) return;
       }
       // Close any open auth or onboarding screens
       ['login','signup','forgot'].forEach(s => closeAuthScreen(s));
@@ -19711,6 +20043,35 @@ const ACAD = (() => {
       <div class="auth-success-title">Check Your Email</div>
       <div class="auth-success-sub" id="forgot-success-msg">We sent a reset link to your email address. It expires in 24 hours.</div>
       <button class="auth-link" onclick="closeAuthScreen('forgot')" style="margin-top:8px;">Back to sign in</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       LEGAL CONSENT GATE
+       Shown to a signed-in account whose profile has no recorded
+       Terms and Privacy acceptance, or whose profile cannot be read
+       and has never been verified on this device.
+  ═══════════════════════════════════ -->
+  <div class="auth-screen legal-gate" id="screen-legal-gate">
+    <div class="auth-header">
+      <div class="auth-title" id="legal-gate-title">ONE MOMENT</div>
+    </div>
+    <div class="auth-body">
+      <div class="legal-gate-text" id="legal-gate-text">Checking your account details.</div>
+      <div id="legal-gate-consent" style="display:none;flex-direction:column;gap:16px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <input type="checkbox" id="legal-gate-check" style="accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;cursor:pointer;" onchange="onLegalGateCheckChange(this)">
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--muted);line-height:1.5;">I agree to ABLTY&#x27;s <button class="auth-link" type="button" onclick="openLegal('terms')">Terms of Service</button> and acknowledge the <button class="auth-link" type="button" onclick="openLegal('privacy')">Privacy Policy</button>.</span>
+        </div>
+        <div class="auth-field-error" id="legal-gate-err"></div>
+        <button class="auth-submit-btn" id="legal-gate-btn" onclick="submitLegalGate()" disabled>I AGREE</button>
+      </div>
+      <div id="legal-gate-offline" style="display:none;">
+        <button class="auth-submit-btn" id="legal-gate-retry-btn" onclick="retryLegalGate()">TRY AGAIN</button>
+      </div>
+      <div class="auth-link-row" id="legal-gate-signout-row" style="display:none;">
+        <button class="auth-link" onclick="legalGateSignOut()">Sign out</button>
+      </div>
     </div>
   </div>
 
