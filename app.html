@@ -9580,8 +9580,31 @@ function renderTileBadges() {
   });
 }
 
+// Local copy of the signed-in account's username, tier and
+// username_changed_at. It is bound to the Supabase user id it was loaded for
+// so it can be reused when the profile is temporarily unreadable, but never
+// shown for a different account. The database profile always wins when it
+// loads; the cache is only ever a copy of what the database last said.
+function writeLocalAccountCache(userId, username, tier, changedAt) {
+  localStorage.setItem('ablty_cache_user_id', String(userId || ''));
+  localStorage.setItem('ablty_username', username || 'Seeker');
+  localStorage.setItem('ablty_tier', tier || 'free');
+  localStorage.setItem('ablty_username_changed_at', changedAt || '');
+}
+
+// The cached state for this exact user id, or null when the cache is empty or
+// belongs to someone else.
+function readLocalAccountCache(userId) {
+  if (!userId || localStorage.getItem('ablty_cache_user_id') !== String(userId)) return null;
+  return {
+    username: localStorage.getItem('ablty_username') || 'Seeker',
+    tier: localStorage.getItem('ablty_tier') || 'free',
+    changedAt: localStorage.getItem('ablty_username_changed_at') || '',
+  };
+}
+
 function clearLocalAuthCache() {
-  ['ablty_logged_in', 'ablty_username', 'ablty_tier', 'ablty_username_changed_at', 'ablty_user_email']
+  ['ablty_logged_in', 'ablty_username', 'ablty_tier', 'ablty_username_changed_at', 'ablty_user_email', 'ablty_cache_user_id']
     .forEach((k) => localStorage.removeItem(k));
   // No session means nobody is waiting at the consent gate.
   if (_legalGate) resolveLegalGate(false);
@@ -9597,10 +9620,16 @@ async function hydrateProfileFromSession(user) {
     const load = async () => {
       const loaded = await ensureProfileRow(user);
       const profile = loaded.profile;
+      const cached = readLocalAccountCache(user.id);
       if (profile) {
-        localStorage.setItem('ablty_username', profile.username || localStorage.getItem('ablty_username') || 'Seeker');
-        localStorage.setItem('ablty_tier', profile.tier || localStorage.getItem('ablty_tier') || 'free');
-        localStorage.setItem('ablty_username_changed_at', profile.username_changed_at || localStorage.getItem('ablty_username_changed_at') || '');
+        writeLocalAccountCache(user.id,
+          profile.username || (cached && cached.username),
+          profile.tier || (cached && cached.tier),
+          profile.username_changed_at || (cached && cached.changedAt));
+      } else if (!cached) {
+        // Unreadable profile and no cache for THIS user: never show another
+        // account's cached state; fall back to the free defaults.
+        writeLocalAccountCache(user.id, 'Seeker', 'free', '');
       }
       return loaded;
     };
@@ -9944,9 +9973,7 @@ async function renderSettingsState() {
           .eq('id', session.user.id)
           .maybeSingle();
         if (profile) {
-          localStorage.setItem('ablty_username', profile.username || 'Seeker');
-          localStorage.setItem('ablty_tier', profile.tier || 'free');
-          localStorage.setItem('ablty_username_changed_at', profile.username_changed_at || '');
+          writeLocalAccountCache(session.user.id, profile.username, profile.tier, profile.username_changed_at);
         } else if (typeof onSignedIn === 'function') {
           // Backfill missing profile rows for confirmed users.
           await onSignedIn(session.user);
@@ -10000,6 +10027,7 @@ async function handleSignOut() {
   localStorage.removeItem('ablty_tier');
   localStorage.removeItem('ablty_username_changed_at');
   localStorage.removeItem('ablty_user_email');
+  localStorage.removeItem('ablty_cache_user_id');
   renderSettingsState();
   renderProfile();
   showToast('Signed out.', 'success');
@@ -10058,7 +10086,7 @@ async function confirmDeleteAccount() {
     try { await sb.auth.signOut(); } catch (_) {}
 
     const localKeys = [
-      'ablty_logged_in','ablty_username','ablty_tier','ablty_username_changed_at','ablty_user_email',
+      'ablty_logged_in','ablty_username','ablty_tier','ablty_username_changed_at','ablty_user_email','ablty_cache_user_id',
       'ablty_sessions','ablty_zener','ablty_zener_cloud_cache',
       'ablty_timestamp','ablty_timestamp_all','ablty_ts_cloud_cache','ablty_ts_pending',
       'ablty_photopair','ablty_pp_cloud_cache','ablty_pp_pending','ablty_rv_cloud_cache',
@@ -15633,13 +15661,26 @@ async function onSignedIn(user) {
   try {
     discardUnboundLegalDraft();
     loaded = await ensureProfileRow(user);
-    if (loaded.profile) {
-      username = loaded.profile.username || username;
-      tier = loaded.profile.tier || tier;
-      changedAt = loaded.profile.username_changed_at || '';
-    }
     localStorage.removeItem('ablty_pending_username');
   } catch(e) {}
+
+  if (loaded.profile) {
+    // The database profile is authoritative whenever it loads.
+    username = loaded.profile.username || username;
+    tier = loaded.profile.tier || tier;
+    changedAt = loaded.profile.username_changed_at || '';
+  } else {
+    // Profile unreadable (offline, network). Keep what the database last
+    // said for THIS user rather than downgrading them to Seeker/free; a
+    // cache written for a different user id is ignored and the free
+    // defaults apply. Nothing here can grant a tier the database never had.
+    const cached = readLocalAccountCache(user.id);
+    if (cached) {
+      username = cached.username;
+      tier = cached.tier;
+      changedAt = cached.changedAt;
+    }
+  }
 
   // Consent gate. Nobody enters the signed-in experience, and no guest data
   // is merged into an account, until the database holds an acceptance for
@@ -15649,9 +15690,7 @@ async function onSignedIn(user) {
   if (!consentOk) return false;
 
   localStorage.setItem('ablty_logged_in', '1');
-  localStorage.setItem('ablty_username', username);
-  localStorage.setItem('ablty_tier', tier);
-  localStorage.setItem('ablty_username_changed_at', changedAt || '');
+  writeLocalAccountCache(user.id, username, tier, changedAt);
   if (user?.email) localStorage.setItem('ablty_user_email', String(user.email));
 
   renderSettingsState();
