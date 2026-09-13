@@ -40,7 +40,8 @@ const FNS = ['legalPendingKey', 'normalizeEmailForLegal', 'readLegalRecord', 're
   'submitLegalGate', 'retryLegalGate', 'legalGateSignOut', 'preflightLegalGate',
   'onSignupTosChange', 'openAuthScreen', 'closeAuthScreen', 'setAuthError', 'clearLocalAuthCache',
   'writeLocalAccountCache', 'readLocalAccountCache',
-  'beginAuthContext', 'endAuthContext', 'isAuthGenCurrent', 'trackAuthEntry', 'untrackAuthEntry', 'authEntriesInFlight',
+  'beginAuthContext', 'endAuthContext', 'isAuthGenCurrent', 'isAuthResultUsable', 'trackAuthEntry', 'untrackAuthEntry', 'authEntriesInFlight',
+  'reconcileAuthState', 'checkAuthCallback', 'resumeSessionAfterPayment',
   'handleLogin', 'onPasswordRecoveryEvent', 'cancelPendingPasswordRecovery', 'tryOpenPendingPasswordRecovery', 'openChangePasswordModal', 'isLoggedIn', 'completeSignIn', 'hydrateProfileEntry',
   'ensureProfileRow', 'onSignedIn', 'hydrateProfileFromSession', 'handleSignup', 'validateUsername', 'initGoogleSignIn',
   'renderSettingsState', 'getCurrentTier', 'mergeSessionArrays', 'loadAnalyticsFromCloud'];
@@ -92,6 +93,7 @@ function makeSb(h) {
       signInWithIdToken: o => { calls.push({ op: 'signInWithIdToken' }); return Promise.resolve(h.signInWithIdToken ? h.signInWithIdToken(o) : { data: { user: null }, error: null }); },
       signOut: () => { calls.push({ op: 'signOut' }); return Promise.resolve({ error: null }); },
       getSession: () => Promise.resolve({ data: { session: null } }),
+      setSession: o => { calls.push({ op: 'setSession' }); return Promise.resolve(h.setSession ? h.setSession(o) : { data: { user: null, session: null }, error: null }); },
     },
   };
 }
@@ -122,6 +124,7 @@ function makeCtx({ sbHandlers, dom, storage } = {}) {
     sb: makeSb(sbHandlers || {}),
     document: dom || makeDom({}),
     location: { reload() { ctx.reloads++; } }, reloads: 0,
+    window: { location: { hash: '', search: '' } }, history: { replaceState() {} }, URLSearchParams,
     setTimeout, clearTimeout,
     // onSignedIn side-effect stubs
     renderProfile() {}, renderHomeGreeting() {}, updateSyncStatus() {},
@@ -1599,6 +1602,262 @@ test('S9 guest data: no transfer before consent, and a stale guest-data choice o
   assert.strictEqual(c2.ls.getItem('ablty_rv_cloud_cache'), null);
 });
 
+// ═══════════════════════════════════════════════════════
+//  OUTER CALLERS: the session/auth result itself arrives
+//  late, before hydration or onSignedIn has even begun
+// ═══════════════════════════════════════════════════════
+const activeUser = c => c.eval('_activeAuthUserId');
+const sessionFor = u => ({ data: { session: u ? { user: { id: u.id, email: u.email } } : null } });
+// Delays only the FIRST getSession call (the one under test); later calls,
+// such as the settings refresh during another account's entry, answer at once.
+const holdFirstGetSession = (c, hold, answer) => {
+  let first = true;
+  c.sb.auth.getSession = () => { if (first) { first = false; return hold.promise.then(answer); } return Promise.resolve(sessionFor(null)); };
+};
+const twoUsers = () => makeDb({ [ME.id]: { ...profileWithLegal, username: 'alice', tier: 'premium' }, [BOB.id]: { ...profileWithLegal, username: 'bob', tier: 'free' } });
+const assertBobIntact = c => {
+  assert.strictEqual(c.ls.getItem('ablty_logged_in'), '1', 'B still logged in');
+  assert.strictEqual(cacheOwner(c), BOB.id);
+  assert.strictEqual(c.ls.getItem('ablty_username'), 'bob');
+  assert.strictEqual(c.getCurrentTier(), 'free');
+  assert.strictEqual(activeUser(c), BOB.id);
+  assert.strictEqual(enteredUser(c), BOB.id);
+  assert.strictEqual(c.gateActive(), false);
+};
+
+test('T1 reconcileAuthState: a delayed "no session" answer after B logged in does not clear B', async () => {
+  const c = makeCtx({ sbHandlers: twoUsers().handlers });
+  const hold = deferred();
+  holdFirstGetSession(c, hold, () => sessionFor(null));
+  const pR = c.reconcileAuthState();
+  await tick();
+  assert.strictEqual(await c.onSignedIn(BOB), true);
+  hold.resolve();
+  await pR;
+  await tick();
+  assertBobIntact(c);
+  // Same for a late error from getSession.
+  const c2 = makeCtx({ sbHandlers: twoUsers().handlers });
+  const hold2 = deferred();
+  holdFirstGetSession(c2, hold2, () => { throw new Error('boom'); });
+  const pR2 = c2.reconcileAuthState();
+  await tick();
+  assert.strictEqual(await c2.onSignedIn(BOB), true);
+  hold2.resolve();
+  await pR2;
+  assertBobIntact(c2);
+  // With nothing else happening, "no session" still clears a stale local login.
+  const c3 = makeCtx({ sbHandlers: twoUsers().handlers });
+  c3.ls.setItem('ablty_logged_in', '1');
+  await c3.reconcileAuthState();
+  assert.strictEqual(c3.ls.getItem('ablty_logged_in'), null);
+});
+
+test('T2 reconcileAuthState: a delayed session for A after B took over never starts A\'s context or replaces B\'s gate', async () => {
+  // B is at its consent gate.
+  const db = makeDb({ [ME.id]: { ...profileWithLegal, username: 'alice' }, [BOB.id]: { ...profileNoLegal, username: 'bob' } });
+  const c = makeCtx({ sbHandlers: db.handlers });
+  const hold = deferred();
+  holdFirstGetSession(c, hold, () => sessionFor(ME));
+  const pR = c.reconcileAuthState();
+  await tick();
+  const pB = c.onSignedIn(BOB);
+  await tick();
+  assert.strictEqual(c.gate().userId, BOB.id);
+  const genBefore = c.eval('_authGen');
+  hold.resolve();
+  await pR;
+  await tick();
+  assert.strictEqual(c.gate().userId, BOB.id, 'B\'s gate untouched');
+  assert.strictEqual(c.gate().mode, 'consent');
+  assert.strictEqual(activeUser(c), BOB.id, 'A never became active');
+  assert.strictEqual(c.eval('_authGen'), genBefore, 'no new generation from the stale answer');
+  assert.ok(!c.sb.calls.some(x => x.op === 'select' && x.eq && x.eq[1] === ME.id), 'A\'s profile was never loaded');
+  await agreeAtGate(c);
+  assert.strictEqual(await pB, true);
+  // B already entered.
+  const c2 = makeCtx({ sbHandlers: twoUsers().handlers });
+  const hold2 = deferred();
+  holdFirstGetSession(c2, hold2, () => sessionFor(ME));
+  const pR2 = c2.reconcileAuthState();
+  await tick();
+  assert.strictEqual(await c2.onSignedIn(BOB), true);
+  hold2.resolve();
+  await pR2;
+  await tick();
+  assertBobIntact(c2);
+});
+
+test('T2b reconcileAuthState: a delayed session for the SAME account that meanwhile logged in still cooperates', async () => {
+  const c = makeCtx({ sbHandlers: twoUsers().handlers });
+  const hold = deferred();
+  holdFirstGetSession(c, hold, () => sessionFor(ME));
+  const pR = c.reconcileAuthState();
+  await tick();
+  assert.strictEqual(await c.onSignedIn(ME), true);
+  hold.resolve();
+  await pR;
+  assert.strictEqual(c.eval('_authGen'), 1, 'one generation for one account');
+  assert.strictEqual(cacheOwner(c), ME.id);
+  assert.strictEqual(c.getCurrentTier(), 'premium');
+  assert.strictEqual(enteredUser(c), ME.id);
+});
+
+test('T3 checkAuthCallback: a delayed setSession result for A after B entered does not enter A; a normal callback still enters', async () => {
+  const c = makeCtx({ sbHandlers: twoUsers().handlers });
+  c.window.location.hash = '#access_token=at&refresh_token=rt&type=signup';
+  const hold = deferred();
+  c.sb.auth.setSession = () => hold.promise.then(() => ({ data: { user: { id: ME.id, email: ME.email }, session: {} }, error: null }));
+  c.checkAuthCallback();
+  await tick();
+  assert.strictEqual(await c.onSignedIn(BOB), true);
+  hold.resolve();
+  await tick();
+  assertBobIntact(c);
+  const c2 = makeCtx({ sbHandlers: twoUsers().handlers });
+  c2.window.location.hash = '#access_token=at&refresh_token=rt';
+  c2.sb.auth.setSession = () => Promise.resolve({ data: { user: { id: ME.id, email: ME.email }, session: {} }, error: null });
+  c2.checkAuthCallback();
+  await tick();
+  assert.strictEqual(c2.ls.getItem('ablty_logged_in'), '1');
+  assert.strictEqual(cacheOwner(c2), ME.id);
+});
+
+test('T4 handleLogin: a delayed password sign-in for A after B entered is not announced and does not take over; the SDK\'s own SIGNED_IN for the same user still cooperates', async () => {
+  const db = twoUsers();
+  const c = loginCtx(db);
+  const hold = deferred();
+  c.sb.auth.signInWithPassword = () => hold.promise.then(() => ({ data: { user: { id: ME.id, email: ME.email } }, error: null }));
+  const pL = c.handleLogin();
+  await tick();
+  assert.strictEqual(await c.onSignedIn(BOB), true);
+  hold.resolve();
+  await pL;
+  await tick();
+  assertBobIntact(c);
+  assert.strictEqual(signedInToasts(c), 0, 'no "Signed in." for the stale login');
+  assert.strictEqual(loginOpen(c), true, 'login screen not closed as a success');
+  assert.strictEqual(c.document.getElementById('login-btn').disabled, false);
+  // Same account: SIGNED_IN(A) from the SDK lands before signInWithPassword resolves.
+  const c2 = loginCtx(twoUsers());
+  c2.sb.auth.signInWithPassword = async () => { c2.onSignedIn(ME); await tick(); return { data: { user: { id: ME.id, email: ME.email } }, error: null }; };
+  await c2.handleLogin();
+  await tick();
+  assert.strictEqual(signedInToasts(c2), 1);
+  assert.strictEqual(loginOpen(c2), false);
+  assert.strictEqual(cacheOwner(c2), ME.id);
+  assert.strictEqual(c2.eval('_authGen'), 1);
+});
+
+test('T5 Google callback: a delayed signInWithIdToken for A after B entered is not announced and does not take over', async () => {
+  const g = googleCtx({ db: twoUsers(), screen: 'login' });
+  const hold = deferred();
+  g.sb.auth.signInWithIdToken = () => hold.promise.then(() => ({ data: { user: { id: ME.id, email: ME.email } }, error: null }));
+  const pG = g.googleCallback({ credential: 'tok' });
+  await tick();
+  assert.strictEqual(await g.onSignedIn(BOB), true);
+  hold.resolve();
+  await pG;
+  await tick();
+  assertBobIntact(g);
+  assert.strictEqual(g.toasts.length, 0);
+  assert.ok(g.document.getElementById('screen-login').classList.contains('active'), 'login screen left as it was');
+});
+
+test('T6 payment return: a delayed getSession for A after B entered does not re-enter A; normally it re-enters the stored session', async () => {
+  const c = makeCtx({ sbHandlers: twoUsers().handlers });
+  const hold = deferred();
+  holdFirstGetSession(c, hold, () => sessionFor(ME));
+  c.resumeSessionAfterPayment();
+  await tick();
+  assert.strictEqual(await c.onSignedIn(BOB), true);
+  hold.resolve();
+  await tick();
+  assertBobIntact(c);
+  const c2 = makeCtx({ sbHandlers: twoUsers().handlers });
+  c2.sb.auth.getSession = () => Promise.resolve(sessionFor(ME));
+  c2.resumeSessionAfterPayment();
+  await tick();
+  assert.strictEqual(cacheOwner(c2), ME.id);
+  assert.strictEqual(c2.getCurrentTier(), 'premium');
+});
+
+// ═══════════════════════════════════════════════════════
+//  RECOVERY FOR THE ACCOUNT BEING ENTERED
+// ═══════════════════════════════════════════════════════
+test('V1 A has entered, PASSWORD_RECOVERY arrives for B, then B enters -> opens exactly once, for B', async () => {
+  const c = makeCtx({ sbHandlers: twoUsers().handlers });
+  assert.strictEqual(await c.onSignedIn(ME), true);
+  c.onPasswordRecoveryEvent({ user: { id: BOB.id } });
+  assert.strictEqual(modalOpen(c), false, 'not opened for A');
+  assert.strictEqual(c.eval('_passwordRecoveryPending'), true, 'retained for B');
+  assert.strictEqual(activeUser(c), BOB.id, 'the recovery session\'s account is now the active one');
+  await c.hydrateProfileFromSession(BOB);
+  assert.strictEqual(modalOpen(c), true);
+  assert.strictEqual(enteredUser(c), BOB.id);
+  assert.strictEqual(cacheOwner(c), BOB.id);
+  c.document.getElementById('change-password-modal').style.display = 'none';
+  await c.onSignedIn(BOB);
+  assert.strictEqual(modalOpen(c), false, 'exactly once');
+});
+
+test('V2 A is at its consent gate, PASSWORD_RECOVERY arrives for B, then B enters -> A superseded, opens once for B (with and without B needing consent)', async () => {
+  const db = makeDb({ [ME.id]: { ...profileNoLegal }, [BOB.id]: { ...profileWithLegal, username: 'bob' } });
+  const c = makeCtx({ sbHandlers: db.handlers });
+  const pA = c.onSignedIn(ME);
+  await tick();
+  assert.strictEqual(c.gate().userId, ME.id);
+  c.onPasswordRecoveryEvent({ user: { id: BOB.id } });
+  assert.strictEqual(await pA, false, 'A\'s gate was superseded');
+  assert.strictEqual(c.gateActive(), false);
+  assert.strictEqual(modalOpen(c), false);
+  assert.strictEqual(await c.onSignedIn(BOB), true);
+  assert.strictEqual(modalOpen(c), true);
+  assert.strictEqual(enteredUser(c), BOB.id);
+  assert.strictEqual(db.rows[ME.id].terms_accepted_at, null, 'A never received an acceptance');
+  // B itself needs consent: the modal waits behind B's gate.
+  const db2 = makeDb({ [ME.id]: { ...profileNoLegal }, [BOB.id]: { ...profileNoLegal, username: 'bob' } });
+  const c2 = makeCtx({ sbHandlers: db2.handlers });
+  const pA2 = c2.onSignedIn(ME);
+  await tick();
+  c2.onPasswordRecoveryEvent({ user: { id: BOB.id } });
+  assert.strictEqual(await pA2, false);
+  const pB2 = c2.onSignedIn(BOB);
+  await tick();
+  assert.strictEqual(c2.gate().userId, BOB.id);
+  assert.strictEqual(modalOpen(c2), false, 'not underneath B\'s gate');
+  await agreeAtGate(c2);
+  assert.strictEqual(await pB2, true);
+  assert.strictEqual(modalOpen(c2), true);
+  c2.document.getElementById('change-password-modal').style.display = 'none';
+  await c2.hydrateProfileFromSession(BOB);
+  assert.strictEqual(modalOpen(c2), false, 'exactly once');
+});
+
+test('V3 recovery is still cancelled by sign-out, by a later unrelated login, and dropped for an obsolete event', async () => {
+  const CAT = { id: 'cccccccc-3333-4333-8333-cccccccccccc', email: 'cat@example.com' };
+  const db = makeDb({ [BOB.id]: { ...profileWithLegal, username: 'bob' }, [CAT.id]: { ...profileWithLegal, username: 'cat' } });
+  // Later unrelated login replaces it.
+  const c = makeCtx({ sbHandlers: db.handlers });
+  c.onPasswordRecoveryEvent({ user: { id: BOB.id } });
+  assert.strictEqual(await c.onSignedIn(CAT), true);
+  assert.strictEqual(modalOpen(c), false);
+  assert.strictEqual(c.eval('_passwordRecoveryPending'), false);
+  // Sign-out cancels it.
+  const c2 = makeCtx({ sbHandlers: db.handlers });
+  c2.onPasswordRecoveryEvent({ user: { id: BOB.id } });
+  signedOutEvent(c2);
+  assert.strictEqual(c2.eval('_passwordRecoveryPending'), false);
+  assert.strictEqual(await c2.onSignedIn(BOB), true);
+  assert.strictEqual(modalOpen(c2), false);
+  // Obsolete: the event's account never enters; a different account does.
+  const c3 = makeCtx({ sbHandlers: db.handlers });
+  c3.onPasswordRecoveryEvent({ user: { id: 'dddddddd-4444-4444-8444-dddddddddddd' } });
+  assert.strictEqual(await c3.onSignedIn(CAT), true);
+  assert.strictEqual(modalOpen(c3), false);
+  assert.strictEqual(c3.eval('_passwordRecoveryPending'), false);
+});
+
 (async () => {
   let pass = 0, fail = 0;
   // Optional filter: node tests/auth-consent.test.js S6
@@ -1606,7 +1865,7 @@ test('S9 guest data: no transfer before consent, and a stale guest-data choice o
   for (const t of tests) {
     if (only && !t.name.startsWith(only + ' ')) continue;
     try { await t.fn(); console.log('PASS ', t.name); pass++; }
-    catch (e) { console.log('FAIL ', t.name, '\n      ', e.stack.split('\n').slice(0, 3).join('\n      ')); fail++; }
+    catch (e) { console.log('FAIL ', t.name, '\n      ', e.stack.split('\n').slice(0, 8).join('\n      ')); fail++; }
   }
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
