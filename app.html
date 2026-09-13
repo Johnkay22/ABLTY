@@ -16184,10 +16184,14 @@ async function handleLogin() {
     return;
   }
 
-  await onSignedIn(data.user);
+  const entered = await onSignedIn(data.user);
+  if (btn) { btn.disabled = false; btn.textContent = originalText; }
+  // false means the user did not enter (they signed out from the consent
+  // gate). Leave the login screen as it is and do not announce a sign-in,
+  // matching the Google callback.
+  if (entered === false) return;
   closeAuthScreen('login');
   showToast('Signed in.', 'success');
-  if (btn) { btn.disabled = false; btn.textContent = originalText; }
 }
 
 async function handleSignup() {
