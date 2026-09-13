@@ -15493,8 +15493,13 @@ async function submitLegalGate() {
       if (readErr || !profileHasLegalAcceptance(fresh)) failed = true;
       else {
         if (g.profile) Object.assign(g.profile, fresh);
-        markLegalVerified(g.userId);
         localStorage.removeItem(legalPendingKey(g.userId));
+        // Only this exact gate may be resolved by this submission. If it was
+        // superseded while the write was in flight (the user signed out, or
+        // another account signed in and got its own gate), the acceptance is
+        // safely recorded for the original account, and nothing else changes.
+        if (_legalGate !== g) return;
+        markLegalVerified(g.userId);
         resolveLegalGate(true);
         return;
       }
@@ -15502,6 +15507,8 @@ async function submitLegalGate() {
   } catch (e) {
     failed = true;
   }
+  // A superseded gate shows no error either; the current gate is untouched.
+  if (_legalGate !== g) return;
   console.warn('[AUTH] Legal acceptance could not be saved from the consent gate; the user can retry.');
   setAuthError('', 'legal-gate-err', 'Your agreement could not be saved. Check your connection and try again.');
   if (btn) { btn.disabled = false; btn.textContent = 'I AGREE'; }
