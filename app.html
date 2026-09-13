@@ -9606,21 +9606,24 @@ function readLocalAccountCache(userId) {
 function clearLocalAuthCache() {
   ['ablty_logged_in', 'ablty_username', 'ablty_tier', 'ablty_username_changed_at', 'ablty_user_email', 'ablty_cache_user_id']
     .forEach((k) => localStorage.removeItem(k));
-  // No session means nobody is waiting at the consent gate.
+  // Nobody is signed in: anything still running for the previous account is
+  // stale, and no session means nobody is waiting at the consent gate.
+  endAuthContext();
   if (_legalGate) resolveLegalGate(false);
   resetDreamJournalState();
 }
 
 async function hydrateProfileFromSession(user) {
   if (!sb || !user?.id) return;
-  _authEntriesInFlight++;
+  const gen = beginAuthContext(user.id);
+  const entry = trackAuthEntry(gen);
   let entered = false;
   try {
     entered = (await hydrateProfileEntry(user)) === true;
   } finally {
-    _authEntriesInFlight--;
+    untrackAuthEntry(entry);
   }
-  if (entered) {
+  if (entered && isAuthGenCurrent(gen)) {
     _enteredUserId = String(user.id);
     tryOpenPendingPasswordRecovery();
   }
@@ -9628,12 +9631,16 @@ async function hydrateProfileFromSession(user) {
 
 // Returns true when the session was restored into the signed-in state.
 async function hydrateProfileEntry(user) {
+  const gen = beginAuthContext(user.id);
   try {
     // ensureProfileRow also retries a legal acceptance whose write failed
     // during sign-in (it is still stored under this user's key) on every
     // session restore and token refresh.
     const load = async () => {
       const loaded = await ensureProfileRow(user);
+      // The account changed while the profile was loading: this result
+      // belongs to nobody now and must not touch the local cache.
+      if (!isAuthGenCurrent(gen)) return { profile: null, unavailable: true, stale: true };
       const profile = loaded.profile;
       const cached = readLocalAccountCache(user.id);
       if (profile) {
@@ -9648,8 +9655,12 @@ async function hydrateProfileEntry(user) {
       }
       return loaded;
     };
-    const consentOk = await ensureLegalConsent(user, await load(), load);
-    if (!consentOk) return false;
+    const loaded = await load();
+    // Stale: another account took over or the user signed out while the
+    // profile was loading. Do not raise a gate for this user or enter.
+    if (loaded.stale || !isAuthGenCurrent(gen)) return false;
+    const consentOk = await ensureLegalConsent(user, loaded, load);
+    if (!consentOk || !isAuthGenCurrent(gen)) return false;
     localStorage.setItem('ablty_logged_in', '1');
     if (user?.email) localStorage.setItem('ablty_user_email', String(user.email));
     return true;
@@ -9980,6 +9991,7 @@ async function renderSettingsState() {
   if (deleteRow) deleteRow.style.display = loggedIn ? '' : 'none';
 
   if (loggedIn && sb) {
+    const gen = _authGen;
     try {
       const { data: authData } = await sb.auth.getSession();
       const session = authData?.session;
@@ -9989,6 +10001,9 @@ async function renderSettingsState() {
           .select('username, tier, username_changed_at')
           .eq('id', session.user.id)
           .maybeSingle();
+        // The account changed or signed out while this was loading: the
+        // result must not overwrite the current account's cache.
+        if (!isAuthGenCurrent(gen)) return;
         if (profile) {
           writeLocalAccountCache(session.user.id, profile.username, profile.tier, profile.username_changed_at);
         } else if (typeof onSignedIn === 'function') {
@@ -10045,6 +10060,8 @@ async function handleSignOut() {
   localStorage.removeItem('ablty_username_changed_at');
   localStorage.removeItem('ablty_user_email');
   localStorage.removeItem('ablty_cache_user_id');
+  cancelPendingPasswordRecovery();
+  endAuthContext();
   renderSettingsState();
   renderProfile();
   showToast('Signed out.', 'success');
@@ -10123,34 +10140,106 @@ async function confirmDeleteAccount() {
   }
 }
 
+// ── ACTIVE LOGIN CONTEXT ──────────────────────────────
+// Sign-in, session restore, consent and profile work all await the network,
+// and the account can change underneath them (another user signs in, or the
+// user signs out). _authGen is a generation counter that changes whenever the
+// active account changes or signs out. Asynchronous auth work reads it before
+// awaiting and, once it resumes, drops its result if the generation has moved
+// on, so a late completion for one account can never write the other
+// account's local state. Overlapping events for the SAME account share a
+// generation and keep cooperating as before.
+let _authGen = 0;
+let _activeAuthUserId = null;
+let _authEntries = new Set();
+
+// Makes this user the active account (a no-op when they already are) and
+// returns the generation to check against later.
+function beginAuthContext(userId) {
+  const uid = String(userId || '');
+  if (_activeAuthUserId !== uid) {
+    // A different account is taking over: whatever the previous one had in
+    // flight is obsolete, including a password reset it never got to and a
+    // consent gate it was still looking at. This is the account switch; a
+    // late completion for the old account never gets here because it does
+    // not start a new sign-in.
+    if (_activeAuthUserId !== null) cancelPendingPasswordRecovery();
+    if (_legalGate && _legalGate.userId !== uid) resolveLegalGate(false);
+    _authGen++;
+    _activeAuthUserId = uid;
+    _enteredUserId = null;
+  }
+  return _authGen;
+}
+
+// Nobody is signed in any more; every operation started before this is stale.
+function endAuthContext() {
+  _authGen++;
+  _activeAuthUserId = null;
+  _enteredUserId = null;
+}
+
+function isAuthGenCurrent(gen) {
+  return gen === _authGen;
+}
+
+// Tracks a sign-in or session restore that is running. Only entries for the
+// current generation count as "in flight": a stale one that never finishes
+// must not hold back the active account.
+function trackAuthEntry(gen) {
+  const entry = { gen };
+  _authEntries.add(entry);
+  return entry;
+}
+
+function untrackAuthEntry(entry) {
+  _authEntries.delete(entry);
+}
+
+function authEntriesInFlight() {
+  for (const e of _authEntries) if (e.gen === _authGen) return true;
+  return false;
+}
+
 // ── PASSWORD RECOVERY ─────────────────────────────────
-// A PASSWORD_RECOVERY auth event only marks the change as pending. The modal
-// is opened by tryOpenPendingPasswordRecovery, and only once the user has
+// A PASSWORD_RECOVERY auth event only marks the change as pending, bound to
+// the user id of the recovery session when the event carries one. The modal
+// is opened by tryOpenPendingPasswordRecovery, and only once that user has
 // actually entered the signed-in state in THIS page load: every sign-in or
-// session restore that was running has finished, no consent gate is showing,
-// and the local logged-in flag is set. Overlapping auth events (setSession in
-// checkAuthCallback, SIGNED_IN, INITIAL_SESSION) can all call it; the flag is
-// cleared on the first open, so the modal appears exactly once. Signing out
-// (including from the consent gate) cancels it.
+// session restore for the current account has finished, no consent gate is
+// showing, and the local logged-in flag is set. Overlapping auth events
+// (setSession in checkAuthCallback, SIGNED_IN, INITIAL_SESSION) can all call
+// it; the flag is cleared on the first open, so the modal appears exactly
+// once. Signing out (including from the consent gate) or another account
+// taking over cancels it, and it never opens for a different account.
 let _passwordRecoveryPending = false;
-let _authEntriesInFlight = 0;
+let _passwordRecoveryUserId = null;
 let _enteredUserId = null;
 
-function onPasswordRecoveryEvent() {
+function onPasswordRecoveryEvent(session) {
   _passwordRecoveryPending = true;
+  _passwordRecoveryUserId = session && session.user && session.user.id ? String(session.user.id) : null;
   navigate('home');
   tryOpenPendingPasswordRecovery();
 }
 
 function cancelPendingPasswordRecovery() {
   _passwordRecoveryPending = false;
+  _passwordRecoveryUserId = null;
   _enteredUserId = null;
 }
 
 function tryOpenPendingPasswordRecovery() {
   if (!_passwordRecoveryPending) return false;
-  if (_authEntriesInFlight > 0 || _legalGate || !_enteredUserId || !isLoggedIn()) return false;
+  if (authEntriesInFlight() || _legalGate || !_enteredUserId || !isLoggedIn()) return false;
+  if (_passwordRecoveryUserId && _passwordRecoveryUserId !== _enteredUserId) {
+    // The reset belongs to a different account than the one that entered.
+    _passwordRecoveryPending = false;
+    _passwordRecoveryUserId = null;
+    return false;
+  }
   _passwordRecoveryPending = false;
+  _passwordRecoveryUserId = null;
   showToast('Please set your new password.', 'info', 5000);
   openChangePasswordModal();
   return true;
@@ -11517,7 +11606,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // User arrived via a password-reset link. The modal opens once they
         // have actually entered the signed-in state (after the consent gate
         // if their account needs it); see tryOpenPendingPasswordRecovery.
-        onPasswordRecoveryEvent();
+        onPasswordRecoveryEvent(session);
         return;
       }
       if (event === 'INITIAL_SESSION' && !session?.user && _legalGate) resolveLegalGate(false);
@@ -15712,12 +15801,13 @@ async function ensureProfileRow(user) {
 // example they signed out from the consent gate).
 async function onSignedIn(user) {
   if (!sb || !user) return false;
-  _authEntriesInFlight++;
+  const gen = beginAuthContext(user.id);
+  const entry = trackAuthEntry(gen);
   let entered = false;
   try {
-    entered = (await completeSignIn(user)) === true;
+    entered = (await completeSignIn(user)) === true && isAuthGenCurrent(gen);
   } finally {
-    _authEntriesInFlight--;
+    untrackAuthEntry(entry);
   }
   if (entered) {
     _enteredUserId = String(user.id);
@@ -15727,6 +15817,7 @@ async function onSignedIn(user) {
 }
 
 async function completeSignIn(user) {
+  const gen = beginAuthContext(user.id);
   let username = 'Seeker';
   let tier = 'free';
   let changedAt = '';
@@ -15737,6 +15828,10 @@ async function completeSignIn(user) {
     loaded = await ensureProfileRow(user);
     localStorage.removeItem('ablty_pending_username');
   } catch(e) {}
+
+  // Another account took over, or the user signed out, while the profile was
+  // loading. This result is obsolete: no gate, no cache, no entry.
+  if (!isAuthGenCurrent(gen)) return false;
 
   if (loaded.profile) {
     // The database profile is authoritative whenever it loads.
@@ -15761,7 +15856,7 @@ async function completeSignIn(user) {
   // this user (or, when it cannot be reached, this device has previously
   // verified one for this exact user id and legal version).
   const consentOk = await ensureLegalConsent(user, loaded, () => ensureProfileRow(user));
-  if (!consentOk) return false;
+  if (!consentOk || !isAuthGenCurrent(gen)) return false;
 
   localStorage.setItem('ablty_logged_in', '1');
   writeLocalAccountCache(user.id, username, tier, changedAt);
@@ -15777,6 +15872,9 @@ async function completeSignIn(user) {
     const guestDataExists = !alreadyHandled && typeof hasLocalGuestData === 'function' && hasLocalGuestData();
     if (guestDataExists) {
       const choice = await showGuestDataModal(user.id);
+      // The account changed while the choice was open: it applies to nobody.
+      // Local guest data is neither cleared nor sent anywhere.
+      if (!isAuthGenCurrent(gen)) return false;
       // Mark handled so this never fires again on this device for this user
       _guestSyncHandled = true;
       try { localStorage.setItem('ablty_guest_sync_done_' + user.id, '1'); } catch(e) {}
@@ -15793,6 +15891,7 @@ async function completeSignIn(user) {
     if (typeof loadAnalyticsFromCloud === 'function') {
       await loadAnalyticsFromCloud(user.id);
     }
+    if (!isAuthGenCurrent(gen)) return false;
     updateSyncStatus('synced');
     if (typeof renderAnalytics === 'function') renderAnalytics();
     if (currentScreen === 'dream-journal') renderDreamJournal();
@@ -16033,6 +16132,7 @@ function mergeSessionArrays(existingArr, cloudArr, keyFn) {
 async function loadAnalyticsFromCloud(userId, opts = {}) {
   const mergeOnly = !!opts.mergeOnly;
   if (!sb || !userId) return;
+  const gen = _authGen;
   try {
     const [rvRes, zeRes, tsRes] = await Promise.all([
       sb.from('rv_sessions')
@@ -16051,6 +16151,10 @@ async function loadAnalyticsFromCloud(userId, opts = {}) {
         .order('timestamp', { ascending: false })
         .limit(500),
     ]);
+
+    // The account changed or signed out while the rows were loading: merging
+    // them now would put one account's data into another's local state.
+    if (!isAuthGenCurrent(gen)) return;
 
     if (rvRes?.error) console.warn('[SYNC] rv_sessions fetch error:', rvRes.error.message);
     if (zeRes?.error) console.warn('[SYNC] zener_runs fetch error:', zeRes.error.message);
