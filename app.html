@@ -9474,15 +9474,29 @@ function checkAuthCallback() {
   const accessToken  = params.get('access_token');
   const refreshToken = params.get('refresh_token');
   if (accessToken && refreshToken) {
+    const gen = _authGen;
     sb.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
       .then(({ data }) => {
-        if (data?.user && typeof onSignedIn === 'function') onSignedIn(data.user);
+        // If another account signed in while setSession was pending, this
+        // result does not get to take over; the SDK's own auth event for
+        // whatever session is real will drive the entry.
+        if (data?.user && isAuthResultUsable(gen, data.user.id) && typeof onSignedIn === 'function') onSignedIn(data.user);
       })
       .catch((err) => {
         console.warn('[AUTH] Callback session setup failed:', err?.message || err);
       });
     try { history.replaceState({}, '', '/app.html'); } catch(e) {}
   }
+}
+
+// Back from Stripe: re-enter the stored session so the new tier is loaded.
+function resumeSessionAfterPayment() {
+  if (!sb) return;
+  const gen = _authGen;
+  sb.auth.getSession().then(({ data }) => {
+    const user = data?.session?.user;
+    if (user && isAuthResultUsable(gen, user.id) && typeof onSignedIn === 'function') onSignedIn(user);
+  }).catch(() => {});
 }
 
 function isStandaloneAppRuntime() {
@@ -9670,16 +9684,20 @@ async function hydrateProfileEntry(user) {
 
 async function reconcileAuthState() {
   if (!sb) return;
+  const gen = _authGen;
   try {
     const { data } = await sb.auth.getSession();
-    const hasSession = !!data?.session?.user?.id;
-    if (!hasSession) {
+    const user = data?.session?.user;
+    // A login that started or ended while getSession was pending owns the
+    // local state now; this answer is obsolete (unless it names that account).
+    if (!isAuthResultUsable(gen, user?.id)) return;
+    if (!user?.id) {
       clearLocalAuthCache();
     } else {
-      await hydrateProfileFromSession(data.session.user);
+      await hydrateProfileFromSession(user);
     }
   } catch (e) {
-    clearLocalAuthCache();
+    if (isAuthGenCurrent(gen)) clearLocalAuthCache();
   }
 }
 
@@ -10001,9 +10019,10 @@ async function renderSettingsState() {
           .select('username, tier, username_changed_at')
           .eq('id', session.user.id)
           .maybeSingle();
-        // The account changed or signed out while this was loading: the
-        // result must not overwrite the current account's cache.
-        if (!isAuthGenCurrent(gen)) return;
+        // The account changed or signed out while this was loading, or the
+        // session names someone other than the active account: the result
+        // must not overwrite the current account's cache.
+        if (!isAuthGenCurrent(gen) || String(session.user.id) !== _activeAuthUserId) return;
         if (profile) {
           writeLocalAccountCache(session.user.id, profile.username, profile.tier, profile.username_changed_at);
         } else if (typeof onSignedIn === 'function') {
@@ -10181,6 +10200,18 @@ function endAuthContext() {
 
 function isAuthGenCurrent(gen) {
   return gen === _authGen;
+}
+
+// For callers that await an SDK call (getSession, setSession, sign-in) and
+// then hand its user to onSignedIn or hydrateProfileFromSession: `gen` is the
+// generation read before the call. The result may be acted on when nothing
+// changed meanwhile, or when the account it names is already the active one
+// (the SDK's own SIGNED_IN event often lands first for the same user). A late
+// result for a different account, or a late "no session" after someone
+// signed in, is obsolete and must not start or end a login context.
+function isAuthResultUsable(gen, userId) {
+  if (gen === _authGen) return true;
+  return userId != null && userId !== '' && _activeAuthUserId === String(userId);
 }
 
 // Tracks a sign-in or session restore that is running. Only entries for the
@@ -11592,12 +11623,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.location.search.includes('payment=success')) {
     showToast('Welcome to ABLTY Premium.', 'success', 5000);
     try { history.replaceState({}, '', '/app.html'); } catch(e) {}
-    if (sb) {
-      sb.auth.getSession().then(({ data }) => {
-        const session = data?.session;
-        if (session?.user && typeof onSignedIn === 'function') onSignedIn(session.user);
-      }).catch(() => {});
-    }
+    resumeSessionAfterPayment();
   }
   if (sb) {
     sb.auth.onAuthStateChange((event, session) => {
@@ -16288,9 +16314,17 @@ async function handleLogin() {
     return;
   }
 
+  const gen = _authGen;
   const { data, error } = await sb.auth.signInWithPassword({ email, password });
   if (error) {
     setAuthError('login-email','login-email-err', error.message);
+    if (btn) { btn.disabled = false; btn.textContent = originalText; }
+    return;
+  }
+  // Another account took over while the sign-in was pending (the SDK's own
+  // SIGNED_IN for this same user is fine and shares its context). Do not let
+  // this late result become the active account or announce a sign-in.
+  if (!isAuthResultUsable(gen, data?.user?.id)) {
     if (btn) { btn.disabled = false; btn.textContent = originalText; }
     return;
   }
@@ -16355,6 +16389,7 @@ async function handleSignup() {
     console.warn('[AUTH] username_is_taken failed, deferring to database uniqueness:', e?.message || e);
   }
 
+  const gen = _authGen;
   const { data, error } = await sb.auth.signUp({
     email,
     password,
@@ -16393,7 +16428,8 @@ async function handleSignup() {
     bindPendingLegalAcceptance({ id: data.user.id, email });
   }
 
-  if (data?.session?.user && typeof onSignedIn === 'function') {
+  // Only when the account created here is still the one being entered.
+  if (data?.session?.user && isAuthResultUsable(gen, data.session.user.id) && typeof onSignedIn === 'function') {
     await onSignedIn(data.session.user);
   }
 
@@ -16470,6 +16506,7 @@ function initGoogleSignIn() {
         return;
       }
 
+      const gen = _authGen;
       const { data, error } = await sb.auth.signInWithIdToken({
         provider: 'google',
         token: response.credential,
@@ -16479,6 +16516,9 @@ function initGoogleSignIn() {
         showToast(error.message, 'error');
         return;
       }
+      // A different account signed in while Google was pending: this late
+      // result must not take over or be announced.
+      if (!isAuthResultUsable(gen, data?.user?.id)) return;
 
       localStorage.removeItem('ablty_guest_mode');
       if (data?.user) {
