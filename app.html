@@ -15434,9 +15434,12 @@ function ensureLegalConsent(user, loaded, reload) {
   if (!user || !user.id) return Promise.resolve(false);
   const uid = String(user.id);
   const profile = loaded && loaded.profile;
+  // A completion for one account may only ever resolve that same account's
+  // gate. A late result for someone else leaves the current gate untouched;
+  // only openLegalGate (a genuinely new gate for another user) supersedes it.
   if (profile && profileHasLegalAcceptance(profile)) {
     markLegalVerified(uid);
-    if (_legalGate) resolveLegalGate(_legalGate.userId === uid);
+    if (_legalGate && _legalGate.userId === uid) resolveLegalGate(true);
     return Promise.resolve(true);
   }
   if (!profile || (loaded && loaded.unavailable)) {
@@ -15444,7 +15447,7 @@ function ensureLegalConsent(user, loaded, reload) {
     // for this exact user id and legal version is the only thing that may
     // stand in for the database.
     if (hasLegalVerified(uid)) {
-      if (_legalGate) resolveLegalGate(_legalGate.userId === uid);
+      if (_legalGate && _legalGate.userId === uid) resolveLegalGate(true);
       return Promise.resolve(true);
     }
     return openLegalGate(uid, 'connection', { reload });
