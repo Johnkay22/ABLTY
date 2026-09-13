@@ -10248,8 +10248,14 @@ let _passwordRecoveryUserId = null;
 let _enteredUserId = null;
 
 function onPasswordRecoveryEvent(session) {
+  const uid = session && session.user && session.user.id ? String(session.user.id) : null;
+  // The recovery session is the SDK's live session, so its account becomes
+  // the active one first (superseding whoever was entered or at a gate),
+  // and only then is the reset recorded for it. Done the other way round,
+  // the account switch would cancel the reset it was meant to serve.
+  if (uid) beginAuthContext(uid);
   _passwordRecoveryPending = true;
-  _passwordRecoveryUserId = session && session.user && session.user.id ? String(session.user.id) : null;
+  _passwordRecoveryUserId = uid;
   navigate('home');
   tryOpenPendingPasswordRecovery();
 }
