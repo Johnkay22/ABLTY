@@ -9613,6 +9613,21 @@ function clearLocalAuthCache() {
 
 async function hydrateProfileFromSession(user) {
   if (!sb || !user?.id) return;
+  _authEntriesInFlight++;
+  let entered = false;
+  try {
+    entered = (await hydrateProfileEntry(user)) === true;
+  } finally {
+    _authEntriesInFlight--;
+  }
+  if (entered) {
+    _enteredUserId = String(user.id);
+    tryOpenPendingPasswordRecovery();
+  }
+}
+
+// Returns true when the session was restored into the signed-in state.
+async function hydrateProfileEntry(user) {
   try {
     // ensureProfileRow also retries a legal acceptance whose write failed
     // during sign-in (it is still stored under this user's key) on every
@@ -9634,10 +9649,12 @@ async function hydrateProfileFromSession(user) {
       return loaded;
     };
     const consentOk = await ensureLegalConsent(user, await load(), load);
-    if (!consentOk) return;
+    if (!consentOk) return false;
     localStorage.setItem('ablty_logged_in', '1');
     if (user?.email) localStorage.setItem('ablty_user_email', String(user.email));
+    return true;
   } catch (e) {}
+  return false;
 }
 
 async function reconcileAuthState() {
@@ -10104,6 +10121,39 @@ async function confirmDeleteAccount() {
     if (btn) { btn.disabled = false; btn.textContent = 'Delete Forever'; }
     showToast(e.message || 'Could not delete account. Please try again.', 'error');
   }
+}
+
+// ── PASSWORD RECOVERY ─────────────────────────────────
+// A PASSWORD_RECOVERY auth event only marks the change as pending. The modal
+// is opened by tryOpenPendingPasswordRecovery, and only once the user has
+// actually entered the signed-in state in THIS page load: every sign-in or
+// session restore that was running has finished, no consent gate is showing,
+// and the local logged-in flag is set. Overlapping auth events (setSession in
+// checkAuthCallback, SIGNED_IN, INITIAL_SESSION) can all call it; the flag is
+// cleared on the first open, so the modal appears exactly once. Signing out
+// (including from the consent gate) cancels it.
+let _passwordRecoveryPending = false;
+let _authEntriesInFlight = 0;
+let _enteredUserId = null;
+
+function onPasswordRecoveryEvent() {
+  _passwordRecoveryPending = true;
+  navigate('home');
+  tryOpenPendingPasswordRecovery();
+}
+
+function cancelPendingPasswordRecovery() {
+  _passwordRecoveryPending = false;
+  _enteredUserId = null;
+}
+
+function tryOpenPendingPasswordRecovery() {
+  if (!_passwordRecoveryPending) return false;
+  if (_authEntriesInFlight > 0 || _legalGate || !_enteredUserId || !isLoggedIn()) return false;
+  _passwordRecoveryPending = false;
+  showToast('Please set your new password.', 'info', 5000);
+  openChangePasswordModal();
+  return true;
 }
 
 // ── CHANGE PASSWORD ────────────────────────────────────
@@ -11464,12 +11514,10 @@ document.addEventListener('DOMContentLoaded', () => {
     sb.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session && typeof onSignedIn === 'function') onSignedIn(session.user);
       if (event === 'PASSWORD_RECOVERY') {
-        // User arrived via password-reset email link — prompt them to set a new password.
-        navigate('home');
-        setTimeout(() => {
-          showToast('Please set your new password.', 'info', 5000);
-          openChangePasswordModal();
-        }, 300);
+        // User arrived via a password-reset link. The modal opens once they
+        // have actually entered the signed-in state (after the consent gate
+        // if their account needs it); see tryOpenPendingPasswordRecovery.
+        onPasswordRecoveryEvent();
         return;
       }
       if (event === 'INITIAL_SESSION' && !session?.user && _legalGate) resolveLegalGate(false);
@@ -11482,6 +11530,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (event === 'SIGNED_OUT') {
         _guestSyncHandled = false;
+        cancelPendingPasswordRecovery();
         clearLocalAuthCache();
         if (currentScreen === 'dream-journal' || currentScreen === 'dream-new-entry' || currentScreen === 'dream-entry-detail') {
           navigate('dream-lab');
@@ -15471,6 +15520,7 @@ async function retryLegalGate() {
 async function legalGateSignOut() {
   if (sb) { try { await sb.auth.signOut(); } catch (e) {} }
   _guestSyncHandled = false;
+  cancelPendingPasswordRecovery();
   clearLocalAuthCache();
   resolveLegalGate(false);
   renderSettingsState();
@@ -15652,7 +15702,21 @@ async function ensureProfileRow(user) {
 // example they signed out from the consent gate).
 async function onSignedIn(user) {
   if (!sb || !user) return false;
+  _authEntriesInFlight++;
+  let entered = false;
+  try {
+    entered = (await completeSignIn(user)) === true;
+  } finally {
+    _authEntriesInFlight--;
+  }
+  if (entered) {
+    _enteredUserId = String(user.id);
+    tryOpenPendingPasswordRecovery();
+  }
+  return entered;
+}
 
+async function completeSignIn(user) {
   let username = 'Seeker';
   let tier = 'free';
   let changedAt = '';
