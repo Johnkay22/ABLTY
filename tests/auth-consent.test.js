@@ -44,7 +44,7 @@ const FNS = ['legalPendingKey', 'normalizeEmailForLegal', 'readLegalRecord', 're
   'reconcileAuthState', 'checkAuthCallback', 'resumeSessionAfterPayment',
   'handleLogin', 'onPasswordRecoveryEvent', 'cancelPendingPasswordRecovery', 'tryOpenPendingPasswordRecovery', 'openChangePasswordModal', 'isLoggedIn', 'completeSignIn', 'hydrateProfileEntry',
   'ensureProfileRow', 'onSignedIn', 'hydrateProfileFromSession', 'handleSignup', 'validateUsername', 'checkUsernameTaken',
-  'createGoogleStagingClient', 'removeMainSessionIfExact', 'settleDiscardedGoogleAttempt', 'handleAuthStateChange', 'setGoogleSignInStatus', 'initGoogleSignIn',
+  'createGoogleStagingClient', 'restoreAfterStaleGoogleAdoption', 'settleDiscardedGoogleAttempt', 'handleAuthStateChange', 'setGoogleSignInStatus', 'initGoogleSignIn',
   'renderSettingsState', 'getCurrentTier', 'mergeSessionArrays', 'loadAnalyticsFromCloud'];
 const source = DECLS.map(extractDecl).join('\n') + '\n\n' + FNS.map(extractFn).join('\n\n');
 new vm.Script(source); // compiles => extraction boundaries are right
@@ -139,7 +139,14 @@ function makeDom(values = {}) {
     }
     return els[id];
   };
-  return { getElementById: get, querySelector: () => null, querySelectorAll: () => [], _els: els };
+  return {
+    getElementById: get,
+    querySelector: () => null,
+    querySelectorAll: selector => selector === '#ob-google-btn-wrap, #login-google-btn-wrap, #signup-google-btn-wrap'
+      ? ['ob-google-btn-wrap', 'login-google-btn-wrap', 'signup-google-btn-wrap'].map(get)
+      : [],
+    _els: els,
+  };
 }
 
 function makeCtx({ sbHandlers, dom, storage, timers } = {}) {
@@ -858,6 +865,100 @@ test('G6d2 fresh password session for A supersedes timed-out staged Google A wit
   assert.strictEqual(c.eval('_enteredUserId'), ME.id);
   assert.strictEqual(c.ls.getItem('ablty_logged_in'), '1');
   assert.strictEqual(c.sb.calls.filter(x => x.op === 'signOut').length, 0);
+});
+
+test('G6d3 independent B during pending main adoption is restored after stale setSession(A) completes', async () => {
+  const timers = fakeTimers();
+  const adoption = deferred();
+  const db = twoUsers();
+  const c = makeCtx({ timers, sbHandlers: {
+    ...db.handlers,
+    signInWithIdToken: () => ({ data: { user: ME }, error: null }),
+    setSession: tokens => tokens.access_token === 'staged-access'
+      ? adoption.promise
+      : { data: { user: BOB, session: { user: BOB, ...tokens } }, error: null },
+  } });
+  c.sb.auth.onAuthStateChange(c.handleAuthStateChange);
+  const callback = c.googleCallback({ credential: googleTokenFor(ME.email) });
+  await tick();
+  c.sb._emitAuth('SIGNED_IN', { user: BOB, access_token: 'b-independent', refresh_token: 'b-refresh' });
+  await tick();
+  adoption.resolve({ data: { user: ME, session: { user: ME, access_token: 'staged-access', refresh_token: 'staged-refresh' } }, error: null });
+  await tick();
+  timers.fire(0);
+  await tick();
+  await callback;
+  assert.strictEqual(c.sb._session().user.id, BOB.id);
+  assert.strictEqual(c.sb._session().access_token, 'b-independent');
+  assert.strictEqual(c.eval('_enteredUserId'), BOB.id);
+  assert.strictEqual(cacheOwner(c), BOB.id);
+  assert.strictEqual(c.ls.getItem('ablty_logged_in'), '1');
+});
+
+test('G6d4 fresh same-user session during pending adoption is restored by exact token, not mistaken for Google', async () => {
+  const timers = fakeTimers();
+  const adoption = deferred();
+  const db = makeDb({ [ME.id]: { ...profileWithLegal } });
+  const c = makeCtx({ timers, sbHandlers: {
+    ...db.handlers,
+    signInWithIdToken: () => ({ data: { user: ME }, error: null }),
+    setSession: tokens => tokens.access_token === 'staged-access'
+      ? adoption.promise
+      : { data: { user: ME, session: { user: ME, ...tokens } }, error: null },
+  } });
+  c.sb.auth.onAuthStateChange(c.handleAuthStateChange);
+  const callback = c.googleCallback({ credential: googleTokenFor(ME.email) });
+  await tick();
+  c.sb._emitAuth('SIGNED_IN', { user: ME, access_token: 'fresh-password', refresh_token: 'fresh-password-refresh' });
+  await tick();
+  adoption.resolve({ data: { user: ME, session: { user: ME, access_token: 'staged-access', refresh_token: 'staged-refresh' } }, error: null });
+  await tick();
+  timers.fire(0);
+  await tick();
+  await callback;
+  assert.strictEqual(c.sb._session().access_token, 'fresh-password');
+  assert.strictEqual(c.eval('_enteredUserId'), ME.id);
+  assert.strictEqual(c.ls.getItem('ablty_logged_in'), '1');
+  assert.ok(!c.toasts.some(([message]) => message === 'Signed in with Google.'));
+});
+
+test('G6d5 sign-out during pending adoption stays signed out after stale setSession completes', async () => {
+  const timers = fakeTimers();
+  const adoption = deferred();
+  const db = makeDb({ [ME.id]: { ...profileWithLegal } });
+  const c = makeCtx({ timers, sbHandlers: {
+    ...db.handlers,
+    signInWithIdToken: () => ({ data: { user: ME }, error: null }),
+    setSession: () => adoption.promise,
+  } });
+  c.sb.auth.onAuthStateChange(c.handleAuthStateChange);
+  const callback = c.googleCallback({ credential: googleTokenFor(ME.email) });
+  await tick();
+  c.sb._emitAuth('SIGNED_OUT', null);
+  adoption.resolve({ data: { user: ME, session: { user: ME, access_token: 'staged-access', refresh_token: 'staged-refresh' } }, error: null });
+  await tick();
+  timers.fire(0);
+  await tick();
+  await callback;
+  assert.strictEqual(c.sb._session(), null);
+  assert.strictEqual(c.eval('_enteredUserId'), null);
+  assert.strictEqual(c.ls.getItem('ablty_logged_in'), null);
+});
+
+test('G6d6 superseded slow timer cannot revive Google progress or disable B controls', async () => {
+  const timers = fakeTimers();
+  const hold = deferred();
+  const db = twoUsers();
+  const c = makeCtx({ timers, sbHandlers: { ...db.handlers, signInWithIdToken: () => hold.promise } });
+  c.sb.auth.onAuthStateChange(c.handleAuthStateChange);
+  const callback = c.googleCallback({ credential: googleTokenFor(ME.email) });
+  c.sb._emitAuth('SIGNED_IN', { user: BOB, access_token: 'b-access', refresh_token: 'b-refresh' });
+  await tick();
+  timers.fire(10000);
+  assert.strictEqual(c.document.getElementById('google-signin-status').classList.contains('visible'), false);
+  assert.strictEqual(c.document.getElementById('login-google-btn-wrap').style.pointerEvents, '');
+  hold.resolve({ data: null, error: { message: 'superseded' } });
+  await callback;
 });
 
 test('G6e retry stays blocked until a timed-out SDK operation settles, then a new attempt is allowed', async () => {

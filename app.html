@@ -16519,11 +16519,20 @@ function createGoogleStagingClient() {
   });
 }
 
-async function removeMainSessionIfExact(userId) {
+async function restoreAfterStaleGoogleAdoption(adoption) {
   const { data } = await sb.auth.getSession();
-  if (String(data?.session?.user?.id || '') !== String(userId || '')) return;
-  // This session replaced whatever preceded it in the shared SDK. Its normal
-  // SIGNED_OUT event must clear application state too; never suppress it.
+  if (data?.session?.access_token !== adoption?.accessToken) return;
+  const replacement = adoption.replacementSession;
+  if (!adoption.signedOut && replacement?.access_token && replacement?.refresh_token) {
+    await sb.auth.setSession({
+      access_token: replacement.access_token,
+      refresh_token: replacement.refresh_token,
+    });
+    return;
+  }
+  // A sign-out superseded adoption and the stale token was installed later.
+  // Remove that exact token; the normal SIGNED_OUT event keeps SDK and UI in
+  // agreement.
   await sb.auth.signOut({ scope: 'local' });
 }
 
@@ -16539,22 +16548,30 @@ function handleAuthStateChange(event, session) {
     const attempt = _googleSignInAttempt;
     const adoption = _googleAdoption;
     if (attempt) {
-      const isOurCurrentAdoption = adoption?.attempt === attempt
-        && adoption.userId === String(session.user.id || '')
+      const isOurAdoptionSession = adoption?.attempt === attempt
+        && !!adoption.accessToken
+        && session.access_token === adoption.accessToken;
+      const isOurCurrentAdoption = isOurAdoptionSession
         && isAuthGenCurrent(adoption.gen);
-      if (!isOurCurrentAdoption) {
+      if (!isOurAdoptionSession) {
         // Any independent main-client sign-in supersedes the staged Google
         // exchange, including a fresh password session for the same account.
+        // Keep its exact tokens so a later setSession completion can restore
+        // it if and only if the stale adoption token replaced it.
         attempt.superseded = true;
+        if (adoption?.attempt === attempt) {
+          adoption.replacementSession = session;
+          adoption.signedOut = false;
+        }
         setGoogleSignInStatus(false);
       }
-      if (adoption?.attempt === attempt && !isOurCurrentAdoption) {
-        // The adoption itself became stale while setSession was pending. If it
-        // replaced the current SDK session, remove exactly that session and let
-        // SIGNED_OUT clear application state so SDK/UI cannot diverge.
+      if (isOurAdoptionSession && !isOurCurrentAdoption) {
+        // The adoption itself became stale while setSession was pending.
+        // Restore the independent session (or sign-out state) only if the SDK
+        // still contains this exact stale access token.
         // Supabase auth callbacks run while the client's auth lock is held;
         // leave the callback before asking that same client for its session.
-        setTimeout(() => removeMainSessionIfExact(session.user.id), 0);
+        setTimeout(() => restoreAfterStaleGoogleAdoption(adoption), 0);
         return;
       }
     }
@@ -16576,6 +16593,10 @@ function handleAuthStateChange(event, session) {
   if (event === 'SIGNED_OUT') {
     if (_googleSignInAttempt) {
       _googleSignInAttempt.superseded = true;
+      if (_googleAdoption?.attempt === _googleSignInAttempt) {
+        _googleAdoption.replacementSession = null;
+        _googleAdoption.signedOut = true;
+      }
       setGoogleSignInStatus(false);
     }
     _guestSyncHandled = false;
@@ -16632,7 +16653,9 @@ function initGoogleSignIn() {
       _googleSignInAttempt = attempt;
       setGoogleSignInStatus(true, 'Signing you in…');
       const slowTimer = setTimeout(() => {
-        if (_googleSignInAttempt === attempt) setGoogleSignInStatus(true, 'Still signing you in…');
+        if (_googleSignInAttempt === attempt && !attempt.superseded && isAuthGenCurrent(attempt.gen)) {
+          setGoogleSignInStatus(true, 'Still signing you in…');
+        }
       }, 10000);
       let timeoutTimer;
       let stagingClient;
@@ -16667,7 +16690,13 @@ function initGoogleSignIn() {
         // The staged client cannot mutate the application's SDK session. Adopt
         // its tokens only if no auth event or sign-out superseded this attempt.
         if (attempt.superseded || !isAuthGenCurrent(gen) || !data?.session?.access_token || !data?.session?.refresh_token) return;
-        _googleAdoption = { attempt, gen, userId: String(data.user?.id || '') };
+        _googleAdoption = {
+          attempt,
+          gen,
+          accessToken: data.session.access_token,
+          replacementSession: null,
+          signedOut: false,
+        };
         let adopted;
         try {
           adopted = await sb.auth.setSession({
@@ -17380,7 +17409,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.09.18.2';
+const APP_VERSION = '2026.09.18.3';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
