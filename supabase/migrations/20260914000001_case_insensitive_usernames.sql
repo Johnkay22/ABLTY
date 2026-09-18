@@ -25,8 +25,12 @@ SECURITY DEFINER
 SET search_path = ''
 AS $$
 DECLARE
-  desired_name  text;
-  fallback_name text;
+  desired_name    text;
+  fallback_name   text;
+  chosen_name     text;
+  collision_name  text;
+  attempt          integer := 0;
+  inserted         boolean := false;
 BEGIN
   desired_name := NULLIF(btrim(NEW.raw_user_meta_data ->> 'username'), '');
   IF desired_name IS NOT NULL AND desired_name !~ '^[a-zA-Z0-9_]{3,20}$' THEN
@@ -35,9 +39,36 @@ BEGIN
 
   fallback_name := 'seeker_' || left(lower(regexp_replace(NEW.id::text, '[^a-zA-Z0-9]', '', 'g')), 8);
 
-  INSERT INTO public.profiles (id, username, tier)
-  VALUES (NEW.id, COALESCE(desired_name, fallback_name), 'free')
-  ON CONFLICT (id) DO NOTHING;
+  IF desired_name IS NOT NULL THEN
+    -- Requested names never fall back. A case-insensitive collision aborts
+    -- the auth.users transaction atomically and unrelated errors propagate.
+    INSERT INTO public.profiles (id, username, tier)
+    VALUES (NEW.id, desired_name, 'free')
+    ON CONFLICT (id) DO NOTHING;
+    inserted := true;
+  ELSE
+    chosen_name := fallback_name;
+    WHILE NOT inserted AND attempt < 5 LOOP
+      attempt := attempt + 1;
+      BEGIN
+        INSERT INTO public.profiles (id, username, tier)
+        VALUES (NEW.id, chosen_name, 'free')
+        ON CONFLICT (id) DO NOTHING;
+        inserted := true;
+      EXCEPTION WHEN unique_violation THEN
+        GET STACKED DIAGNOSTICS collision_name = CONSTRAINT_NAME;
+        IF collision_name NOT IN ('profiles_username_lower_unique', 'profiles_username_key') THEN
+          RAISE;
+        END IF;
+        chosen_name := 'seeker_' || left(md5(random()::text || clock_timestamp()::text || NEW.id::text), 8);
+      END;
+    END LOOP;
+  END IF;
+
+  IF NOT inserted THEN
+    RAISE WARNING 'handle_new_user: could not find a free generated username for user % after % attempts; leaving profile creation to the client bootstrap',
+      NEW.id, attempt;
+  END IF;
 
   INSERT INTO public.user_settings (user_id)
   VALUES (NEW.id)
@@ -48,7 +79,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.handle_new_user() IS
-  'Creates profile/settings after auth signup. Requested username collisions abort atomically; provider accounts use a UUID-derived fallback.';
+  'Creates profile/settings after auth signup. Requested username collisions abort atomically; provider accounts retry bounded generated names on username-only collisions.';
 
 REVOKE ALL ON FUNCTION public.handle_new_user() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.handle_new_user() FROM anon, authenticated;

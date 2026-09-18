@@ -32,7 +32,7 @@ function extractDecl(name) {
   return m[0];
 }
 
-const DECLS = ['_authGen', '_activeAuthUserId', '_authEntries', '_passwordRecoveryPending', '_passwordRecoveryUserId', '_enteredUserId', 'LEGAL_VERSION', 'LEGAL_DRAFT_KEY', 'LEGAL_VERIFIED_KEY', '_legalGate', 'PROFILE_SESSION_COLUMNS', 'googleSignInInitialized', '_googleSignInAttempt', 'SUPABASE_URL'];
+const DECLS = ['_authGen', '_activeAuthUserId', '_authEntries', '_passwordRecoveryPending', '_passwordRecoveryUserId', '_enteredUserId', 'LEGAL_VERSION', 'LEGAL_DRAFT_KEY', 'LEGAL_VERIFIED_KEY', '_legalGate', 'PROFILE_SESSION_COLUMNS', 'googleSignInInitialized', '_googleSignInAttempt', '_ignoredGoogleSignedOut', 'GOOGLE_SIGNIN_TIMEOUT_MS', 'SUPABASE_URL'];
 const FNS = ['legalPendingKey', 'normalizeEmailForLegal', 'readLegalRecord', 'readLegalDraft', 'setLegalDraft', 'clearLegalDraft',
   'readPendingLegalAcceptance', 'bindPendingLegalAcceptance', 'pendingLegalFieldsFor', 'discardUnboundLegalDraft',
   'profileHasLegalAcceptance', 'recordPendingLegalAcceptance', 'readLegalVerified', 'markLegalVerified', 'hasLegalVerified',
@@ -43,7 +43,8 @@ const FNS = ['legalPendingKey', 'normalizeEmailForLegal', 'readLegalRecord', 're
   'beginAuthContext', 'endAuthContext', 'isAuthGenCurrent', 'isAuthResultUsable', 'trackAuthEntry', 'untrackAuthEntry', 'authEntriesInFlight',
   'reconcileAuthState', 'checkAuthCallback', 'resumeSessionAfterPayment',
   'handleLogin', 'onPasswordRecoveryEvent', 'cancelPendingPasswordRecovery', 'tryOpenPendingPasswordRecovery', 'openChangePasswordModal', 'isLoggedIn', 'completeSignIn', 'hydrateProfileEntry',
-  'ensureProfileRow', 'onSignedIn', 'hydrateProfileFromSession', 'handleSignup', 'validateUsername', 'setGoogleSignInStatus', 'initGoogleSignIn',
+  'ensureProfileRow', 'onSignedIn', 'hydrateProfileFromSession', 'handleSignup', 'validateUsername', 'checkUsernameTaken',
+  'googleCredentialEmail', 'isTimedOutGoogleUser', 'removeTimedOutGoogleSession', 'settleTimedOutGoogleAttempt', 'handleAuthStateChange', 'setGoogleSignInStatus', 'initGoogleSignIn',
   'renderSettingsState', 'getCurrentTier', 'mergeSessionArrays', 'loadAnalyticsFromCloud'];
 const source = DECLS.map(extractDecl).join('\n') + '\n\n' + FNS.map(extractFn).join('\n\n');
 new vm.Script(source); // compiles => extraction boundaries are right
@@ -68,7 +69,9 @@ function makeLocalStorage() {
 
 function makeSb(h) {
   const calls = [];
-  return {
+  let currentSession = null;
+  let authListener = null;
+  const client = {
     calls,
     from(table) {
       const q = { table };
@@ -91,11 +94,25 @@ function makeSb(h) {
       signUp: o => Promise.resolve(h.signUp ? h.signUp(o) : { data: { user: null }, error: null }),
       signInWithPassword: o => { calls.push({ op: 'signInWithPassword' }); return Promise.resolve(h.signInWithPassword ? h.signInWithPassword(o) : { data: { user: null }, error: null }); },
       signInWithIdToken: o => { calls.push({ op: 'signInWithIdToken' }); return Promise.resolve(h.signInWithIdToken ? h.signInWithIdToken(o) : { data: { user: null }, error: null }); },
-      signOut: () => { calls.push({ op: 'signOut' }); return Promise.resolve({ error: null }); },
-      getSession: () => Promise.resolve({ data: { session: null } }),
+      signOut: opts => {
+        calls.push({ op: 'signOut', opts });
+        if (h.signOut) return Promise.resolve(h.signOut(opts));
+        currentSession = null;
+        if (authListener) authListener('SIGNED_OUT', null);
+        return Promise.resolve({ error: null });
+      },
+      getSession: () => Promise.resolve(h.getSession ? h.getSession() : { data: { session: currentSession } }),
       setSession: o => { calls.push({ op: 'setSession' }); return Promise.resolve(h.setSession ? h.setSession(o) : { data: { user: null, session: null }, error: null }); },
+      onAuthStateChange: cb => { authListener = cb; return { data: { subscription: { unsubscribe() {} } } }; },
     },
   };
+  client._emitAuth = (event, session) => {
+    if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED' || event === 'PASSWORD_RECOVERY') currentSession = session || null;
+    if (event === 'SIGNED_OUT') currentSession = null;
+    return authListener ? authListener(event, session) : undefined;
+  };
+  client._session = () => currentSession;
+  return client;
 }
 
 function makeDom(values = {}) {
@@ -115,7 +132,7 @@ function makeDom(values = {}) {
   return { getElementById: get, querySelector: () => null, querySelectorAll: () => [], _els: els };
 }
 
-function makeCtx({ sbHandlers, dom, storage } = {}) {
+function makeCtx({ sbHandlers, dom, storage, timers } = {}) {
   const warns = [];
   const ls = storage || makeLocalStorage();
   const toasts = [];
@@ -126,7 +143,7 @@ function makeCtx({ sbHandlers, dom, storage } = {}) {
     document: dom || makeDom({}),
     location: { reload() { ctx.reloads++; } }, reloads: 0,
     window: { location: { hash: '', search: '' } }, history: { replaceState() {} }, URLSearchParams,
-    setTimeout, clearTimeout,
+    setTimeout: timers?.setTimeout || setTimeout, clearTimeout: timers?.clearTimeout || clearTimeout, atob,
     // onSignedIn side-effect stubs
     renderProfile() {}, renderHomeGreeting() {}, updateSyncStatus() {},
     hasLocalGuestData: () => false, renderAnalytics() {},
@@ -155,6 +172,19 @@ function makeCtx({ sbHandlers, dom, storage } = {}) {
 }
 
 const tick = async (n = 6) => { for (let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };
+const fakeTimers = () => {
+  const jobs = [];
+  return {
+    jobs,
+    setTimeout(fn, ms) { const job = { fn, ms, cleared: false }; jobs.push(job); return job; },
+    clearTimeout(job) { if (job) job.cleared = true; },
+    fire(ms) { for (const job of jobs.filter(j => j.ms === ms && !j.cleared)) { job.cleared = true; job.fn(); } },
+  };
+};
+const googleTokenFor = email => {
+  const enc = value => Buffer.from(JSON.stringify(value)).toString('base64url');
+  return enc({ alg: 'none' }) + '.' + enc({ email }) + '.sig';
+};
 
 const DRAFT = 'ablty_pending_legal_acceptance';
 const VERIFIED = 'ablty_legal_verified';
@@ -568,13 +598,39 @@ test('I1g handleSignup: RPC errors (e.g. not deployed yet) -> signup proceeds', 
   assert.ok(c.warns.some(w => /username_is_taken unavailable/.test(w)));
 });
 
+test('I1h handleSignup: name claimed after availability check -> confirmed username error, original auth error hidden', async () => {
+  const dom = makeDom({ 'signup-tos-check:checked': true, 'signup-username': 'Alice', 'signup-email': 'a@b.com', 'signup-password': 'password123', 'signup-confirm': 'password123' });
+  let checks = 0;
+  const c = makeCtx({ dom, sbHandlers: {
+    rpc: () => ({ data: ++checks > 1, error: null }),
+    signUp: () => ({ data: null, error: { message: 'Database error saving new user' } }),
+  } });
+  c.setAuthError = (field, id, message) => { if (message) c.authErrors.push([field, message]); };
+  await c.handleSignup();
+  assert.deepStrictEqual(c.authErrors, [['signup-username', 'That username is already being used. Try another.']]);
+});
+
+test('I1i handleSignup: unrelated Auth error remains on email when post-error availability is false or unavailable', async () => {
+  for (const second of [{ data: false, error: null }, { data: null, error: { message: 'offline' } }]) {
+    const dom = makeDom({ 'signup-tos-check:checked': true, 'signup-username': 'Alice', 'signup-email': 'a@b.com', 'signup-password': 'password123', 'signup-confirm': 'password123' });
+    let checks = 0;
+    const c = makeCtx({ dom, sbHandlers: {
+      rpc: () => (++checks === 1 ? { data: false, error: null } : second),
+      signUp: () => ({ data: null, error: { message: 'Email rate limit exceeded' } }),
+    } });
+    c.setAuthError = (field, id, message) => { if (message) c.authErrors.push([field, message]); };
+    await c.handleSignup();
+    assert.deepStrictEqual(c.authErrors, [['signup-email', 'Email rate limit exceeded']]);
+  }
+});
+
 // ═══════════════════════════════════════════════════════
 //  ISSUE 2: Google sign-in and the consent gate
 // ═══════════════════════════════════════════════════════
-function googleCtx({ db, screen, ticked, storage } = {}) {
+function googleCtx({ db, screen, ticked, storage, timers } = {}) {
   const dom = makeDom({ 'signup-tos-check:checked': !!ticked });
   if (screen) dom.getElementById('screen-' + screen).classList.add('active');
-  const c = makeCtx({ dom, storage, sbHandlers: { ...db.handlers, signInWithIdToken: () => ({ data: { user: { id: ME.id, email: ME.email } }, error: null }) } });
+  const c = makeCtx({ dom, storage, timers, sbHandlers: { ...db.handlers, signInWithIdToken: () => ({ data: { user: { id: ME.id, email: ME.email } }, error: null }) } });
   return c;
 }
 const GOOGLE_NEW_USER = () => makeDb(); // no profile row yet: signInWithIdToken just created the auth user
@@ -682,7 +738,111 @@ test('G6b credential receipt shows progress immediately, blocks duplicate callba
   release({ data: null, error: { message: 'Rejected' } });
   await first;
   assert.strictEqual(c.document.getElementById('google-signin-status').classList.contains('visible'), false);
-  assert.deepStrictEqual(c.toasts, [['Rejected', 'error']]);
+  assert.deepStrictEqual(c.toasts, [
+    ['Your previous Google sign-in is still finishing. Please wait before trying again.', 'info'],
+    ['Rejected', 'error'],
+  ]);
+});
+
+test('G6c timed-out Google SIGNED_IN is rejected by the real auth listener after sign-out and cannot enter', async () => {
+  const timers = fakeTimers();
+  const hold = deferred();
+  const db = makeDb({ [ME.id]: { ...profileWithLegal } });
+  const c = makeCtx({ timers, sbHandlers: { ...db.handlers, signInWithIdToken: () => hold.promise } });
+  c.sb.auth.onAuthStateChange(c.handleAuthStateChange);
+  const callback = c.googleCallback({ credential: googleTokenFor(ME.email) });
+  timers.fire(45000);
+  await callback;
+  c.sb._emitAuth('SIGNED_OUT', null);
+  c.sb._emitAuth('SIGNED_IN', { user: ME });
+  await tick();
+  hold.resolve({ data: { user: ME }, error: null });
+  await tick();
+  assert.strictEqual(c.ls.getItem('ablty_logged_in'), null);
+  assert.strictEqual(c.eval('_activeAuthUserId'), null);
+  assert.strictEqual(c.sb.calls.filter(x => x.op === 'signOut').length, 1);
+});
+
+test('G6d timed-out Google A cannot replace entered B; cleanup signs out only SDK A and ignores that cleanup event for B', async () => {
+  const timers = fakeTimers();
+  const hold = deferred();
+  const db = twoUsers();
+  const c = makeCtx({ timers, sbHandlers: { ...db.handlers, signInWithIdToken: () => hold.promise } });
+  c.sb.auth.onAuthStateChange(c.handleAuthStateChange);
+  const callback = c.googleCallback({ credential: googleTokenFor(ME.email) });
+  timers.fire(45000);
+  await callback;
+  assert.strictEqual(await c.onSignedIn(BOB), true);
+  c.sb._emitAuth('SIGNED_IN', { user: ME });
+  await tick();
+  hold.resolve({ data: { user: ME }, error: null });
+  await tick();
+  assert.strictEqual(c.eval('_activeAuthUserId'), BOB.id);
+  assert.strictEqual(cacheOwner(c), BOB.id);
+  assert.strictEqual(c.sb.calls.filter(x => x.op === 'signOut').length, 1);
+});
+
+test('G6e retry stays blocked until a timed-out SDK operation settles, then a new attempt is allowed', async () => {
+  const timers = fakeTimers();
+  const first = deferred();
+  let requests = 0;
+  const c = makeCtx({ timers, sbHandlers: { signInWithIdToken: () => (++requests === 1 ? first.promise : { data: null, error: { message: 'second' } }) } });
+  const original = c.googleCallback({ credential: googleTokenFor(ME.email) });
+  timers.fire(45000);
+  await original;
+  await c.googleCallback({ credential: googleTokenFor(BOB.email) });
+  assert.strictEqual(requests, 1);
+  first.resolve({ data: null, error: { message: 'late failure' } });
+  await tick();
+  await c.googleCallback({ credential: googleTokenFor(BOB.email) });
+  assert.strictEqual(requests, 2);
+});
+
+test('G6f account takeover suppresses stale timeout and late-error messages', async () => {
+  const timers = fakeTimers();
+  const hold = deferred();
+  const db = twoUsers();
+  const c = makeCtx({ timers, sbHandlers: { ...db.handlers, signInWithIdToken: () => hold.promise } });
+  const callback = c.googleCallback({ credential: googleTokenFor(ME.email) });
+  assert.strictEqual(await c.onSignedIn(BOB), true);
+  timers.fire(45000);
+  await callback;
+  hold.resolve({ data: null, error: { message: 'late rejection' } });
+  await tick();
+  assert.deepStrictEqual(c.toasts, []);
+
+  const hold2 = deferred();
+  const c2 = makeCtx({ sbHandlers: { ...db.handlers, signInWithIdToken: () => hold2.promise } });
+  const callback2 = c2.googleCallback({ credential: googleTokenFor(ME.email) });
+  assert.strictEqual(await c2.onSignedIn(BOB), true);
+  hold2.resolve({ data: null, error: { message: 'stale SDK error' } });
+  await callback2;
+  assert.deepStrictEqual(c2.toasts, []);
+});
+
+test('G6g Terms and guest-data decisions may exceed 45 seconds after the SDK exchange', async () => {
+  const timers = fakeTimers();
+  const db = makeDb({ [ME.id]: { ...profileNoLegal } });
+  const c = googleCtx({ db, screen: 'login', timers });
+  const p = c.googleCallback({ credential: googleTokenFor(ME.email) });
+  await tick();
+  assert.strictEqual(c.gate().mode, 'consent');
+  timers.fire(45000);
+  assert.ok(!c.toasts.some(([message]) => /too long/.test(message)));
+  await agreeAtGate(c);
+  await p;
+
+  const timers2 = fakeTimers();
+  const choice = deferred();
+  const c2 = googleCtx({ db: makeDb({ [ME.id]: { ...profileWithLegal } }), screen: 'login', timers: timers2 });
+  c2.hasLocalGuestData = () => true;
+  c2.showGuestDataModal = () => choice.promise;
+  const p2 = c2.googleCallback({ credential: googleTokenFor(ME.email) });
+  await tick();
+  timers2.fire(45000);
+  assert.ok(!c2.toasts.some(([message]) => /too long/.test(message)));
+  choice.resolve('fresh');
+  await p2;
 });
 
 test('G7 pending consent belonging to a DIFFERENT account -> new Google user is gated, other record untouched, sign out from gate', async () => {
