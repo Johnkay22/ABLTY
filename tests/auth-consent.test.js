@@ -32,7 +32,7 @@ function extractDecl(name) {
   return m[0];
 }
 
-const DECLS = ['_authGen', '_activeAuthUserId', '_authEntries', '_passwordRecoveryPending', '_passwordRecoveryUserId', '_enteredUserId', 'LEGAL_VERSION', 'LEGAL_DRAFT_KEY', 'LEGAL_VERIFIED_KEY', '_legalGate', 'PROFILE_SESSION_COLUMNS', 'googleSignInInitialized', 'SUPABASE_URL'];
+const DECLS = ['_authGen', '_activeAuthUserId', '_authEntries', '_passwordRecoveryPending', '_passwordRecoveryUserId', '_enteredUserId', 'LEGAL_VERSION', 'LEGAL_DRAFT_KEY', 'LEGAL_VERIFIED_KEY', '_legalGate', 'PROFILE_SESSION_COLUMNS', 'googleSignInInitialized', '_googleSignInAttempt', 'SUPABASE_URL'];
 const FNS = ['legalPendingKey', 'normalizeEmailForLegal', 'readLegalRecord', 'readLegalDraft', 'setLegalDraft', 'clearLegalDraft',
   'readPendingLegalAcceptance', 'bindPendingLegalAcceptance', 'pendingLegalFieldsFor', 'discardUnboundLegalDraft',
   'profileHasLegalAcceptance', 'recordPendingLegalAcceptance', 'readLegalVerified', 'markLegalVerified', 'hasLegalVerified',
@@ -43,7 +43,7 @@ const FNS = ['legalPendingKey', 'normalizeEmailForLegal', 'readLegalRecord', 're
   'beginAuthContext', 'endAuthContext', 'isAuthGenCurrent', 'isAuthResultUsable', 'trackAuthEntry', 'untrackAuthEntry', 'authEntriesInFlight',
   'reconcileAuthState', 'checkAuthCallback', 'resumeSessionAfterPayment',
   'handleLogin', 'onPasswordRecoveryEvent', 'cancelPendingPasswordRecovery', 'tryOpenPendingPasswordRecovery', 'openChangePasswordModal', 'isLoggedIn', 'completeSignIn', 'hydrateProfileEntry',
-  'ensureProfileRow', 'onSignedIn', 'hydrateProfileFromSession', 'handleSignup', 'validateUsername', 'initGoogleSignIn',
+  'ensureProfileRow', 'onSignedIn', 'hydrateProfileFromSession', 'handleSignup', 'validateUsername', 'setGoogleSignInStatus', 'initGoogleSignIn',
   'renderSettingsState', 'getCurrentTier', 'mergeSessionArrays', 'loadAnalyticsFromCloud'];
 const source = DECLS.map(extractDecl).join('\n') + '\n\n' + FNS.map(extractFn).join('\n\n');
 new vm.Script(source); // compiles => extraction boundaries are right
@@ -106,12 +106,13 @@ function makeDom(values = {}) {
       const set = new Set();
       els[id] = {
         id, value: values[id] ?? '', checked: !!values[id + ':checked'], disabled: false, textContent: '', style: {},
+        setAttribute(name, value) { this[name] = value; },
         classList: { add: c => set.add(c), remove: c => set.delete(c), contains: c => set.has(c), toggle(c, on) { on ? set.add(c) : set.delete(c); }, _set: set },
       };
     }
     return els[id];
   };
-  return { getElementById: get, querySelector: () => null, _els: els };
+  return { getElementById: get, querySelector: () => null, querySelectorAll: () => [], _els: els };
 }
 
 function makeCtx({ sbHandlers, dom, storage } = {}) {
@@ -667,6 +668,21 @@ test('G6 cancelled Google auth (no credential) and failed signInWithIdToken -> e
   assert.strictEqual(c2.sb.calls.filter(x => x.op !== 'signInWithIdToken').length, 0);
   assert.strictEqual(c2.gateActive(), false);
   assert.strictEqual(Object.keys(db.rows).length, 0);
+});
+
+test('G6b credential receipt shows progress immediately, blocks duplicate callbacks, and clears after failure', async () => {
+  let release;
+  const held = new Promise(resolve => { release = resolve; });
+  const c = makeCtx({ sbHandlers: { signInWithIdToken: () => held } });
+  const first = c.googleCallback({ credential: 'tok' });
+  assert.ok(c.document.getElementById('google-signin-status').classList.contains('visible'));
+  assert.strictEqual(c.document.getElementById('google-signin-status-label').textContent, 'Signing you in…');
+  await c.googleCallback({ credential: 'duplicate' });
+  assert.strictEqual(c.sb.calls.filter(x => x.op === 'signInWithIdToken').length, 1);
+  release({ data: null, error: { message: 'Rejected' } });
+  await first;
+  assert.strictEqual(c.document.getElementById('google-signin-status').classList.contains('visible'), false);
+  assert.deepStrictEqual(c.toasts, [['Rejected', 'error']]);
 });
 
 test('G7 pending consent belonging to a DIFFERENT account -> new Google user is gated, other record untouched, sign out from gate', async () => {
