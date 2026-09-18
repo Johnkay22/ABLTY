@@ -16505,64 +16505,58 @@ function obGoToLogin() {
 
 let googleSignInInitialized = false;
 let _googleSignInAttempt = null;
-let _ignoredGoogleSignedOut = null;
+let _googleAdoption = null;
 const GOOGLE_SIGNIN_TIMEOUT_MS = 45000;
 
-function googleCredentialEmail(credential) {
-  try {
-    const payload = String(credential || '').split('.')[1];
-    if (!payload) return '';
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const claims = JSON.parse(atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')));
-    return String(claims?.email || '').trim().toLowerCase();
-  } catch (_) {
-    return '';
-  }
+function createGoogleStagingClient() {
+  if (!_supabaseSdk || typeof _supabaseSdk.createClient !== 'function') throw new Error('Auth is not configured');
+  return _supabaseSdk.createClient(SUPABASE_URL, SUPABASE_ANON, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
 }
 
-function isTimedOutGoogleUser(user) {
-  const attempt = _googleSignInAttempt;
-  if (!attempt?.timedOut || !user) return false;
-  if (attempt.userId && String(user.id || '') === attempt.userId) return true;
-  return !!attempt.email && String(user.email || '').trim().toLowerCase() === attempt.email;
+async function removeMainSessionIfExact(userId) {
+  const { data } = await sb.auth.getSession();
+  if (String(data?.session?.user?.id || '') !== String(userId || '')) return;
+  // This session replaced whatever preceded it in the shared SDK. Its normal
+  // SIGNED_OUT event must clear application state too; never suppress it.
+  await sb.auth.signOut({ scope: 'local' });
 }
 
-async function removeTimedOutGoogleSession(attempt, user) {
-  if (!attempt || _googleSignInAttempt !== attempt || !user?.id) return;
-  if (attempt.cleanupPromise) return attempt.cleanupPromise;
-  attempt.userId = String(user.id);
-  attempt.cleanupPromise = (async () => {
-    const { data } = await sb.auth.getSession();
-    const currentUserId = String(data?.session?.user?.id || '');
-    if (_googleSignInAttempt !== attempt || currentUserId !== attempt.userId) return;
-
-    // The SDK still holds exactly the stale session. Suppress only the
-    // SIGNED_OUT emitted by removing it when a newer application account is
-    // active; never sign out a different current SDK session.
-    if (_activeAuthUserId && _activeAuthUserId !== attempt.userId) {
-      _ignoredGoogleSignedOut = { gen: _authGen, activeUserId: _activeAuthUserId };
-    }
-    await sb.auth.signOut({ scope: 'local' });
-  })();
-  return attempt.cleanupPromise;
-}
-
-async function settleTimedOutGoogleAttempt(attempt, result) {
-  try {
-    const user = result?.data?.user;
-    if (user) await removeTimedOutGoogleSession(attempt, user);
-  } catch (error) {
-    console.warn('[AUTH] Timed-out Google session cleanup failed:', error?.message || error);
-  } finally {
-    if (_googleSignInAttempt === attempt) _googleSignInAttempt = null;
-  }
+function settleDiscardedGoogleAttempt(attempt) {
+  // The staging client has no persistence or refresh timer. Dropping the last
+  // reference discards its in-memory session; do not call signOut because an
+  // adopted main session uses the same refresh token.
+  if (_googleSignInAttempt === attempt) _googleSignInAttempt = null;
 }
 
 function handleAuthStateChange(event, session) {
   if (event === 'SIGNED_IN' && session?.user) {
-    if (isTimedOutGoogleUser(session.user)) {
-      removeTimedOutGoogleSession(_googleSignInAttempt, session.user);
-      return;
+    const attempt = _googleSignInAttempt;
+    const adoption = _googleAdoption;
+    if (attempt) {
+      const isOurCurrentAdoption = adoption?.attempt === attempt
+        && adoption.userId === String(session.user.id || '')
+        && isAuthGenCurrent(adoption.gen);
+      if (!isOurCurrentAdoption) {
+        // Any independent main-client sign-in supersedes the staged Google
+        // exchange, including a fresh password session for the same account.
+        attempt.superseded = true;
+        setGoogleSignInStatus(false);
+      }
+      if (adoption?.attempt === attempt && !isOurCurrentAdoption) {
+        // The adoption itself became stale while setSession was pending. If it
+        // replaced the current SDK session, remove exactly that session and let
+        // SIGNED_OUT clear application state so SDK/UI cannot diverge.
+        // Supabase auth callbacks run while the client's auth lock is held;
+        // leave the callback before asking that same client for its session.
+        setTimeout(() => removeMainSessionIfExact(session.user.id), 0);
+        return;
+      }
     }
     if (typeof onSignedIn === 'function') onSignedIn(session.user);
     return;
@@ -16580,9 +16574,10 @@ function handleAuthStateChange(event, session) {
     }).catch(() => {});
   }
   if (event === 'SIGNED_OUT') {
-    const ignored = _ignoredGoogleSignedOut;
-    _ignoredGoogleSignedOut = null;
-    if (ignored && ignored.gen === _authGen && ignored.activeUserId === _activeAuthUserId) return;
+    if (_googleSignInAttempt) {
+      _googleSignInAttempt.superseded = true;
+      setGoogleSignInStatus(false);
+    }
     _guestSyncHandled = false;
     cancelPendingPasswordRecovery();
     clearLocalAuthCache();
@@ -16633,17 +16628,19 @@ function initGoogleSignIn() {
         showToast('Your previous Google sign-in is still finishing. Please wait before trying again.', 'info');
         return;
       }
-      const attempt = { gen: _authGen, email: googleCredentialEmail(response.credential), timedOut: false, userId: '' };
+      const attempt = { gen: _authGen, timedOut: false, superseded: false };
       _googleSignInAttempt = attempt;
       setGoogleSignInStatus(true, 'Signing you in…');
       const slowTimer = setTimeout(() => {
         if (_googleSignInAttempt === attempt) setGoogleSignInStatus(true, 'Still signing you in…');
       }, 10000);
       let timeoutTimer;
+      let stagingClient;
 
       try {
         const gen = attempt.gen;
-        const operation = sb.auth.signInWithIdToken({ provider: 'google', token: response.credential });
+        stagingClient = createGoogleStagingClient();
+        const operation = stagingClient.auth.signInWithIdToken({ provider: 'google', token: response.credential });
         const timeout = new Promise(resolve => {
           timeoutTimer = setTimeout(() => resolve({ timedOut: true }), GOOGLE_SIGNIN_TIMEOUT_MS);
         });
@@ -16654,8 +16651,8 @@ function initGoogleSignIn() {
         if (result?.timedOut) {
           attempt.timedOut = true;
           setGoogleSignInStatus(false);
-          if (isAuthGenCurrent(gen)) showToast('Google sign-in is taking too long. Please wait before trying again.', 'error');
-          operation.then(value => settleTimedOutGoogleAttempt(attempt, value), () => settleTimedOutGoogleAttempt(attempt, null));
+          if (!attempt.superseded && isAuthGenCurrent(gen)) showToast('Google sign-in is taking too long. Please wait before trying again.', 'error');
+          operation.then(() => settleDiscardedGoogleAttempt(attempt), () => settleDiscardedGoogleAttempt(attempt));
           return;
         }
         // The credential exchange has finished. Terms, profile loading and
@@ -16664,15 +16661,31 @@ function initGoogleSignIn() {
         const { data, error } = result || {};
 
         if (error) {
-          if (isAuthGenCurrent(gen)) showToast(error.message, 'error');
+          if (!attempt.superseded && isAuthGenCurrent(gen)) showToast(error.message, 'error');
           return;
         }
-      // A different account signed in while Google was pending: this late
-      // result must not take over or be announced.
-        if (!isAuthResultUsable(gen, data?.user?.id)) return;
+        // The staged client cannot mutate the application's SDK session. Adopt
+        // its tokens only if no auth event or sign-out superseded this attempt.
+        if (attempt.superseded || !isAuthGenCurrent(gen) || !data?.session?.access_token || !data?.session?.refresh_token) return;
+        _googleAdoption = { attempt, gen, userId: String(data.user?.id || '') };
+        let adopted;
+        try {
+          adopted = await sb.auth.setSession({
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+          });
+        } finally {
+          if (_googleAdoption?.attempt === attempt) _googleAdoption = null;
+        }
+        if (adopted?.error) {
+          if (!attempt.superseded && isAuthGenCurrent(gen)) showToast(adopted.error.message, 'error');
+          return;
+        }
+        const adoptedUser = adopted?.data?.user || data.user;
+        if (attempt.superseded || !isAuthResultUsable(gen, adoptedUser?.id)) return;
 
         localStorage.removeItem('ablty_guest_mode');
-        if (data?.user) {
+        if (adoptedUser) {
         // signInWithIdToken signs in an existing user OR creates a new one.
         // The only acceptance that can be tied to this account here is the
         // box ticked on the signup screen that is open right now (the Google
@@ -16683,10 +16696,10 @@ function initGoogleSignIn() {
         // acceptance passes straight through.
         const onSignupScreen = !!document.getElementById('screen-signup')?.classList.contains('active');
         if (onSignupScreen) {
-          if (!readLegalDraft() && document.getElementById('signup-tos-check')?.checked) setLegalDraft(data.user.email);
-          bindPendingLegalAcceptance({ id: data.user.id, email: data.user.email });
+          if (!readLegalDraft() && document.getElementById('signup-tos-check')?.checked) setLegalDraft(adoptedUser.email);
+          bindPendingLegalAcceptance({ id: adoptedUser.id, email: adoptedUser.email });
         }
-          const entered = await onSignedIn(data.user);
+          const entered = await onSignedIn(adoptedUser);
           if (entered === false) return;
         }
         // Close any open auth or onboarding screens
@@ -16695,7 +16708,7 @@ function initGoogleSignIn() {
         showToast('Signed in with Google.', 'success');
       } catch (error) {
         console.warn('[AUTH] Google sign-in failed:', error?.message || error);
-        if (isAuthGenCurrent(attempt.gen)) showToast('Google sign-in failed. Please try again.', 'error');
+        if (!attempt.superseded && isAuthGenCurrent(attempt.gen)) showToast('Google sign-in failed. Please try again.', 'error');
       } finally {
         clearTimeout(slowTimer);
         clearTimeout(timeoutTimer);
@@ -17367,7 +17380,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.09.18.1';
+const APP_VERSION = '2026.09.18.2';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
