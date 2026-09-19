@@ -4,6 +4,10 @@ set -euo pipefail
 # Executable integration test for the real PostgreSQL migration. It creates an
 # isolated temporary cluster and never contacts Supabase. PostgreSQL server and
 # client binaries must already be installed.
+if command -v pg_config >/dev/null 2>&1; then
+  PG_BINDIR=$(pg_config --bindir 2>/dev/null || true)
+  if [[ -n "$PG_BINDIR" ]]; then export PATH="$PG_BINDIR:$PATH"; fi
+fi
 for command in initdb pg_ctl createdb psql; do
   command -v "$command" >/dev/null || {
     echo "SKIP: $command is not installed; PostgreSQL integration tests were not run." >&2

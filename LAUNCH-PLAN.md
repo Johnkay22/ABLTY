@@ -16,6 +16,8 @@
 
 **Test evidence categories (2026-09-18):** source-text safeguards: `node tests/username-case-insensitive.test.js` passed 8 assertions; simulated application/SDK-event tests (not live Supabase SDK evidence): `node tests/auth-consent.test.js` passed 107 tests using the real extracted listener and application functions; PostgreSQL: `tests/postgres-username-case-insensitive.sh` is committed and executable but could not run in this environment because `initdb`/server binaries are unavailable (it covers existing collisions, concurrent case variants, requested-name rollback, generated-name retry, RPC behavior, profile renames, and display casing); live Supabase: not run, and no production migration/account/email setting was changed. Do not report either PostgreSQL or live Supabase coverage as passed until those commands run in an authorized environment.
 
+**Integration verification added 2026-09-19:** `.github/workflows/pr127-postgres.yml` installs a disposable PostgreSQL server/client and runs the committed harness; exit 77/SKIP explicitly fails the job. Local execution remains SKIP because `pg_config --bindir` contains no installed PostgreSQL executables. Actual browser/Supabase SDK verification remains pending: this environment has no browser automation runtime and no isolated Supabase backend credentials. Required manual test environment: a nonproduction Supabase project with email verification enabled, two disposable users, and two browser tabs/profiles. Never point this test at production or use `ablty_admin`.
+
 **Required database/deployment order (do not skip or reorder):**
 
 1. In Supabase SQL Editor, run this **read-only** collision audit:
