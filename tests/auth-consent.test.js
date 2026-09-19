@@ -32,7 +32,7 @@ function extractDecl(name) {
   return m[0];
 }
 
-const DECLS = ['_authGen', '_activeAuthUserId', '_authEntries', '_passwordRecoveryPending', '_passwordRecoveryUserId', '_enteredUserId', 'LEGAL_VERSION', 'LEGAL_DRAFT_KEY', 'LEGAL_VERIFIED_KEY', '_legalGate', 'PROFILE_SESSION_COLUMNS', 'googleSignInInitialized', '_googleSignInAttempt', '_googleAdoption', 'GOOGLE_SIGNIN_TIMEOUT_MS', 'SUPABASE_URL', 'SUPABASE_ANON', '_supabaseSdk'];
+const DECLS = ['_authGen', '_activeAuthUserId', '_authEntries', '_passwordRecoveryPending', '_passwordRecoveryUserId', '_enteredUserId', 'LEGAL_VERSION', 'LEGAL_DRAFT_KEY', 'LEGAL_VERIFIED_KEY', '_legalGate', 'PROFILE_SESSION_COLUMNS', 'googleSignInInitialized', '_googleSignInAttempt', '_googleAdoption', '_googleRestoration', 'GOOGLE_SIGNIN_TIMEOUT_MS', 'SUPABASE_URL', 'SUPABASE_ANON', '_supabaseSdk'];
 const FNS = ['legalPendingKey', 'normalizeEmailForLegal', 'readLegalRecord', 'readLegalDraft', 'setLegalDraft', 'clearLegalDraft',
   'readPendingLegalAcceptance', 'bindPendingLegalAcceptance', 'pendingLegalFieldsFor', 'discardUnboundLegalDraft',
   'profileHasLegalAcceptance', 'recordPendingLegalAcceptance', 'readLegalVerified', 'markLegalVerified', 'hasLegalVerified',
@@ -44,7 +44,7 @@ const FNS = ['legalPendingKey', 'normalizeEmailForLegal', 'readLegalRecord', 're
   'reconcileAuthState', 'checkAuthCallback', 'resumeSessionAfterPayment',
   'handleLogin', 'onPasswordRecoveryEvent', 'cancelPendingPasswordRecovery', 'tryOpenPendingPasswordRecovery', 'openChangePasswordModal', 'isLoggedIn', 'completeSignIn', 'hydrateProfileEntry',
   'ensureProfileRow', 'onSignedIn', 'hydrateProfileFromSession', 'handleSignup', 'validateUsername', 'checkUsernameTaken',
-  'createGoogleStagingClient', 'restoreAfterStaleGoogleAdoption', 'settleDiscardedGoogleAttempt', 'handleAuthStateChange', 'setGoogleSignInStatus', 'initGoogleSignIn',
+  'createGoogleStagingClient', 'restoreAfterStaleGoogleAdoption', 'settleSupersededGoogleRestoration', 'settleDiscardedGoogleAttempt', 'handleAuthStateChange', 'setGoogleSignInStatus', 'initGoogleSignIn',
   'renderSettingsState', 'getCurrentTier', 'mergeSessionArrays', 'loadAnalyticsFromCloud'];
 const source = DECLS.map(extractDecl).join('\n') + '\n\n' + FNS.map(extractFn).join('\n\n');
 new vm.Script(source); // compiles => extraction boundaries are right
@@ -943,6 +943,109 @@ test('G6d5 sign-out during pending adoption stays signed out after stale setSess
   assert.strictEqual(c.sb._session(), null);
   assert.strictEqual(c.eval('_enteredUserId'), null);
   assert.strictEqual(c.ls.getItem('ablty_logged_in'), null);
+});
+
+test('G6d5b sign-out during delayed restoration cannot be undone when restoration resolves', async () => {
+  const timers = fakeTimers();
+  const adoption = deferred();
+  const restoration = deferred();
+  const db = twoUsers();
+  const c = makeCtx({ timers, sbHandlers: {
+    ...db.handlers,
+    signInWithIdToken: () => ({ data: { user: ME }, error: null }),
+    setSession: tokens => {
+      if (tokens.access_token === 'staged-access') return adoption.promise;
+      if (tokens.access_token === 'b-independent') return restoration.promise;
+      throw new Error('unexpected token');
+    },
+  } });
+  c.sb.auth.onAuthStateChange(c.handleAuthStateChange);
+  const callback = c.googleCallback({ credential: googleTokenFor(ME.email) });
+  await tick();
+  c.sb._emitAuth('SIGNED_IN', { user: BOB, access_token: 'b-independent', refresh_token: 'b-refresh' });
+  await tick();
+  adoption.resolve({ data: { user: ME, session: { user: ME, access_token: 'staged-access', refresh_token: 'staged-refresh' } }, error: null });
+  await tick();
+  timers.fire(0); // starts the held restoration of B
+  await tick();
+  c.sb._emitAuth('SIGNED_OUT', null);
+  restoration.resolve({ data: { user: BOB, session: { user: BOB, access_token: 'b-independent', refresh_token: 'b-refresh' } }, error: null });
+  await tick();
+  timers.fire(0); // removes B because sign-out superseded its restoration
+  await tick();
+  await callback;
+  assert.strictEqual(c.sb._session(), null);
+  assert.strictEqual(c.eval('_enteredUserId'), null);
+  assert.strictEqual(c.ls.getItem('ablty_logged_in'), null);
+});
+
+test('G6d5c newer C during delayed restoration wins over restored B in SDK and application state', async () => {
+  const timers = fakeTimers();
+  const adoption = deferred();
+  const restoration = deferred();
+  const CAT = { id: 'cccccccc-3333-4333-8333-cccccccccccc', email: 'cat@example.com' };
+  const db = makeDb({
+    [ME.id]: { ...profileWithLegal },
+    [BOB.id]: { ...profileWithLegal, username: 'bob' },
+    [CAT.id]: { ...profileWithLegal, username: 'cat' },
+  });
+  const c = makeCtx({ timers, sbHandlers: {
+    ...db.handlers,
+    signInWithIdToken: () => ({ data: { user: ME }, error: null }),
+    setSession: tokens => {
+      if (tokens.access_token === 'staged-access') return adoption.promise;
+      if (tokens.access_token === 'b-independent') return restoration.promise;
+      if (tokens.access_token === 'c-newer') return { data: { user: CAT, session: { user: CAT, ...tokens } }, error: null };
+      throw new Error('unexpected token');
+    },
+  } });
+  c.sb.auth.onAuthStateChange(c.handleAuthStateChange);
+  const callback = c.googleCallback({ credential: googleTokenFor(ME.email) });
+  await tick();
+  c.sb._emitAuth('SIGNED_IN', { user: BOB, access_token: 'b-independent', refresh_token: 'b-refresh' });
+  adoption.resolve({ data: { user: ME, session: { user: ME, access_token: 'staged-access', refresh_token: 'staged-refresh' } }, error: null });
+  await tick();
+  timers.fire(0);
+  await tick();
+  c.sb._emitAuth('SIGNED_IN', { user: CAT, access_token: 'c-newer', refresh_token: 'c-refresh' });
+  await tick();
+  restoration.resolve({ data: { user: BOB, session: { user: BOB, access_token: 'b-independent', refresh_token: 'b-refresh' } }, error: null });
+  await tick();
+  timers.fire(0);
+  await tick();
+  await callback;
+  assert.strictEqual(c.sb._session().user.id, CAT.id);
+  assert.strictEqual(c.sb._session().access_token, 'c-newer');
+  assert.strictEqual(c.eval('_enteredUserId'), CAT.id);
+  assert.strictEqual(cacheOwner(c), CAT.id);
+});
+
+test('G6d5d already-active A keeps a fresh independent A session over older Google adoption', async () => {
+  const timers = fakeTimers();
+  const adoption = deferred();
+  const db = makeDb({ [ME.id]: { ...profileWithLegal } });
+  const c = makeCtx({ timers, sbHandlers: {
+    ...db.handlers,
+    signInWithIdToken: () => ({ data: { user: ME }, error: null }),
+    setSession: tokens => tokens.access_token === 'staged-access'
+      ? adoption.promise
+      : { data: { user: ME, session: { user: ME, ...tokens } }, error: null },
+  } });
+  c.sb.auth.onAuthStateChange(c.handleAuthStateChange);
+  c.sb._emitAuth('SIGNED_IN', { user: ME, access_token: 'original-a', refresh_token: 'original-a-refresh' });
+  await tick();
+  const callback = c.googleCallback({ credential: googleTokenFor(ME.email) });
+  await tick();
+  c.sb._emitAuth('SIGNED_IN', { user: ME, access_token: 'fresh-a', refresh_token: 'fresh-a-refresh' });
+  adoption.resolve({ data: { user: ME, session: { user: ME, access_token: 'staged-access', refresh_token: 'staged-refresh' } }, error: null });
+  await tick();
+  timers.fire(0);
+  await tick();
+  await callback;
+  assert.strictEqual(c.sb._session().access_token, 'fresh-a');
+  assert.strictEqual(c.eval('_enteredUserId'), ME.id);
+  assert.strictEqual(c.ls.getItem('ablty_logged_in'), '1');
+  assert.ok(!c.toasts.some(([message]) => message === 'Signed in with Google.'));
 });
 
 test('G6d6 superseded slow timer cannot revive Google progress or disable B controls', async () => {

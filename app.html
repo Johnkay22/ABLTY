@@ -16506,6 +16506,7 @@ function obGoToLogin() {
 let googleSignInInitialized = false;
 let _googleSignInAttempt = null;
 let _googleAdoption = null;
+let _googleRestoration = null;
 const GOOGLE_SIGNIN_TIMEOUT_MS = 45000;
 
 function createGoogleStagingClient() {
@@ -16524,15 +16525,56 @@ async function restoreAfterStaleGoogleAdoption(adoption) {
   if (data?.session?.access_token !== adoption?.accessToken) return;
   const replacement = adoption.replacementSession;
   if (!adoption.signedOut && replacement?.access_token && replacement?.refresh_token) {
+    const restoration = {
+      accessToken: replacement.access_token,
+      replacementSession: null,
+      signedOut: false,
+      superseded: false,
+      completed: false,
+    };
+    _googleRestoration = restoration;
     await sb.auth.setSession({
       access_token: replacement.access_token,
       refresh_token: replacement.refresh_token,
     });
+    if (_googleRestoration === restoration && restoration.completed) _googleRestoration = null;
     return;
   }
   // A sign-out superseded adoption and the stale token was installed later.
   // Remove that exact token; the normal SIGNED_OUT event keeps SDK and UI in
   // agreement.
+  await sb.auth.signOut({ scope: 'local' });
+}
+
+async function settleSupersededGoogleRestoration(restoration) {
+  if (!restoration || _googleRestoration !== restoration) return;
+  const { data } = await sb.auth.getSession();
+  if (_googleRestoration !== restoration) return;
+  if (data?.session?.access_token !== restoration.accessToken) {
+    // A newer SDK session already won without passing through this operation.
+    _googleRestoration = null;
+    return;
+  }
+
+  const replacement = restoration.replacementSession;
+  if (!restoration.signedOut && replacement?.access_token && replacement?.refresh_token) {
+    // Continue under the same guarded owner. Another independent event can
+    // supersede this operation too, and will update this object again.
+    restoration.accessToken = replacement.access_token;
+    restoration.replacementSession = null;
+    restoration.superseded = false;
+    restoration.completed = false;
+    await sb.auth.setSession({
+      access_token: replacement.access_token,
+      refresh_token: replacement.refresh_token,
+    });
+    if (_googleRestoration === restoration && restoration.completed) _googleRestoration = null;
+    return;
+  }
+
+  // Sign-out won while restoration was pending. Remove only the restoration
+  // token that is still current; its normal event clears application state.
+  _googleRestoration = null;
   await sb.auth.signOut({ scope: 'local' });
 }
 
@@ -16545,6 +16587,22 @@ function settleDiscardedGoogleAttempt(attempt) {
 
 function handleAuthStateChange(event, session) {
   if (event === 'SIGNED_IN' && session?.user) {
+    const restoration = _googleRestoration;
+    if (restoration) {
+      const isOurRestoration = !!restoration.accessToken && session.access_token === restoration.accessToken;
+      if (!isOurRestoration) {
+        restoration.superseded = true;
+        restoration.replacementSession = session;
+        restoration.signedOut = false;
+      } else if (restoration.superseded) {
+        // Leave the auth callback before calling the client again.
+        setTimeout(() => settleSupersededGoogleRestoration(restoration), 0);
+        return;
+      } else {
+        restoration.completed = true;
+      }
+    }
+
     const attempt = _googleSignInAttempt;
     const adoption = _googleAdoption;
     if (attempt) {
@@ -16552,6 +16610,7 @@ function handleAuthStateChange(event, session) {
         && !!adoption.accessToken
         && session.access_token === adoption.accessToken;
       const isOurCurrentAdoption = isOurAdoptionSession
+        && !attempt.superseded
         && isAuthGenCurrent(adoption.gen);
       if (!isOurAdoptionSession) {
         // Any independent main-client sign-in supersedes the staged Google
@@ -16591,6 +16650,11 @@ function handleAuthStateChange(event, session) {
     }).catch(() => {});
   }
   if (event === 'SIGNED_OUT') {
+    if (_googleRestoration) {
+      _googleRestoration.superseded = true;
+      _googleRestoration.replacementSession = null;
+      _googleRestoration.signedOut = true;
+    }
     if (_googleSignInAttempt) {
       _googleSignInAttempt.superseded = true;
       if (_googleAdoption?.attempt === _googleSignInAttempt) {
@@ -17409,7 +17473,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.09.18.3';
+const APP_VERSION = '2026.09.18.4';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
