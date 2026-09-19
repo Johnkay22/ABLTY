@@ -1,0 +1,51 @@
+name: PR 127 browser and local Supabase integration
+
+on:
+  pull_request:
+    paths:
+      - 'app.html'
+      - 'tests/browser-supabase-auth.test.js'
+      - '.github/workflows/pr127-browser-supabase.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start disposable local Supabase
+        shell: bash
+        run: |
+          TEST_PROJECT="$RUNNER_TEMP/ablty-supabase-browser"
+          mkdir -p "$TEST_PROJECT"
+          cd "$TEST_PROJECT"
+          supabase init
+          supabase start
+          supabase status -o env >> "$GITHUB_ENV"
+          echo "SUPABASE_TEST_PROJECT=$TEST_PROJECT" >> "$GITHUB_ENV"
+
+      - name: Install real browser SDK and Chromium
+        run: |
+          npm install --no-save --package-lock=false @supabase/supabase-js@2 playwright
+          npx playwright install --with-deps chromium
+
+      - name: Run browser session integration
+        run: node tests/browser-supabase-auth.test.js
+
+      - name: Stop disposable Supabase
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${SUPABASE_TEST_PROJECT:-}" ] && [ -d "$SUPABASE_TEST_PROJECT" ]; then
+            cd "$SUPABASE_TEST_PROJECT"
+            supabase stop --no-backup
+          fi
