@@ -31,7 +31,19 @@ jobs:
           cd "$TEST_PROJECT"
           supabase init
           supabase start
-          supabase status -o env >> "$GITHUB_ENV"
+          # `-o env` shell-quotes values. Appending that output to GITHUB_ENV
+          # preserves the quote characters and produces invalid URLs. Decode
+          # JSON instead, and write only the three required values. Nothing is
+          # echoed to the job log because the whole group is redirected.
+          STATUS_JSON="$(supabase status -o json)"
+          API_URL="$(jq -er '.API_URL | select(type == "string" and length > 0)' <<<"$STATUS_JSON")"
+          ANON_KEY="$(jq -er '.ANON_KEY | select(type == "string" and length > 0)' <<<"$STATUS_JSON")"
+          SERVICE_ROLE_KEY="$(jq -er '.SERVICE_ROLE_KEY | select(type == "string" and length > 0)' <<<"$STATUS_JSON")"
+          {
+            printf 'API_URL=%s\n' "$API_URL"
+            printf 'ANON_KEY=%s\n' "$ANON_KEY"
+            printf 'SERVICE_ROLE_KEY=%s\n' "$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
           echo "SUPABASE_TEST_PROJECT=$TEST_PROJECT" >> "$GITHUB_ENV"
 
       - name: Install real browser SDK and Chromium
