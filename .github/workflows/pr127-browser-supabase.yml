@@ -5,6 +5,7 @@ on:
     paths:
       - 'app.html'
       - 'tests/browser-supabase-auth.test.js'
+      - 'tests/browser-app-auth.test.js'
       - '.github/workflows/pr127-browser-supabase.yml'
   workflow_dispatch:
 
@@ -39,7 +40,9 @@ jobs:
           npx playwright install --with-deps chromium
 
       - name: Run browser session integration
-        run: node tests/browser-supabase-auth.test.js
+        run: |
+          node tests/browser-supabase-auth.test.js
+          node tests/browser-app-auth.test.js
 
       - name: Stop disposable Supabase
         if: always()
