@@ -184,8 +184,8 @@ if (!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY) {
   process.exit(2);
 }
 const { chromium } = require('playwright');
-const sdkMain = require.resolve('@supabase/supabase-js');
-const sdkUmd = path.resolve(path.dirname(sdkMain), '..', 'umd', 'supabase.js');
+const { buildSupabaseBrowserBundle } = require('./helpers/supabase-browser-bundle');
+const sdkBrowserBundle = buildSupabaseBrowserBundle();
 
 async function eventually(fn, description) {
   const deadline = Date.now() + 10000;
@@ -228,7 +228,7 @@ async function bounded(promise, description, timeoutMs = 10000) {
     const peer = await context.newPage();
     for (const page of [app, peer]) {
       await page.goto(origin);
-      await page.addScriptTag({ path: sdkUmd });
+      await page.addScriptTag({ path: sdkBrowserBundle });
     }
     const config = {
       url: SUPABASE_URL,

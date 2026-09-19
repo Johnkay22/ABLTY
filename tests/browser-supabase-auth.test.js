@@ -4,8 +4,8 @@
 // used to produce a real isolated SDK session with controllable timing.
 const assert = require('assert');
 const http = require('http');
-const path = require('path');
 const { chromium } = require('playwright');
+const { buildSupabaseBrowserBundle } = require('./helpers/supabase-browser-bundle');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.API_URL;
 const ANON_KEY = process.env.SUPABASE_ANON_KEY || process.env.ANON_KEY;
@@ -15,8 +15,7 @@ if (!SUPABASE_URL || !ANON_KEY || !SERVICE_KEY) {
   process.exit(2);
 }
 
-const sdkMain = require.resolve('@supabase/supabase-js');
-const sdkUmd = path.resolve(path.dirname(sdkMain), '..', 'umd', 'supabase.js');
+const sdkBrowserBundle = buildSupabaseBrowserBundle();
 const password = 'Local-test-password-42!';
 const suffix = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 const alice = `alice-${suffix}@example.test`;
@@ -73,7 +72,7 @@ async function signIn(page, email) {
   async function pageWithPersistentClient() {
     const page = await context.newPage();
     await page.goto(origin);
-    await page.addScriptTag({ path: sdkUmd });
+    await page.addScriptTag({ path: sdkBrowserBundle });
     await page.evaluate(({ url, key }) => {
       window.authEvents = [];
       window.authClient = window.supabase.createClient(url, key, {
