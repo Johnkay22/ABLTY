@@ -3329,6 +3329,26 @@ html, body {
   font-family: var(--font-body); font-size: 14px;
   color: var(--muted); line-height: 1.65; max-width: 280px;
 }
+.google-signin-status {
+  position: fixed; left: 24px; right: 24px; bottom: 30px; z-index: 9992;
+  display: none; padding: 14px 16px 12px; overflow: hidden;
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.45); pointer-events: none;
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: 1px;
+  color: var(--text); text-align: center;
+}
+.google-signin-status.visible { display: block; }
+.google-signin-status-line {
+  position: absolute; left: 0; bottom: 0; width: 42%; height: 2px;
+  background: var(--accent); animation: google-signin-slide 1.15s ease-in-out infinite;
+}
+@keyframes google-signin-slide {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(340%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .google-signin-status-line { animation-duration: 2.5s; }
+}
 /* Guest data modal */
 .guest-data-modal-overlay {
   position: fixed; inset: 0; z-index: 9996;
@@ -11632,35 +11652,7 @@ document.addEventListener('DOMContentLoaded', () => {
     resumeSessionAfterPayment();
   }
   if (sb) {
-    sb.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_IN' && session && typeof onSignedIn === 'function') onSignedIn(session.user);
-      if (event === 'PASSWORD_RECOVERY') {
-        // User arrived via a password-reset link. The modal opens once they
-        // have actually entered the signed-in state (after the consent gate
-        // if their account needs it); see tryOpenPendingPasswordRecovery.
-        onPasswordRecoveryEvent(session);
-        return;
-      }
-      if (event === 'INITIAL_SESSION' && !session?.user && _legalGate) resolveLegalGate(false);
-      if ((event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') && session?.user) {
-        hydrateProfileFromSession(session.user).then(() => {
-          renderSettingsState();
-          renderProfile();
-          renderHomeGreeting();
-        }).catch(() => {});
-      }
-      if (event === 'SIGNED_OUT') {
-        _guestSyncHandled = false;
-        cancelPendingPasswordRecovery();
-        clearLocalAuthCache();
-        if (currentScreen === 'dream-journal' || currentScreen === 'dream-new-entry' || currentScreen === 'dream-entry-detail') {
-          navigate('dream-lab');
-        }
-        renderSettingsState();
-        renderProfile();
-        renderHomeGreeting();
-      }
-    });
+    sb.auth.onAuthStateChange(handleAuthStateChange);
     reconcileAuthState().then(() => {
       renderSettingsState();
       renderProfile();
@@ -15753,6 +15745,22 @@ function validateUsername(val) {
   return '';
 }
 
+// true/false is a confirmed answer; null means the availability service was
+// unavailable, so callers must preserve the original authentication error.
+async function checkUsernameTaken(username) {
+  try {
+    const { data, error } = await sb.rpc('username_is_taken', { check_username: username });
+    if (error) {
+      console.warn('[AUTH] username_is_taken unavailable, deferring to database uniqueness:', error.message);
+      return null;
+    }
+    return data === true;
+  } catch (error) {
+    console.warn('[AUTH] username_is_taken failed, deferring to database uniqueness:', error?.message || error);
+    return null;
+  }
+}
+
 const PROFILE_SESSION_COLUMNS = 'username, tier, username_changed_at, terms_accepted_at, privacy_accepted_at';
 
 // Loads this user's profile row, creating it when it does not exist yet.
@@ -16377,22 +16385,15 @@ async function handleSignup() {
     return;
   }
 
-  // Availability comes from the anon-callable RPC username_is_taken (exact,
-  // case-sensitive match, identical to the UNIQUE constraint on profiles.username).
+  // Availability comes from the anon-callable RPC username_is_taken
+  // (case-insensitive, identical to the unique lower(username) index).
   // Reading profiles directly here can never work: the SELECT policy is own-row
   // only and auth.uid() is null before signup. If the RPC is unavailable we do
   // not block signup; the constraint plus the seeker_ fallback still hold.
-  try {
-    const { data: taken, error: takenErr } = await sb.rpc('username_is_taken', { check_username: username });
-    if (takenErr) {
-      console.warn('[AUTH] username_is_taken unavailable, deferring to database uniqueness:', takenErr.message);
-    } else if (taken === true) {
-      setAuthError('signup-username','signup-username-err', 'That username is already being used. Try another.');
-      if (btn) btn.disabled = false;
-      return;
-    }
-  } catch (e) {
-    console.warn('[AUTH] username_is_taken failed, deferring to database uniqueness:', e?.message || e);
+  if (await checkUsernameTaken(username)) {
+    setAuthError('signup-username','signup-username-err', 'That username is already being used. Try another.');
+    if (btn) btn.disabled = false;
+    return;
   }
 
   const gen = _authGen;
@@ -16406,7 +16407,15 @@ async function handleSignup() {
   });
 
   if (error) {
-    setAuthError('signup-email','signup-email-err', error.message);
+    // A competing signup may have claimed the name after our first check.
+    // Reclassify only when the database now positively confirms that fact;
+    // RPC failures and unrelated Auth errors keep their original message.
+    const takenAfterError = await checkUsernameTaken(username);
+    if (takenAfterError === true) {
+      setAuthError('signup-username','signup-username-err', 'That username is already being used. Try another.');
+    } else {
+      setAuthError('signup-email','signup-email-err', error.message);
+    }
     if (btn) btn.disabled = false;
     return;
   }
@@ -16495,6 +16504,191 @@ function obGoToLogin() {
 }
 
 let googleSignInInitialized = false;
+let _googleSignInAttempt = null;
+let _googleAdoption = null;
+let _googleRestoration = null;
+const GOOGLE_SIGNIN_TIMEOUT_MS = 45000;
+
+function createGoogleStagingClient() {
+  if (!_supabaseSdk || typeof _supabaseSdk.createClient !== 'function') throw new Error('Auth is not configured');
+  return _supabaseSdk.createClient(SUPABASE_URL, SUPABASE_ANON, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
+async function restoreAfterStaleGoogleAdoption(adoption) {
+  const { data } = await sb.auth.getSession();
+  if (data?.session?.access_token !== adoption?.accessToken) return;
+  const replacement = adoption.replacementSession;
+  if (!adoption.signedOut && replacement?.access_token && replacement?.refresh_token) {
+    const restoration = {
+      accessToken: replacement.access_token,
+      replacementSession: null,
+      signedOut: false,
+      superseded: false,
+      completed: false,
+    };
+    _googleRestoration = restoration;
+    await sb.auth.setSession({
+      access_token: replacement.access_token,
+      refresh_token: replacement.refresh_token,
+    });
+    if (_googleRestoration === restoration && restoration.completed) _googleRestoration = null;
+    return;
+  }
+  // A sign-out superseded adoption and the stale token was installed later.
+  // Remove that exact token; the normal SIGNED_OUT event keeps SDK and UI in
+  // agreement.
+  await sb.auth.signOut({ scope: 'local' });
+}
+
+async function settleSupersededGoogleRestoration(restoration) {
+  if (!restoration || _googleRestoration !== restoration) return;
+  const { data } = await sb.auth.getSession();
+  if (_googleRestoration !== restoration) return;
+  if (data?.session?.access_token !== restoration.accessToken) {
+    // A newer SDK session already won without passing through this operation.
+    _googleRestoration = null;
+    return;
+  }
+
+  const replacement = restoration.replacementSession;
+  if (!restoration.signedOut && replacement?.access_token && replacement?.refresh_token) {
+    // Continue under the same guarded owner. Another independent event can
+    // supersede this operation too, and will update this object again.
+    restoration.accessToken = replacement.access_token;
+    restoration.replacementSession = null;
+    restoration.superseded = false;
+    restoration.completed = false;
+    await sb.auth.setSession({
+      access_token: replacement.access_token,
+      refresh_token: replacement.refresh_token,
+    });
+    if (_googleRestoration === restoration && restoration.completed) _googleRestoration = null;
+    return;
+  }
+
+  // Sign-out won while restoration was pending. Remove only the restoration
+  // token that is still current; its normal event clears application state.
+  _googleRestoration = null;
+  await sb.auth.signOut({ scope: 'local' });
+}
+
+function settleDiscardedGoogleAttempt(attempt) {
+  // The staging client has no persistence or refresh timer. Dropping the last
+  // reference discards its in-memory session; do not call signOut because an
+  // adopted main session uses the same refresh token.
+  if (_googleSignInAttempt === attempt) _googleSignInAttempt = null;
+}
+
+function handleAuthStateChange(event, session) {
+  if (event === 'SIGNED_IN' && session?.user) {
+    const restoration = _googleRestoration;
+    if (restoration) {
+      const isOurRestoration = !!restoration.accessToken && session.access_token === restoration.accessToken;
+      if (!isOurRestoration) {
+        restoration.superseded = true;
+        restoration.replacementSession = session;
+        restoration.signedOut = false;
+      } else if (restoration.superseded) {
+        // Leave the auth callback before calling the client again.
+        setTimeout(() => settleSupersededGoogleRestoration(restoration), 0);
+        return;
+      } else {
+        restoration.completed = true;
+      }
+    }
+
+    const attempt = _googleSignInAttempt;
+    const adoption = _googleAdoption;
+    if (attempt) {
+      const isOurAdoptionSession = adoption?.attempt === attempt
+        && !!adoption.accessToken
+        && session.access_token === adoption.accessToken;
+      const isOurCurrentAdoption = isOurAdoptionSession
+        && !attempt.superseded
+        && isAuthGenCurrent(adoption.gen);
+      if (!isOurAdoptionSession) {
+        // Any independent main-client sign-in supersedes the staged Google
+        // exchange, including a fresh password session for the same account.
+        // Keep its exact tokens so a later setSession completion can restore
+        // it if and only if the stale adoption token replaced it.
+        attempt.superseded = true;
+        if (adoption?.attempt === attempt) {
+          adoption.replacementSession = session;
+          adoption.signedOut = false;
+        }
+        setGoogleSignInStatus(false);
+      }
+      if (isOurAdoptionSession && !isOurCurrentAdoption) {
+        // The adoption itself became stale while setSession was pending.
+        // Restore the independent session (or sign-out state) only if the SDK
+        // still contains this exact stale access token.
+        // Supabase auth callbacks run while the client's auth lock is held;
+        // leave the callback before asking that same client for its session.
+        setTimeout(() => restoreAfterStaleGoogleAdoption(adoption), 0);
+        return;
+      }
+    }
+    if (typeof onSignedIn === 'function') onSignedIn(session.user);
+    return;
+  }
+  if (event === 'PASSWORD_RECOVERY') {
+    onPasswordRecoveryEvent(session);
+    return;
+  }
+  if (event === 'INITIAL_SESSION' && !session?.user && _legalGate) resolveLegalGate(false);
+  if ((event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') && session?.user) {
+    hydrateProfileFromSession(session.user).then(() => {
+      renderSettingsState();
+      renderProfile();
+      renderHomeGreeting();
+    }).catch(() => {});
+  }
+  if (event === 'SIGNED_OUT') {
+    if (_googleRestoration) {
+      _googleRestoration.superseded = true;
+      _googleRestoration.replacementSession = null;
+      _googleRestoration.signedOut = true;
+    }
+    if (_googleSignInAttempt) {
+      _googleSignInAttempt.superseded = true;
+      if (_googleAdoption?.attempt === _googleSignInAttempt) {
+        _googleAdoption.replacementSession = null;
+        _googleAdoption.signedOut = true;
+      }
+      setGoogleSignInStatus(false);
+    }
+    _guestSyncHandled = false;
+    cancelPendingPasswordRecovery();
+    clearLocalAuthCache();
+    if (currentScreen === 'dream-journal' || currentScreen === 'dream-new-entry' || currentScreen === 'dream-entry-detail') {
+      navigate('dream-lab');
+    }
+    renderSettingsState();
+    renderProfile();
+    renderHomeGreeting();
+  }
+}
+
+function setGoogleSignInStatus(visible, message) {
+  const status = document.getElementById('google-signin-status');
+  if (status) {
+    status.classList.toggle('visible', !!visible);
+    status.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  }
+  const label = document.getElementById('google-signin-status-label');
+  if (label && message) label.textContent = message;
+  document.querySelectorAll('#ob-google-btn-wrap, #login-google-btn-wrap, #signup-google-btn-wrap')
+    .forEach(wrap => {
+      wrap.style.pointerEvents = visible ? 'none' : '';
+      wrap.style.opacity = visible ? '0.55' : '';
+    });
+}
 
 function initGoogleSignIn() {
   if (googleSignInInitialized) return;
@@ -16512,22 +16706,79 @@ function initGoogleSignIn() {
         return;
       }
 
-      const gen = _authGen;
-      const { data, error } = await sb.auth.signInWithIdToken({
-        provider: 'google',
-        token: response.credential,
-      });
-
-      if (error) {
-        showToast(error.message, 'error');
+      // GIS can deliver the callback more than once. Only one credential may
+      // enter ABLTY at a time; the database/session generation guards below
+      // remain the authority for account switching and stale completions.
+      if (_googleSignInAttempt) {
+        showToast('Your previous Google sign-in is still finishing. Please wait before trying again.', 'info');
         return;
       }
-      // A different account signed in while Google was pending: this late
-      // result must not take over or be announced.
-      if (!isAuthResultUsable(gen, data?.user?.id)) return;
+      const attempt = { gen: _authGen, timedOut: false, superseded: false };
+      _googleSignInAttempt = attempt;
+      setGoogleSignInStatus(true, 'Signing you in…');
+      const slowTimer = setTimeout(() => {
+        if (_googleSignInAttempt === attempt && !attempt.superseded && isAuthGenCurrent(attempt.gen)) {
+          setGoogleSignInStatus(true, 'Still signing you in…');
+        }
+      }, 10000);
+      let timeoutTimer;
+      let stagingClient;
 
-      localStorage.removeItem('ablty_guest_mode');
-      if (data?.user) {
+      try {
+        const gen = attempt.gen;
+        stagingClient = createGoogleStagingClient();
+        const operation = stagingClient.auth.signInWithIdToken({ provider: 'google', token: response.credential });
+        const timeout = new Promise(resolve => {
+          timeoutTimer = setTimeout(() => resolve({ timedOut: true }), GOOGLE_SIGNIN_TIMEOUT_MS);
+        });
+        const result = await Promise.race([
+          operation,
+          timeout,
+        ]);
+        if (result?.timedOut) {
+          attempt.timedOut = true;
+          setGoogleSignInStatus(false);
+          if (!attempt.superseded && isAuthGenCurrent(gen)) showToast('Google sign-in is taking too long. Please wait before trying again.', 'error');
+          operation.then(() => settleDiscardedGoogleAttempt(attempt), () => settleDiscardedGoogleAttempt(attempt));
+          return;
+        }
+        // The credential exchange has finished. Terms, profile loading and
+        // guest-data decisions below have no authentication deadline.
+        clearTimeout(timeoutTimer);
+        const { data, error } = result || {};
+
+        if (error) {
+          if (!attempt.superseded && isAuthGenCurrent(gen)) showToast(error.message, 'error');
+          return;
+        }
+        // The staged client cannot mutate the application's SDK session. Adopt
+        // its tokens only if no auth event or sign-out superseded this attempt.
+        if (attempt.superseded || !isAuthGenCurrent(gen) || !data?.session?.access_token || !data?.session?.refresh_token) return;
+        _googleAdoption = {
+          attempt,
+          gen,
+          accessToken: data.session.access_token,
+          replacementSession: null,
+          signedOut: false,
+        };
+        let adopted;
+        try {
+          adopted = await sb.auth.setSession({
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+          });
+        } finally {
+          if (_googleAdoption?.attempt === attempt) _googleAdoption = null;
+        }
+        if (adopted?.error) {
+          if (!attempt.superseded && isAuthGenCurrent(gen)) showToast(adopted.error.message, 'error');
+          return;
+        }
+        const adoptedUser = adopted?.data?.user || data.user;
+        if (attempt.superseded || !isAuthResultUsable(gen, adoptedUser?.id)) return;
+
+        localStorage.removeItem('ablty_guest_mode');
+        if (adoptedUser) {
         // signInWithIdToken signs in an existing user OR creates a new one.
         // The only acceptance that can be tied to this account here is the
         // box ticked on the signup screen that is open right now (the Google
@@ -16538,16 +16789,27 @@ function initGoogleSignIn() {
         // acceptance passes straight through.
         const onSignupScreen = !!document.getElementById('screen-signup')?.classList.contains('active');
         if (onSignupScreen) {
-          if (!readLegalDraft() && document.getElementById('signup-tos-check')?.checked) setLegalDraft(data.user.email);
-          bindPendingLegalAcceptance({ id: data.user.id, email: data.user.email });
+          if (!readLegalDraft() && document.getElementById('signup-tos-check')?.checked) setLegalDraft(adoptedUser.email);
+          bindPendingLegalAcceptance({ id: adoptedUser.id, email: adoptedUser.email });
         }
-        const entered = await onSignedIn(data.user);
-        if (entered === false) return;
+          const entered = await onSignedIn(adoptedUser);
+          if (entered === false) return;
+        }
+        // Close any open auth or onboarding screens
+        ['login','signup','forgot'].forEach(s => closeAuthScreen(s));
+        skipOnboarding();
+        showToast('Signed in with Google.', 'success');
+      } catch (error) {
+        console.warn('[AUTH] Google sign-in failed:', error?.message || error);
+        if (!attempt.superseded && isAuthGenCurrent(attempt.gen)) showToast('Google sign-in failed. Please try again.', 'error');
+      } finally {
+        clearTimeout(slowTimer);
+        clearTimeout(timeoutTimer);
+        if (_googleSignInAttempt === attempt && !attempt.timedOut) {
+          _googleSignInAttempt = null;
+          setGoogleSignInStatus(false);
+        }
       }
-      // Close any open auth or onboarding screens
-      ['login','signup','forgot'].forEach(s => closeAuthScreen(s));
-      skipOnboarding();
-      showToast('Signed in with Google.', 'success');
     },
     auto_select: false,
   });
@@ -17211,7 +17473,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.09.11.1';
+const APP_VERSION = '2026.09.18.4';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -20221,6 +20483,11 @@ const ACAD = (() => {
         <button class="auth-link" onclick="openAuthScreen('signup')">Create one free</button>
       </div>
     </div>
+  </div>
+
+  <div class="google-signin-status" id="google-signin-status" role="status" aria-live="polite" aria-hidden="true">
+    <span id="google-signin-status-label">Signing you in…</span>
+    <span class="google-signin-status-line" aria-hidden="true"></span>
   </div>
 
   <!-- ══════════════════════════════════

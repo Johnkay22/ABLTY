@@ -1,0 +1,38 @@
+name: PR 127 PostgreSQL integration
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'tests/postgres-username-case-insensitive.sh'
+      - '.github/workflows/pr127-postgres.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  username-migration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install PostgreSQL server and client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql postgresql-client
+          echo "$(pg_config --bindir)" >> "$GITHUB_PATH"
+
+      - name: Run disposable PostgreSQL migration tests
+        shell: bash
+        run: |
+          set +e
+          tests/postgres-username-case-insensitive.sh
+          status=$?
+          set -e
+          if [ "$status" -eq 77 ]; then
+            echo "PostgreSQL harness skipped; required binaries were not installed." >&2
+            exit 1
+          fi
+          exit "$status"
