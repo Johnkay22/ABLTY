@@ -1,0 +1,67 @@
+name: PR 127 browser and local Supabase integration
+
+on:
+  pull_request:
+    paths:
+      - 'app.html'
+      - 'tests/browser-supabase-auth.test.js'
+      - 'tests/browser-app-auth.test.js'
+      - 'tests/helpers/supabase-browser-bundle.js'
+      - '.github/workflows/pr127-browser-supabase.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-auth:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start disposable local Supabase
+        shell: bash
+        run: |
+          TEST_PROJECT="$RUNNER_TEMP/ablty-supabase-browser"
+          mkdir -p "$TEST_PROJECT"
+          cd "$TEST_PROJECT"
+          supabase init
+          supabase start
+          # `-o env` shell-quotes values. Appending that output to GITHUB_ENV
+          # preserves the quote characters and produces invalid URLs. Decode
+          # JSON instead, and write only the three required values. Nothing is
+          # echoed to the job log because the whole group is redirected.
+          STATUS_JSON="$(supabase status -o json)"
+          API_URL="$(jq -er '.API_URL | select(type == "string" and length > 0)' <<<"$STATUS_JSON")"
+          ANON_KEY="$(jq -er '.ANON_KEY | select(type == "string" and length > 0)' <<<"$STATUS_JSON")"
+          SERVICE_ROLE_KEY="$(jq -er '.SERVICE_ROLE_KEY | select(type == "string" and length > 0)' <<<"$STATUS_JSON")"
+          {
+            printf 'API_URL=%s\n' "$API_URL"
+            printf 'ANON_KEY=%s\n' "$ANON_KEY"
+            printf 'SERVICE_ROLE_KEY=%s\n' "$SERVICE_ROLE_KEY"
+          } >> "$GITHUB_ENV"
+          echo "SUPABASE_TEST_PROJECT=$TEST_PROJECT" >> "$GITHUB_ENV"
+
+      - name: Install real browser SDK and Chromium
+        run: |
+          npm install --no-save --package-lock=false @supabase/supabase-js@2 esbuild playwright
+          npx playwright install --with-deps chromium
+
+      - name: Run browser session integration
+        run: |
+          node tests/browser-supabase-auth.test.js
+          node tests/browser-app-auth.test.js
+
+      - name: Stop disposable Supabase
+        if: always()
+        shell: bash
+        run: |
+          if [ -n "${SUPABASE_TEST_PROJECT:-}" ] && [ -d "$SUPABASE_TEST_PROJECT" ]; then
+            cd "$SUPABASE_TEST_PROJECT"
+            supabase stop --no-backup
+          fi
