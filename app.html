@@ -11972,17 +11972,20 @@ document.addEventListener('DOMContentLoaded', () => {
       if (typeof rvSelectCat === 'function') rvSelectCat(key);
     }
 
-    function tweenTo(t) {
+    // `durMs`/`power` are only passed by a momentum spin; every other glide
+    // keeps the original timing and cubic ease-out.
+    function tweenTo(t, durMs, power) {
       const from = pos, dist = t - from;
       if (Math.abs(dist) < 0.0005) { pos = t; render(); commit(); setInteracting(false); return; }
-      const dur = Math.min(620, 300 + Math.abs(dist) * 220), t0 = performance.now();
+      const dur = durMs || Math.min(620, 300 + Math.abs(dist) * 220), t0 = performance.now();
+      const pw = power || 3;
       const id = {};
       anim = id;
       setInteracting(true);
       (function step(now) {
         if (anim !== id) return;
         const k = Math.min(1, (now - t0) / dur);
-        const e = 1 - Math.pow(1 - k, 3);
+        const e = 1 - Math.pow(1 - k, pw);
         pos = from + dist * e;
         render();
         if (k < 1) requestAnimationFrame(step);
@@ -12009,6 +12012,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const TAP_SLOP = 8;       // px of wobble a tap may have before it counts as a drag
     const FLICK_V = 0.35;     // px/ms at release that counts as a flick
     const FLICK_STALE = 90;   // ms without movement before release = finger was held still
+    // Momentum: a flick keeps travelling as if slowed by friction, so a faster
+    // swipe spins further. MOMENTUM_TAU is the friction time constant (the
+    // distance a flick coasts is release speed x TAU); MAX_SPIN caps a spin at
+    // two full laps of the five categories so it never runs on.
+    const MOMENTUM_TAU = 300; // ms
+    const MAX_SPIN = 10;      // tiles
 
     carousel.addEventListener('pointerdown', e => {
       if (dragging) return;
@@ -12045,8 +12054,22 @@ document.addEventListener('DOMContentLoaded', () => {
       // carousel never slides back against the swipe. A tap's wobble, or a
       // finger that stopped before lifting, is never treated as a flick.
       const flicking = moved && performance.now() - lastT < FLICK_STALE && Math.abs(dragV) > FLICK_V;
-      const t = flicking ? (dragV > 0 ? Math.floor(pos) : Math.ceil(pos)) : Math.round(pos);
-      tweenTo(t);
+      if (!flicking) { tweenTo(Math.round(pos)); return; }
+      // A flick always reaches at least the next tile in the direction of
+      // travel, and never lands behind the finger.
+      const next = dragV > 0 ? Math.floor(pos) : Math.ceil(pos);
+      if (reduceMotion()) { tweenTo(next); return; }
+      // Project where friction would bring it to rest, land on the nearest
+      // tile there, then decelerate into it starting at the finger's speed.
+      let t = Math.round(pos - dragV * MOMENTUM_TAU / SPREAD);
+      t = dragV > 0 ? Math.max(Math.min(t, next), Math.ceil(pos - MAX_SPIN))
+                    : Math.min(Math.max(t, next), Math.floor(pos + MAX_SPIN));
+      const dist = Math.abs(t - pos);
+      // Quartic ease-out starts at 4x its average speed, so this duration
+      // matches the release speed; short hops are capped so they stay snappy.
+      const matched = 4 * dist * SPREAD / Math.abs(dragV);
+      const dur = Math.max(320, Math.min(matched, 450 + dist * 180, 1500));
+      tweenTo(t, dur, 4);
     }
     carousel.addEventListener('pointerup', end);
     carousel.addEventListener('pointercancel', end);
@@ -17494,7 +17517,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.09.26.1';
+const APP_VERSION = '2026.09.26.2';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
