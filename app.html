@@ -12003,35 +12003,56 @@ document.addEventListener('DOMContentLoaded', () => {
       render();
     }
 
+    // Only one finger drives the carousel. A second touch (or a palm) mid-swipe
+    // is ignored instead of resetting the drag origin and making it jump.
+    let activePointer = null;
+    const TAP_SLOP = 8;       // px of wobble a tap may have before it counts as a drag
+    const FLICK_V = 0.35;     // px/ms at release that counts as a flick
+    const FLICK_STALE = 90;   // ms without movement before release = finger was held still
+
     carousel.addEventListener('pointerdown', e => {
+      if (dragging) return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      activePointer = e.pointerId;
       anim = null;
       dragging = true; moved = false;
       startX = lastX = e.clientX; startPos = pos; lastT = performance.now(); dragV = 0;
       pendingTotal = null;
       setInteracting(true);
-      try { carousel.setPointerCapture(e.pointerId); } catch (err) {}
     });
     carousel.addEventListener('pointermove', e => {
-      if (!dragging) return;
+      if (!dragging || e.pointerId !== activePointer) return;
       const now = performance.now(), dt = Math.max(1, now - lastT);
       dragV = 0.6 * dragV + 0.4 * ((e.clientX - lastX) / dt);
       lastX = e.clientX; lastT = now;
       const total = e.clientX - startX;
-      if (Math.abs(total) > 6) moved = true;
+      if (!moved && Math.abs(total) > TAP_SLOP) {
+        moved = true;
+        // Capture only once this is a real drag, so a plain tap is still
+        // delivered to the tile under the finger on every browser.
+        try { carousel.setPointerCapture(e.pointerId); } catch (err) {}
+      }
       pendingTotal = total;
       if (!moveRaf) moveRaf = requestAnimationFrame(flushDrag);
     });
-    function end() {
-      if (!dragging) return;
+    function end(e) {
+      if (!dragging || (e && e.pointerId !== activePointer)) return;
       dragging = false;
+      activePointer = null;
       if (moveRaf) { cancelAnimationFrame(moveRaf); flushDrag(); }
-      let t = Math.round(pos);
-      if (Math.abs(dragV) > 0.35) t = dragV > 0 ? Math.floor(pos) : Math.ceil(pos);
-      t = Math.max(Math.round(startPos) - 1, Math.min(Math.round(startPos) + 1, t));
+      // Land on the tile the finger actually brought to the centre. A flick
+      // advances at most to the next tile in the direction of travel, so the
+      // carousel never slides back against the swipe. A tap's wobble, or a
+      // finger that stopped before lifting, is never treated as a flick.
+      const flicking = moved && performance.now() - lastT < FLICK_STALE && Math.abs(dragV) > FLICK_V;
+      const t = flicking ? (dragV > 0 ? Math.floor(pos) : Math.ceil(pos)) : Math.round(pos);
       tweenTo(t);
     }
     carousel.addEventListener('pointerup', end);
     carousel.addEventListener('pointercancel', end);
+    // Taking capture makes the tile's implicit touch capture fire its own
+    // lostpointercapture, which bubbles here; only the carousel's own counts.
+    carousel.addEventListener('lostpointercapture', e => { if (e.target === carousel) end(e); });
 
     // A drag must never reach a tile's own onclick, or releasing over a
     // neighbour would select a category the carousel is not landing on.
@@ -17473,7 +17494,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.09.18.4';
+const APP_VERSION = '2026.09.26.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
