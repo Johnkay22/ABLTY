@@ -31,7 +31,21 @@ function extractDecl(name) {
   if (!m) throw new Error('declaration not found: ' + name);
   return m[0];
 }
+// A top-level `const X = [ ... ];` or `const X = { ... };` spanning lines.
+function extractMultiDecl(name) {
+  const m = new RegExp(`^const\\s+${name}\\s*=\\s*[\\[{]\\s*$`, 'm').exec(html);
+  if (!m) throw new Error('multi-line declaration not found: ' + name);
+  const end = /^[\]}];$/m.exec(html.slice(m.index));
+  if (!end) throw new Error('end of declaration not found: ' + name);
+  return html.slice(m.index, m.index + end.index + 2);
+}
 
+// Account-owned local data (training history and Academy progress per owner).
+const OWNED_DECLS = [extractMultiDecl('store'), extractDecl('DATA_OWNER_GUEST'), extractMultiDecl('OWNED_DATA_KEYS'),
+  extractDecl('OWNED_DATA_MIGRATED_KEY'), extractDecl('LEGACY_DATA_CLAIMANT_KEY')];
+const OWNED_FNS = ['safeParseArray', 'ownedKeyFor', 'ownedKey', 'listStorageKeys', 'storedSessionUserId', 'readOwnedData',
+  'mergeOwnedValue', 'mergeOwnedData', 'moveLegacyDataTo', 'sortLegacyOwnedData', 'claimLegacyData', 'resolveBootDataOwner',
+  'setDataOwner', 'reloadOwnedState', 'adoptGuestData', 'purgeOwnedData'];
 const DECLS = ['_authGen', '_activeAuthUserId', '_authEntries', '_passwordRecoveryPending', '_passwordRecoveryUserId', '_enteredUserId', 'LEGAL_VERSION', 'LEGAL_DRAFT_KEY', 'LEGAL_VERIFIED_KEY', '_legalGate', 'PROFILE_SESSION_COLUMNS', 'googleSignInInitialized', '_googleSignInAttempt', '_googleAdoption', '_googleRestoration', 'GOOGLE_SIGNIN_TIMEOUT_MS', 'SUPABASE_URL', 'SUPABASE_ANON', '_supabaseSdk'];
 const FNS = ['legalPendingKey', 'normalizeEmailForLegal', 'readLegalRecord', 'readLegalDraft', 'setLegalDraft', 'clearLegalDraft',
   'readPendingLegalAcceptance', 'bindPendingLegalAcceptance', 'pendingLegalFieldsFor', 'discardUnboundLegalDraft',
@@ -46,7 +60,8 @@ const FNS = ['legalPendingKey', 'normalizeEmailForLegal', 'readLegalRecord', 're
   'ensureProfileRow', 'onSignedIn', 'hydrateProfileFromSession', 'handleSignup', 'validateUsername', 'checkUsernameTaken',
   'createGoogleStagingClient', 'restoreAfterStaleGoogleAdoption', 'settleSupersededGoogleRestoration', 'settleDiscardedGoogleAttempt', 'handleAuthStateChange', 'setGoogleSignInStatus', 'initGoogleSignIn',
   'renderSettingsState', 'getCurrentTier', 'mergeSessionArrays', 'loadAnalyticsFromCloud'];
-const source = DECLS.map(extractDecl).join('\n') + '\n\n' + FNS.map(extractFn).join('\n\n');
+const source = DECLS.map(extractDecl).join('\n') + '\n' + OWNED_DECLS.join('\n') + '\n' + extractDecl('_dataOwner') + '\n\n'
+  + FNS.concat(OWNED_FNS).map(extractFn).join('\n\n');
 new vm.Script(source); // compiles => extraction boundaries are right
 
 // Guard rails on copy: no em dashes or emoji in the gate copy.
@@ -2056,8 +2071,10 @@ test('S9 guest data: no transfer before consent, and a stale guest-data choice o
   assert.strictEqual(await c2.onSignedIn(BOB), true);
   c2.rvHold.resolve();
   await pLoad;
-  assert.deepStrictEqual(c2.STATE.sessions, [], 'A\'s cloud rows were not merged into B\'s local state');
+  assert.strictEqual(c2.STATE.sessions.length, 0, 'A\'s cloud rows were not merged into B\'s local state');
   assert.strictEqual(c2.ls.getItem('ablty_rv_cloud_cache'), null);
+  assert.strictEqual(c2.ls.getItem(c2.ownedKeyFor(BOB.id, 'ablty_rv_cloud_cache')), null);
+  assert.strictEqual(c2.ls.getItem(c2.ownedKeyFor(ME.id, 'ablty_rv_cloud_cache')), null);
 });
 
 // ═══════════════════════════════════════════════════════
