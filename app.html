@@ -7990,6 +7990,10 @@ const STATE = {
 };
 
 let rvAssignRequestSeq = 0;
+// Identifies the RV session on screen. It moves on whenever a new assignment
+// cycle or drawing starts, and each submit claims its own value, so a grade
+// that returns late can tell whether its session is still the one shown.
+let rvSessionSeq = 0;
 let rvAssignAbortController = null;
 let rvAssignInFlight = null;
 
@@ -8035,6 +8039,293 @@ const store = {
   remove(key) { try { localStorage.removeItem(key); } catch(e) {} },
 };
 
+// ─── ACCOUNT-OWNED LOCAL DATA ─────────────────
+// Training history, Academy progress and the practice counters derived from
+// them belong to whoever produced them: the guest, or one signed-in account.
+// Each owner's copy lives under its own prefix (ablty_owned:<owner>:<key>) and
+// _dataOwner says whose copy this page reads and writes. Signing out switches
+// to the guest copy; a sign-in, a restored session or another account taking
+// over switches to that account's copy. A switch only moves the pointer and
+// reloads the in-memory copies: no owner's data is copied, merged or deleted
+// by it, so signing back in shows exactly what that account had on this
+// device. Data moves between owners only when the user chooses "Save
+// Progress" for guest data, or when pre-ownership data is claimed (below).
+// Device-level keys (settings, onboarding flags, daily usage limits, reality
+// check / WBTB / push notification state, legal and auth caches) are not owned.
+const DATA_OWNER_GUEST = 'guest';
+const OWNED_DATA_KEYS = [
+  // RV
+  'ablty_sessions', 'ablty_rv_cloud_cache',
+  // Zener
+  'ablty_zener', 'ablty_zener_cloud_cache',
+  // Presentiment
+  'ablty_timestamp', 'ablty_timestamp_all', 'ablty_ts_cloud_cache', 'ablty_ts_pending',
+  // Photo Pair (retired; its leftovers follow their owner)
+  'ablty_photopair', 'ablty_pp_cloud_cache', 'ablty_pp_pending',
+  // Practice counters and one-time milestone prompts
+  'ablty_total_sessions', 'ablty_streak_data',
+  'ablty_milestone_first_sig', 'ablty_milestone_session10', 'ablty_milestone_streak7',
+  // Academy (the same strings as ACAD_STORAGE_KEYS, which is declared later)
+  'ablty_academy_progress', 'ablty_academy_aol_log', 'ablty_academy_intro_seen',
+];
+// Set once the pre-ownership (unprefixed) data on this device has been sorted.
+const OWNED_DATA_MIGRATED_KEY = 'ablty_owned_data_v1';
+// The one account allowed to claim unprefixed data whose owner was unclear.
+const LEGACY_DATA_CLAIMANT_KEY = 'ablty_legacy_data_claimant';
+
+function ownedKeyFor(owner, key) {
+  return 'ablty_owned:' + String(owner || DATA_OWNER_GUEST) + ':' + key;
+}
+
+function ownedKey(key) {
+  return ownedKeyFor(_dataOwner, key);
+}
+
+function listStorageKeys() {
+  const keys = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k) keys.push(k);
+    }
+  } catch (e) {}
+  return keys;
+}
+
+// The user id in the Supabase session stored on this device, if any.
+function storedSessionUserId() {
+  try {
+    const ref = String(SUPABASE_URL || '').replace(/^https?:\/\//, '').split('.')[0];
+    const raw = ref ? localStorage.getItem('sb-' + ref + '-auth-token') : null;
+    const uid = raw ? JSON.parse(raw)?.user?.id : null;
+    return uid ? String(uid) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Every owned key this owner has, as raw strings.
+function readOwnedData(owner) {
+  const out = {};
+  OWNED_DATA_KEYS.forEach((k) => {
+    const v = store.get(ownedKeyFor(owner, k));
+    if (v !== null) out[k] = v;
+  });
+  return out;
+}
+
+// Combines two stored values of the same owned key without dropping either
+// side. Returns null when a value cannot be understood, so the caller leaves
+// the source where it is instead of losing it.
+function mergeOwnedValue(key, current, incoming) {
+  try {
+    if (key === 'ablty_academy_progress') {
+      const obj = (v) => (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+      const p = obj(JSON.parse(current));
+      const q = obj(JSON.parse(incoming));
+      return JSON.stringify({
+        done:   { ...obj(q.done),   ...obj(p.done) },
+        recaps: { ...obj(q.recaps), ...obj(p.recaps) },
+        reps:   (Number(p.reps) || 0) + (Number(q.reps) || 0),
+        breaks: (Number(p.breaks) || 0) + (Number(q.breaks) || 0),
+      });
+    }
+    if (key === 'ablty_total_sessions') {
+      return String((parseInt(current, 10) || 0) + (parseInt(incoming, 10) || 0));
+    }
+    if (key === 'ablty_streak_data') {
+      const p = JSON.parse(current);
+      const q = JSON.parse(incoming);
+      if (!p || !p.lastSessionDate) return incoming;
+      if (!q || !q.lastSessionDate) return current;
+      return String(q.lastSessionDate) > String(p.lastSessionDate) ? incoming : current;
+    }
+    if (key === 'ablty_academy_intro_seen' || key.startsWith('ablty_milestone_')) {
+      return (current === '1' || incoming === '1') ? '1' : current;
+    }
+    // Everything else is a list of records: union, newest first.
+    const a = JSON.parse(current);
+    const b = JSON.parse(incoming);
+    if (!Array.isArray(a) || !Array.isArray(b)) return null;
+    const recordKey = (r) => (r && r.id !== undefined && r.id !== null) ? 'id:' + r.id : 'json:' + JSON.stringify(r);
+    const time = (r) => { const t = Date.parse((r && (r.timestamp || r.ts)) || ''); return Number.isFinite(t) ? t : 0; };
+    const seen = new Set();
+    const out = [];
+    a.concat(b).forEach((r) => {
+      const k = recordKey(r);
+      if (seen.has(k)) return;
+      seen.add(k);
+      out.push(r);
+    });
+    out.sort((x, y) => time(y) - time(x));
+    return JSON.stringify(out);
+  } catch (e) {
+    return null;
+  }
+}
+
+// Merges raw owned values into `owner`'s copy. Returns the keys that were
+// written and read back intact; anything else was left untouched.
+function mergeOwnedData(owner, incoming) {
+  const written = [];
+  Object.keys(incoming || {}).forEach((k) => {
+    const dst = ownedKeyFor(owner, k);
+    const current = store.get(dst);
+    const value = current === null ? incoming[k] : mergeOwnedValue(k, current, incoming[k]);
+    if (value === null) return;
+    try {
+      localStorage.setItem(dst, value);
+      if (localStorage.getItem(dst) === value) written.push(k);
+    } catch (e) {}
+  });
+  return written;
+}
+
+// Moves the pre-ownership (unprefixed) keys into `owner`'s copy. A key is
+// removed from its old place only after it was written to the new one.
+// Returns true when nothing unprefixed is left.
+function moveLegacyDataTo(owner) {
+  const incoming = {};
+  OWNED_DATA_KEYS.forEach((k) => {
+    const v = store.get(k);
+    if (v !== null) incoming[k] = v;
+  });
+  const keys = Object.keys(incoming);
+  if (!keys.length) return true;
+  const moved = mergeOwnedData(owner, incoming);
+  moved.forEach((k) => store.remove(k));
+  return moved.length === keys.length;
+}
+
+// Runs once per device. Before ownership existed, every account and the guest
+// shared one set of keys, so their owner has to be inferred:
+//  - someone is signed in: it is the data they are looking at right now;
+//  - no account has ever been used on this device: it is guest data;
+//  - otherwise the owner is unknown. It is parked where it is (shown to no
+//    one, deleted by nothing, never handed to the guest) and only the last
+//    account verified on this device, or the only account ever seen here,
+//    may claim it by signing in.
+function sortLegacyOwnedData() {
+  if (!OWNED_DATA_KEYS.some((k) => store.get(k) !== null)) return;
+  const cacheUid = store.get('ablty_cache_user_id') || '';
+  const sessionUid = storedSessionUserId() || '';
+  const current = (store.get('ablty_logged_in') === '1' && cacheUid) ? cacheUid : sessionUid;
+  if (current) {
+    if (!moveLegacyDataTo(current)) store.set(LEGACY_DATA_CLAIMANT_KEY, current);
+    return;
+  }
+  const accounts = new Set();
+  let verifiedUid = '';
+  try {
+    const v = JSON.parse(store.get('ablty_legal_verified') || 'null');
+    if (v && v.userId) verifiedUid = String(v.userId);
+  } catch (e) {}
+  if (verifiedUid) accounts.add(verifiedUid);
+  if (cacheUid) accounts.add(cacheUid);
+  listStorageKeys().forEach((k) => {
+    if (k.startsWith('ablty_guest_sync_done_')) accounts.add(k.slice('ablty_guest_sync_done_'.length));
+    else if (k.startsWith('ablty_legal_acceptance_pending:')) accounts.add(k.slice('ablty_legal_acceptance_pending:'.length));
+  });
+  accounts.delete('');
+  // Only accounts ever write these three caches (Zener's is also written by guests).
+  const accountCaches = ['ablty_rv_cloud_cache', 'ablty_ts_cloud_cache', 'ablty_pp_cloud_cache']
+    .some((k) => store.get(k) !== null);
+  if (!accounts.size && !accountCaches) {
+    moveLegacyDataTo(DATA_OWNER_GUEST);
+    return;
+  }
+  const claimant = verifiedUid || (accounts.size === 1 ? [...accounts][0] : '');
+  if (claimant) store.set(LEGACY_DATA_CLAIMANT_KEY, claimant);
+}
+
+// Hands parked pre-ownership data to the one account allowed to claim it.
+function claimLegacyData(owner) {
+  if (!owner || owner === DATA_OWNER_GUEST) return false;
+  if (store.get(LEGACY_DATA_CLAIMANT_KEY) !== owner) return false;
+  if (moveLegacyDataTo(owner)) store.remove(LEGACY_DATA_CLAIMANT_KEY);
+  return true;
+}
+
+// Whose data is shown at startup, before the auth callbacks run: the account
+// this device last entered, if it is still the one holding the stored
+// session, otherwise the guest. The auth callbacks correct it within moments.
+function resolveBootDataOwner() {
+  if (store.get(OWNED_DATA_MIGRATED_KEY) !== '1') {
+    try { sortLegacyOwnedData(); } catch (e) {}
+    store.set(OWNED_DATA_MIGRATED_KEY, '1');
+  }
+  const cacheUid = store.get('ablty_cache_user_id');
+  const sessionUid = storedSessionUserId();
+  if (store.get('ablty_logged_in') === '1' && cacheUid && (!sessionUid || sessionUid === cacheUid)) {
+    return String(cacheUid);
+  }
+  return DATA_OWNER_GUEST;
+}
+
+let _dataOwner = resolveBootDataOwner();
+
+// Makes `owner` (a user id, or null for the guest) the owner whose data this
+// page shows, and replaces every in-memory copy of the previous owner's data.
+function setDataOwner(owner) {
+  const next = owner ? String(owner) : DATA_OWNER_GUEST;
+  const claimed = claimLegacyData(next);
+  if (next === _dataOwner && !claimed) return false;
+  _dataOwner = next;
+  reloadOwnedState();
+  return true;
+}
+
+function reloadOwnedState() {
+  // Any session detail on screen belonged to the previous owner.
+  // (try: a TDZ read would throw if this ever ran before its declaration.)
+  try { detailViewSeq += 1; } catch (e) {}
+  if (typeof STATE !== 'undefined' && STATE) {
+    STATE.sessions = [];
+    if (typeof loadState === 'function') { try { loadState(); } catch (e) {} }
+  }
+  try {
+    if (typeof ACAD !== 'undefined' && ACAD) {
+      // A lesson still running belongs to the previous owner; finishing it
+      // now would record it for the new one.
+      if (ACAD.running) {
+        ACAD.teardown();
+        if (typeof currentScreen !== 'undefined' && currentScreen === 'academy-lesson') navigate('academy');
+      }
+      ACAD.reload();
+      ACAD.renderLanding();
+    }
+  } catch (e) {}
+  try {
+    if (typeof currentScreen !== 'undefined' && (currentScreen === 'analytics' || currentScreen === 'history')
+        && typeof renderAnalytics === 'function') {
+      renderAnalytics();
+    }
+  } catch (e) {}
+}
+
+// "Save Progress": the guest's local data becomes this account's. Only acts
+// while that account is the current owner, so a stale choice moves nothing.
+function adoptGuestData(userId) {
+  const owner = String(userId || '');
+  if (!owner || owner === DATA_OWNER_GUEST || _dataOwner !== owner) return false;
+  const incoming = readOwnedData(DATA_OWNER_GUEST);
+  const moved = mergeOwnedData(owner, incoming);
+  moved.forEach((k) => store.remove(ownedKeyFor(DATA_OWNER_GUEST, k)));
+  reloadOwnedState();
+  return moved.length === Object.keys(incoming).length;
+}
+
+// Deleting an account removes that account's local copy and nothing else.
+function purgeOwnedData(owner) {
+  if (!owner) return;
+  OWNED_DATA_KEYS.forEach((k) => store.remove(ownedKeyFor(owner, k)));
+  if (store.get(LEGACY_DATA_CLAIMANT_KEY) === String(owner)) {
+    OWNED_DATA_KEYS.forEach((k) => store.remove(k));
+    store.remove(LEGACY_DATA_CLAIMANT_KEY);
+  }
+  if (_dataOwner === String(owner)) reloadOwnedState();
+}
+
 function safeParseArray(raw, fallback = []) {
   try {
     const parsed = JSON.parse(raw || '[]');
@@ -8050,17 +8341,17 @@ function trimRecent(list, max) {
 
 function normalizePersistentCaches() {
   try {
-    const rv = trimRecent(safeParseArray(store.get('ablty_sessions')), MAX_RV_LOCAL_SESSIONS);
-    if (rv.length) store.set('ablty_sessions', JSON.stringify(rv));
+    const rv = trimRecent(safeParseArray(store.get(ownedKey('ablty_sessions'))), MAX_RV_LOCAL_SESSIONS);
+    if (rv.length) store.set(ownedKey('ablty_sessions'), JSON.stringify(rv));
 
-    const ze = trimRecent(safeParseArray(store.get('ablty_zener')), MAX_ZENER_LOCAL_RUNS);
-    if (ze.length) store.set('ablty_zener', JSON.stringify(ze));
+    const ze = trimRecent(safeParseArray(store.get(ownedKey('ablty_zener'))), MAX_ZENER_LOCAL_RUNS);
+    if (ze.length) store.set(ownedKey('ablty_zener'), JSON.stringify(ze));
 
-    const tsAll = trimRecent(safeParseArray(store.get('ablty_timestamp_all')), MAX_TS_LOCAL_TRIALS);
-    if (tsAll.length) store.set('ablty_timestamp_all', JSON.stringify(tsAll));
+    const tsAll = trimRecent(safeParseArray(store.get(ownedKey('ablty_timestamp_all'))), MAX_TS_LOCAL_TRIALS);
+    if (tsAll.length) store.set(ownedKey('ablty_timestamp_all'), JSON.stringify(tsAll));
 
-    const tsTap = trimRecent(safeParseArray(store.get('ablty_timestamp')), MAX_TS_LOCAL_TRIALS);
-    if (tsTap.length) store.set('ablty_timestamp', JSON.stringify(tsTap));
+    const tsTap = trimRecent(safeParseArray(store.get(ownedKey('ablty_timestamp'))), MAX_TS_LOCAL_TRIALS);
+    if (tsTap.length) store.set(ownedKey('ablty_timestamp'), JSON.stringify(tsTap));
   } catch (e) {}
 }
 
@@ -8074,14 +8365,15 @@ function saveState() {
     }
     return s;
   });
-  store.set('ablty_sessions', JSON.stringify(pruned));
+  store.set(ownedKey('ablty_sessions'), JSON.stringify(pruned));
   store.set('ablty_settings', JSON.stringify(STATE.settings));
 }
 
 function loadState() {
   try {
-    const sessions = store.get('ablty_sessions');
-    if (sessions) STATE.sessions = safeParseArray(sessions);
+    // Always the current owner's list (empty when they have none), never
+    // whatever the previous owner left in memory.
+    STATE.sessions = safeParseArray(store.get(ownedKey('ablty_sessions')));
   } catch(e) { STATE.sessions = []; }
   if (!Array.isArray(STATE.sessions)) STATE.sessions = [];
 
@@ -8383,6 +8675,7 @@ function openCanvas() {
     showToast('Target assignment missing. Please request a new session target.', 'warn', 4500);
     return;
   }
+  rvSessionSeq += 1;
   showScreen('canvas', true);
   STATE.isErasing = false;
   const eraseBtn = document.getElementById('eraser-btn');
@@ -8602,6 +8895,21 @@ async function submitSession() {
   const notes = collectImpressions();
   const assignmentId = STATE.currentAssignmentId;
   const currentTrn = STATE.currentTRN;
+  // Grading can take a while. Everything about this session is captured now:
+  // who drew it (data owner), in which login (auth generation), which RV
+  // session it is, and its timer and category. After the grade returns, the
+  // screen and the active-session state are touched only if all of these are
+  // still current. A sign-out and back into the same account, another
+  // account, or a newer RV session each make it stale; the result is then
+  // filed with its original owner and nothing on screen changes.
+  const sessionOwner = _dataOwner;
+  const sessionAuthGen = _authGen;
+  const sessionSeq = ++rvSessionSeq;
+  const sessionDuration = STATE.timerSeconds;
+  const sessionCategory = STATE.currentCategory || null;
+  const isSessionCurrent = () => sessionSeq === rvSessionSeq
+    && isAuthGenCurrent(sessionAuthGen)
+    && sessionOwner === _dataOwner;
   if (!assignmentId || !currentTrn) {
     showToast('Target assignment expired. Please start a new RV session.', 'warn', 5000);
     showScreen('rv', false);
@@ -8639,11 +8947,13 @@ async function submitSession() {
   try {
     updateGradingStatus('Encoding sketch data...');
     await delay(600);
-    updateGradingStatus('Contacting AI analyst...');
+    if (isSessionCurrent()) updateGradingStatus('Contacting AI analyst...');
     result = await gradeSession(sketchB64, notes, assignmentId, currentTrn);
     revealedTarget = normalizeRVTarget(result?.target, currentTrn);
-    updateGradingStatus('Compiling report...');
-    await delay(400);
+    if (isSessionCurrent()) {
+      updateGradingStatus('Compiling report...');
+      await delay(400);
+    }
   } catch(err) {
     console.warn('[ABLTY] Grading failed:', err.message || err);
     gradingFailed = true;
@@ -8671,11 +8981,13 @@ async function submitSession() {
   if (!revealedTarget) {
     revealedTarget = normalizeRVTarget(result?.target, currentTrn);
   }
-  if (targetReveal) targetReveal.src = revealedTarget?.src || '';
-
-  const gradingOverlay = document.getElementById('grading-overlay');
-  if (gradingOverlay) gradingOverlay.style.display = 'none';
-  renderResults(result, revealedTarget, notes);
+  const current = isSessionCurrent();
+  if (current) {
+    if (targetReveal) targetReveal.src = revealedTarget?.src || '';
+    const gradingOverlay = document.getElementById('grading-overlay');
+    if (gradingOverlay) gradingOverlay.style.display = 'none';
+    renderResults(result, revealedTarget, notes);
+  }
 
   // Always save session
   const session = {
@@ -8685,7 +8997,7 @@ async function submitSession() {
     targetId: revealedTarget?.id || null,
     targetSrc: revealedTarget?.src || '',
     targetLabel: revealedTarget?.label || '',
-    category: revealedTarget?.category || STATE.currentCategory || null,
+    category: revealedTarget?.category || sessionCategory,
     score: gradingFailed ? null : (result.gestalt_score ?? result.overall_score ?? null),
     dimension_scores: result.dimension_scores || null,
     hits: result.hits || [],
@@ -8696,15 +9008,38 @@ async function submitSession() {
     grading_failed: gradingFailed,
     grading_error: gradingErrorMessage || null,
     notes: notes,
-    duration: STATE.timerSeconds,
+    duration: sessionDuration,
     timestamp: new Date().toISOString(),
     sketchData: sketchDataURL,
   };
+  const rvToday = getTodayKey();
+  localStorage.setItem('ablty_rv_daily_' + rvToday, String(parseInt(localStorage.getItem('ablty_rv_daily_' + rvToday) || '0', 10) + 1));
+  if (!current) {
+    // Counted once for the owner who did it, with no milestone prompt over
+    // whatever is on screen now.
+    recordPracticeSession(sessionOwner);
+    if (sessionOwner === _dataOwner) {
+      // Same owner, but a later login or a newer RV session is on screen:
+      // add the finished session to this owner's history only. The newer
+      // session's assignment, notes, timer and screen are left alone.
+      STATE.sessions.unshift(session);
+      saveState();
+      syncSessionToSupabase('rv_sessions', mapRVSessionRow(session, 'personal'));
+    } else {
+      // The owner changed while grading: file it with the owner who drew it
+      // (without its sketch, like older sessions) and leave the current
+      // owner's history, cloud rows and milestones alone.
+      const { sketchData, ...stored } = session;
+      const key = ownedKeyFor(sessionOwner, 'ablty_sessions');
+      const list = safeParseArray(store.get(key));
+      list.unshift(stored);
+      store.set(key, JSON.stringify(list.slice(0, MAX_RV_LOCAL_SESSIONS)));
+    }
+    return;
+  }
   STATE.currentAssignmentId = null;
   STATE.sessions.unshift(session);
   saveState();
-  const rvToday = getTodayKey();
-  localStorage.setItem('ablty_rv_daily_' + rvToday, String(parseInt(localStorage.getItem('ablty_rv_daily_' + rvToday) || '0', 10) + 1));
   syncSessionToSupabase('rv_sessions', mapRVSessionRow(session, 'personal'));
   checkMilestones({ protocol: 'rv', score: session.score });
 }
@@ -8869,6 +9204,16 @@ async function retryGrading(sessionId) {
 
   const btn = document.querySelector('#detail-retry-card button');
   if (btn) { btn.disabled = true; btn.textContent = 'GRADING...'; }
+  // The retry's result always belongs to this session of this owner. The
+  // detail view, the button and toasts are touched afterwards only while the
+  // same view is still on screen in the same login for the same owner.
+  const sessionOwner = _dataOwner;
+  const sessionAuthGen = _authGen;
+  const viewSeq = detailViewSeq;
+  const isViewCurrent = () => currentScreen === 'detail'
+    && viewSeq === detailViewSeq
+    && isAuthGenCurrent(sessionAuthGen)
+    && sessionOwner === _dataOwner;
 
   try {
     const sketchB64 = session.sketchData.replace(/^data:image\/\w+;base64,/, '');
@@ -8876,20 +9221,38 @@ async function retryGrading(sessionId) {
 
     if (result?.grading_failed) throw new Error(result.grading_error || 'Grading failed');
 
-    session.score = result.gestalt_score ?? result.overall_score ?? null;
-    session.dimension_scores = result.dimension_scores || null;
-    session.hits = result.hits || [];
-    session.noise = result.noise || [];
-    session.aol = result.aol || [];
-    session.summary = result.summary || '';
-    session.score_reasoning = result.score_reasoning || '';
-    session.grading_failed = false;
-    session.grading_error = null;
-    saveState();
+    const graded = {
+      score: result.gestalt_score ?? result.overall_score ?? null,
+      dimension_scores: result.dimension_scores || null,
+      hits: result.hits || [],
+      noise: result.noise || [],
+      aol: result.aol || [],
+      summary: result.summary || '',
+      score_reasoning: result.score_reasoning || '',
+      grading_failed: false,
+      grading_error: null,
+    };
+    // Save the grade into this owner's own copy of this session. When the
+    // owner is on screen that is the live history entry (a later login
+    // reloads it, so look it up by id rather than trusting `session`).
+    let saved = null;
+    if (sessionOwner === _dataOwner) {
+      saved = STATE.sessions.find(s => String(s?.id) === String(sessionId)) || null;
+      if (saved) { Object.assign(saved, graded); saveState(); }
+    } else {
+      const key = ownedKeyFor(sessionOwner, 'ablty_sessions');
+      const list = safeParseArray(store.get(key));
+      const i = list.findIndex(s => String(s?.id) === String(sessionId));
+      if (i >= 0) { list[i] = { ...list[i], ...graded }; store.set(key, JSON.stringify(list)); }
+    }
+    if (!saved || !isViewCurrent()) return;
 
     showToast('Grading complete!', 'success');
-    renderRVDetail(session);
+    renderRVDetail(saved);
   } catch (err) {
+    // A failure for a view that is gone (another session opened, signed out
+    // or switched account) says nothing about what is on screen now.
+    if (!isViewCurrent()) return;
     showToast('Grading failed: ' + (err.message || 'Try again later.'), 'warn');
     if (btn) { btn.disabled = false; btn.textContent = 'RETRY GRADING'; }
   }
@@ -9746,16 +10109,21 @@ function canAccess(feature) {
 //  MILESTONE TRIGGERS
 // ═══════════════════════════════════════════════════════
 
-function checkMilestones(sessionData) {
+// Counts one completed session toward `owner`'s lifetime total and practice
+// streak. It changes nothing on screen, so it is safe for a session whose
+// result arrives after its owner signed out or moved on: the count goes to
+// the owner who did the session, exactly once, never to whoever is shown now.
+function recordPracticeSession(owner) {
+  const key = (k) => ownedKeyFor(owner, k);
   const today = getTodayKey();
 
   // Update lifetime session counter
-  const totalSessions = parseInt(localStorage.getItem('ablty_total_sessions') || '0', 10) + 1;
-  localStorage.setItem('ablty_total_sessions', String(totalSessions));
+  const totalSessions = parseInt(localStorage.getItem(key('ablty_total_sessions')) || '0', 10) + 1;
+  localStorage.setItem(key('ablty_total_sessions'), String(totalSessions));
 
   // Update practice streak
   let streakData;
-  try { streakData = JSON.parse(localStorage.getItem('ablty_streak_data')); } catch(e) {}
+  try { streakData = JSON.parse(localStorage.getItem(key('ablty_streak_data'))); } catch(e) {}
   if (!streakData || !streakData.lastSessionDate) {
     streakData = { lastSessionDate: today, currentStreak: 1 };
   } else if (streakData.lastSessionDate === today) {
@@ -9771,14 +10139,23 @@ function checkMilestones(sessionData) {
     }
     streakData.lastSessionDate = today;
   }
-  localStorage.setItem('ablty_streak_data', JSON.stringify(streakData));
+  localStorage.setItem(key('ablty_streak_data'), JSON.stringify(streakData));
+  return { totalSessions, streakData };
+}
+
+// A session just finished on screen for the current owner: count it, then
+// show any milestone prompt it earned. Late results call recordPracticeSession
+// alone; a prompt they would have earned appears after the owner's next
+// session instead, because each check is "reached and not yet shown".
+function checkMilestones(sessionData) {
+  const { totalSessions, streakData } = recordPracticeSession(_dataOwner);
 
   const isPremium = getCurrentTier() === 'premium';
 
   // Milestone A — First Statistical Significance
   const zScore = sessionData && sessionData.zScore;
-  if (Number.isFinite(zScore) && zScore >= 1.64 && !localStorage.getItem('ablty_milestone_first_sig')) {
-    localStorage.setItem('ablty_milestone_first_sig', '1');
+  if (Number.isFinite(zScore) && zScore >= 1.64 && !localStorage.getItem(ownedKey('ablty_milestone_first_sig'))) {
+    localStorage.setItem(ownedKey('ablty_milestone_first_sig'), '1');
     if (!isPremium) {
       showUpgradeModal('analytics', 'Statistical Significance', 'You just scored above the 95% chance threshold \u2014 a statistically significant hit. Premium tracks your significance over time and shows exactly how often you beat chance.');
       return;
@@ -9786,8 +10163,8 @@ function checkMilestones(sessionData) {
   }
 
   // Milestone B — Session 10
-  if (totalSessions >= 10 && !localStorage.getItem('ablty_milestone_session10')) {
-    localStorage.setItem('ablty_milestone_session10', '1');
+  if (totalSessions >= 10 && !localStorage.getItem(ownedKey('ablty_milestone_session10'))) {
+    localStorage.setItem(ownedKey('ablty_milestone_session10'), '1');
     if (!isPremium) {
       showUpgradeModal('ability_profile', 'Deep Analytics Ready', 'You have enough sessions for deep analysis. Premium reveals your Z-score gauge, rolling averages, and complete session history across every protocol.');
       return;
@@ -9795,8 +10172,8 @@ function checkMilestones(sessionData) {
   }
 
   // Milestone C — 7-Day Practice Streak
-  if (streakData.currentStreak >= 7 && !localStorage.getItem('ablty_milestone_streak7')) {
-    localStorage.setItem('ablty_milestone_streak7', '1');
+  if (streakData.currentStreak >= 7 && !localStorage.getItem(ownedKey('ablty_milestone_streak7'))) {
+    localStorage.setItem(ownedKey('ablty_milestone_streak7'), '1');
     if (!isPremium) {
       showUpgradeModal('analytics', '7-Day Practice Streak', 'Seven days in a row. Premium shows your long-term development curve so you can watch your ability grow over months of practice.');
     }
@@ -9805,11 +10182,11 @@ function checkMilestones(sessionData) {
 
 if (isDevMode()) {
   console.log('[ABLTY Milestones]', {
-    totalSessions: localStorage.getItem('ablty_total_sessions'),
-    streakData: localStorage.getItem('ablty_streak_data'),
-    firstSig: localStorage.getItem('ablty_milestone_first_sig'),
-    session10: localStorage.getItem('ablty_milestone_session10'),
-    streak7: localStorage.getItem('ablty_milestone_streak7'),
+    totalSessions: localStorage.getItem(ownedKey('ablty_total_sessions')),
+    streakData: localStorage.getItem(ownedKey('ablty_streak_data')),
+    firstSig: localStorage.getItem(ownedKey('ablty_milestone_first_sig')),
+    session10: localStorage.getItem(ownedKey('ablty_milestone_session10')),
+    streak7: localStorage.getItem(ownedKey('ablty_milestone_streak7')),
   });
 }
 
@@ -10093,16 +10470,15 @@ async function handleSignOut() {
   if (sb) {
     try { await sb.auth.signOut(); } catch(e) {}
   }
-  localStorage.removeItem('ablty_logged_in');
-  localStorage.removeItem('ablty_username');
-  localStorage.removeItem('ablty_tier');
-  localStorage.removeItem('ablty_username_changed_at');
-  localStorage.removeItem('ablty_user_email');
-  localStorage.removeItem('ablty_cache_user_id');
+  // Same local teardown as the SIGNED_OUT event, so it also happens when the
+  // SDK call fails or the event never arrives: account cache, auth context,
+  // dream journal and the account's training data all leave together.
+  _guestSyncHandled = false;
   cancelPendingPasswordRecovery();
-  endAuthContext();
+  clearLocalAuthCache();
   renderSettingsState();
   renderProfile();
+  renderHomeGreeting();
   showToast('Signed out.', 'success');
 }
 
@@ -10160,15 +10536,14 @@ async function confirmDeleteAccount() {
 
     const localKeys = [
       'ablty_logged_in','ablty_username','ablty_tier','ablty_username_changed_at','ablty_user_email','ablty_cache_user_id',
-      'ablty_sessions','ablty_zener','ablty_zener_cloud_cache',
-      'ablty_timestamp','ablty_timestamp_all','ablty_ts_cloud_cache','ablty_ts_pending',
-      'ablty_photopair','ablty_pp_cloud_cache','ablty_pp_pending','ablty_rv_cloud_cache',
       'ablty_pending_username','ablty_pending_legal_acceptance',
       'ablty_legal_verified', ...(session?.user?.id ? [legalPendingKey(session.user.id)] : []),
       'ablty_push_enabled','ablty_rc_settings',
-      ...(typeof ACAD_STORAGE_KEYS !== 'undefined' ? ACAD_STORAGE_KEYS : [])
     ];
     localKeys.forEach((k) => { try { localStorage.removeItem(k); } catch(_) {} });
+    // This account's training data and Academy progress. The guest's copy and
+    // any other account's copy on this device are left alone.
+    if (session?.user?.id) purgeOwnedData(String(session.user.id));
 
     closeDeleteAccountModal();
     showToast('Account deleted.', 'success');
@@ -10207,6 +10582,9 @@ function beginAuthContext(userId) {
     _authGen++;
     _activeAuthUserId = uid;
     _enteredUserId = null;
+    // The previous owner's training data and Academy progress leave the
+    // screen and memory now; this account's own local copy replaces them.
+    setDataOwner(uid);
   }
   return _authGen;
 }
@@ -10216,6 +10594,9 @@ function endAuthContext() {
   _authGen++;
   _activeAuthUserId = null;
   _enteredUserId = null;
+  // Back to the guest's own data. The account's copy stays on the device,
+  // untouched, for when that account signs in again.
+  setDataOwner(null);
 }
 
 function isAuthGenCurrent(gen) {
@@ -11613,7 +11994,7 @@ function clearAllData() {
   if (confirm('Clear all session data? This cannot be undone.')) {
     STATE.sessions = [];
     saveState();
-    try { localStorage.removeItem('ablty_zener'); } catch(e) {}
+    try { localStorage.removeItem(ownedKey('ablty_zener')); } catch(e) {}
     renderAnalytics();
   }
 }
@@ -13237,10 +13618,10 @@ function renderZenerResults(run) {
 // ─── ZENER PERSISTENCE ─────────────────────────
 function loadZenerSessions() {
   try {
-    const local = JSON.parse(localStorage.getItem('ablty_zener') || '[]');
+    const local = JSON.parse(localStorage.getItem(ownedKey('ablty_zener')) || '[]');
     if (Array.isArray(local) && local.length) return local;
     if (isLoggedIn()) {
-      const cloud = JSON.parse(localStorage.getItem('ablty_zener_cloud_cache') || '[]');
+      const cloud = JSON.parse(localStorage.getItem(ownedKey('ablty_zener_cloud_cache')) || '[]');
       if (Array.isArray(cloud) && cloud.length) return cloud;
     }
     return Array.isArray(local) ? local : [];
@@ -13251,8 +13632,8 @@ function saveZenerSession(run) {
   runs.unshift(run);
   const pruned = runs.slice(0, MAX_ZENER_LOCAL_RUNS);
   try {
-    localStorage.setItem('ablty_zener', JSON.stringify(pruned));
-    localStorage.setItem('ablty_zener_cloud_cache', JSON.stringify(pruned));
+    localStorage.setItem(ownedKey('ablty_zener'), JSON.stringify(pruned));
+    localStorage.setItem(ownedKey('ablty_zener_cloud_cache'), JSON.stringify(pruned));
   } catch(e) {}
   syncSessionToSupabase('zener_runs', mapZenerRunRow(run));
 }
@@ -14490,7 +14871,13 @@ const SYMBOL_SVG_DETAIL = {
   star:   `<polygon points="40,12 47,33 70,33 52,46 59,68 40,55 21,68 28,46 10,33 33,33"/>`,
 };
 
+// Identifies the session detail view on screen. It changes whenever a detail
+// is opened and whenever the data owner changes, so a slow retry can tell
+// whether the view it started from is still the one being looked at.
+let detailViewSeq = 0;
+
 function openSessionDetail(type, id) {
+  detailViewSeq += 1;
   showScreen('detail', false);
   const screenEl = document.getElementById('screen-detail');
   if (screenEl) screenEl.scrollTop = 0;
@@ -14993,6 +15380,7 @@ function resetRVAssignmentDisplay() {
 }
 
 function resetRVAssignmentState() {
+  rvSessionSeq += 1;
   rvAssignRequestSeq += 1;
   if (rvAssignAbortController) {
     rvAssignAbortController.abort();
@@ -15968,6 +16356,10 @@ async function completeSignIn(user) {
         if (typeof syncLocalDataToSupabase === 'function') {
           await syncLocalDataToSupabase(user.id);
         }
+        // The account changed during the upload: the guest's copy stays the
+        // guest's and is not merged into anyone.
+        if (!isAuthGenCurrent(gen)) return false;
+        if (typeof adoptGuestData === 'function') adoptGuestData(user.id);
       }
     } else {
       _guestSyncHandled = true;
@@ -16038,10 +16430,13 @@ function mapTSTrialRow(trial) {
 
 async function syncSessionToSupabase(table, data) {
   if (!sb || !isLoggedIn()) return;
+  // The row belongs to the account whose data it was recorded in. If the
+  // session now names someone else, it must not be filed under them.
+  const owner = _dataOwner;
   try {
     const { data: authData } = await sb.auth.getSession();
     const session = authData?.session;
-    if (!session?.user?.id) return;
+    if (!session?.user?.id || String(session.user.id) !== owner) return;
     updateSyncStatus('syncing');
     await sb.from(table).insert({ ...data, user_id: session.user.id });
     updateSyncStatus('synced');
@@ -16054,51 +16449,51 @@ function clearTsPendingByKeys(keys) {
   try {
     const keySet = new Set(Array.isArray(keys) ? keys.filter(Boolean) : []);
     if (!keySet.size) return;
-    const pending = JSON.parse(localStorage.getItem('ablty_ts_pending') || '[]');
+    const pending = JSON.parse(localStorage.getItem(ownedKey('ablty_ts_pending')) || '[]');
     if (!Array.isArray(pending) || !pending.length) return;
     const filtered = pending.filter((t) => {
       const k = String(t?.id || `${t?.timestamp || ''}-${t?.eventTime ?? ''}-${t?.tapTime ?? ''}`);
       return !keySet.has(k);
     });
-    localStorage.setItem('ablty_ts_pending', JSON.stringify(filtered));
+    localStorage.setItem(ownedKey('ablty_ts_pending'), JSON.stringify(filtered));
   } catch(e) {}
 }
 
 let _guestSyncHandled = false;
 
+// The guest's own copy, whoever is signed in at the moment. An account's
+// data is never "guest data", so it can never be offered to another account.
+function readGuestTrainingData() {
+  const g = (k) => store.get(ownedKeyFor(DATA_OWNER_GUEST, k));
+  const tsKey = (t) => String(t?.id || `${t?.timestamp || ''}-${t?.eventTime ?? ''}-${t?.tapTime ?? ''}`);
+  const tsAll = safeParseArray(g('ablty_timestamp_all'));
+  const tsPending = safeParseArray(g('ablty_ts_pending'));
+  let academy = null;
+  try { academy = JSON.parse(g('ablty_academy_progress') || 'null'); } catch (e) {}
+  return {
+    rv: safeParseArray(g('ablty_sessions')),
+    zener: safeParseArray(g('ablty_zener')),
+    ts: tsAll.length ? mergeSessionArrays(tsAll, tsPending, tsKey) : tsPending,
+    academy: (academy && typeof academy === 'object') ? academy : null,
+  };
+}
+
 function hasLocalGuestData() {
-  const rv = Array.isArray(STATE.sessions) ? STATE.sessions : [];
-  if (rv.length) return true;
-  if ((JSON.parse(localStorage.getItem('ablty_zener') || '[]')).length) return true;
-  if ((JSON.parse(localStorage.getItem('ablty_timestamp_all') || '[]')).length) return true;
+  const d = readGuestTrainingData();
+  if (d.rv.length || d.zener.length || d.ts.length) return true;
+  // Academy progress made as a guest counts too, so a new account can keep it.
+  const a = d.academy;
+  if (a && ((a.done && Object.values(a.done).some(Boolean)) || Number(a.reps) > 0 || Number(a.breaks) > 0)) return true;
   return false;
 }
 
 function clearLocalGuestData() {
-  // Clear training session arrays in memory and localStorage
-  STATE.sessions = [];
-  saveState();
-  const sessionKeys = [
-    'ablty_zener', 'ablty_timestamp', 'ablty_timestamp_all', 'ablty_photopair',
-    'ablty_zener_cloud_cache', 'ablty_rv_cloud_cache', 'ablty_zener_cloud_cache',
-    'ablty_ts_cloud_cache', 'ablty_pp_cloud_cache',
-    'ablty_ts_pending', 'ablty_pp_pending',
-  ];
-  sessionKeys.forEach((k) => { try { localStorage.removeItem(k); } catch(e) {} });
-
-  // Clear derived stats
-  const statKeys = [
-    'ablty_total_sessions', 'ablty_streak_data', 'ablty_daily',
-    'ablty_milestone_first_sig', 'ablty_milestone_session10', 'ablty_milestone_streak7',
-  ];
-  statKeys.forEach((k) => { try { localStorage.removeItem(k); } catch(e) {} });
-
-  // Academy progress is training data, and blind reps and AOL breaks are
-  // statistical. "Start fresh" must mean genuinely fresh.
-  if (typeof ACAD_STORAGE_KEYS !== 'undefined') {
-    ACAD_STORAGE_KEYS.forEach((k) => { try { localStorage.removeItem(k); } catch(e) {} });
-  }
-  if (typeof ACAD !== 'undefined' && ACAD.reload) { ACAD.reload(); ACAD.renderLanding(); }
+  // "Start fresh": the guest's training sessions, derived stats and Academy
+  // progress (blind reps and AOL breaks are statistical) are removed. Only
+  // the guest's copy; the account's own data is not touched.
+  OWNED_DATA_KEYS.forEach((k) => store.remove(ownedKeyFor(DATA_OWNER_GUEST, k)));
+  try { localStorage.removeItem('ablty_daily'); } catch(e) {}
+  if (_dataOwner === DATA_OWNER_GUEST) reloadOwnedState();
 
   // Clear dynamic date-keyed daily counters
   try {
@@ -16138,9 +16533,10 @@ function showGuestDataModal(userId) {
 async function migrateGuestData(userId) {
   if (!sb || !userId) return;
   const errors = [];
+  const guest = readGuestTrainingData();
 
   try {
-    const rv = Array.isArray(STATE.sessions) ? STATE.sessions : [];
+    const rv = guest.rv;
     if (rv.length) {
       const rows = rv.map((s) => ({ ...mapRVSessionRow(s, 'personal'), user_id: userId }));
       await sb.from('rv_sessions').upsert(rows, { onConflict: 'id' });
@@ -16150,7 +16546,7 @@ async function migrateGuestData(userId) {
   }
 
   try {
-    const ze = loadZenerSessions();
+    const ze = guest.zener;
     if (ze.length) {
       const rows = ze.map((r) => ({ ...mapZenerRunRow(r), user_id: userId }));
       await sb.from('zener_runs').upsert(rows, { onConflict: 'id' });
@@ -16160,7 +16556,7 @@ async function migrateGuestData(userId) {
   }
 
   try {
-    const ts = loadTimestampAll();
+    const ts = guest.ts;
     if (ts.length) {
       const rows = ts.map((t) => ({ ...mapTSTrialRow(t), user_id: userId }));
       await sb.from('ts_trials').upsert(rows, { onConflict: 'id' });
@@ -16236,9 +16632,10 @@ async function loadAnalyticsFromCloud(userId, opts = {}) {
         .limit(500),
     ]);
 
-    // The account changed or signed out while the rows were loading: merging
+    // The account changed or signed out while the rows were loading, or the
+    // rows are for an account whose data is not the one on screen: merging
     // them now would put one account's data into another's local state.
-    if (!isAuthGenCurrent(gen)) return;
+    if (!isAuthGenCurrent(gen) || _dataOwner !== String(userId)) return;
 
     if (rvRes?.error) console.warn('[SYNC] rv_sessions fetch error:', rvRes.error.message);
     if (zeRes?.error) console.warn('[SYNC] zener_runs fetch error:', zeRes.error.message);
@@ -16285,7 +16682,7 @@ async function loadAnalyticsFromCloud(userId, opts = {}) {
         // Write cloud cache WITHOUT sketch data to avoid blowing localStorage quota.
         try {
           const cacheRows = rvMerged.map(({ sketchData, ...rest }) => rest);
-          localStorage.setItem('ablty_rv_cloud_cache', JSON.stringify(cacheRows));
+          localStorage.setItem(ownedKey('ablty_rv_cloud_cache'), JSON.stringify(cacheRows));
         } catch(e) { console.warn('[SYNC] rv cloud cache write failed:', e.message); }
       }
     } catch(e) { console.warn('[SYNC] RV processing error:', e.message); }
@@ -16306,8 +16703,8 @@ async function loadAnalyticsFromCloud(userId, opts = {}) {
         (r) => String(r?.id || `${r?.timestamp || ''}-${r?.hitPct || 0}-${r?.hits || 0}`)
       );
       if (zeMerged.length) {
-        localStorage.setItem('ablty_zener', JSON.stringify(zeMerged));
-        localStorage.setItem('ablty_zener_cloud_cache', JSON.stringify(zeMerged));
+        localStorage.setItem(ownedKey('ablty_zener'), JSON.stringify(zeMerged));
+        localStorage.setItem(ownedKey('ablty_zener_cloud_cache'), JSON.stringify(zeMerged));
       }
     } catch(e) { console.warn('[SYNC] Zener processing error:', e.message); }
 
@@ -16329,22 +16726,22 @@ async function loadAnalyticsFromCloud(userId, opts = {}) {
         (t) => String(t?.id || `${t?.timestamp || ''}-${t?.eventTime ?? ''}-${t?.tapTime ?? ''}`)
       );
       if (tsMerged.length) {
-        localStorage.setItem('ablty_timestamp_all', JSON.stringify(tsMerged));
-        localStorage.setItem('ablty_timestamp', JSON.stringify(tsMerged.filter((t) => !t.miss)));
-        localStorage.setItem('ablty_ts_cloud_cache', JSON.stringify(tsMerged));
+        localStorage.setItem(ownedKey('ablty_timestamp_all'), JSON.stringify(tsMerged));
+        localStorage.setItem(ownedKey('ablty_timestamp'), JSON.stringify(tsMerged.filter((t) => !t.miss)));
+        localStorage.setItem(ownedKey('ablty_ts_cloud_cache'), JSON.stringify(tsMerged));
         // Confirm pending TS entries now present in durable cache.
         try {
-          const pendingTs = JSON.parse(localStorage.getItem('ablty_ts_pending') || '[]');
+          const pendingTs = JSON.parse(localStorage.getItem(ownedKey('ablty_ts_pending')) || '[]');
           if (Array.isArray(pendingTs) && pendingTs.length) {
             const mergedTs = mergeSessionArrays(
               tsMerged,
               pendingTs,
               (t) => String(t?.id || `${t?.timestamp || ''}-${t?.eventTime ?? ''}-${t?.tapTime ?? ''}`)
             );
-            localStorage.setItem('ablty_timestamp_all', JSON.stringify(mergedTs));
-            localStorage.setItem('ablty_timestamp', JSON.stringify(mergedTs.filter((t) => !t.miss)));
-            localStorage.setItem('ablty_ts_cloud_cache', JSON.stringify(mergedTs));
-            localStorage.removeItem('ablty_ts_pending');
+            localStorage.setItem(ownedKey('ablty_timestamp_all'), JSON.stringify(mergedTs));
+            localStorage.setItem(ownedKey('ablty_timestamp'), JSON.stringify(mergedTs.filter((t) => !t.miss)));
+            localStorage.setItem(ownedKey('ablty_ts_cloud_cache'), JSON.stringify(mergedTs));
+            localStorage.removeItem(ownedKey('ablty_ts_pending'));
           }
         } catch(e) {}
       }
@@ -17502,7 +17899,7 @@ function saveEditModal() {
     try {
       const runs = loadZenerSessions();
       const r = runs.find(r => r.id === editingSessionId);
-      if (r) { r.tags = tags; r.note = note; localStorage.setItem('ablty_zener', JSON.stringify(runs)); }
+      if (r) { r.tags = tags; r.note = note; localStorage.setItem(ownedKey('ablty_zener'), JSON.stringify(runs)); }
     } catch(e) {}
   }
 
@@ -17517,7 +17914,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.09.26.2';
+const APP_VERSION = '2026.09.27.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -17878,8 +18275,8 @@ const TS_STATE = {
 // Two keys: ablty_timestamp for tap trials, ablty_timestamp_all for all trials (incl misses)
 function loadTimestampTrials() {
   try {
-    const local = JSON.parse(localStorage.getItem('ablty_timestamp') || '[]');
-    const queue = JSON.parse(localStorage.getItem('ablty_ts_pending') || '[]');
+    const local = JSON.parse(localStorage.getItem(ownedKey('ablty_timestamp')) || '[]');
+    const queue = JSON.parse(localStorage.getItem(ownedKey('ablty_ts_pending')) || '[]');
     if (Array.isArray(local) && local.length) {
       return mergeSessionArrays(
         local,
@@ -17888,7 +18285,7 @@ function loadTimestampTrials() {
       ).filter(t => !t.miss);
     }
     if (isLoggedIn()) {
-      const cloud = JSON.parse(localStorage.getItem('ablty_ts_cloud_cache') || '[]');
+      const cloud = JSON.parse(localStorage.getItem(ownedKey('ablty_ts_cloud_cache')) || '[]');
       if (Array.isArray(cloud) && cloud.length) {
         return mergeSessionArrays(
           cloud,
@@ -17905,8 +18302,8 @@ function loadTimestampTrials() {
 }
 function loadTimestampAll() {
   try {
-    const local = JSON.parse(localStorage.getItem('ablty_timestamp_all') || '[]');
-    const queue = JSON.parse(localStorage.getItem('ablty_ts_pending') || '[]');
+    const local = JSON.parse(localStorage.getItem(ownedKey('ablty_timestamp_all')) || '[]');
+    const queue = JSON.parse(localStorage.getItem(ownedKey('ablty_ts_pending')) || '[]');
     if (Array.isArray(local) && local.length) {
       return mergeSessionArrays(
         local,
@@ -17915,7 +18312,7 @@ function loadTimestampAll() {
       );
     }
     if (isLoggedIn()) {
-      const cloud = JSON.parse(localStorage.getItem('ablty_ts_cloud_cache') || '[]');
+      const cloud = JSON.parse(localStorage.getItem(ownedKey('ablty_ts_cloud_cache')) || '[]');
       if (Array.isArray(cloud) && cloud.length) {
         return mergeSessionArrays(
           cloud,
@@ -17935,22 +18332,22 @@ function saveTimestampTrial(trial) {
     hit: getTSTrialHit(trial),
   });
   try {
-    const pending = JSON.parse(localStorage.getItem('ablty_ts_pending') || '[]');
+    const pending = JSON.parse(localStorage.getItem(ownedKey('ablty_ts_pending')) || '[]');
     pending.unshift(normalized);
-    localStorage.setItem('ablty_ts_pending', JSON.stringify(pending.slice(0, 2000)));
+    localStorage.setItem(ownedKey('ablty_ts_pending'), JSON.stringify(pending.slice(0, 2000)));
   } catch(e) {}
   // Always save to _all
   const allTrials = loadTimestampAll();
   allTrials.unshift(normalized);
   const prunedAll = allTrials.slice(0, MAX_TS_LOCAL_TRIALS);
-  try { localStorage.setItem('ablty_timestamp_all', JSON.stringify(prunedAll)); } catch(e) {}
+  try { localStorage.setItem(ownedKey('ablty_timestamp_all'), JSON.stringify(prunedAll)); } catch(e) {}
 
   // Only save to _timestamp (delta analysis pool) if NOT a miss
   if (!normalized.miss) {
     const taps = loadTimestampTrials();
     taps.unshift(normalized);
     const prunedTaps = taps.slice(0, MAX_TS_LOCAL_TRIALS);
-    try { localStorage.setItem('ablty_timestamp', JSON.stringify(prunedTaps)); } catch(e) {}
+    try { localStorage.setItem(ownedKey('ablty_timestamp'), JSON.stringify(prunedTaps)); } catch(e) {}
   }
 
   syncSessionToSupabase('ts_trials', mapTSTrialRow(normalized));
@@ -18630,12 +19027,14 @@ const ACAD_AMB = (() => {
 //   - Every await point is abortable, so the exit control can discard
 //     an in-progress lesson without leaving orphaned timers or a
 //     half-run lesson still mounting scenes onto a screen the user left.
-//   - Progress persists to localStorage instead of living in memory.
+//   - Progress persists to localStorage instead of living in memory,
+//     in the current data owner's copy (guest or one account; see
+//     ACCOUNT-OWNED LOCAL DATA), never in a copy shared between them.
 // ═══════════════════════════════════════════════════════
 const ACAD_PROG_KEY  = 'ablty_academy_progress';
 const ACAD_AOL_KEY   = 'ablty_academy_aol_log';
 const ACAD_INTRO_KEY = 'ablty_academy_intro_seen';
-// Every Academy key, in one place, so the purge lists cannot drift.
+// Every Academy key, in one place. Each is also listed in OWNED_DATA_KEYS.
 const ACAD_STORAGE_KEYS = [ACAD_PROG_KEY, ACAD_AOL_KEY, ACAD_INTRO_KEY];
 
 const ACAD = (() => {
@@ -18648,7 +19047,7 @@ const ACAD = (() => {
     ACAD_PROG.done = {}; ACAD_PROG.recaps = {};
     ACAD_PROG.reps = 0; ACAD_PROG.breaks = 0;
     try {
-      const raw = store.get(ACAD_PROG_KEY);
+      const raw = store.get(ownedKey(ACAD_PROG_KEY));
       if (!raw) return;
       const p = JSON.parse(raw);
       if (p && typeof p === 'object') {
@@ -18661,7 +19060,7 @@ const ACAD = (() => {
   }
 
   function saveProgress() {
-    try { store.set(ACAD_PROG_KEY, JSON.stringify(ACAD_PROG)); } catch(e) {}
+    try { store.set(ownedKey(ACAD_PROG_KEY), JSON.stringify(ACAD_PROG)); } catch(e) {}
   }
 
   // Defect fix 4: an AOL declaration logs where in the exercise it
@@ -18670,9 +19069,9 @@ const ACAD = (() => {
     ACAD_PROG.breaks++;
     saveProgress();
     try {
-      const log = safeParseArray(store.get(ACAD_AOL_KEY));
+      const log = safeParseArray(store.get(ownedKey(ACAD_AOL_KEY)));
       log.unshift({ lesson: lessonId || null, stage: stageLabel || 'unknown', ts: new Date().toISOString() });
-      store.set(ACAD_AOL_KEY, JSON.stringify(log.slice(0, 200)));
+      store.set(ownedKey(ACAD_AOL_KEY), JSON.stringify(log.slice(0, 200)));
     } catch(e) {}
   }
 
@@ -20159,12 +20558,12 @@ const ACAD = (() => {
       // progress as equivalent to the flag; otherwise a restored or
       // partially purged profile would replay the intro, and reviewing a
       // finished lesson would sit behind it.
-      if (store.get(ACAD_INTRO_KEY) !== '1' && doneCount() === 0) {
+      if (store.get(ownedKey(ACAD_INTRO_KEY)) !== '1' && doneCount() === 0) {
         await gate();
         await openSequence();
-        store.set(ACAD_INTRO_KEY, '1');
-      } else if (store.get(ACAD_INTRO_KEY) !== '1') {
-        store.set(ACAD_INTRO_KEY, '1');
+        store.set(ownedKey(ACAD_INTRO_KEY), '1');
+      } else if (store.get(ownedKey(ACAD_INTRO_KEY)) !== '1') {
+        store.set(ownedKey(ACAD_INTRO_KEY), '1');
       }
       await fn();
     } catch (e) {
@@ -20230,6 +20629,7 @@ const ACAD = (() => {
   return {
     LESSONS, isOpen, nextLesson, doneCount,
     get progress() { return ACAD_PROG; },
+    get running() { return running; },
     runLesson, reviewOrReplay, teardown, renderLanding,
     reload: loadProgress,
     STORAGE_KEYS: ACAD_STORAGE_KEYS,

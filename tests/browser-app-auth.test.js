@@ -81,6 +81,7 @@ function showToast(message, type) { toasts.push({ message, type }); }
 function cancelPendingPasswordRecovery() { _passwordRecoveryPending = false; _passwordRecoveryUserId = null; }
 function resolveLegalGate() { _legalGate = null; }
 function resetDreamJournalState() {}
+function setDataOwner() {}
 function renderSettingsState() {}
 function renderProfile() {}
 function renderHomeGreeting() {}
