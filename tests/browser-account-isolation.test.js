@@ -78,7 +78,7 @@ async function main() {
 
   async function newDevice() {
     const context = await browser.newContext({ serviceWorkers: 'block' });
-    const grade = { hold: null, calls: 0 };
+    const grade = { hold: null, calls: 0, assigned: 0 };
     await context.addInitScript(() => {
       // Run as the installed PWA, past the first-run splash and onboarding.
       const mm = window.matchMedia.bind(window);
@@ -99,6 +99,12 @@ async function main() {
         return route.fulfill({ contentType: 'application/json', body: JSON.stringify({
           gestalt_score: 61, dimension_scores: {}, hits: ['water'], noise: [], aol: [], summary: 'graded',
           target: { id: 'T001', src: 'targets/x.jpg', label: 'Lake', category: 'nature' },
+        }) });
+      }
+      if (url.includes('abltygrader') && url.endsWith('/rv-assign')) {
+        grade.assigned++;
+        return route.fulfill({ contentType: 'application/json', body: JSON.stringify({
+          assignment_id: 'asg-' + grade.assigned, trn: `${4000 + grade.assigned}-${5000 + grade.assigned}`,
         }) });
       }
       if (url.includes('abltygrader')) return route.fulfill({ contentType: 'application/json', body: '{}' });
@@ -178,6 +184,57 @@ async function main() {
   const login = async (page, u, guestChoice) => { await startLogin(page, u); return finishLogin(page, guestChoice); };
   const logout = async (page) => { await page.evaluate(() => handleSignOut()); await page.waitForTimeout(150); };
   const backend = (page) => page.evaluate(() => window.__fake.db());
+  // Starts a real RV session through the app's own flow: category step,
+  // Worker assignment, canvas (which starts the timer), then typed notes.
+  const startRV = (page, note) => page.evaluate(async (note) => {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('ablty_rv_daily_')) localStorage.removeItem(k);
+    }
+    localStorage.setItem('ablty_rv_protocol', '1');
+    startRVSession();
+    await rvGoStep(2);
+    openCanvas();
+    document.getElementById('imp-form').value = note;
+    document.getElementById('imp-color').value = note + ' colour';
+    return STATE.currentTRN;
+  }, note);
+  // Submits the session on screen with the Worker's grade held open.
+  const submitHeld = async (page, grade) => {
+    let release;
+    grade.hold = { promise: new Promise(r => { release = r; }) };
+    const before = grade.calls;
+    await page.evaluate(() => { window.__submit = submitSession(); });
+    await page.waitForFunction(() => document.getElementById('grading-overlay')?.style.display === 'flex');
+    for (let i = 0; i < 60 && grade.calls === before; i++) await page.waitForTimeout(50);
+    assert.strictEqual(grade.calls, before + 1, 'the grade request is in flight');
+    return async () => { grade.hold = null; release(); await page.evaluate(() => window.__submit); await page.waitForTimeout(150); };
+  };
+  // Everything the RV session on screen consists of.
+  const rvScreen = (page) => page.evaluate(() => ({
+    screen: currentScreen,
+    assignmentId: STATE.currentAssignmentId,
+    trn: STATE.currentTRN,
+    notes: ['imp-form', 'imp-texture', 'imp-motion', 'imp-emotion', 'imp-color'].map(id => document.getElementById(id).value),
+    trnDisplay: document.getElementById('trn-display').textContent,
+    canvasTrn: document.getElementById('canvas-trn').textContent,
+    timerRunning: STATE.timerInterval,
+    timerSeconds: STATE.timerSeconds,
+    overlay: document.getElementById('grading-overlay').style.display,
+    targetReveal: document.getElementById('target-reveal').getAttribute('src'),
+    resultTrn: document.getElementById('result-trn-label').textContent,
+    resultsHtml: document.getElementById('screen-results').innerHTML.length,
+    history: STATE.sessions.map(x => x.trn + ':' + x.score),
+    storedHistory: localStorage.getItem(ownedKey('ablty_sessions')),
+  }));
+  const assertUntouched = (before, after) => {
+    const { timerSeconds: t0, ...b } = before;
+    const { timerSeconds: t1, ...a } = after;
+    assert.deepStrictEqual(a, b);
+    assert.ok(t1 >= t0, 'timer kept counting, not reset');
+  };
+  const storedFor = (page, owner) => page.evaluate((owner) =>
+    JSON.parse(localStorage.getItem(ownedKeyFor(owner, 'ablty_sessions')) || '[]').map(x => x.trn + ':' + x.score), owner);
 
   // ═════════════════════════════════════════════════
   // 1. A -> logout -> guest -> B -> A, with refreshes
@@ -395,6 +452,87 @@ async function main() {
       await login(page, A);
       const back = await snapshot(page);
       assert.ok(back.rv.includes('SLOW-1'), 'A sees it after signing back in');
+      await logout(page);
+    });
+
+    await step('A\'s grade returns after the user switched to B and B started a new RV session: B untouched, A keeps it', async () => {
+      await login(page, A);
+      const aTrn = await startRV(page, 'alice tower');
+      const release = await submitHeld(page, grade);
+      await logout(page);
+      await login(page, B);
+      const bTrn = await startRV(page, 'bob river');
+      assert.notStrictEqual(bTrn, aTrn);
+      await page.waitForTimeout(1100); // B's timer is running
+      const before = await rvScreen(page);
+      assert.strictEqual(before.screen, 'canvas');
+      assert.ok(before.assignmentId && before.timerRunning);
+      await release();
+      const after = await rvScreen(page);
+      assertUntouched(before, after);
+      assert.ok(!after.history.some(h => h.startsWith(aTrn)), 'not in B\'s history');
+      assert.ok((await storedFor(page, A.id)).includes(aTrn + ':61'), 'A keeps the graded session');
+      const db = await backend(page);
+      assert.ok(!db.tables.rv_sessions.some(r => r.trn === aTrn), 'not uploaded under B');
+      await page.evaluate(() => stopTimer());
+      await logout(page);
+      await login(page, A);
+      assert.ok((await snapshot(page)).rv.includes(aTrn), 'A sees it after signing back in');
+      await logout(page);
+    });
+
+    await step('A\'s grade returns after logout and back into A with a new RV session: new session untouched, old result in A\'s history once', async () => {
+      await login(page, A);
+      const oldTrn = await startRV(page, 'first look');
+      const release = await submitHeld(page, grade);
+      await logout(page);
+      await login(page, A);
+      const newTrn = await startRV(page, 'second look');
+      await page.waitForTimeout(1100);
+      const before = await rvScreen(page);
+      await release();
+      const after = await rvScreen(page);
+      const { history: h0, storedHistory: s0, ...b } = before;
+      const { history: h1, storedHistory: s1, ...a } = after;
+      assertUntouched(b, a);
+      assert.strictEqual(after.trn, newTrn);
+      assert.deepStrictEqual(h1, [oldTrn + ':61', ...h0], 'old result added once, nothing else changed');
+      assert.ok((await storedFor(page, A.id)).includes(oldTrn + ':61'));
+      const db = await backend(page);
+      assert.strictEqual(db.tables.rv_sessions.filter(r => r.trn === oldTrn && r.user_id === A.id).length, 1, 'synced under A once');
+      await page.evaluate(() => stopTimer());
+      await logout(page);
+    });
+
+    await step('A\'s grade returns after A started a newer RV session (no auth change): newer session untouched', async () => {
+      await login(page, A);
+      const oldTrn = await startRV(page, 'older');
+      const release = await submitHeld(page, grade);
+      const newTrn = await startRV(page, 'newer');
+      await page.waitForTimeout(1100);
+      const before = await rvScreen(page);
+      await release();
+      const after = await rvScreen(page);
+      const { history: h0, storedHistory: s0, ...b } = before;
+      const { history: h1, storedHistory: s1, ...a } = after;
+      assertUntouched(b, a);
+      assert.strictEqual(after.trn, newTrn);
+      assert.deepStrictEqual(h1, [oldTrn + ':61', ...h0]);
+      assert.ok((await storedFor(page, A.id)).includes(oldTrn + ':61'));
+      await page.evaluate(() => stopTimer());
+      await logout(page);
+    });
+
+    await step('control: an undisturbed submit still shows its result and clears its assignment', async () => {
+      await login(page, A);
+      const trn = await startRV(page, 'normal');
+      const release = await submitHeld(page, grade);
+      await release();
+      const s = await rvScreen(page);
+      assert.strictEqual(s.overlay, 'none');
+      assert.ok(/targets\/x\.jpg$/.test(s.targetReveal));
+      assert.strictEqual(s.assignmentId, null);
+      assert.strictEqual(s.history[0], trn + ':61');
       await logout(page);
     });
 

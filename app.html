@@ -7990,6 +7990,10 @@ const STATE = {
 };
 
 let rvAssignRequestSeq = 0;
+// Identifies the RV session on screen. It moves on whenever a new assignment
+// cycle or drawing starts, and each submit claims its own value, so a grade
+// that returns late can tell whether its session is still the one shown.
+let rvSessionSeq = 0;
 let rvAssignAbortController = null;
 let rvAssignInFlight = null;
 
@@ -8668,6 +8672,7 @@ function openCanvas() {
     showToast('Target assignment missing. Please request a new session target.', 'warn', 4500);
     return;
   }
+  rvSessionSeq += 1;
   showScreen('canvas', true);
   STATE.isErasing = false;
   const eraseBtn = document.getElementById('eraser-btn');
@@ -8887,9 +8892,21 @@ async function submitSession() {
   const notes = collectImpressions();
   const assignmentId = STATE.currentAssignmentId;
   const currentTrn = STATE.currentTRN;
-  // Grading can take a while. The session belongs to whoever drew it, even
-  // if the account signs out or changes before the result comes back.
+  // Grading can take a while. Everything about this session is captured now:
+  // who drew it (data owner), in which login (auth generation), which RV
+  // session it is, and its timer and category. After the grade returns, the
+  // screen and the active-session state are touched only if all of these are
+  // still current. A sign-out and back into the same account, another
+  // account, or a newer RV session each make it stale; the result is then
+  // filed with its original owner and nothing on screen changes.
   const sessionOwner = _dataOwner;
+  const sessionAuthGen = _authGen;
+  const sessionSeq = ++rvSessionSeq;
+  const sessionDuration = STATE.timerSeconds;
+  const sessionCategory = STATE.currentCategory || null;
+  const isSessionCurrent = () => sessionSeq === rvSessionSeq
+    && isAuthGenCurrent(sessionAuthGen)
+    && sessionOwner === _dataOwner;
   if (!assignmentId || !currentTrn) {
     showToast('Target assignment expired. Please start a new RV session.', 'warn', 5000);
     showScreen('rv', false);
@@ -8927,11 +8944,13 @@ async function submitSession() {
   try {
     updateGradingStatus('Encoding sketch data...');
     await delay(600);
-    updateGradingStatus('Contacting AI analyst...');
+    if (isSessionCurrent()) updateGradingStatus('Contacting AI analyst...');
     result = await gradeSession(sketchB64, notes, assignmentId, currentTrn);
     revealedTarget = normalizeRVTarget(result?.target, currentTrn);
-    updateGradingStatus('Compiling report...');
-    await delay(400);
+    if (isSessionCurrent()) {
+      updateGradingStatus('Compiling report...');
+      await delay(400);
+    }
   } catch(err) {
     console.warn('[ABLTY] Grading failed:', err.message || err);
     gradingFailed = true;
@@ -8959,11 +8978,13 @@ async function submitSession() {
   if (!revealedTarget) {
     revealedTarget = normalizeRVTarget(result?.target, currentTrn);
   }
-  if (targetReveal) targetReveal.src = revealedTarget?.src || '';
-
-  const gradingOverlay = document.getElementById('grading-overlay');
-  if (gradingOverlay) gradingOverlay.style.display = 'none';
-  renderResults(result, revealedTarget, notes);
+  const current = isSessionCurrent();
+  if (current) {
+    if (targetReveal) targetReveal.src = revealedTarget?.src || '';
+    const gradingOverlay = document.getElementById('grading-overlay');
+    if (gradingOverlay) gradingOverlay.style.display = 'none';
+    renderResults(result, revealedTarget, notes);
+  }
 
   // Always save session
   const session = {
@@ -8973,7 +8994,7 @@ async function submitSession() {
     targetId: revealedTarget?.id || null,
     targetSrc: revealedTarget?.src || '',
     targetLabel: revealedTarget?.label || '',
-    category: revealedTarget?.category || STATE.currentCategory || null,
+    category: revealedTarget?.category || sessionCategory,
     score: gradingFailed ? null : (result.gestalt_score ?? result.overall_score ?? null),
     dimension_scores: result.dimension_scores || null,
     hits: result.hits || [],
@@ -8984,24 +9005,33 @@ async function submitSession() {
     grading_failed: gradingFailed,
     grading_error: gradingErrorMessage || null,
     notes: notes,
-    duration: STATE.timerSeconds,
+    duration: sessionDuration,
     timestamp: new Date().toISOString(),
     sketchData: sketchDataURL,
   };
-  STATE.currentAssignmentId = null;
   const rvToday = getTodayKey();
   localStorage.setItem('ablty_rv_daily_' + rvToday, String(parseInt(localStorage.getItem('ablty_rv_daily_' + rvToday) || '0', 10) + 1));
-  if (sessionOwner !== _dataOwner) {
-    // The owner changed while grading: file it with the owner who drew it
-    // (without its sketch, like older sessions) and leave the current
-    // owner's history, cloud rows and milestones alone.
-    const { sketchData, ...stored } = session;
-    const key = ownedKeyFor(sessionOwner, 'ablty_sessions');
-    const list = safeParseArray(store.get(key));
-    list.unshift(stored);
-    store.set(key, JSON.stringify(list.slice(0, MAX_RV_LOCAL_SESSIONS)));
+  if (!current) {
+    if (sessionOwner === _dataOwner) {
+      // Same owner, but a later login or a newer RV session is on screen:
+      // add the finished session to this owner's history only. The newer
+      // session's assignment, notes, timer and screen are left alone.
+      STATE.sessions.unshift(session);
+      saveState();
+      syncSessionToSupabase('rv_sessions', mapRVSessionRow(session, 'personal'));
+    } else {
+      // The owner changed while grading: file it with the owner who drew it
+      // (without its sketch, like older sessions) and leave the current
+      // owner's history, cloud rows and milestones alone.
+      const { sketchData, ...stored } = session;
+      const key = ownedKeyFor(sessionOwner, 'ablty_sessions');
+      const list = safeParseArray(store.get(key));
+      list.unshift(stored);
+      store.set(key, JSON.stringify(list.slice(0, MAX_RV_LOCAL_SESSIONS)));
+    }
     return;
   }
+  STATE.currentAssignmentId = null;
   STATE.sessions.unshift(session);
   saveState();
   syncSessionToSupabase('rv_sessions', mapRVSessionRow(session, 'personal'));
@@ -9169,6 +9199,7 @@ async function retryGrading(sessionId) {
   const btn = document.querySelector('#detail-retry-card button');
   if (btn) { btn.disabled = true; btn.textContent = 'GRADING...'; }
   const sessionOwner = _dataOwner;
+  const sessionAuthGen = _authGen;
 
   try {
     const sketchB64 = session.sketchData.replace(/^data:image\/\w+;base64,/, '');
@@ -9187,13 +9218,19 @@ async function retryGrading(sessionId) {
       grading_failed: false,
       grading_error: null,
     };
-    if (sessionOwner !== _dataOwner) {
-      // The account signed out or changed while grading: record the grade in
-      // the owner's own copy and do not show their session on this screen.
-      const key = ownedKeyFor(sessionOwner, 'ablty_sessions');
-      const list = safeParseArray(store.get(key));
-      const i = list.findIndex(s => String(s?.id) === String(sessionId));
-      if (i >= 0) { list[i] = { ...list[i], ...graded }; store.set(key, JSON.stringify(list)); }
+    if (sessionOwner !== _dataOwner || !isAuthGenCurrent(sessionAuthGen)) {
+      // The account signed out (even if it signed back in) or changed while
+      // grading: record the grade in the owner's own copy of that session
+      // and do not show it on this screen.
+      if (sessionOwner === _dataOwner) {
+        const live = STATE.sessions.find(s => String(s?.id) === String(sessionId));
+        if (live) { Object.assign(live, graded); saveState(); }
+      } else {
+        const key = ownedKeyFor(sessionOwner, 'ablty_sessions');
+        const list = safeParseArray(store.get(key));
+        const i = list.findIndex(s => String(s?.id) === String(sessionId));
+        if (i >= 0) { list[i] = { ...list[i], ...graded }; store.set(key, JSON.stringify(list)); }
+      }
       return;
     }
     Object.assign(session, graded);
@@ -15309,6 +15346,7 @@ function resetRVAssignmentDisplay() {
 }
 
 function resetRVAssignmentState() {
+  rvSessionSeq += 1;
   rvAssignRequestSeq += 1;
   if (rvAssignAbortController) {
     rvAssignAbortController.abort();
