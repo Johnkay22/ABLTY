@@ -78,7 +78,7 @@ async function main() {
 
   async function newDevice() {
     const context = await browser.newContext({ serviceWorkers: 'block' });
-    const grade = { hold: null, calls: 0, assigned: 0 };
+    const grade = { hold: null, calls: 0, assigned: 0, fail: false };
     await context.addInitScript(() => {
       // Run as the installed PWA, past the first-run splash and onboarding.
       const mm = window.matchMedia.bind(window);
@@ -88,6 +88,15 @@ async function main() {
       if (!localStorage.getItem('ablty_onboarded')) localStorage.setItem('ablty_onboarded', '1');
       if (!localStorage.getItem('ablty_splash')) localStorage.setItem('ablty_splash', '1');
       window.confirm = () => true;
+      // Record toasts and upgrade prompts while keeping the app's own behaviour.
+      window.__toasts = [];
+      window.__upgrades = [];
+      window.addEventListener('DOMContentLoaded', () => {
+        const toast = window.showToast;
+        window.showToast = (...a) => { window.__toasts.push(String(a[0])); return toast(...a); };
+        const upgrade = window.showUpgradeModal;
+        window.showUpgradeModal = (...a) => { window.__upgrades.push(String(a[1])); return upgrade(...a); };
+      });
     });
     await context.route('**/*', async (route) => {
       const url = route.request().url();
@@ -96,6 +105,7 @@ async function main() {
       if (url.includes('abltygrader') && url.endsWith('/grade')) {
         grade.calls++;
         if (grade.hold) await grade.hold.promise;
+        if (grade.fail) return route.fulfill({ status: 502, contentType: 'application/json', body: JSON.stringify({ error: 'grader down' }) });
         return route.fulfill({ contentType: 'application/json', body: JSON.stringify({
           gestalt_score: 61, dimension_scores: {}, hits: ['water'], noise: [], aol: [], summary: 'graded',
           target: { id: 'T001', src: 'targets/x.jpg', label: 'Lake', category: 'nature' },
@@ -233,6 +243,55 @@ async function main() {
     assert.deepStrictEqual(a, b);
     assert.ok(t1 >= t0, 'timer kept counting, not reset');
   };
+  // A failed-grading RV session with a sketch, placed in the current owner's history.
+  const addFailedSession = (page, trn) => page.evaluate((trn) => {
+    const s = { id: Date.now() + Math.floor(Math.random() * 1000), trn, assignmentId: 'asg-x', targetId: 'T001',
+      targetSrc: 'targets/x.jpg', targetLabel: 'Lake', category: 'nature', score: null, dimension_scores: null,
+      hits: [], noise: [], aol: [], summary: '', grading_failed: true, grading_error: 'down', notes: 'n',
+      duration: 30, timestamp: new Date().toISOString(), sketchData: 'data:image/jpeg;base64,AAAA' };
+    STATE.sessions.unshift(s);
+    saveState();
+    return s.id;
+  }, trn);
+  // Starts a retry from the detail view with the Worker's answer held open.
+  const retryHeld = async (page, grade, id, { fail = false } = {}) => {
+    let release;
+    grade.hold = { promise: new Promise(r => { release = r; }) };
+    grade.fail = fail;
+    const before = grade.calls;
+    await page.evaluate((id) => { window.__retry = retryGrading(id); }, id);
+    for (let i = 0; i < 60 && grade.calls === before; i++) await page.waitForTimeout(50);
+    assert.strictEqual(grade.calls, before + 1, 'the retry request is in flight');
+    return async () => {
+      grade.hold = null; release();
+      await page.evaluate(() => window.__retry);
+      grade.fail = false;
+      await page.waitForTimeout(150);
+    };
+  };
+  const detailView = (page) => page.evaluate(() => ({
+    screen: currentScreen,
+    type: document.getElementById('detail-type-label').textContent,
+    pct: document.getElementById('detail-score-pct').textContent,
+    summary: document.getElementById('detail-summary').textContent,
+    target: document.getElementById('detail-target-img').getAttribute('src'),
+    sketch: (document.getElementById('detail-sketch-img').getAttribute('src') || '').slice(0, 40),
+    retry: (() => { const c = document.getElementById('detail-retry-card'); return c ? c.style.display + '|' + c.innerHTML : ''; })(),
+  }));
+  const retryButton = (page) => page.evaluate(() => {
+    const b = window.__retryBtn;
+    return b ? { text: b.textContent, disabled: b.disabled } : null;
+  });
+  const grabRetryButton = (page) => page.evaluate(() => { window.__retryBtn = document.querySelector('#detail-retry-card button'); });
+  const uiEvents = (page) => page.evaluate(() => ({ toasts: window.__toasts.slice(), upgrades: window.__upgrades.slice() }));
+  const clearUiEvents = (page) => page.evaluate(() => { window.__toasts.length = 0; window.__upgrades.length = 0; });
+  const counters = (page, owner) => page.evaluate((owner) => ({
+    total: localStorage.getItem(ownedKeyFor(owner, 'ablty_total_sessions')),
+    streak: JSON.parse(localStorage.getItem(ownedKeyFor(owner, 'ablty_streak_data')) || 'null'),
+    session10: localStorage.getItem(ownedKeyFor(owner, 'ablty_milestone_session10')),
+  }), owner);
+  const sessionById = (page, owner, id) => page.evaluate(([owner, id]) =>
+    JSON.parse(localStorage.getItem(ownedKeyFor(owner, 'ablty_sessions')) || '[]').find(x => String(x.id) === String(id)) || null, [owner, id]);
   const storedFor = (page, owner) => page.evaluate((owner) =>
     JSON.parse(localStorage.getItem(ownedKeyFor(owner, 'ablty_sessions')) || '[]').map(x => x.trn + ':' + x.score), owner);
 
@@ -533,6 +592,152 @@ async function main() {
       assert.ok(/targets\/x\.jpg$/.test(s.targetReveal));
       assert.strictEqual(s.assignmentId, null);
       assert.strictEqual(s.history[0], trn + ':61');
+      await logout(page);
+    });
+
+    // ── retryGrading ───────────────────────────────
+    await step('retry: a delayed success while another session is open saves to its session and leaves the open view alone', async () => {
+      await login(page, A);
+      const failedId = await addFailedSession(page, 'RETRY-1');
+      await page.evaluate((id) => openSessionDetail('rv', id), failedId);
+      assert.strictEqual((await detailView(page)).pct, 'N/A');
+      const release = await retryHeld(page, grade, failedId);
+      const other = await page.evaluate(() => STATE.sessions.find(x => x.trn === 'alice-RV0').id);
+      await page.evaluate((id) => openSessionDetail('rv', id), other);
+      const before = await detailView(page);
+      assert.strictEqual(before.pct, '50%');
+      await clearUiEvents(page);
+      await release();
+      assert.deepStrictEqual(await detailView(page), before, 'the other session\'s details are unchanged');
+      assert.deepStrictEqual((await uiEvents(page)).toasts, [], 'no "Grading complete" toast over another view');
+      const saved = await sessionById(page, A.id, failedId);
+      assert.strictEqual(saved.score, 61);
+      assert.strictEqual(saved.grading_failed, false);
+      await page.evaluate((id) => openSessionDetail('rv', id), failedId);
+      assert.strictEqual((await detailView(page)).pct, '61%', 'reopening shows the saved grade');
+      await logout(page);
+    });
+
+    await step('retry control: a delayed success on the same open view still updates it and toasts once', async () => {
+      await login(page, A);
+      const failedId = await addFailedSession(page, 'RETRY-2');
+      await page.evaluate((id) => openSessionDetail('rv', id), failedId);
+      const release = await retryHeld(page, grade, failedId);
+      await clearUiEvents(page);
+      await release();
+      assert.strictEqual((await detailView(page)).pct, '61%');
+      assert.deepStrictEqual((await uiEvents(page)).toasts, ['Grading complete!']);
+      await logout(page);
+    });
+
+    await step('retry: a delayed FAILURE after switching to B shows no toast and does not touch the button or B\'s view', async () => {
+      await login(page, A);
+      const failedId = await addFailedSession(page, 'RETRY-3');
+      await page.evaluate((id) => openSessionDetail('rv', id), failedId);
+      await grabRetryButton(page);
+      const release = await retryHeld(page, grade, failedId, { fail: true });
+      await logout(page);
+      await login(page, B);
+      const bId = await page.evaluate(() => STATE.sessions.find(x => x.trn === 'bob-RV0').id);
+      await page.evaluate((id) => openSessionDetail('rv', id), bId);
+      const viewBefore = await detailView(page);
+      const btnBefore = await retryButton(page);
+      assert.deepStrictEqual(btnBefore, { text: 'GRADING...', disabled: true });
+      await clearUiEvents(page);
+      await release();
+      assert.deepStrictEqual((await uiEvents(page)).toasts, [], 'no "Grading failed" toast for B');
+      assert.deepStrictEqual(await retryButton(page), btnBefore, 'A\'s old button was not modified');
+      assert.deepStrictEqual(await detailView(page), viewBefore, 'B\'s view is unchanged');
+      const a = await sessionById(page, A.id, failedId);
+      assert.strictEqual(a.grading_failed, true, 'A\'s session is unchanged by a failed retry');
+      assert.ok(!(await page.evaluate(() => STATE.sessions.some(x => x.trn === 'RETRY-3'))), 'nothing added to B');
+      await logout(page);
+    });
+
+    await step('retry: a delayed SUCCESS after switching to B is saved to A only, silently', async () => {
+      await login(page, A);
+      const failedId = await addFailedSession(page, 'RETRY-4');
+      await page.evaluate((id) => openSessionDetail('rv', id), failedId);
+      const release = await retryHeld(page, grade, failedId);
+      await logout(page);
+      await login(page, B);
+      const bId = await page.evaluate(() => STATE.sessions.find(x => x.trn === 'bob-RV1').id);
+      await page.evaluate((id) => openSessionDetail('rv', id), bId);
+      const viewBefore = await detailView(page);
+      const bStored = await page.evaluate(() => localStorage.getItem(ownedKey('ablty_sessions')));
+      await clearUiEvents(page);
+      await release();
+      assert.deepStrictEqual((await uiEvents(page)).toasts, []);
+      assert.deepStrictEqual(await detailView(page), viewBefore);
+      assert.strictEqual(await page.evaluate(() => localStorage.getItem(ownedKey('ablty_sessions'))), bStored, 'B\'s history untouched');
+      assert.strictEqual((await sessionById(page, A.id, failedId)).score, 61, 'A keeps the grade');
+      await logout(page);
+    });
+
+    await step('retry control: a delayed failure on the same open view still toasts and re-enables the button', async () => {
+      await login(page, A);
+      const failedId = await addFailedSession(page, 'RETRY-5');
+      await page.evaluate((id) => openSessionDetail('rv', id), failedId);
+      await grabRetryButton(page);
+      const release = await retryHeld(page, grade, failedId, { fail: true });
+      await clearUiEvents(page);
+      await release();
+      assert.deepStrictEqual(await retryButton(page), { text: 'RETRY GRADING', disabled: false });
+      const t = (await uiEvents(page)).toasts;
+      assert.strictEqual(t.length, 1);
+      assert.ok(/^Grading failed/.test(t[0]), t[0]);
+      await logout(page);
+    });
+
+    // ── session / streak accounting ────────────────
+    await step('accounting: a late RV session counts once for A, not for B, with no prompt on B\'s screen', async () => {
+      await login(page, A);
+      const a0 = await counters(page, A.id);
+      await startRV(page, 'count me');
+      const release = await submitHeld(page, grade);
+      await logout(page);
+      await login(page, B);
+      const b0 = await counters(page, B.id);
+      await startRV(page, 'bob again');
+      await clearUiEvents(page);
+      await release();
+      const a1 = await counters(page, A.id);
+      assert.strictEqual(Number(a1.total), Number(a0.total || 0) + 1, 'A counted exactly once');
+      assert.strictEqual(a1.streak.lastSessionDate, await page.evaluate(() => getTodayKey()));
+      assert.deepStrictEqual(await counters(page, B.id), b0, 'B not credited');
+      assert.deepStrictEqual(await uiEvents(page), { toasts: [], upgrades: [] });
+      await page.evaluate(() => stopTimer());
+      await logout(page);
+    });
+
+    await step('accounting: a late 10th session under the same account counts once; its prompt waits for the next live session', async () => {
+      await login(page, C); // free tier, so milestone prompts are live
+      await page.evaluate((id) => {
+        localStorage.setItem(ownedKeyFor(id, 'ablty_total_sessions'), '9');
+        localStorage.removeItem(ownedKeyFor(id, 'ablty_milestone_session10'));
+      }, C.id);
+      await startRV(page, 'ninth plus one');
+      const release = await submitHeld(page, grade);
+      await startRV(page, 'newer on screen');
+      await clearUiEvents(page);
+      const before = await rvScreen(page);
+      await release();
+      const after = await rvScreen(page);
+      const { history: h0, storedHistory: s0, timerSeconds: t0, ...b } = before;
+      const { history: h1, storedHistory: s1, timerSeconds: t1, ...a } = after;
+      assert.deepStrictEqual(a, b, 'newer session untouched');
+      let c = await counters(page, C.id);
+      assert.strictEqual(c.total, '10', 'counted exactly once');
+      assert.strictEqual(c.session10, null, 'prompt not consumed by the late result');
+      assert.deepStrictEqual((await uiEvents(page)).upgrades, [], 'no upgrade prompt over the newer session');
+      // The newer session completes live: it counts too, and the deferred prompt appears now.
+      const release2 = await submitHeld(page, grade);
+      await release2();
+      c = await counters(page, C.id);
+      assert.strictEqual(c.total, '11');
+      assert.strictEqual(c.session10, '1');
+      assert.deepStrictEqual((await uiEvents(page)).upgrades, ['Deep Analytics Ready']);
+      await page.evaluate(() => { document.getElementById('upgrade-modal').classList.remove('visible'); document.getElementById('upgrade-modal').style.display = ''; });
       await logout(page);
     });
 
