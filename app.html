@@ -20046,14 +20046,14 @@ const ACAD = (() => {
     hush();
   }
 
-  // ── LESSON 01 · THE MARK ────────────────────────────
+  // ── LESSON 01 · MAKING YOUR MARK ────────────────────
   const LESSON01_RECAP = [
     'An ideogram is a quick mark used in this method to record an initial response to a target.',
     'Make the mark promptly and keep it simple, without hesitating.',
     'These word prompts let you practice the action before working with hidden targets.'
   ];
   async function lesson01() {
-    await titleScene('Lesson 01', 'THE MARK', 'About 2 minutes');
+    await titleScene('Lesson 01', 'MAKING YOUR MARK', 'About 2 minutes');
     ACAD_AMB.set('hero');
     await beat({
       glyph:'unseen', kicker:'Getting started',
@@ -20061,10 +20061,10 @@ const ACAD = (() => {
       sub:"But before you attempt to see, you must learn to trust your reflex."
     });
     await beat({
-      glyph:'reflex', kicker:'The Ideogram.',
+      glyph:'reflex', kicker:'The Ideogram',
       line:"When a word appears, allow your hand to move [[before your analytical mind can think]].",
       sub:"Let it be a brief movement of your hand, without planning a picture. This exercise uses visible words to help you practice the action before trying it with a hidden target.",
-      moreTitle:'Speed matters.',
+      moreTitle:'Speed matters',
       more:[
         'The goal is to make a simple mark on a sketchpad <em>before</em> you spend time deciding what it should look like. If you hesitate, that’s okay. Use the next prompt to practice responding a little more freely.',
         'Right now you’re just practicing how to make the mark with your reflex.',
@@ -20089,15 +20089,15 @@ const ACAD = (() => {
     ACAD_AMB.set('hero');
     hideProgress();
     await beat({
-      glyph:'settle', kicker:'Lesson complete.',
+      glyph:'settle', kicker:'Lesson complete',
       line:"Let what you learned [[settle in your mind]]. Don’t try to rush the training.",
       sub:"Next, you learn to read what your hand wrote."
     });
-    await completeCard('Lesson 01', 'THE MARK', 'NEXT · DECODING YOUR MARK', '01', LESSON01_RECAP, false,
+    await completeCard('Lesson 01', 'MAKING YOUR MARK', 'NEXT · DECODING YOUR MARK', '01', LESSON01_RECAP, false,
       'Continue when you’re ready.');
   }
 
-  // ── LESSON 02 · THE DECODE ──────────────────────────
+  // ── LESSON 02 · DECODING YOUR MARK ──────────────────
   const MOTION = ['RISING','FALLING','ACROSS','ANGLE UP','ANGLE DOWN','CURVING','FLAT','PEAK'];
   const FEEL = ['SOLID','LIQUID','ENERGETIC','AIRY','WARM','COOL'];
   const GESTALTS = ['WATER','STRUCTURE','MOUNTAIN','LAND','ENERGY'];
@@ -20109,7 +20109,7 @@ const ACAD = (() => {
   ];
 
   async function lesson02() {
-    await titleScene('Lesson 02', 'THE DECODE', 'approx. 3 minutes');
+    await titleScene('Lesson 02', 'DECODING YOUR MARK', 'approx. 3 minutes');
     ACAD_AMB.set('hero');
     await beat({
       glyph:'reflex', kicker:'Where you are',
@@ -20189,7 +20189,7 @@ const ACAD = (() => {
       line:"That is enough. [[Let it settle.]]",
       sub:"Next, the enemy of every session: your own imagination, and how to catch it."
     });
-    await completeCard('Lesson 02', 'THE DECODE', 'NEXT · AOL & THE BREAK', '02', [
+    await completeCard('Lesson 02', 'DECODING YOUR MARK', 'NEXT · AOL & THE BREAK', '02', [
       'I · A · B: the ideogram, then how it moved and felt, then one word.',
       'Motion is decoded first, feeling second. That order is part of the structure.',
       'Blind rounds are cued by coordinates only, exactly as the original program ran them.',
@@ -20350,7 +20350,7 @@ const ACAD = (() => {
   // ── lesson catalog ──────────────────────────────────
   const LESSONS = [
     {id:'01',t:'Making Your Mark',s:'the "ideogram" reflex',fn:lesson01,recap:LESSON01_RECAP},
-    {id:'02',t:'The Decode',s:'I · A · B',fn:lesson02},
+    {id:'02',t:'Decoding Your Mark',s:'I · A · B',fn:lesson02},
     {id:'03',t:'AOL & The Break',s:'catching the imagination',fn:lesson03},
     {id:'04',t:'Phase I Practice',s:'building the vocabulary',built:false},
     {id:'05',t:'Phase II · The Interface',s:'multi-gestalt sites',built:false}
