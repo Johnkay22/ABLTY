@@ -17914,7 +17914,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.09.27.1';
+const APP_VERSION = '2026.09.28.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -19398,9 +19398,9 @@ const ACAD = (() => {
   let roundAolCount = 0;
   const DRAW_SECONDS = 5, CAPTURE_MS = 1400;
   const WORDS = {
-    WATER:{kind:'water',vo:"There. Notice the way it moved and the shape it took. That's how most hands answer water, [[not because you decided it, but because you felt it]]."},
-    STRUCTURE:{kind:'structure',vo:"Structure tends to come out angular, with hard edges and straight lines, and you can feel how different that is from the flow of water."},
-    MOUNTAIN:{kind:'mountain',vo:"A rise and a fall, up and then down, the gesture your hand already understood [[before you had time to think]]."}
+    WATER:{kind:'water',vo:"Notice the way it moved and the shape it took. That's how most hands answer water, [[not because it was decided, but because it was felt]]."},
+    STRUCTURE:{kind:'structure',vo:"Here, “structure” means something built, such as a building or bridge. The example uses straight lines and corners. Notice whether your own movement felt different from the previous attempt, [[without trying to match the example]]."},
+    MOUNTAIN:{kind:'mountain',vo:"The example rises and falls. Think back to your own movement: did your hand move upward, downward, across, or in another direction? You’ll practice describing those movements [[in the next lesson]]."}
   };
   const coordGen = () => (1000 + Math.floor(Math.random() * 9000)) + ' ' + (1000 + Math.floor(Math.random() * 9000));
 
@@ -19997,26 +19997,26 @@ const ACAD = (() => {
   async function nameTheMark() {
     ACAD_AMB.set('hero');
     const w = el('div', 'acad-caption');
-    w.appendChild(el('div', 'acad-kicker acad-kin', 'that mark has a name'));
+    w.appendChild(el('div', 'acad-kicker acad-kin', 'Your first ideogram'));
     const d = el('div', 'acad-display', 'IDEOGRAM');
     d.style.color = 'var(--acad-teal)';
     d.style.textShadow = '0 0 32px rgba(74,240,200,.25)';
     w.appendChild(d);
-    const line = el('div', 'acad-line acad-sm', lineHTML("Your hand records a target's feeling and motion before your analytical mind can name it. That recording is [[real data]]."));
+    const line = el('div', 'acad-line acad-sm', lineHTML("In this method, an ideogram is a quick mark used to record an [[initial response to a target]]. You’ve practiced making one in response to a visible word. Later, you’ll practice with the target hidden."));
     w.appendChild(line);
     const cue = cueEl();
     w.appendChild(cue);
     await mount(w);
     ACAD_AMB.bloom(); chime(); haptic(30);
     setTimeout(() => line.classList.add('acad-in'), 1000);
-    speak("That mark has a name. An ideogram. Your hand records a target's feeling and motion before your analytical mind can name it, and that recording is real data, the foundation of everything that follows.");
+    speak("Your first ideogram. In this method, an ideogram is a quick mark used to record an initial response to a target. You’ve practiced making one in response to a visible word. Later, you’ll practice with the target hidden.");
     await holdForTap(cue, () => line.classList.add('acad-fast', 'acad-in'), LINE_MS + 1300);
     hush();
     w.classList.add('acad-out');
     await delay(680);
   }
 
-  async function completeCard(lesson, title, nextChip, id, recap, spaced) {
+  async function completeCard(lesson, title, nextChip, id, recap, spaced, note) {
     ACAD_AMB.set('hero');
     hideProgress();
     if (id) {
@@ -20036,7 +20036,7 @@ const ACAD = (() => {
     w.appendChild(el('div', 'acad-chip', nextChip));
     w.appendChild(el('p', 'acad-note', spaced
       ? 'You ran live sessions today. <em>Rest before the next practice set.</em>'
-      : 'Continue when you are ready.'));
+      : (note || 'Continue when you are ready.')));
     const b = el('button', 'acad-btn acad-ghost', '&#8592; back to academy');
     w.appendChild(b);
     await mount(w);
@@ -20047,30 +20047,35 @@ const ACAD = (() => {
   }
 
   // ── LESSON 01 · THE MARK ────────────────────────────
+  const LESSON01_RECAP = [
+    'An ideogram is a quick mark used in this method to record an initial response to a target.',
+    'Make the mark promptly and keep it simple, without hesitating.',
+    'These word prompts let you practice the action before working with hidden targets.'
+  ];
   async function lesson01() {
-    await titleScene('Lesson 01', 'THE MARK', 'approx. 90 seconds');
+    await titleScene('Lesson 01', 'THE MARK', 'About 2 minutes');
     ACAD_AMB.set('hero');
     await beat({
-      glyph:'unseen', kicker:'Remote Viewing',
-      line:"You describe a place you [[cannot see]].",
-      sub:"But that is not where you begin. The very first skill is not seeing, it is a reflex."
+      glyph:'unseen', kicker:'Getting started',
+      line:"In remote viewing, you try to describe a target you [[cannot see]].",
+      sub:"But before you attempt to see, you must learn to trust your reflex."
     });
     await beat({
-      glyph:'reflex', kicker:'The reflex',
-      line:"The instant a target arrives, the hand moves [[before the mind can think]].",
-      sub:"One fast mark that captures how a thing feels and moves.",
-      moreTitle:'why speed matters',
+      glyph:'reflex', kicker:'The Ideogram.',
+      line:"When a word appears, allow your hand to move [[before your analytical mind can think]].",
+      sub:"Let it be a brief movement of your hand, without planning a picture. This exercise uses visible words to help you practice the action before trying it with a hidden target.",
+      moreTitle:'Speed matters.',
       more:[
-        'The manual is blunt about this: the ideogram must be produced <em>without hesitation</em>. Any pause is your analytical mind stepping in to guess, and its guesses are almost always wrong this early.',
-        'The mark itself is not the answer. It is a <em>recording</em> of the target’s motion and feeling, made by the part of you that reacts faster than thought.',
-        'That is why you get only a few seconds. The limit is not a game mechanic, it is the discipline enforced.'
+        'The goal is to make a simple mark on a sketchpad <em>before</em> you spend time deciding what it should look like. If you hesitate, that’s okay. Use the next prompt to practice responding a little more freely.',
+        'Right now you’re just practicing how to make the mark with your reflex.',
+        'You will only be allowed a few seconds to record your mark. The time limit isn’t a game mechanic, it’s the discipline enforced.'
       ]
     });
     ACAD_AMB.set('soft');
     await stepper([
       {icon:'eye',text:'A word will appear.'},
-      {icon:'tap',text:'The instant you see it, let your hand answer with one fast mark.'},
-      {icon:'no',text:'Do not picture it, and do not draw a picture of it, just move.'}
+      {icon:'tap',text:'The instant you see it, let your hand answer with one fast mark drawn on the on screen sketch pad.'},
+      {icon:'no',text:'Don’t think, just react.'}
     ]);
     await readyGate('three marks · go fast');
     setupProgress(3);
@@ -20084,15 +20089,12 @@ const ACAD = (() => {
     ACAD_AMB.set('hero');
     hideProgress();
     await beat({
-      glyph:'settle', kicker:'Session end',
-      line:"That is enough. [[Let it settle.]]",
+      glyph:'settle', kicker:'Lesson complete.',
+      line:"Let what you learned [[settle in your mind]]. Don’t try to rush the training.",
       sub:"Next, you learn to read what your hand wrote."
     });
-    await completeCard('Lesson 01', 'THE MARK', 'NEXT · THE DECODE', '01', [
-      'The ideogram: a fast, reflexive mark made before the analytical mind engages.',
-      'Speed is the point. Hesitation means you started thinking instead of feeling.',
-      'Your hand answers a target’s feeling and motion, and that is usable data.'
-    ], false);
+    await completeCard('Lesson 01', 'THE MARK', 'NEXT · DECODING YOUR MARK', '01', LESSON01_RECAP, false,
+      'Continue when you’re ready.');
   }
 
   // ── LESSON 02 · THE DECODE ──────────────────────────
@@ -20347,7 +20349,7 @@ const ACAD = (() => {
 
   // ── lesson catalog ──────────────────────────────────
   const LESSONS = [
-    {id:'01',t:'The Mark',s:'the ideogram reflex',fn:lesson01},
+    {id:'01',t:'Making Your Mark',s:'the "ideogram" reflex',fn:lesson01,recap:LESSON01_RECAP},
     {id:'02',t:'The Decode',s:'I · A · B',fn:lesson02},
     {id:'03',t:'AOL & The Break',s:'catching the imagination',fn:lesson03},
     {id:'04',t:'Phase I Practice',s:'building the vocabulary',built:false},
@@ -20379,7 +20381,7 @@ const ACAD = (() => {
     w.appendChild(el('div', 'acad-display', o.t.toUpperCase()));
     const r = el('div', 'acad-recap');
     r.innerHTML = '<div class="acad-rl">what you learned</div><ul>' +
-      (ACAD_PROG.recaps[o.id] || []).map(x => '<li>' + x + '</li>').join('') + '</ul>';
+      (o.recap || ACAD_PROG.recaps[o.id] || []).map(x => '<li>' + x + '</li>').join('') + '</ul>';
     w.appendChild(r);
     const b = el('button', 'acad-btn acad-ghost', '← back to academy');
     w.appendChild(b);
