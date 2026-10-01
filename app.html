@@ -5514,6 +5514,14 @@ html, body {
 .acad-lcard .acad-lgo   { font-family: var(--font-mono); font-size: 12px; color: var(--acad-faint); }
 .acad-lcard .acad-ldone { font-family: var(--font-mono); font-size: 11px; color: var(--acad-teal); }
 .acad-lcard.acad-locked { opacity: .42; pointer-events: none; }
+.acad-lcard.acad-placeholder { opacity: .3; }
+.acad-lcard.acad-placeholder .acad-lnum { display: flex; align-items: center; }
+.acad-lcard.acad-placeholder .acad-lnum svg {
+  width: 22px; height: 22px; stroke: var(--acad-faint); fill: none;
+  stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+}
+.acad-lcard.acad-placeholder .acad-lname { color: var(--acad-faint); }
+.acad-morebtn.acad-soonpill { color: var(--acad-teal); border-color: rgba(74,240,200,.32); }
 
 /* ── Exit confirm (new in the port; no prototype equivalent) ── */
 .acad-confirm {
@@ -17914,7 +17922,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.09.28.1';
+const APP_VERSION = '2026.10.01.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
@@ -19041,6 +19049,22 @@ const ACAD = (() => {
   // ── progress ────────────────────────────────────────
   const ACAD_PROG = { done: {}, reps: 0, breaks: 0, recaps: {} };
 
+  // Lessons 02 and 03 were retired while the Academy is rebuilt, and 04
+  // and 05 were never built. Their completions are erased on load so a
+  // rebuilt lesson that reuses one of these ids starts unfinished for
+  // everyone. reps and breaks are kept; nothing displays them now.
+  // Remove an id from this list before shipping a lesson that uses it.
+  const RETIRED_LESSON_IDS = ['02', '03', '04', '05'];
+
+  function retireOldLessons() {
+    let changed = false;
+    RETIRED_LESSON_IDS.forEach(id => {
+      if (id in ACAD_PROG.done)   { delete ACAD_PROG.done[id];   changed = true; }
+      if (id in ACAD_PROG.recaps) { delete ACAD_PROG.recaps[id]; changed = true; }
+    });
+    if (changed) saveProgress();
+  }
+
   function loadProgress() {
     // Always reset first, so re-reading after a purge clears the
     // in-memory copy instead of leaving stale stats on the landing.
@@ -19057,6 +19081,7 @@ const ACAD = (() => {
         ACAD_PROG.breaks = Number(p.breaks) || 0;
       }
     } catch(e) {}
+    retireOldLessons();
   }
 
   function saveProgress() {
@@ -19265,7 +19290,8 @@ const ACAD = (() => {
     eye:'<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>',
     tap:'<svg viewBox="0 0 24 24"><circle cx="12" cy="14.5" r="2.4"/><path d="M7.2 9.4a6.5 6.5 0 0 1 9.6 0"/><path d="M4.6 6.6a10.2 10.2 0 0 1 14.8 0"/></svg>',
     no:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="M6.2 6.2l11.6 11.6"/></svg>',
-    check:'<svg viewBox="0 0 24 24"><path class="acad-pathdraw" d="M5 12.5l4.6 4.6L19 7.5"/></svg>'
+    check:'<svg viewBox="0 0 24 24"><path class="acad-pathdraw" d="M5 12.5l4.6 4.6L19 7.5"/></svg>',
+    lock:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9.5" rx="2"/><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3"/></svg>'
   };
 
   // Expandable "why this matters" panel, shared by beat/textEntry/verdict.
@@ -20091,9 +20117,9 @@ const ACAD = (() => {
     await beat({
       glyph:'settle', kicker:'Lesson complete',
       line:"Let what you learned [[settle in your mind]]. Don’t try to rush the training.",
-      sub:"Next, you learn to read what your hand wrote."
+      sub:"More lessons are on the way."
     });
-    await completeCard('Lesson 01', 'MAKING YOUR MARK', 'NEXT · DECODING YOUR MARK', '01', LESSON01_RECAP, false,
+    await completeCard('Lesson 01', 'MAKING YOUR MARK', 'MORE LESSONS COMING SOON', '01', LESSON01_RECAP, false,
       'Continue when you’re ready.');
   }
 
@@ -20348,12 +20374,17 @@ const ACAD = (() => {
   }
 
   // ── lesson catalog ──────────────────────────────────
+  // Only Lesson 01 is offered while the Academy is rebuilt. lesson02 and
+  // lesson03 stay in the code for reference but nothing links to them.
   const LESSONS = [
-    {id:'01',t:'Making Your Mark',s:'the "ideogram" reflex',fn:lesson01,recap:LESSON01_RECAP},
-    {id:'02',t:'Decoding Your Mark',s:'I · A · B',fn:lesson02},
-    {id:'03',t:'AOL & The Break',s:'catching the imagination',fn:lesson03},
-    {id:'04',t:'Phase I Practice',s:'building the vocabulary',built:false},
-    {id:'05',t:'Phase II · The Interface',s:'multi-gestalt sites',built:false}
+    {id:'01',t:'Making Your Mark',s:'the "ideogram" reflex',fn:lesson01,recap:LESSON01_RECAP}
+  ];
+  const LOCKED_PLACEHOLDERS = 3;
+  const COMING_SOON_TEXT = [
+    'Lesson 1 is only a small sample of what we have planned for the ABLTY Remote Viewing Academy.',
+    'We’re meticulously building the full curriculum with the goal of creating a clear, serious, and practical way to learn remote viewing, understand the underlying methods, and develop your skills through structured practice.',
+    'We are focused on building something exceptional and do not want to rush out lessons that don’t meet that standard.',
+    'The next stages are coming soon.'
   ];
   // A lesson is open only if it is built AND the previous one is complete.
   function isOpen(i) {
@@ -20366,7 +20397,7 @@ const ACAD = (() => {
     const i = LESSONS.findIndex((l, ix) => isOpen(ix) && !ACAD_PROG.done[l.id]);
     return i < 0 ? null : LESSONS[i];
   }
-  const doneCount = () => Object.keys(ACAD_PROG.done).filter(k => ACAD_PROG.done[k]).length;
+  const doneCount = () => LESSONS.filter(l => ACAD_PROG.done[l.id]).length;
 
   // ── review or replay ────────────────────────────────
   async function reviewOrReplay(o) {
@@ -20406,32 +20437,12 @@ const ACAD = (() => {
       w.appendChild(el('p', 'acad-blurb',
         'Remote viewing is a trained skill for describing a place you have never seen. <strong>The U.S. government spent two decades and twenty million dollars developing it</strong>, and the method they built is public record.<br><br>This academy teaches that method as it was actually taught, in order, one stage at a time.'));
       const f = el('div', 'acad-factrow');
-      ['27 LESSONS','6 STAGES','DECLASSIFIED METHOD'].forEach(x => f.appendChild(el('span', 'acad-tag', x)));
+      f.appendChild(el('span', 'acad-tag', 'DECLASSIFIED METHOD'));
       w.appendChild(f);
-      w.appendChild(el('div', 'acad-seclabel', 'the path'));
-      const sl = el('div', 'acad-stagelist');
-      [['I','Ideogram & Gestalt','the reflex, the decode'],
-       ['II','Sensory Contact','texture, sound, temperature'],
-       ['III','Dimension & Sketch','size, motion, the drawing'],
-       ['IV','The Matrix','full structured sessions']].forEach((s, i) => {
-        const r = el('div', 'acad-stagerow' + (i > 0 ? ' acad-dim' : ''));
-        r.innerHTML = '<div class="acad-snum">' + s[0] + '</div><div><div class="acad-sname">' + s[1] +
-                      '</div><div class="acad-sdesc">' + s[2] + '</div></div><div class="acad-slock">' +
-                      (i === 0 ? 'START' : 'LOCKED') + '</div>';
-        sl.appendChild(r);
-      });
-      w.appendChild(sl);
       const b = el('button', 'acad-btn', 'Begin Lesson 01');
       b.addEventListener('click', e => { e.stopPropagation(); runLesson(LESSONS[0].fn); });
       w.appendChild(b);
     } else {
-      const sr = el('div', 'acad-statrow');
-      [[doneCount(),'lessons done'],[ACAD_PROG.reps,'blind reps'],[ACAD_PROG.breaks,'aol breaks']].forEach(s => {
-        const b = el('div', 'acad-statbox');
-        b.innerHTML = '<div class="acad-sv">' + s[0] + '</div><div class="acad-sl">' + s[1] + '</div>';
-        sr.appendChild(b);
-      });
-      w.appendChild(sr);
       const nx = nextLesson();
       if (nx) {
         const c = el('div', 'acad-contcard');
@@ -20439,30 +20450,59 @@ const ACAD = (() => {
         c.addEventListener('click', e => { e.stopPropagation(); runLesson(nx.fn); });
         w.appendChild(c);
       }
-      w.appendChild(el('div', 'acad-seclabel', 'stage I · all lessons'));
-      const cards = el('div', 'acad-lcards');
-      LESSONS.forEach((o, ix) => {
-        const done = !!ACAD_PROG.done[o.id];
-        const open = isOpen(ix);
-        const sub = done ? 'completed'
-                  : (open ? o.s : (o.built === false ? 'coming soon' : 'finish ' + LESSONS[ix - 1].id + ' first'));
-        const c = el('div', 'acad-lcard' + (open ? '' : ' acad-locked'));
-        c.innerHTML = '<div class="acad-lnum">' + o.id + '</div><div><div class="acad-lname">' + o.t +
-                      '</div><div class="acad-lsub">' + sub + '</div></div><div class="' +
-                      (done ? 'acad-ldone' : 'acad-lgo') + '">' +
-                      (!open ? '●' : (done ? '↻' : '→')) + '</div>';
-        if (open) {
-          c.addEventListener('click', e => {
-            e.stopPropagation();
-            if (done) runLesson(() => reviewOrReplay(o));
-            else runLesson(o.fn);
-          });
-        }
-        cards.appendChild(c);
-      });
-      w.appendChild(cards);
     }
+    lessonList(w);
     root.appendChild(w);
+  }
+
+  // Lesson cards, then untitled locked rows and the "more lessons"
+  // pill. Shown on both landing states.
+  function lessonList(w) {
+    w.appendChild(el('div', 'acad-seclabel', 'lessons'));
+    const cards = el('div', 'acad-lcards');
+    LESSONS.forEach((o, ix) => {
+      const done = !!ACAD_PROG.done[o.id];
+      const open = isOpen(ix);
+      const sub = done ? 'completed'
+                : (open ? o.s : (o.built === false ? 'coming soon' : 'finish ' + LESSONS[ix - 1].id + ' first'));
+      const c = el('div', 'acad-lcard' + (open ? '' : ' acad-locked'));
+      c.innerHTML = '<div class="acad-lnum">' + o.id + '</div><div><div class="acad-lname">' + o.t +
+                    '</div><div class="acad-lsub">' + sub + '</div></div><div class="' +
+                    (done ? 'acad-ldone' : 'acad-lgo') + '">' +
+                    (!open ? '●' : (done ? '↻' : '→')) + '</div>';
+      if (open) {
+        c.addEventListener('click', e => {
+          e.stopPropagation();
+          if (done) runLesson(() => reviewOrReplay(o));
+          else runLesson(o.fn);
+        });
+      }
+      cards.appendChild(c);
+    });
+    for (let i = 0; i < LOCKED_PLACEHOLDERS; i++) {
+      const c = el('div', 'acad-lcard acad-locked acad-placeholder');
+      c.setAttribute('aria-label', 'Locked lesson');
+      c.innerHTML = '<div class="acad-lnum">' + ICONS.lock + '</div><div><div class="acad-lname">Locked</div></div><div class="acad-lgo">●</div>';
+      cards.appendChild(c);
+    }
+    w.appendChild(cards);
+
+    const pill = el('button', 'acad-morebtn acad-soonpill', '<span>More Lessons Are Coming</span><span class="acad-mchev">⌄</span>');
+    pill.setAttribute('aria-expanded', 'false');
+    const panel = el('div', 'acad-morepanel');
+    const inner = el('div', 'acad-moreinner');
+    inner.innerHTML = COMING_SOON_TEXT.map(t => '<p>' + t + '</p>').join('');
+    panel.appendChild(inner);
+    pill.addEventListener('pointerdown', e => e.stopPropagation());
+    pill.addEventListener('click', e => {
+      e.stopPropagation();
+      const open = panel.classList.toggle('acad-open');
+      pill.classList.toggle('acad-open', open);
+      pill.setAttribute('aria-expanded', open ? 'true' : 'false');
+      initAudio(); tone(open ? 520 : 380, 0.09, 'sine', 0.05); haptic(9);
+    });
+    w.appendChild(pill);
+    w.appendChild(panel);
   }
 
   // ── exit confirm ────────────────────────────────────
