@@ -147,13 +147,8 @@ async function main() {
       loggedIn: localStorage.getItem('ablty_logged_in') === '1',
       username: localStorage.getItem('ablty_username'),
       academy: JSON.parse(JSON.stringify(ACAD.progress)),
-      // What the Academy landing shows: the fresh first-visit copy, or the stat boxes.
-      landing: (() => {
-        const root = document.getElementById('acad-landing-root');
-        const stats = [...root.querySelectorAll('.acad-statbox')]
-          .map(b => b.querySelector('.acad-sv').textContent + ' ' + b.querySelector('.acad-sl').textContent);
-        return stats.length ? stats.join(' | ') : root.textContent.replace(/\s+/g, ' ');
-      })(),
+      // What the Academy landing shows, as plain text.
+      landing: document.getElementById('acad-landing-root').textContent.replace(/\s+/g, ' '),
       rv: STATE.sessions.map(s => s.trn),
       zener: loadZenerSessions().map(r => r.id),
       kpiTotal: text('kpi-total-sessions'),
@@ -321,10 +316,15 @@ async function main() {
     });
 
     await step('A trains: Academy progress and a Zener run are recorded for A', async () => {
+      // '02' is a retired lesson: its completion is erased on load and
+      // nothing on the landing mentions it.
       await recordAcademy(page, ['01', '02'], 3, 1);
       await zenerRun(page, 111);
       const s = await snapshot(page);
-      assert.ok(/2 lessons done/.test(s.landing) && /3 blind reps/.test(s.landing), s.landing);
+      assert.deepStrictEqual(s.academy.done, { '01': true });
+      assert.ok(!JSON.parse(s.owned[`ablty_owned:${A.id}:ablty_academy_progress`]).done['02'], 'retired completion erased from storage');
+      assert.ok(/Making Your Mark\s*completed/.test(s.landing) && !/Begin Lesson 01/.test(s.landing), s.landing);
+      assert.ok(!/Decoding|blind reps|lessons done/.test(s.landing), s.landing);
       assert.deepStrictEqual(s.zener, [111]);
       assert.strictEqual(s.kpiTotal, '3');
       assert.ok((await backend(page)).tables.zener_runs.some(r => r.id === 111 && r.user_id === A.id), 'A\'s run synced under A');
@@ -334,7 +334,8 @@ async function main() {
       await load();
       const s = await snapshot(page);
       assert.strictEqual(s.owner, A.id);
-      assert.ok(/2 lessons done/.test(s.landing), s.landing);
+      assert.ok(/Making Your Mark\s*completed/.test(s.landing), s.landing);
+      assert.strictEqual(s.academy.reps, 3);
       assert.deepStrictEqual(s.zener, [111]);
     });
 
@@ -367,7 +368,7 @@ async function main() {
       await recordAcademy(page, ['01'], 1, 0);
       await zenerRun(page, 222);
       const s = await snapshot(page);
-      assert.ok(/1 lessons done/.test(s.landing), s.landing);
+      assert.ok(/Making Your Mark\s*completed/.test(s.landing), s.landing);
       assert.deepStrictEqual(s.zener, [222]);
       assert.strictEqual(s.kpiTotal, '47', 'guest analytics stays the sample');
     });
@@ -377,8 +378,8 @@ async function main() {
       assert.strictEqual(prompted, true);
       const s = await snapshot(page);
       assert.strictEqual(s.owner, B.id);
-      assert.deepStrictEqual(s.academy.done, { '01': true }, 'guest lesson only, not A\'s two lessons');
-      assert.strictEqual(s.academy.reps, 1);
+      assert.deepStrictEqual(s.academy.done, { '01': true });
+      assert.strictEqual(s.academy.reps, 1, 'guest progress only, not A\'s');
       assert.deepStrictEqual(s.zener, [222]);
       assert.deepStrictEqual(s.rv.sort(), ['bob-RV0', 'bob-RV1', 'bob-RV2']);
       assert.strictEqual(s.kpiTotal, '4');
@@ -401,7 +402,7 @@ async function main() {
       await login(page, A);
       const s = await snapshot(page);
       assert.strictEqual(s.owner, A.id);
-      assert.deepStrictEqual(s.academy.done, { '01': true, '02': true });
+      assert.deepStrictEqual(s.academy.done, { '01': true });
       assert.strictEqual(s.academy.reps, 3);
       assert.strictEqual(s.academy.breaks, 1);
       assert.deepStrictEqual(s.zener, [111]);
@@ -413,7 +414,7 @@ async function main() {
       await load();
       let s = await snapshot(page);
       assert.strictEqual(s.owner, A.id);
-      assert.deepStrictEqual(s.academy.done, { '01': true, '02': true });
+      assert.deepStrictEqual(s.academy.done, { '01': true });
       await login(page, B);
       s = await snapshot(page);
       assert.strictEqual(s.owner, B.id);
