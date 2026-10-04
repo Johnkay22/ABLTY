@@ -53,7 +53,7 @@
   const ownerCol = (table) => (table === 'profiles' ? 'id' : 'user_id');
 
   function query(table) {
-    const q = { table, op: 'select', filters: [], single: null, limit: null, order: null };
+    const q = { table, op: 'select', filters: [], inFilters: [], single: null, limit: null, order: null };
     const b = new Proxy({}, {
       get(_, prop) {
         if (prop === 'then') return (res, rej) => run(q).then(res, rej);
@@ -63,11 +63,12 @@
         if (prop === 'update') return (vals) => { q.op = 'update'; q.vals = vals; return b; };
         if (prop === 'delete') return () => { q.op = 'delete'; return b; };
         if (prop === 'eq') return (k, v) => { q.filters.push([k, v]); return b; };
+        if (prop === 'in') return (k, vals) => { q.inFilters.push([k, (vals || []).map(String)]); return b; };
         if (prop === 'maybeSingle') return () => { q.single = 'maybe'; return b; };
         if (prop === 'single') return () => { q.single = 'one'; return b; };
         if (prop === 'limit') return (n) => { q.limit = n; return b; };
         if (prop === 'order') return (col, o) => { q.order = [col, !(o && o.ascending)]; return b; };
-        return () => b; // neq, gte, lte, in, is, range, ...: not needed for these checks
+        return () => b; // neq, gte, lte, is, range, ...: not needed for these checks
       },
     });
     return b;
@@ -81,7 +82,8 @@
     const rows = db.tables[q.table] || (db.tables[q.table] = []);
     const col = ownerCol(q.table);
     const visible = (r) => who && String(r[col]) === String(who);
-    const match = (r) => q.filters.every(([k, v]) => String(r[k]) === String(v));
+    const match = (r) => q.filters.every(([k, v]) => String(r[k]) === String(v))
+      && q.inFilters.every(([k, vals]) => vals.includes(String(r[k])));
     if (q.op === 'select') {
       let out = rows.filter((r) => visible(r) && match(r));
       if (q.order) out.sort((a, b) => (String(a[q.order[0]]) < String(b[q.order[0]]) ? 1 : -1) * (q.order[1] ? 1 : -1));

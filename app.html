@@ -8070,8 +8070,9 @@ const OWNED_DATA_KEYS = [
   'ablty_zener', 'ablty_zener_cloud_cache',
   // Presentiment
   'ablty_timestamp', 'ablty_timestamp_all', 'ablty_ts_cloud_cache', 'ablty_ts_pending',
-  // Sessions recorded on this device that the cloud has not confirmed yet
-  'ablty_sync_pending',
+  // Sessions recorded on this device that the cloud has not confirmed yet,
+  // and the most recent ones it has confirmed
+  'ablty_sync_pending', 'ablty_sync_confirmed',
   // Photo Pair (retired; its leftovers follow their owner)
   'ablty_photopair', 'ablty_pp_cloud_cache', 'ablty_pp_pending',
   // Practice counters and one-time milestone prompts
@@ -8377,8 +8378,35 @@ function saveState() {
     }
     return s;
   });
-  store.set(ownedKey('ablty_sessions'), JSON.stringify(pruned));
+  const saved = persistHistory(ownedKey('ablty_sessions'), JSON.stringify(pruned));
   store.set('ablty_settings', JSON.stringify(STATE.settings));
+  return saved;
+}
+
+// Writes a history list and reports whether the phone actually kept it.
+// `localStorage.setItem` fails silently nowhere, but the callers used to
+// swallow the exception; a full or blocked storage then looked like a save.
+function persistHistory(key, json) {
+  try {
+    localStorage.setItem(key, json);
+    return localStorage.getItem(key) === json;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Tells the user when a result could not be kept on the phone, instead of
+// the screen claiming it was saved. One warning per minute at most, so a run
+// of Presentiment taps on a full phone does not stack toasts.
+let _historyWarnAt = 0;
+function warnHistoryNotSaved() {
+  const now = Date.now();
+  if (now - _historyWarnAt < 60000) return;
+  _historyWarnAt = now;
+  const msg = isLoggedIn()
+    ? 'Could not save this result on your phone (storage is full or blocked). It is held only until the app closes unless the cloud save succeeds.'
+    : 'Could not save this result on your phone (storage is full or blocked). It will be lost when the app closes. Free up space or sign in to save to the cloud.';
+  if (typeof showToast === 'function') showToast(msg, 'warn', 8000);
 }
 
 function loadState() {
@@ -8978,7 +9006,7 @@ async function submitSession() {
       hits: [],
       noise: [],
       aol: [],
-      summary: 'AI grading is temporarily unavailable. Your session was saved successfully.',
+      summary: 'AI grading is temporarily unavailable. You can grade this session again later from your history.',
       grading_failed: true,
       grading_error: gradingErrorMessage,
       target: revealedTarget || null,
@@ -9035,8 +9063,9 @@ async function submitSession() {
       // add the finished session to this owner's history only. The newer
       // session's assignment, notes, timer and screen are left alone.
       STATE.sessions.unshift(session);
-      saveState();
-      syncSessionToSupabase('rv_sessions', mapRVSessionRow(session, 'personal'));
+      const kept = saveState();
+      if (!kept) warnHistoryNotSaved();
+      syncSessionToSupabase('rv_sessions', mapRVSessionRow(session, 'personal'), { localSaved: kept });
     } else {
       // The owner changed while grading: file it with the owner who drew it
       // (without its sketch, like older sessions) and leave the current
@@ -9045,15 +9074,32 @@ async function submitSession() {
       const key = ownedKeyFor(sessionOwner, 'ablty_sessions');
       const list = safeParseArray(store.get(key));
       list.unshift(stored);
-      store.set(key, JSON.stringify(list.slice(0, MAX_RV_LOCAL_SESSIONS)));
+      if (!persistHistory(key, JSON.stringify(list.slice(0, MAX_RV_LOCAL_SESSIONS)))) warnHistoryNotSaved();
     }
     return;
   }
   STATE.currentAssignmentId = null;
   STATE.sessions.unshift(session);
-  saveState();
-  syncSessionToSupabase('rv_sessions', mapRVSessionRow(session, 'personal'));
+  const kept = saveState();
+  if (!kept) {
+    warnHistoryNotSaved();
+    markResultsNotSavedLocally();
+  }
+  syncSessionToSupabase('rv_sessions', mapRVSessionRow(session, 'personal'), { localSaved: kept });
   checkMilestones({ protocol: 'rv', score: session.score });
+}
+
+// The grading-failed card is drawn before the save and says the session was
+// kept; when the phone then refused the write, it must not keep saying so.
+function markResultsNotSavedLocally() {
+  const errorCard = document.getElementById('rv-grade-error');
+  if (!errorCard || errorCard.style.display === 'none') return;
+  const title = errorCard.querySelector('.result-error-title');
+  const body = errorCard.querySelector('.result-error-body');
+  if (title) title.textContent = 'Grading Failed - Not Saved On This Phone';
+  if (body) body.textContent = isLoggedIn()
+    ? 'Your phone\'s storage refused this session (full or blocked). It is held only until the app closes unless the cloud save succeeds; see Data Sync in Settings.'
+    : 'Your phone\'s storage refused this session (full or blocked). It will be lost when the app closes.';
 }
 
 function updateGradingStatus(msg) {
@@ -10722,37 +10768,80 @@ async function saveNewPassword() {
 //  SYNC STATUS INDICATOR
 // ═══════════════════════════════════════════════════════
 
-function updateSyncStatus(status, pendingCount = 0) {
-  // status: 'local' | 'syncing' | 'synced' | 'pending'
+// Plain words for what is still waiting, built from the queue itself so the
+// row never promises something a tap cannot deliver. Items with an
+// `unresolved` reason (an id already used by another account, or by another
+// result of this account) are out of the retry loop for good, so they are
+// not offered a retry; the rest are.
+function describePendingSync(items) {
+  const list = Array.isArray(items) ? items : [];
+  const results = (n) => (n === 1 ? '1 result' : n + ' results');
+  const volatile = list.filter((it) => it && it.localSaved === false).length;
+  const stuck = list.filter((it) => it && it.unresolved).length;
+  const retryable = list.length - stuck;
+  const volatileRetryable = list.filter((it) => it && it.localSaved === false && !it.unresolved).length;
+  const parts = [];
+  if (volatile) {
+    parts.push(results(volatile) + ' not saved on this phone or in the cloud. ' + (volatile === 1 ? 'It is' : 'They are') + ' held only until the app closes.' + (volatileRetryable ? ' Tap to retry the cloud save.' : ''));
+  }
+  if (retryable - volatileRetryable) {
+    parts.push(results(retryable - volatileRetryable) + ' not saved to cloud yet. Tap to retry.');
+  }
+  if (stuck) {
+    parts.push(results(stuck) + ' could not be saved to the cloud: ' + (stuck === 1 ? 'its' : 'their') + ' save ID is already taken by another result. Retrying cannot fix this; ' + (stuck === 1 ? 'it stays' : 'they stay') + ' on this phone.');
+  }
+  return { text: parts.join(' '), retryable: retryable > 0, volatile: volatile > 0, stuck: stuck > 0 };
+}
+
+function updateSyncStatus(status, detail = 0) {
+  // status: 'local' | 'syncing' | 'synced' | 'pending' | 'checking' | 'unverified'
   const dot   = document.getElementById('sync-dot');
   const label = document.getElementById('sync-status-label');
   if (!dot || !label) return;
 
-  const n = Number(pendingCount) || 0;
+  // `detail` is the queue (preferred) or, for older callers, a plain count.
+  const items = Array.isArray(detail) ? detail : new Array(Number(detail) || 0).fill({});
+  const pend = describePendingSync(items);
   const states = {
-    local:   { cls: 'sync-dot-local',   text: 'Local only' },
-    syncing: { cls: 'sync-dot-syncing', text: 'Syncing...' },
-    synced:  { cls: 'sync-dot-synced',  text: 'Synced to cloud' },
-    pending: { cls: 'sync-dot-pending', text: (n === 1 ? '1 result' : n + ' results') + ' not saved to cloud yet. Tap to retry.' },
+    local:      { cls: 'sync-dot-local',   text: 'Local only', retry: false },
+    syncing:    { cls: 'sync-dot-syncing', text: 'Syncing...', retry: false },
+    synced:     { cls: 'sync-dot-synced',  text: 'Synced to cloud', retry: false },
+    pending:    { cls: 'sync-dot-pending', text: pend.text || 'Not saved to cloud yet. Tap to retry.', retry: pend.retryable },
+    checking:   { cls: 'sync-dot-syncing', text: 'Checking that your latest results reached the cloud...', retry: false },
+    unverified: { cls: 'sync-dot-pending', text: 'Could not confirm that your latest results reached the cloud. Tap to check again.', retry: true },
   };
   const s = states[status] || states.local;
   dot.className   = 'sync-dot ' + s.cls;
   label.textContent = s.text;
   const row = document.getElementById('sync-status-row');
-  if (row) row.classList.toggle('sync-retryable', status === 'pending');
+  if (row) row.classList.toggle('sync-retryable', !!s.retry);
 }
 
 // Shows the truthful state for the account on screen: "synced" only when
-// nothing of theirs is still waiting to be uploaded.
+// nothing of theirs is still waiting to be uploaded and the latest results
+// in their history are known to be in the cloud. An empty queue alone proves
+// nothing: the queue write can fail (full storage) and is lost on reload, so
+// recent history is checked against the database before "synced" is shown.
 function refreshSyncStatus(owner = _dataOwner) {
   if (owner !== _dataOwner || !isLoggedIn()) return;
-  const n = pendingSyncCount(owner);
-  updateSyncStatus(n ? 'pending' : 'synced', n);
+  const items = readPendingSync(owner);
+  if (items.length) { updateSyncStatus('pending', items); return; }
+  const unverified = unverifiedLocalRows(owner);
+  if (!unverified.length) { updateSyncStatus('synced'); return; }
+  if (_syncVerifyFailed.has(owner) && !_syncVerifyInFlight.has(owner)) { updateSyncStatus('unverified'); return; }
+  updateSyncStatus('checking');
+  verifyRecentCloudCopies(owner);
 }
 
 function retryPendingSync() {
-  if (!isLoggedIn() || !pendingSyncCount(_dataOwner)) return;
-  flushPendingSync(_dataOwner, { resetAttempts: true });
+  if (!isLoggedIn()) return;
+  const owner = _dataOwner;
+  if (pendingSyncCount(owner)) { flushPendingSync(owner, { resetAttempts: true }); return; }
+  if (unverifiedLocalRows(owner).length) {
+    _syncVerifyFailed.delete(owner);
+    updateSyncStatus('checking');
+    verifyRecentCloudCopies(owner);
+  }
 }
 
 let _usernameEditOriginal = '';
@@ -13702,11 +13791,11 @@ function saveZenerSession(run) {
   const runs = loadZenerSessions();
   runs.unshift(run);
   const pruned = runs.slice(0, MAX_ZENER_LOCAL_RUNS);
-  try {
-    localStorage.setItem(ownedKey('ablty_zener'), JSON.stringify(pruned));
-    localStorage.setItem(ownedKey('ablty_zener_cloud_cache'), JSON.stringify(pruned));
-  } catch(e) {}
-  syncSessionToSupabase('zener_runs', mapZenerRunRow(run));
+  const json = JSON.stringify(pruned);
+  const kept = persistHistory(ownedKey('ablty_zener'), json);
+  try { localStorage.setItem(ownedKey('ablty_zener_cloud_cache'), json); } catch(e) {}
+  if (!kept) warnHistoryNotSaved();
+  syncSessionToSupabase('zener_runs', mapZenerRunRow(run), { localSaved: kept });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -16436,7 +16525,9 @@ async function completeSignIn(user) {
       await loadAnalyticsFromCloud(user.id);
     }
     if (!isAuthGenCurrent(gen)) return false;
-    // Anything this account could not upload last time goes now.
+    // Anything this account could not upload last time goes now, and the
+    // latest history is checked against the cloud afresh.
+    _syncVerifyFailed.delete(String(user.id));
     if (typeof flushPendingSync === 'function') await flushPendingSync(String(user.id));
     if (!isAuthGenCurrent(gen)) return false;
     refreshSyncStatus(String(user.id));
@@ -16505,17 +16596,32 @@ function mapTSTrialRow(trial) {
 // the database actually confirmed. Rows carry the client id as their key, so
 // a retry cannot create a duplicate. A unique-key answer is not taken as
 // success on its own: the ids are millisecond timestamps shared across all
-// accounts, so the row is looked up by id and owner first. If it is this
-// owner's, an earlier attempt landed; if it is someone else's, the item stays
-// queued as unresolved and the existing row is never touched.
+// accounts, so the existing row is read back by id and owner and its saved
+// fields are compared with what was submitted. Same owner and same contents
+// means an earlier attempt landed. Someone else's row, or this owner's row
+// with different contents, leaves the item queued as unresolved; the
+// existing row is never overwritten or deleted.
 const SYNC_PENDING_KEY = 'ablty_sync_pending';
+const SYNC_CONFIRMED_KEY = 'ablty_sync_confirmed';
 const MAX_SYNC_ATTEMPTS = 5;
+// How many of the newest history entries per table are checked against the
+// cloud when the queue is empty, and how many confirmed ids are remembered.
+const SYNC_VERIFY_RECENT = 5;
+const SYNC_CONFIRMED_KEEP = 60;
 const _syncFlushInFlight = new Map();
 // While the phone's storage refuses the queue write (full, private mode),
 // the queue for that owner lives here instead, so the upload is still
-// attempted and the status still tells the truth. Lost on reload; the
-// session itself is already in the owner's history.
+// attempted and the status still tells the truth. Lost on reload, which is
+// why recent history is verified against the cloud (below) rather than an
+// empty queue being read as "everything synced".
 const _syncMemoryQueue = new Map();
+// Ids the database has confirmed, per owner: `table:id`. Mirrors the
+// durable SYNC_CONFIRMED_KEY list so a reload does not re-check them.
+const _syncConfirmedMemory = new Map();
+const _syncVerifyInFlight = new Map();
+// Owners whose last verification query failed (offline): shown as unverified
+// until the next check, never as synced.
+const _syncVerifyFailed = new Set();
 
 function readPendingSync(owner) {
   if (_syncMemoryQueue.has(owner)) return _syncMemoryQueue.get(owner).slice();
@@ -16549,7 +16655,10 @@ function pendingSyncCount(owner = _dataOwner) {
   return readPendingSync(owner).length;
 }
 
-async function syncSessionToSupabase(table, data) {
+// `opts.localSaved === false` records that the phone refused to keep this
+// result in its history, so the queue (and the Settings row) can say that it
+// exists nowhere durable until the cloud confirms it.
+async function syncSessionToSupabase(table, data, opts = {}) {
   if (!sb || !isLoggedIn()) return;
   // The row belongs to the account whose data it was recorded in. It is
   // queued under that owner and only ever uploaded with that owner's session.
@@ -16558,7 +16667,9 @@ async function syncSessionToSupabase(table, data) {
   const items = readPendingSync(owner);
   const key = table + ':' + String(data?.id ?? '');
   if (!items.some((it) => it.key === key)) {
-    items.push({ key, table, row: data, attempts: 0, queuedAt: new Date().toISOString() });
+    const item = { key, table, row: data, attempts: 0, queuedAt: new Date().toISOString() };
+    if (opts.localSaved === false) item.localSaved = false;
+    items.push(item);
     // If storage refuses the write, the item is held in memory and the
     // upload below still happens; "synced" is only shown once the database
     // has confirmed it.
@@ -16567,14 +16678,164 @@ async function syncSessionToSupabase(table, data) {
   await flushPendingSync(owner);
 }
 
-// After a unique-key answer: is the row with this id ours? `true` means an
-// earlier attempt landed; `false` means another account owns that id;
-// `null` means the check itself failed and should be retried later.
-async function cloudRowBelongsToOwner(table, id, owner) {
+// ── What the cloud has confirmed ──
+function readConfirmedSync(owner) {
+  if (!_syncConfirmedMemory.has(owner)) {
+    const stored = safeParseArray(store.get(ownedKeyFor(owner, SYNC_CONFIRMED_KEY))).filter((k) => typeof k === 'string');
+    _syncConfirmedMemory.set(owner, new Set(stored));
+  }
+  return _syncConfirmedMemory.get(owner);
+}
+
+// Remembers `table:id` as confirmed by the database (an insert that was
+// answered, or a row found by the check below). Kept in memory and, when
+// the phone's storage allows, durably; a failed write only means the next
+// reload checks again.
+function markConfirmedSync(owner, table, id) {
+  const set = readConfirmedSync(owner);
+  set.add(table + ':' + String(id));
+  while (set.size > SYNC_CONFIRMED_KEEP) set.delete(set.values().next().value);
+  try { localStorage.setItem(ownedKeyFor(owner, SYNC_CONFIRMED_KEY), JSON.stringify(Array.from(set))); } catch (e) {}
+}
+
+// The newest results in `owner`'s own history on this phone, as the rows
+// the cloud should hold. History is the durable record: it is written before
+// the queue, so it survives the cases where the queue did not.
+function recentLocalHistoryRows(owner) {
+  const g = (k) => safeParseArray(store.get(ownedKeyFor(owner, k))).slice(0, SYNC_VERIFY_RECENT);
+  const withId = (rows) => rows.filter((r) => r && Number.isFinite(Number(r.id)) && Number(r.id) > 0);
+  // The RV list can be megabytes of sketches; the owner on screen already
+  // has it loaded, so it is not parsed from storage again.
+  const rv = (owner === _dataOwner && Array.isArray(STATE.sessions)) ? STATE.sessions.slice(0, SYNC_VERIFY_RECENT) : g('ablty_sessions');
+  return [].concat(
+    withId(rv).map((s) => ({ table: 'rv_sessions', row: mapRVSessionRow(s, s.sessionType || 'personal') })),
+    withId(g('ablty_zener')).map((r) => ({ table: 'zener_runs', row: mapZenerRunRow(r) })),
+    withId(g('ablty_timestamp_all')).map((t) => ({ table: 'ts_trials', row: mapTSTrialRow(t) })),
+  );
+}
+
+// Recent history entries that are neither confirmed by the cloud nor
+// waiting in the queue: the ones an empty queue says nothing about.
+function unverifiedLocalRows(owner) {
+  if (!owner || owner === DATA_OWNER_GUEST) return [];
+  const confirmed = readConfirmedSync(owner);
+  const queued = new Set(readPendingSync(owner).map((it) => it.key));
+  return recentLocalHistoryRows(owner).filter(({ table, row }) => {
+    const key = table + ':' + String(row.id);
+    return !confirmed.has(key) && !queued.has(key);
+  });
+}
+
+// Asks the database which of the unverified recent results it holds for
+// this owner. Found rows are marked confirmed; missing ones are put back in
+// the queue and uploaded, which is how a pending upload lost to a reload is
+// recovered. If the question itself fails, the status says unverified.
+async function verifyRecentCloudCopies(owner = _dataOwner) {
+  if (!sb || !owner || owner === DATA_OWNER_GUEST) return;
+  if (_syncVerifyInFlight.has(owner)) return _syncVerifyInFlight.get(owner);
+  const run = (async () => {
+    // Registered as in flight below before any of this runs.
+    await null;
+    const gen = _authGen;
+    let failed = false;
+    try {
+      const unverified = unverifiedLocalRows(owner);
+      if (!unverified.length) return;
+      let session = null;
+      try { session = (await sb.auth.getSession())?.data?.session || null; } catch (e) {}
+      // Only this owner's own session may ask about, or re-upload, their rows.
+      if (!isAuthGenCurrent(gen) || !session?.user?.id || String(session.user.id) !== owner) return;
+
+      const byTable = new Map();
+      unverified.forEach((u) => { if (!byTable.has(u.table)) byTable.set(u.table, []); byTable.get(u.table).push(u); });
+      const missing = [];
+      for (const [table, entries] of byTable) {
+        try {
+          const ids = entries.map((u) => u.row.id);
+          const { data, error } = await sb.from(table).select('id').eq('user_id', owner).in('id', ids);
+          if (error || !Array.isArray(data)) { failed = true; continue; }
+          const found = new Set(data.map((r) => String(r.id)));
+          entries.forEach((u) => {
+            if (found.has(String(u.row.id))) markConfirmedSync(owner, table, u.row.id);
+            else missing.push(u);
+          });
+        } catch (e) {
+          failed = true;
+        }
+      }
+      if (!isAuthGenCurrent(gen)) return;
+      if (missing.length) {
+        const items = readPendingSync(owner);
+        missing.forEach((u) => {
+          const key = u.table + ':' + String(u.row.id);
+          if (!items.some((it) => it.key === key)) {
+            items.push({ key, table: u.table, row: u.row, attempts: 0, queuedAt: new Date().toISOString(), recovered: true });
+          }
+        });
+        writePendingSync(owner, items);
+      }
+    } catch (e) {
+      failed = true;
+    } finally {
+      if (failed) _syncVerifyFailed.add(owner); else _syncVerifyFailed.delete(owner);
+      _syncVerifyInFlight.delete(owner);
+    }
+    if (!isAuthGenCurrent(gen)) return;
+    // Recovered items upload now; otherwise the status is simply refreshed.
+    if (pendingSyncCount(owner)) await flushPendingSync(owner);
+    else refreshSyncStatus(owner);
+  })();
+  _syncVerifyInFlight.set(owner, run);
+  return run;
+}
+
+// Compares a value as it was submitted with the same column read back.
+// Postgres hands back numerics as strings or numbers, timestamps in its own
+// ISO spelling and JSON with its own key order, none of which is a
+// difference in content.
+function sameCloudValue(sent, got) {
+  const a = sent === undefined ? null : sent;
+  const b = got === undefined ? null : got;
+  if (a === null || b === null) return a === b;
+  if (typeof a === 'boolean' || typeof b === 'boolean') return a === b;
+  const isNumLike = (v) => (typeof v === 'number') || (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v)));
+  if (isNumLike(a) && isNumLike(b)) {
+    // Single-precision columns round what was sent; that is not a change.
+    const x = Number(a), y = Number(b);
+    return Math.abs(x - y) <= 1e-6 * Math.max(1, Math.abs(x), Math.abs(y));
+  }
+  const isoLike = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/;
+  if (typeof a === 'string' && typeof b === 'string') {
+    if (isoLike.test(a) && isoLike.test(b)) {
+      const ta = Date.parse(a), tb = Date.parse(b);
+      if (Number.isFinite(ta) && Number.isFinite(tb)) return ta === tb;
+    }
+    return a === b;
+  }
+  if (typeof a === 'object' && typeof b === 'object') {
+    const canon = (v) => JSON.stringify(v, (k, val) => (
+      val && typeof val === 'object' && !Array.isArray(val)
+        ? Object.keys(val).sort().reduce((o, kk) => { o[kk] = val[kk]; return o; }, {})
+        : val
+    ));
+    return canon(a) === canon(b);
+  }
+  return false;
+}
+
+// After a unique-key answer: is the row with this id ours, with the same
+// contents we submitted? 'match' means an earlier attempt landed; 'mismatch'
+// means this owner already has a different result under that id;
+// 'other_owner' means another account owns the id; `null` means the check
+// itself failed and should be retried later.
+async function cloudRowMatchesSubmission(table, row, owner) {
   try {
-    const { data, error } = await sb.from(table).select('id').eq('id', id).eq('user_id', owner).maybeSingle();
+    const cols = Object.keys(row || {}).filter((k) => k !== 'user_id');
+    const { data, error } = await sb.from(table).select(['user_id'].concat(cols).join(',')).eq('id', row.id).eq('user_id', owner).maybeSingle();
     if (error) return null;
-    return !!data;
+    if (!data) return 'other_owner';
+    const differing = cols.filter((k) => k !== 'id' && !sameCloudValue(row[k], data[k]));
+    return differing.length ? 'mismatch' : 'match';
   } catch (e) {
     return null;
   }
@@ -16609,20 +16870,22 @@ async function flushPendingSync(owner = _dataOwner, opts = {}) {
       // owner's, so the rest waits.
       if (!isAuthGenCurrent(gen)) break;
       let failure = null;
-      let collision = false;
+      let unresolved = null;
       try {
         const { error } = await sb.from(item.table).insert({ ...item.row, user_id: owner });
         if (error && error.code === '23505') {
-          const ours = await cloudRowBelongsToOwner(item.table, item.row.id, owner);
-          if (ours === null) failure = { code: '23505', message: 'could not verify existing row' };
-          else if (ours === false) { collision = true; failure = { code: 'id_collision', message: 'id already used by another account' }; }
-          // ours === true: an earlier attempt landed, nothing more to do.
+          const verdict = await cloudRowMatchesSubmission(item.table, item.row, owner);
+          if (verdict === null) failure = { code: '23505', message: 'could not verify existing row' };
+          else if (verdict === 'other_owner') { unresolved = 'id_collision'; failure = { code: 'id_collision', message: 'id already used by another account' }; }
+          else if (verdict === 'mismatch') { unresolved = 'content_mismatch'; failure = { code: 'content_mismatch', message: 'a different result of this account already has this id' }; }
+          // 'match': an earlier attempt landed, nothing more to do.
         } else if (error) {
           failure = error;
         }
       } catch (e) {
         failure = e || new Error('network');
       }
+      if (!failure) markConfirmedSync(owner, item.table, item.row.id);
       // Re-read: another session may have been queued meanwhile.
       items = readPendingSync(owner);
       const idx = items.findIndex((it) => it.key === item.key);
@@ -16631,11 +16894,12 @@ async function flushPendingSync(owner = _dataOwner, opts = {}) {
           items.splice(idx, 1);
         } else {
           items[idx].lastError = String(failure.code || failure.message || 'error').slice(0, 120);
-          if (collision) {
-            // Retrying cannot help: the id belongs to someone else's row,
-            // which must never be overwritten or deleted. Stays listed as
-            // not saved, out of the automatic retry loop.
-            items[idx].unresolved = 'id_collision';
+          if (unresolved) {
+            // Retrying cannot help: the id belongs to another row (someone
+            // else's, or a different result of this account), which must
+            // never be overwritten or deleted. Stays listed as not saved,
+            // out of the retry loop.
+            items[idx].unresolved = unresolved;
             items[idx].attempts = MAX_SYNC_ATTEMPTS;
           } else {
             items[idx].attempts = (Number(items[idx].attempts) || 0) + 1;
@@ -16652,9 +16916,16 @@ async function flushPendingSync(owner = _dataOwner, opts = {}) {
 
 // Retry on the moments a phone usually gets its connection back.
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-  window.addEventListener('online', () => { if (isLoggedIn()) flushPendingSync(_dataOwner); });
+  const resumeSync = () => {
+    if (!isLoggedIn()) return;
+    // A failed verification is worth asking again now that the connection
+    // may be back; flushPendingSync ends by refreshing the status.
+    _syncVerifyFailed.delete(_dataOwner);
+    flushPendingSync(_dataOwner);
+  };
+  window.addEventListener('online', resumeSync);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && isLoggedIn()) flushPendingSync(_dataOwner);
+    if (document.visibilityState === 'visible') resumeSync();
   });
 }
 
@@ -18553,7 +18824,7 @@ function saveTimestampTrial(trial) {
   const allTrials = loadTimestampAll();
   allTrials.unshift(normalized);
   const prunedAll = allTrials.slice(0, MAX_TS_LOCAL_TRIALS);
-  try { localStorage.setItem(ownedKey('ablty_timestamp_all'), JSON.stringify(prunedAll)); } catch(e) {}
+  const kept = persistHistory(ownedKey('ablty_timestamp_all'), JSON.stringify(prunedAll));
 
   // Only save to _timestamp (delta analysis pool) if NOT a miss
   if (!normalized.miss) {
@@ -18563,7 +18834,8 @@ function saveTimestampTrial(trial) {
     try { localStorage.setItem(ownedKey('ablty_timestamp'), JSON.stringify(prunedTaps)); } catch(e) {}
   }
 
-  syncSessionToSupabase('ts_trials', mapTSTrialRow(normalized));
+  if (!kept) warnHistoryNotSaved();
+  syncSessionToSupabase('ts_trials', mapTSTrialRow(normalized), { localSaved: kept });
 }
 
 // ─── BRIEF SCREEN ─────────────────────────────
