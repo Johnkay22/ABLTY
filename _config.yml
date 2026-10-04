@@ -1,0 +1,21 @@
+# GitHub Pages (Jekyll) settings for ablty.app.
+#
+# The only purpose of this file is to stop internal files being published as
+# web pages. Everything the live site needs (app.html, index.html,
+# earlybetaaccess.html, sw.js, manifest.json, version.json, icons, assets/,
+# targets/, robots.txt, sitemap.xml, llms.txt, CNAME) is deliberately NOT
+# listed here. Folders whose names start with an underscore (_internal/) and
+# a dot (.github/, .cursor/) are already skipped by Jekyll.
+#
+# Keep this file to `exclude` only. No themes, no plugins.
+
+exclude:
+  - LAUNCH-PLAN.md
+  - CLAUDE.md
+  - tests/
+  - supabase/
+  - design/
+  - wrangler.toml
+  - ablty-worker.js
+  - pk-arena-prototype.html
+  - signal-scanner-prototype.html
