@@ -1,6 +1,6 @@
 # ABLTY PRE-BETA PLAN
 
-**Owner:** Johnny (founder, non-technical). **Written:** 2026-10-03 (Chicago) by Claude, from the October 3 read-only audit of `main` at `8d2efb8` (app version `2026.10.01.1`, cache `ablty-v81`) plus Johnny's decisions in the same conversation. **Revised 2026-10-04** after a second review (account deletion moved before the beta, beta scope and pilot pass criteria added, stronger grading test, dashboard made optional before the beta, Gemini thinking setting corrected).
+**Owner:** Johnny (founder, non-technical). **Written:** 2026-10-03 (Chicago) by Claude, from the October 3 read-only audit of `main` at `8d2efb8` (app version `2026.10.01.1`, cache `ablty-v81`) plus Johnny's decisions in the same conversation. **Revised 2026-10-04** after a second review (account deletion moved before the beta, beta scope and pilot pass criteria added, stronger grading test, dashboard made optional before the beta, Gemini thinking setting corrected). **Revised again 2026-10-04** with the steps 1 to 5 pull request: step 8 rewritten to Johnny's code-first install page flow, Gemini 3.x request changes added to step 9, survey price corrected to $5.99.
 
 **Goal:** get ABLTY safe and useful enough to hand to about 20 private beta testers, who get free Premium for 30 days with no credit card and no Stripe.
 
@@ -41,14 +41,14 @@ A step moves through: **Not started → In progress → PR open (#number) → Me
 | # | Step | Type | Needs Johnny | Status |
 |---|---|---|---|---|
 | 0 | Planning files (this file, work log, Cursor rules) | Docs only | Merge | Merged (PR #133) |
-| 1 | Stop the website publishing internal documents | Site config | Merge | Not started |
-| 2 | Fix the beta install links | App | Merge, YOU TEST | Not started |
-| 3 | Show user and AI text safely | App | Merge | Not started |
-| 4 | Keep dream saves in the right account | App | Merge | Not started |
-| 5 | Honest "saved to cloud" status | App | Merge | Not started |
+| 1 | Stop the website publishing internal documents | Site config | Merge | PR open (steps 1 to 5 branch `cursor/pre-beta-steps-1-5-bbab`) |
+| 2 | Fix the beta install links | App | Merge, YOU TEST | PR open (same branch) |
+| 3 | Show user and AI text safely | App | Merge | PR open (same branch) |
+| 4 | Keep dream saves in the right account | App | Merge | PR open (same branch) |
+| 5 | Honest "saved to cloud" status | App | Merge | PR open (same branch) |
 | 6 | Lock Premium so only the server can grant it | Database | Approve migration | Not started |
 | 7 | Turn off the test-mode upgrade checkout for the beta | App | Merge | Not started |
-| 8 | Beta codes, automatic expiry and expiry banner | Database + App + Worker | Approve migration, choose codes | Not started |
+| 8 | Beta code gate on the install page, signup with code, automatic expiry and expiry banner | Database + install page + App + Worker | Approve migration, choose codes | Not started |
 | 9 | Grading upgrade: show the AI the target photo, newer model | Worker only | Review grading test results | Not started |
 | 10 | Activity log (what testers do, never what they write) | Database + App | Approve migration | Not started |
 | 11 | In-app feedback box | Database + App | Approve migration | Not started |
@@ -60,7 +60,7 @@ A step moves through: **Not started → In progress → PR open (#number) → Me
 | 17 | Week 2: write the survey | Copy + App + Database | Approve questions | After beta starts |
 | 18 | Day 21: survey goes live with the extra-month reward | App | Turn on | After beta starts |
 
-**Order matters.** Steps 1 to 5 are small and independent. Step 6 must merge and be applied to production before step 8, because a beta code system is pointless if Premium can be obtained any other way. Step 13 comes after 9 to 12 because those steps change what the privacy policy has to say. Step 14 (dashboard) does **not** block the pilot or the beta; it can be finished during the beta.
+**Order matters.** Steps 1 to 5 are small and independent (Johnny chose to ship them in one pull request with one version bump, because steps 2, 3 and 5 all change `app.html`). Step 6 must merge and be applied to production before step 8, because a beta code system is pointless if Premium can be obtained any other way. Step 13 comes after 9 to 12 because those steps change what the privacy policy has to say. Step 14 (dashboard) does **not** block the pilot or the beta; it can be finished during the beta.
 
 ---
 
@@ -151,35 +151,48 @@ Each step says what it is in plain English, why it matters, what "done" looks li
 **Do:** for the beta, replace the checkout with this message, decided by Johnny on 2026-10-04: **"Premium subscriptions open at launch."** Keep the Stripe code path in place but unreachable, so it is easy to restore at launch. Do not change pricing or Stripe settings.
 **Done when:** no screen in the app sends a real user to a Stripe test link. App version bump required.
 
-### Step 8: Beta codes, automatic expiry and expiry banner
+### Step 8: Beta code gate on the install page, signup with code, automatic expiry and expiry banner
+
+**Flow decided by Johnny on 2026-10-04.** The code comes first, on the install page, and the account is created there too, so Premium is already on the account before the tester ever opens the app.
 
 **What testers experience:**
-1. Install from the beta link and create an account.
-2. Settings: **Have a beta code?**, type the code, tap **Redeem**.
-3. Premium starts immediately; Settings shows "Beta Premium until [date]".
-4. Three days before the end, a small dismissible banner: "Your beta Premium ends on [date]."
-5. On the end date the account is Free again automatically. Sessions, dreams and history all stay.
+1. The tester opens the beta link (`earlybetaaccess.html`). The page shows a **code box first**. The install instructions stay hidden until a valid code has been entered.
+2. The code is checked **on the server** (a Supabase function or the Worker). The page's JavaScript never contains the list of codes. A wrong code gets a plain "That code is not valid" and nothing more.
+3. After a valid code, the same page shows a **create-account form** with the same rules as the in-app signup: email, password, username (same availability check and same case-insensitive rule), and the Terms and Privacy acceptance tick.
+4. The code is sent along with the signup and **redeemed on the server, tied to the new user's id**. It grants 30 days of Premium (`beta_premium_until`) and sets `is_tester`. Premium is granted **at account creation, not after the user returns from email verification**, because on iPhone the verification link often opens inside the Gmail or Mail in-app browser and the user never comes back to the page.
+5. Redemption limits are enforced (use limit, redeem-by date, active on/off), and one account cannot redeem twice.
+6. Right after signup, the page shows the install instructions plus this message: **"Check your email to verify your account, then open ABLTY from your home screen and sign in. Don't see it within a few minutes? Check your junk or spam folder."**
+7. The email verification link lands on a **simple page that tells the user to open ABLTY from their home screen** (not straight into the app, because that link may open inside a mail app's browser where the installed app cannot take over).
+8. If the email already has an account, the page offers **"Sign in to finish"**: the tester signs in there and the code is redeemed for that existing account.
+9. The in-app Settings code box (**Have a beta code?**, type the code, tap **Redeem**) stays as a backup for anyone who installed first or arrived without the page.
+10. Settings shows "Beta Premium until [date]". Three days before the end, a small dismissible banner: "Your beta Premium ends on [date]." On the end date the account is Free again automatically. Sessions, dreams and history all stay.
 
 **Database (new migration, after step 6 is live):**
 - Table `beta_codes`: the code, a source label (for example `friends`, `reddit`), maximum uses, number used, redeem-by date, days of Premium (default 30), active on/off. App users cannot read it at all (row level security on, no client policies).
 - Table `beta_redemptions`: which account redeemed which code and when. One redemption per account, enforced by a unique constraint.
-- Column `profiles.beta_premium_until` (timestamp, empty by default), protected exactly like `tier` (see step 6).
-- Function `redeem_beta_code(code)`: runs on the server with elevated rights (`SECURITY DEFINER`, explicit empty `search_path`, callable only by signed-in users). It checks, in this order: signed in; not too many wrong attempts recently (for example 5 per hour per account, recorded in a small attempts table); code exists, is active, before its redeem-by date and under its use limit (lock the code row while counting so two people redeeming at once cannot exceed the limit); this account has not redeemed before. On success it sets `beta_premium_until` to now plus the code's days and returns the end date. Error messages must say what went wrong in plain words (invalid code, expired, full, already used, too many tries) without revealing whether a guessed code exists beyond "invalid".
-- Note for the implementer: the existing tier lock checks `current_user`. A `SECURITY DEFINER` function owned by the database owner runs as that owner, so it passes the lock. Verify this in the tests rather than assuming.
+- Column `profiles.beta_premium_until` (timestamp, empty by default), protected exactly like `tier` and `is_tester` (see step 6).
+- Function `check_beta_code(code)`: answers only "valid" or "not valid" (active, before redeem-by, under its use limit). It must be callable **without an account**, because the install page asks before signup. It must never return the code list, the source label, counts or dates. SQL alone cannot see the caller's address, so put the attempt limit for this check in the Worker (per address, in KV) if the check is exposed through the Worker, or accept that the codes are long and hard to guess if it is exposed as a direct RPC. Say which was chosen in the pull request.
+- Function `redeem_beta_code(code)`: runs on the server with elevated rights (`SECURITY DEFINER`, explicit empty `search_path`, callable only by signed-in users; this is the path for "Sign in to finish" and for the in-app backup box). It checks, in this order: signed in; not too many wrong attempts recently (for example 5 per hour per account, recorded in a small attempts table); code exists, is active, before its redeem-by date and under its use limit (lock the code row while counting so two people redeeming at once cannot exceed the limit); this account has not redeemed before. On success it sets `beta_premium_until` to now plus the code's days, sets `is_tester`, records the redemption and returns the end date. Error messages must say what went wrong in plain words (invalid code, expired, full, already used, too many tries) without revealing whether a guessed code exists beyond "invalid".
+- **Redeeming at account creation:** the page passes the code with the signup call (Supabase lets a signup carry a small amount of metadata), and the signup trigger (`handle_new_user`, or a new trigger that runs after it) reads that code and performs the same redemption logic, so the new account has `beta_premium_until` and `is_tester` from its very first row, before any email is confirmed. The metadata is typed by the user, so it is only ever an input to the server-side check, never trusted on its own. If the code in the metadata is invalid, the account is still created as Free (the page already checked the code moments earlier, so this should be rare) and the page says so. The Terms and Privacy acceptance ticked on the page should travel the same way so it lands on the profile; if it does not, the app's consent gate will ask once more at first sign-in, which is acceptable but must be known.
+- Note for the implementer: the existing tier lock checks `current_user`. A `SECURITY DEFINER` function owned by the database owner, and a trigger function owned by the database owner, run as that owner, so they pass the lock. Verify this in the tests rather than assuming.
 - One shared definition of "has Premium": a SQL function such as `public.has_premium(user_id)` returning true when `tier = 'premium'` **or** `beta_premium_until` is in the future. Use it everywhere Premium is checked on the server.
+
+**Install page (`earlybetaaccess.html`):** code box first; install steps hidden until a valid code; create-account form with the same validation as the app; the post-signup message above; the "Sign in to finish" path for an existing email; the page must work inside the Gmail and Mail in-app browsers on iPhone (which is exactly where the code and form will often be filled in) and must not depend on the user ever returning to it. Use the same `escapeHtml`-style care for anything typed into the page (see step 3).
+
+**Verification landing page:** a small static page (for example `/verified.html`) set as the email redirect target: "Your email is verified. Open ABLTY from your home screen and sign in." No scripts needed. It must be published by GitHub Pages (not excluded by step 1) and excluded from search engines.
 
 **Every place that checks Premium must use the new rule:**
 - Database: the only live policy that checks Premium today is `sec_lucidity_readings_premium_select` on `lucidity_readings` (it checks `profiles.tier = 'premium'`). Update it to use `has_premium`. (A separate profiles UPDATE policy compares `tier` to its current value; leave that protection intact.)
 - Worker: `checkPremiumTier` in `ablty-worker.js` reads only `tier` and caches the answer for 5 minutes. Read `beta_premium_until` too, and never cache "premium" past the expiry moment.
 - App: `getCurrentTier`, `TIER_ACCESS` / `canAccess`, the profile loader, and the local cache (`localStorage` key `ablty_tier`, written by `writeLocalAccountCache`). Store the expiry date alongside the cached tier so an offline phone does not stay Premium forever, and re-check the profile whenever the app opens or comes back to the foreground.
 
-**Settings screen:** code box and Redeem button (only for logged-in accounts without paid Premium), the "Beta Premium until [date]" status, and the expiry banner logic. Show dates in the tester's local time.
+**Settings screen:** the backup code box and Redeem button (only for logged-in accounts without paid Premium and without beta Premium), the "Beta Premium until [date]" status, and the expiry banner logic. Show dates in the tester's local time.
 
 **Creating codes:** Claude creates the actual codes in production after the migration is applied, using readable but hard-to-guess values (for example `ABLTY-FRIENDS-7K4Q`). Codes are never written into the repository.
 
 **YOU DECIDE (before building):** what happens to the testers who already have Premium from the earlier manual grants (`tier = 'premium'`, `is_tester = true`). They currently never expire. Options: leave them, or switch them to beta Premium with an end date.
 
-**Tests:** disposable database tests for every redeem outcome (success, wrong code, expired, full, already redeemed, too many attempts, not signed in, two simultaneous redemptions at the limit), expiry turning Premium off, a paid `tier = 'premium'` account never affected by beta expiry, and the lucidity readings policy before and after expiry. App tests for the code box, status line and banner.
+**Tests:** disposable database tests for every redeem outcome (success, wrong code, expired, full, already redeemed, too many attempts, not signed in, two simultaneous redemptions at the limit), redemption at account creation through the signup trigger (valid code, invalid code, existing account), expiry turning Premium off, a paid `tier = 'premium'` account never affected by beta expiry, and the lucidity readings policy before and after expiry. App tests for the install page (code gate, form validation, post-signup message, "Sign in to finish"), the backup code box, status line and banner. **Phone testing must include a real verification email opened from both the Gmail app and Apple Mail, on an iPhone and on an Android phone**, confirming that the account already has Premium when it first signs in to the installed app, whichever browser the link opened in.
 
 ### Step 9: Grading upgrade (Worker only)
 
@@ -187,6 +200,7 @@ Each step says what it is in plain English, why it matters, what "done" looks li
 **Do:**
 1. Send the target photo as a second image alongside the sketch. The Worker already knows the target (`target.src`, a path under `targets/`); fetch it from `https://ablty.app/` + `target.src`, attach it as inline image data, and update the prompt so it clearly says which image is the target and which is the viewer's sketch. This does not weaken the blind protocol: grading only happens after the viewer has submitted. If the target photo cannot be fetched, fall back to today's text-only grading and record that it happened.
 2. Change the grading model to `gemini-3.8-flash`. Thinking cannot be turned off on this model: Google documents the levels `low`, `medium` (the default) and `high`, and the old `thinkingBudget: 0` setting does not apply. Use `thinking_level: low` unless the grading test shows `medium` is clearly better, and record the real cost and response time for each.
+   **Request changes required for Gemini 3.x (checked against Google's migration notes on 2026-10-04):** remove `temperature`, `top_p` and `top_k` from the generation config (the Worker currently sends `temperature: 0.2` for grading and `0.1` for dream tagging), and replace `thinkingConfig.thinkingBudget` with `thinkingConfig.thinkingLevel` (a string: `low`, `medium` or `high`; `minimal` is rejected by 3.8 Flash). Google also notes `candidate_count` is unsupported on 3.x; the Worker does not send it. If dream tagging stays on `gemini-2.5-flash`, its request keeps the old settings; if it moves to a 3.x model, it needs the same changes.
 3. Dream tagging (`handleTagDream`) can stay on `gemini-2.5-flash` or move to `gemini-3.5-flash-lite`. Either is fine; do not change its behaviour.
 4. Keep the existing grading rules, JSON response format, retry handling and the AI-artifact rule (ignore sketch background and stroke colour).
 **Grading test before merge (higher scores do not mean better grading):** run the old setup and the new setup on the same set of submissions and include the results in the pull request. The set must include:
@@ -272,7 +286,7 @@ Each step says what it is in plain English, why it matters, what "done" looks li
 - Feedback box working, plus the email address as a backup.
 
 **Phone checklist** on one iPhone (Safari, installed to home screen) and one Android (Chrome, installed):
-install from the beta link; open from the icon, close, reopen; app update picked up; signup, email confirmation and Terms acceptance; wrong then correct password; password reset; Google sign-in if offered; redeem a beta code (try a wrong code too); Premium features unlock; complete RV, Zener, Presentiment and a dream save; close and reopen, history still there; airplane mode then reconnect, save status honest; Academy Lesson 01 open, complete, exit; two accounts on one phone; send feedback; delete a test account and confirm it is gone. Include WBTB notifications if they are part of what testers are promised.
+open the beta link, enter the beta code (try a wrong code first), create the account on the page, see the install instructions and the check-your-email message; open the verification email in the Gmail app and in Apple Mail (iPhone) and in the Gmail app (Android) and land on the verified page; install from the beta link; open from the icon, close, reopen; app update picked up; sign in and confirm Premium is already on the account, Terms acceptance; wrong then correct password; password reset; Google sign-in if offered; the backup Settings code box with a wrong code and an already-used code; Premium features unlock; complete RV, Zener, Presentiment and a dream save; close and reopen, history still there; airplane mode then reconnect, save status honest; Academy Lesson 01 open, complete, exit; two accounts on one phone; send feedback; delete a test account and confirm it is gone. Include WBTB notifications if they are part of what testers are promised.
 
 **Then:** invite 2 to 3 pilot testers and watch the first few days.
 
@@ -293,7 +307,7 @@ Only after the pilot passes the criteria above. Send the install link and the co
 
 ### Step 17: Week 2, write the survey
 
-Look at the activity data first, then write 5 or 6 questions around what it shows. Must include: what almost made you stop using it; which feature you would miss most; would you pay $4.99 a month (expect this answer to be inflated). One or two answers must be written, not multiple choice. Johnny approves the questions. Build: a `survey_responses` table (insert own, no client reads) and the survey screen; the reward is given for finishing, never for positive answers.
+Look at the activity data first, then write 5 or 6 questions around what it shows. Must include: what almost made you stop using it; which feature you would miss most; would you pay $5.99 a month (the decided launch price in `LAUNCH-PLAN.md`; expect this answer to be inflated). One or two answers must be written, not multiple choice. Johnny approves the questions. Build: a `survey_responses` table (insert own, no client reads) and the survey screen; the reward is given for finishing, never for positive answers.
 
 ### Step 18: Day 21, survey goes live
 

@@ -19,6 +19,22 @@ Keep entries short and in plain English. Say what was actually done, not what wa
 
 ---
 
+## 2026-10-04: Steps 1 to 5 in one pull request, plus plan revisions
+- **Who:** Cursor (cloud agent)
+- **Branch / PR:** `cursor/pre-beta-steps-1-5-bbab`, draft PR (one PR for steps 1 to 5 at Johnny's request, one commit per step, one version bump: `2026.10.04.1` / `ablty-v82`)
+- **What changed:**
+  - Step 1: new `_config.yml` (exclude only) so GitHub Pages stops publishing `LAUNCH-PLAN.md`, `CLAUDE.md`, `tests/`, `supabase/`, `design/`, `wrangler.toml`, `ablty-worker.js` and the two prototype pages. The prototypes were included because Johnny had not said otherwise; remove those two lines if he wants them reachable.
+  - Step 2: both `ablty.app/install.html` mentions in `earlybetaaccess.html` now say `/earlybetaaccess.html`; the app's GO TO INSTALL PAGE button opens `/earlybetaaccess.html` instead of the homepage. The new link check also found two leftover Cloudflare `email-decode.min.js` script tags in `app.html` that return 404 on GitHub Pages and had nothing to decode; removed.
+  - Step 3: RV notes (results and detail), the grader's score reasoning (detail), the Hit / Noise / AOL rows (both views), the grading error reason, dimension labels and the email in the signup confirmation are now escaped before being placed in the page. No visual change.
+  - Step 4: `saveDreamEntry` and background tagging capture the account, login and form before the first wait and touch the screen only while that same account and login are still active; a failed save is reported only to the account that pressed Save; tags are written only with the owner's own session.
+  - Step 5: sessions are queued per account and uploaded from the queue; the Settings sync row now says "N results not saved to cloud yet. Tap to retry." when the database did not confirm, retries on the next save, on reconnect, on return to the foreground, at sign-in and on tap (5 automatic attempts per row), and a duplicate-key reply counts as already saved. `renderSettingsState` and `completeSignIn` no longer claim "synced" unconditionally.
+  - Signup: the Check Your Email message now ends with "Don't see it within a few minutes? Check your junk or spam folder." (Before: "We sent a verification link to [email]. Tap it to activate your account.")
+  - Docs: `LAUNCH-PLAN.md` Quick Reference corrected (website is GitHub Pages, Cloudflare only runs the Worker); plan step 8 rewritten to the code-first install page flow; Gemini 3.x request changes added to step 9; step 17 survey price changed to $5.99.
+- **Tests:** passed: `node tests/check-app-syntax.js`, `node tests/check-page-links.js` (36 links, new), `node tests/safe-text-rendering.test.js` (6, new), `node tests/dream-save-isolation.test.js` (10, new), `node tests/cloud-sync-status.test.js` (10, new), `node tests/auth-consent.test.js` (107), `node tests/username-case-insensitive.test.js` (8), and the real-browser `tests/browser-account-isolation.test.js` (32, headless Chrome). Not run: the local-Supabase browser test (no Supabase stack in this environment) and anything on a phone.
+- **Production:** nothing changed. Read-only checks only: live site headers (GitHub Pages), `LAUNCH-PLAN.html` returns 200 today, `_internal/` returns 404, live `version.json` is `2026.10.01.1`.
+- **Johnny needs to:** review and merge; then after the Pages build, check `https://ablty.app/LAUNCH-PLAN.html` returns not found and `https://ablty.app/version.json` says `2026.10.04.1`; then the phone checks listed in the pull request.
+- **Next:** Step 6, lock Premium so only the server can grant it (needs a new migration and Johnny's approval).
+
 ## 2026-10-04: Plan revision after second review
 - **Who:** Claude chat
 - **Branch / PR:** `claude/plan-revisions`, draft PR
