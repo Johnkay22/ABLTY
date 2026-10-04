@@ -47,7 +47,7 @@ A step moves through: **Not started → In progress → PR open (#number) → Me
 | 4 | Keep dream saves in the right account | App | Merge | Not started |
 | 5 | Honest "saved to cloud" status | App | Merge | Not started |
 | 6 | Lock Premium so only the server can grant it | Database | Approve migration | Not started |
-| 7 | Turn off the test-mode upgrade checkout for the beta | App | YOU DECIDE wording | Not started |
+| 7 | Turn off the test-mode upgrade checkout for the beta | App | Merge | Not started |
 | 8 | Beta codes, automatic expiry and expiry banner | Database + App + Worker | Approve migration, choose codes | Not started |
 | 9 | Grading upgrade: show the AI the target photo, newer model | Worker only | Review score comparison | Not started |
 | 10 | Activity log (what testers do, never what they write) | Database + App | Approve migration | Not started |
@@ -137,7 +137,7 @@ Each step says what it is in plain English, why it matters, what "done" looks li
 
 **What:** `handleUpgradeCTA` in `app.html` sends logged-in users to a Stripe **test-mode** payment link (the URL begins with `buy.stripe.com/test_`). Test mode accepts Stripe's public fake card numbers.
 **Why:** once beta Premium expires, testers will see Upgrade buttons. A test-mode checkout in front of real users is confusing at best, and depending on how the Worker's webhook is configured it could hand out Premium without any real payment. It also cannot take real money.
-**Do:** for the beta, replace the checkout with an honest message (for example "Premium subscriptions open at launch. Your beta access and data stay with your account.") and keep the Stripe code path easy to restore. Johnny approves the exact wording. Do not change pricing or Stripe settings.
+**Do:** for the beta, replace the checkout with this message, decided by Johnny on 2026-10-04: **"Premium subscriptions open at launch."** Keep the Stripe code path in place but unreachable, so it is easy to restore at launch. Do not change pricing or Stripe settings.
 **Done when:** no screen in the app sends a real user to a Stripe test link. App version bump required.
 
 ### Step 8: Beta codes, automatic expiry and expiry banner
