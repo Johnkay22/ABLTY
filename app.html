@@ -9127,7 +9127,7 @@ function renderResults(result, target, notes) {
   }
   if (notes && notes.trim()) {
     notesCard.style.display = 'block';
-    notesCard.innerHTML = `<div class="mono-label" style="margin-bottom:8px;">Your Impressions</div><div class="summary-text" style="white-space:pre-wrap;">${notes}</div>`;
+    notesCard.innerHTML = `<div class="mono-label" style="margin-bottom:8px;">Your Impressions</div><div class="summary-text" style="white-space:pre-wrap;">${escapeHtml(notes)}</div>`;
   } else {
     notesCard.style.display = 'none';
   }
@@ -9153,7 +9153,7 @@ function renderResults(result, target, notes) {
       errorCard.innerHTML = `
         <div class="result-error-title">Session Saved - Grading Failed</div>
         <div class="result-error-body">Your sketch and impressions were saved successfully.</div>
-        <div class="result-error-body">${gradingErrorMsg ? `Reason: ${gradingErrorMsg}` : 'The AI grading service was unreachable right now.'}</div>
+        <div class="result-error-body">${gradingErrorMsg ? `Reason: ${escapeHtml(gradingErrorMsg)}` : 'The AI grading service was unreachable right now.'}</div>
         <div class="result-error-body">You can run another session now and try grading again later.</div>
       `;
     } else {
@@ -9164,15 +9164,7 @@ function renderResults(result, target, notes) {
 
   if (!hasGradingFailure && hitList) {
     hitList.innerHTML = '';
-    (result.hits  || []).forEach(h => {
-      hitList.innerHTML += `<div class="hit-item"><div class="hit-badge hit">Hit</div><div class="hit-text">${h}</div></div>`;
-    });
-    (result.noise || []).forEach(n => {
-      hitList.innerHTML += `<div class="hit-item"><div class="hit-badge noise">Noise</div><div class="hit-text">${n}</div></div>`;
-    });
-    (result.aol   || []).forEach(a => {
-      hitList.innerHTML += `<div class="hit-item"><div class="hit-badge aol">AOL</div><div class="hit-text">${a}</div></div>`;
-    });
+    hitList.innerHTML = renderHitListHtml(result);
   }
 }
 
@@ -12611,6 +12603,17 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
+// The Hit / Noise / AOL data points the grader returns, as escaped markup.
+// Used by both the results screen and the session detail view.
+function renderHitListHtml(src) {
+  const row = (cls, label, text) =>
+    `<div class="hit-item"><div class="hit-badge ${cls}">${label}</div><div class="hit-text">${escapeHtml(text)}</div></div>`;
+  const list = (v) => (Array.isArray(v) ? v : []);
+  return list(src?.hits).map((h) => row('hit', 'Hit', h)).join('')
+    + list(src?.noise).map((n) => row('noise', 'Noise', n)).join('')
+    + list(src?.aol).map((a) => row('aol', 'AOL', a)).join('');
+}
+
 function clampDreamClarity(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return null;
@@ -15032,7 +15035,7 @@ function renderRVDetail(s) {
   }
   if (s.score_reasoning) {
     detailReasoningCard.style.display = 'block';
-    detailReasoningCard.innerHTML = '<div class="mono-label" style="margin-bottom:8px;">Next Session Tip</div><div class="summary-text">' + s.score_reasoning + '</div>';
+    detailReasoningCard.innerHTML = '<div class="mono-label" style="margin-bottom:8px;">Next Session Tip</div><div class="summary-text">' + escapeHtml(s.score_reasoning) + '</div>';
   } else {
     detailReasoningCard.style.display = 'none';
   }
@@ -15048,7 +15051,7 @@ function renderRVDetail(s) {
   }
   if (s.notes && s.notes.trim()) {
     detailNotesCard.style.display = 'block';
-    detailNotesCard.innerHTML = `<div class="mono-label" style="margin-bottom:8px;">Your Impressions</div><div class="summary-text" style="white-space:pre-wrap;">${s.notes}</div>`;
+    detailNotesCard.innerHTML = `<div class="mono-label" style="margin-bottom:8px;">Your Impressions</div><div class="summary-text" style="white-space:pre-wrap;">${escapeHtml(s.notes)}</div>`;
   } else {
     detailNotesCard.style.display = 'none';
   }
@@ -15069,11 +15072,11 @@ function renderRVDetail(s) {
     };
     dimGrid.innerHTML = Object.entries(dims).map(([key, val]) => `
       <div class="dimension-row">
-        <div class="dimension-label">${labels[key] || key}</div>
+        <div class="dimension-label">${escapeHtml(labels[key] || key)}</div>
         <div class="dimension-bar-wrap">
           <div class="dimension-bar-fill" style="width:${(val/5)*100}%;background:${val>=4?'var(--accent)':val>=2?'var(--warn)':'var(--danger)'}"></div>
         </div>
-        <div class="dimension-val">${val}</div>
+        <div class="dimension-val">${escapeHtml(val)}</div>
       </div>`).join('');
   } else if (dimWrap) {
     dimWrap.style.display = 'none';
@@ -15082,10 +15085,7 @@ function renderRVDetail(s) {
   // Data points
   const hitList = document.getElementById('detail-hit-list');
   if (hitList) {
-    hitList.innerHTML = '';
-    (s.hits  || []).forEach(h => { hitList.innerHTML += `<div class="hit-item"><div class="hit-badge hit">Hit</div><div class="hit-text">${h}</div></div>`; });
-    (s.noise || []).forEach(n => { hitList.innerHTML += `<div class="hit-item"><div class="hit-badge noise">Noise</div><div class="hit-text">${n}</div></div>`; });
-    (s.aol   || []).forEach(a => { hitList.innerHTML += `<div class="hit-item"><div class="hit-badge aol">AOL</div><div class="hit-text">${a}</div></div>`; });
+    hitList.innerHTML = renderHitListHtml(s);
   }
 
   // Hide Zener section
@@ -16910,7 +16910,7 @@ async function handleSignup() {
           </svg>
         </div>
         <div class="auth-success-title">Check Your Email</div>
-        <div class="auth-success-sub">We sent a verification link to ${email}. Tap it to activate your account.</div>
+        <div class="auth-success-sub">We sent a verification link to ${escapeHtml(email)}. Tap it to activate your account.</div>
         <button class="auth-link" onclick="closeAuthScreen('signup')" style="margin-top:8px;">Back to App</button>
       </div>`;
   }
