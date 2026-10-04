@@ -3531,6 +3531,8 @@ html, body {
 .sync-dot-local   { background: var(--muted); opacity: 0.5; }
 .sync-dot-syncing { background: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
 .sync-dot-synced  { background: var(--accent); }
+.sync-dot-pending { background: var(--warn); }
+#sync-status-row.sync-retryable { cursor: pointer; }
 
 /* ── ONBOARDING SLIDE 3 ────────────────────────────── */
 .ob-account-visual {
@@ -6271,7 +6273,7 @@ html, body {
             </div>
             <button class="settings-signout-btn" onclick="handleSignOut()">Sign Out</button>
           </div>
-          <div class="setting-row" id="sync-status-row">
+          <div class="setting-row" id="sync-status-row" onclick="retryPendingSync()">
             <div style="display:flex;align-items:center;gap:8px;">
               <div class="sync-dot sync-dot-synced" id="sync-dot"></div>
               <div>
@@ -8068,6 +8070,8 @@ const OWNED_DATA_KEYS = [
   'ablty_zener', 'ablty_zener_cloud_cache',
   // Presentiment
   'ablty_timestamp', 'ablty_timestamp_all', 'ablty_ts_cloud_cache', 'ablty_ts_pending',
+  // Sessions recorded on this device that the cloud has not confirmed yet
+  'ablty_sync_pending',
   // Photo Pair (retired; its leftovers follow their owner)
   'ablty_photopair', 'ablty_pp_cloud_cache', 'ablty_pp_pending',
   // Practice counters and one-time milestone prompts
@@ -10449,7 +10453,7 @@ async function renderSettingsState() {
     }
     if (upgradeRowEl) upgradeRowEl.style.display = tier === 'free' ? 'block' : 'none';
 
-    updateSyncStatus('synced');
+    refreshSyncStatus();
   } else {
     if (upgradeRowEl) upgradeRowEl.style.display = 'none';
   }
@@ -10718,20 +10722,37 @@ async function saveNewPassword() {
 //  SYNC STATUS INDICATOR
 // ═══════════════════════════════════════════════════════
 
-function updateSyncStatus(status) {
-  // status: 'local' | 'syncing' | 'synced'
+function updateSyncStatus(status, pendingCount = 0) {
+  // status: 'local' | 'syncing' | 'synced' | 'pending'
   const dot   = document.getElementById('sync-dot');
   const label = document.getElementById('sync-status-label');
   if (!dot || !label) return;
 
+  const n = Number(pendingCount) || 0;
   const states = {
     local:   { cls: 'sync-dot-local',   text: 'Local only' },
     syncing: { cls: 'sync-dot-syncing', text: 'Syncing...' },
     synced:  { cls: 'sync-dot-synced',  text: 'Synced to cloud' },
+    pending: { cls: 'sync-dot-pending', text: (n === 1 ? '1 result' : n + ' results') + ' not saved to cloud yet. Tap to retry.' },
   };
   const s = states[status] || states.local;
   dot.className   = 'sync-dot ' + s.cls;
   label.textContent = s.text;
+  const row = document.getElementById('sync-status-row');
+  if (row) row.classList.toggle('sync-retryable', status === 'pending');
+}
+
+// Shows the truthful state for the account on screen: "synced" only when
+// nothing of theirs is still waiting to be uploaded.
+function refreshSyncStatus(owner = _dataOwner) {
+  if (owner !== _dataOwner || !isLoggedIn()) return;
+  const n = pendingSyncCount(owner);
+  updateSyncStatus(n ? 'pending' : 'synced', n);
+}
+
+function retryPendingSync() {
+  if (!isLoggedIn() || !pendingSyncCount(_dataOwner)) return;
+  flushPendingSync(_dataOwner, { resetAttempts: true });
 }
 
 let _usernameEditOriginal = '';
@@ -16415,7 +16436,10 @@ async function completeSignIn(user) {
       await loadAnalyticsFromCloud(user.id);
     }
     if (!isAuthGenCurrent(gen)) return false;
-    updateSyncStatus('synced');
+    // Anything this account could not upload last time goes now.
+    if (typeof flushPendingSync === 'function') await flushPendingSync(String(user.id));
+    if (!isAuthGenCurrent(gen)) return false;
+    refreshSyncStatus(String(user.id));
     if (typeof renderAnalytics === 'function') renderAnalytics();
     if (currentScreen === 'dream-journal') renderDreamJournal();
     if (currentScreen === 'dream-entry-detail') renderDreamEntryDetail();
@@ -16475,21 +16499,105 @@ function mapTSTrialRow(trial) {
   };
 }
 
+// ── Cloud save queue ──────────────────────────────────
+// A session is always saved on the phone first. Its cloud copy is queued
+// under its owner and uploaded from the queue, so the status shown is what
+// the database actually confirmed. Rows carry the client id as their primary
+// key, so a retry can never create a duplicate: a unique-key answer means
+// an earlier attempt already landed.
+const SYNC_PENDING_KEY = 'ablty_sync_pending';
+const MAX_SYNC_ATTEMPTS = 5;
+const _syncFlushInFlight = new Map();
+
+function readPendingSync(owner) {
+  return safeParseArray(store.get(ownedKeyFor(owner, SYNC_PENDING_KEY))).filter((it) => it && it.table && it.row);
+}
+
+function writePendingSync(owner, items) {
+  const key = ownedKeyFor(owner, SYNC_PENDING_KEY);
+  if (!items.length) store.remove(key);
+  else store.set(key, JSON.stringify(items));
+}
+
+function pendingSyncCount(owner = _dataOwner) {
+  if (!owner || owner === DATA_OWNER_GUEST) return 0;
+  return readPendingSync(owner).length;
+}
+
 async function syncSessionToSupabase(table, data) {
   if (!sb || !isLoggedIn()) return;
-  // The row belongs to the account whose data it was recorded in. If the
-  // session now names someone else, it must not be filed under them.
+  // The row belongs to the account whose data it was recorded in. It is
+  // queued under that owner and only ever uploaded with that owner's session.
   const owner = _dataOwner;
-  try {
-    const { data: authData } = await sb.auth.getSession();
-    const session = authData?.session;
-    if (!session?.user?.id || String(session.user.id) !== owner) return;
-    updateSyncStatus('syncing');
-    await sb.from(table).insert({ ...data, user_id: session.user.id });
-    updateSyncStatus('synced');
-  } catch(e) {
-    updateSyncStatus('local');
+  if (!owner || owner === DATA_OWNER_GUEST) return;
+  const items = readPendingSync(owner);
+  const key = table + ':' + String(data?.id ?? '');
+  if (!items.some((it) => it.key === key)) {
+    items.push({ key, table, row: data, attempts: 0, queuedAt: new Date().toISOString() });
+    writePendingSync(owner, items);
   }
+  await flushPendingSync(owner);
+}
+
+// Uploads whatever `owner` still has queued, once per item per call. Items
+// that have failed MAX_SYNC_ATTEMPTS times wait for a manual retry (the
+// Settings sync row) so a permanently rejected row cannot loop forever.
+async function flushPendingSync(owner = _dataOwner, opts = {}) {
+  if (!sb || !owner || owner === DATA_OWNER_GUEST) return;
+  if (_syncFlushInFlight.has(owner)) return _syncFlushInFlight.get(owner);
+  const run = (async () => {
+    const gen = _authGen;
+    let items = readPendingSync(owner);
+    if (opts.resetAttempts && items.length) {
+      items.forEach((it) => { it.attempts = 0; });
+      writePendingSync(owner, items);
+    }
+    const due = items.filter((it) => (Number(it.attempts) || 0) < MAX_SYNC_ATTEMPTS);
+    if (!due.length) { refreshSyncStatus(owner); return; }
+
+    let session = null;
+    try { session = (await sb.auth.getSession())?.data?.session || null; } catch (e) {}
+    // Only this owner's own session may upload this owner's rows. Otherwise
+    // they stay queued for the next time that owner is signed in.
+    if (!isAuthGenCurrent(gen) || !session?.user?.id || String(session.user.id) !== owner) { refreshSyncStatus(owner); return; }
+    if (owner === _dataOwner) updateSyncStatus('syncing');
+
+    for (const item of due) {
+      // The account changed while uploading: the token is no longer this
+      // owner's, so the rest waits.
+      if (!isAuthGenCurrent(gen)) break;
+      let failure = null;
+      try {
+        const { error } = await sb.from(item.table).insert({ ...item.row, user_id: owner });
+        if (error && error.code !== '23505') failure = error;
+      } catch (e) {
+        failure = e || new Error('network');
+      }
+      // Re-read: another session may have been queued meanwhile.
+      items = readPendingSync(owner);
+      const idx = items.findIndex((it) => it.key === item.key);
+      if (idx !== -1) {
+        if (!failure) {
+          items.splice(idx, 1);
+        } else {
+          items[idx].attempts = (Number(items[idx].attempts) || 0) + 1;
+          items[idx].lastError = String(failure.code || failure.message || 'error').slice(0, 120);
+        }
+        writePendingSync(owner, items);
+      }
+    }
+    refreshSyncStatus(owner);
+  })().finally(() => { _syncFlushInFlight.delete(owner); });
+  _syncFlushInFlight.set(owner, run);
+  return run;
+}
+
+// Retry on the moments a phone usually gets its connection back.
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('online', () => { if (isLoggedIn()) flushPendingSync(_dataOwner); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && isLoggedIn()) flushPendingSync(_dataOwner);
+  });
 }
 
 function clearTsPendingByKeys(keys) {
