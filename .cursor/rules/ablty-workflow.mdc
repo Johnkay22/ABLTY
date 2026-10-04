@@ -1,0 +1,31 @@
+---
+description: ABLTY workflow rules. Read the pre-beta plan, work one step at a time, never touch production, log every session.
+alwaysApply: true
+---
+
+# ABLTY rules for every session
+
+Johnny, the owner, is non-technical. Explain everything in plain English and stop for his approval before anything risky.
+
+## Before doing anything
+1. Read `CLAUDE.md`, the top section of `LAUNCH-PLAN.md`, all of `_internal/PRE-BETA-PLAN.md`, and the newest entries in `_internal/WORK-LOG.md`.
+2. Pick the first step on the Status board in `_internal/PRE-BETA-PLAN.md` that is not done, unless Johnny names a different step. Work on that one step only.
+3. Audit first: read the live code involved, confirm the problem still matches the plan, and report what you found in plain English. Stop and wait for Johnny's go-ahead before editing. If the code no longer matches the plan, say so and stop.
+
+## While working
+- New branch for each step. Open a **draft** pull request. Never merge. Never push to `main`.
+- Stay inside the step's scope. If you notice something else, write it down in the work log; do not fix it.
+- Never touch production: no migrations against the live Supabase project, no changes to Cloudflare, Stripe, Google, Resend or GitHub settings, no reading or printing secrets, no emails. Database changes go in a **new** file in `supabase/migrations/`. Never edit or reapply an existing migration.
+- App changes (`app.html`, `sw.js`, `index.html`, `earlybetaaccess.html`) bump `APP_VERSION` in `app.html`, `version` in `version.json` and `CACHE_NAME` in `sw.js` together. Worker-only and docs-only changes do not.
+- Never log, store or send dream text, sketches, RV notes or impressions anywhere new.
+- This repository is public. Never write secrets, beta codes or user data into it, and never describe how to exploit a problem that is still open.
+
+## Before finishing
+- Add or update tests. Report each as passed, failed, or not run (and why). Mocked tests and source review are not phone evidence.
+- In the same pull request: update the step's row on the Status board in `_internal/PRE-BETA-PLAN.md`, and add an entry at the top of `_internal/WORK-LOG.md` using its template.
+- End with a short plain-English summary for Johnny: what changed, what he needs to check, and exactly how to check it.
+
+## Writing rules
+- No em dashes anywhere: code comments, UI copy, docs, pull request text.
+- No "from X to Y" phrasing in copy.
+- In app copy: no emoji, never call AI scoring "objective", no guaranteed-outcome or "proven psychic" claims, no inflated or invented scores.
