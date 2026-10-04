@@ -19,6 +19,15 @@ Keep entries short and in plain English. Say what was actually done, not what wa
 
 ---
 
+## 2026-10-04: Plan revision after second review
+- **Who:** Claude chat
+- **Branch / PR:** `claude/plan-revisions`, draft PR
+- **What changed:** Revised `_internal/PRE-BETA-PLAN.md` after a second review. Added step 12 (account deletion must remove everything reliably) before the beta; privacy step now also fixes the 90-day retention wording and the "paid tier is not the same as never stored" point. Added a "What this beta includes" section and concrete pilot pass and stop criteria. Made the admin dashboard optional before the beta. Strengthened the grading test (mismatched pairs, vague submissions, repeat runs, cost and speed) and corrected the Gemini thinking setting (3.8 Flash cannot turn thinking off; use `low`). Broadened step 4 to protect the whole dream-save operation. Added basic cost and error alerts to the release step. Later steps renumbered: privacy is now 13, dashboard 14, release and pilot 15, invites 16, survey 17 and 18. Steps 1 to 11 keep their numbers.
+- **Tests:** none needed (documents only).
+- **Production:** nothing changed.
+- **Johnny needs to:** review and merge. Confirm the beta scope section when convenient.
+- **Next:** Step 1, stop the website publishing internal documents.
+
 ## 2026-10-03: Step 0, planning files
 - **Who:** Claude chat
 - **Branch / PR:** `claude/pre-beta-plan`, draft PR
