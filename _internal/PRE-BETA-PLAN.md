@@ -41,11 +41,11 @@ A step moves through: **Not started → In progress → PR open (#number) → Me
 | # | Step | Type | Needs Johnny | Status |
 |---|---|---|---|---|
 | 0 | Planning files (this file, work log, Cursor rules) | Docs only | Merge | Merged (PR #133) |
-| 1 | Stop the website publishing internal documents | Site config | Merge | PR open (steps 1 to 5 branch `cursor/pre-beta-steps-1-5-bbab`) |
-| 2 | Fix the beta install links | App | Merge, YOU TEST | PR open (same branch) |
-| 3 | Show user and AI text safely | App | Merge | PR open (same branch) |
-| 4 | Keep dream saves in the right account | App | Merge | PR open (same branch) |
-| 5 | Honest "saved to cloud" status | App | Merge | PR open (same branch) |
+| 1 | Stop the website publishing internal documents | Site config | Merge | PR open (#135, steps 1 to 5 together) |
+| 2 | Fix the beta install links | App | Merge, YOU TEST | PR open (#135) |
+| 3 | Show user and AI text safely | App | Merge | PR open (#135) |
+| 4 | Keep dream saves in the right account | App | Merge | PR open (#135) |
+| 5 | Honest "saved to cloud" status | App | Merge | PR open (#135) |
 | 6 | Lock Premium so only the server can grant it | Database | Approve migration | Not started |
 | 7 | Turn off the test-mode upgrade checkout for the beta | App | Merge | Not started |
 | 8 | Beta code gate on the install page, signup with code, automatic expiry and expiry banner | Database + install page + App + Worker | Approve migration, choose codes | Not started |

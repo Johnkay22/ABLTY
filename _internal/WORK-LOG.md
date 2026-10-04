@@ -21,7 +21,7 @@ Keep entries short and in plain English. Say what was actually done, not what wa
 
 ## 2026-10-04: Steps 1 to 5 in one pull request, plus plan revisions
 - **Who:** Cursor (cloud agent)
-- **Branch / PR:** `cursor/pre-beta-steps-1-5-bbab`, draft PR (one PR for steps 1 to 5 at Johnny's request, one commit per step, one version bump: `2026.10.04.1` / `ablty-v82`)
+- **Branch / PR:** `cursor/pre-beta-steps-1-5-bbab`, draft PR #135 (one PR for steps 1 to 5 at Johnny's request, one commit per step, one version bump: `2026.10.04.1` / `ablty-v82`)
 - **What changed:**
   - Step 1: new `_config.yml` (exclude only) so GitHub Pages stops publishing `LAUNCH-PLAN.md`, `CLAUDE.md`, `tests/`, `supabase/`, `design/`, `wrangler.toml`, `ablty-worker.js` and the two prototype pages. The prototypes were included because Johnny had not said otherwise; remove those two lines if he wants them reachable.
   - Step 2: both `ablty.app/install.html` mentions in `earlybetaaccess.html` now say `/earlybetaaccess.html`; the app's GO TO INSTALL PAGE button opens `/earlybetaaccess.html` instead of the homepage. The new link check also found two leftover Cloudflare `email-decode.min.js` script tags in `app.html` that return 404 on GitHub Pages and had nothing to decode; removed.
