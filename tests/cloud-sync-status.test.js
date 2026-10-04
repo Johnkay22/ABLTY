@@ -12,12 +12,12 @@ const DECLS = [
   extractMultiDecl('store'), extractDecl('DATA_OWNER_GUEST'),
   extractDecl('_authGen'), extractDecl('_activeAuthUserId'), extractDecl('_enteredUserId'), extractDecl('_legalGate'),
   extractDecl('_passwordRecoveryPending'),
-  extractDecl('SYNC_PENDING_KEY'), extractDecl('MAX_SYNC_ATTEMPTS'), extractDecl('_syncFlushInFlight'),
+  extractDecl('SYNC_PENDING_KEY'), extractDecl('MAX_SYNC_ATTEMPTS'), extractDecl('_syncFlushInFlight'), extractDecl('_syncMemoryQueue'),
   'let _dataOwner = DATA_OWNER_GUEST;',
 ];
 const FNS = ['safeParseArray', 'ownedKeyFor', 'isLoggedIn', 'isAuthGenCurrent', 'beginAuthContext', 'endAuthContext',
   'updateSyncStatus', 'refreshSyncStatus', 'retryPendingSync',
-  'readPendingSync', 'writePendingSync', 'pendingSyncCount', 'syncSessionToSupabase', 'flushPendingSync'];
+  'readPendingSync', 'writePendingSync', 'pendingSyncCount', 'syncSessionToSupabase', 'cloudRowBelongsToOwner', 'flushPendingSync'];
 const source = DECLS.join('\n').replace(/^(const|let) /gm, 'var ') + '\n\n' + FNS.map(extractFn).join('\n\n');
 new vm.Script(source);
 
@@ -30,17 +30,27 @@ const tick = () => new Promise((r) => setImmediate(r));
 
 function makeCtx() {
   const ls = new Map();
-  const log = { inserts: [] };
+  const log = { inserts: [], lookups: [] };
   let sessionUser = null;
   // Each insert answers from this list in order; `{}` means success.
   const answers = [];
   const holds = [];
+  // Rows "in the cloud" for the ownership lookup after a duplicate-key answer: key `${table}:${id}` -> user_id.
+  const cloudRows = new Map();
+  let lookupError = null;
+  // Set to true to make the phone's storage refuse the queue write.
+  const storage = { refusePending: false };
   const mkEl = (id) => ({ id, className: '', textContent: '', classList: { _s: new Set(), toggle(c, on) { on ? this._s.add(c) : this._s.delete(c); }, contains(c) { return this._s.has(c); } } });
   const els = { 'sync-dot': mkEl('sync-dot'), 'sync-status-label': mkEl('sync-status-label'), 'sync-status-row': mkEl('sync-status-row') };
   const ctx = {
     console: { warn() {}, log() {}, error() {} },
     localStorage: {
-      getItem: (k) => (ls.has(k) ? ls.get(k) : null), setItem: (k, v) => ls.set(k, String(v)), removeItem: (k) => ls.delete(k),
+      getItem: (k) => (ls.has(k) ? ls.get(k) : null),
+      setItem: (k, v) => {
+        if (storage.refusePending && k.endsWith(':ablty_sync_pending')) throw new DOMException('QuotaExceededError');
+        ls.set(k, String(v));
+      },
+      removeItem: (k) => ls.delete(k),
       key: (i) => Array.from(ls.keys())[i], get length() { return ls.size; },
     },
     document: { getElementById: (id) => els[id] || null, visibilityState: 'visible', addEventListener() {} },
@@ -59,6 +69,24 @@ function makeCtx() {
             if (a.throws) return Promise.reject(new TypeError('Failed to fetch'));
             return Promise.resolve({ error: a.error || null });
           },
+          select(cols) {
+            const q = { table, cols, filters: {} };
+            const b = {
+              eq(k, v) { q.filters[k] = v; return b; },
+              maybeSingle() {
+                log.lookups.push(q);
+                if (lookupError) return Promise.resolve({ data: null, error: lookupError });
+                const ownerOfRow = cloudRows.get(table + ':' + q.filters.id);
+                const mine = ownerOfRow !== undefined && String(ownerOfRow) === String(q.filters.user_id);
+                return Promise.resolve({ data: mine ? { id: q.filters.id } : null, error: null });
+              },
+            };
+            return b;
+          },
+          // The queue must never touch an existing row.
+          update() { throw new Error('update must not be called by the sync queue'); },
+          upsert() { throw new Error('upsert must not be called by the sync queue'); },
+          delete() { throw new Error('delete must not be called by the sync queue'); },
         };
       },
     },
@@ -66,7 +94,8 @@ function makeCtx() {
   vm.createContext(ctx);
   vm.runInContext(source, ctx);
   return {
-    ctx, log, answers, holds, els, ls,
+    ctx, log, answers, holds, els, ls, cloudRows, storage,
+    setLookupError(e) { lookupError = e; },
     signIn(uid) { sessionUser = uid; ls.set('ablty_logged_in', '1'); ctx.beginAuthContext(uid); },
     signOut() { sessionUser = null; ls.delete('ablty_logged_in'); ctx.endAuthContext(); },
     label: () => els['sync-status-label'].textContent,
@@ -126,6 +155,7 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
   await test('duplicate key on retry counts as saved (earlier attempt landed)', async () => {
     const t = makeCtx();
     t.signIn('A');
+    t.cloudRows.set('rv_sessions:1', 'A');
     t.answers.push({ throws: true }, { error: { code: '23505', message: 'duplicate key' } });
     await t.ctx.syncSessionToSupabase('rv_sessions', { id: 1, score: 50 });
     await t.ctx.flushPendingSync('A');
@@ -210,6 +240,89 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     assert.strictEqual(t.log.inserts.length, 4, 'second row not sent with B\'s token');
     assert.strictEqual(t.queue('A').length, 1, 'the confirmed row left the queue, the other waits');
     assert.strictEqual(t.label(), 'Synced to cloud', 'B\'s status not changed by A\'s flush');
+  });
+
+  await test('queue write refused by storage: upload still attempted, synced only after the database confirmed', async () => {
+    const t = makeCtx();
+    t.signIn('A');
+    t.storage.refusePending = true;
+    await t.ctx.syncSessionToSupabase('rv_sessions', { id: 1, score: 50 });
+    assert.strictEqual(t.log.inserts.length, 1, 'uploaded directly even though the queue could not be stored');
+    assert.strictEqual(t.log.inserts[0].row.user_id, 'A');
+    assert.strictEqual(t.label(), 'Synced to cloud');
+    assert.strictEqual(t.ctx.pendingSyncCount('A'), 0);
+    assert.strictEqual(t.ls.has('ablty_owned:A:ablty_sync_pending'), false);
+  });
+
+  await test('queue write refused AND upload fails: clear not-saved state, retried later', async () => {
+    const t = makeCtx();
+    t.signIn('A');
+    t.storage.refusePending = true;
+    t.answers.push({ throws: true });
+    await t.ctx.syncSessionToSupabase('rv_sessions', { id: 1, score: 50 });
+    assert.strictEqual(t.log.inserts.length, 1);
+    assert.strictEqual(t.label(), '1 result not saved to cloud yet. Tap to retry.', 'no false success');
+    assert.ok(t.dot().includes('sync-dot-pending'));
+    assert.strictEqual(t.ctx.pendingSyncCount('A'), 1, 'held in memory');
+    // Storage recovers and the retry lands.
+    t.storage.refusePending = false;
+    await t.ctx.flushPendingSync('A');
+    assert.strictEqual(t.log.inserts.length, 2);
+    assert.strictEqual(t.label(), 'Synced to cloud');
+    assert.strictEqual(t.ctx.pendingSyncCount('A'), 0);
+  });
+
+  await test('duplicate key, row belongs to this owner: treated as saved (earlier upload landed, answer was lost)', async () => {
+    const t = makeCtx();
+    t.signIn('A');
+    t.answers.push({ throws: true });
+    await t.ctx.syncSessionToSupabase('rv_sessions', { id: 1, score: 50 });
+    // The first attempt actually reached the database even though the answer was lost.
+    t.cloudRows.set('rv_sessions:1', 'A');
+    t.answers.push({ error: { code: '23505', message: 'duplicate key' } });
+    await t.ctx.flushPendingSync('A');
+    assert.strictEqual(t.log.lookups.length, 1, 'ownership looked up');
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(t.log.lookups[0].filters)), { id: 1, user_id: 'A' });
+    assert.deepStrictEqual(t.queue('A'), []);
+    assert.strictEqual(t.label(), 'Synced to cloud');
+  });
+
+  await test('duplicate key, row belongs to someone else: stays queued as unresolved, other row untouched', async () => {
+    const t = makeCtx();
+    t.signIn('A');
+    t.cloudRows.set('rv_sessions:1', 'B');
+    t.answers.push({ error: { code: '23505', message: 'duplicate key' } });
+    await t.ctx.syncSessionToSupabase('rv_sessions', { id: 1, score: 50 });
+    assert.strictEqual(t.log.lookups.length, 1);
+    const q = t.queue('A');
+    assert.strictEqual(q.length, 1, 'still queued');
+    assert.strictEqual(q[0].unresolved, 'id_collision');
+    assert.strictEqual(q[0].lastError, 'id_collision');
+    assert.strictEqual(t.label(), '1 result not saved to cloud yet. Tap to retry.');
+    // Neither automatic flushes nor a manual retry try again or touch B's row.
+    await t.ctx.flushPendingSync('A');
+    t.ctx.retryPendingSync();
+    await tick(); await tick(); await tick();
+    assert.strictEqual(t.log.inserts.length, 1, 'no further insert attempts');
+    assert.strictEqual(t.queue('A').length, 1);
+    assert.strictEqual(t.cloudRows.get('rv_sessions:1'), 'B');
+  });
+
+  await test('duplicate key but the ownership check itself fails: kept queued and retried, not deleted', async () => {
+    const t = makeCtx();
+    t.signIn('A');
+    t.setLookupError({ code: 'PGRST000', message: 'offline' });
+    t.answers.push({ error: { code: '23505', message: 'duplicate key' } });
+    await t.ctx.syncSessionToSupabase('rv_sessions', { id: 1, score: 50 });
+    assert.strictEqual(t.queue('A').length, 1);
+    assert.strictEqual(t.queue('A')[0].attempts, 1);
+    assert.strictEqual(t.queue('A')[0].unresolved, undefined);
+    t.setLookupError(null);
+    t.cloudRows.set('rv_sessions:1', 'A');
+    t.answers.push({ error: { code: '23505', message: 'duplicate key' } });
+    await t.ctx.flushPendingSync('A');
+    assert.deepStrictEqual(t.queue('A'), []);
+    assert.strictEqual(t.label(), 'Synced to cloud');
   });
 
   await test('guest sessions are never queued or uploaded', async () => {

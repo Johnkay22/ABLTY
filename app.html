@@ -16502,21 +16502,46 @@ function mapTSTrialRow(trial) {
 // ── Cloud save queue ──────────────────────────────────
 // A session is always saved on the phone first. Its cloud copy is queued
 // under its owner and uploaded from the queue, so the status shown is what
-// the database actually confirmed. Rows carry the client id as their primary
-// key, so a retry can never create a duplicate: a unique-key answer means
-// an earlier attempt already landed.
+// the database actually confirmed. Rows carry the client id as their key, so
+// a retry cannot create a duplicate. A unique-key answer is not taken as
+// success on its own: the ids are millisecond timestamps shared across all
+// accounts, so the row is looked up by id and owner first. If it is this
+// owner's, an earlier attempt landed; if it is someone else's, the item stays
+// queued as unresolved and the existing row is never touched.
 const SYNC_PENDING_KEY = 'ablty_sync_pending';
 const MAX_SYNC_ATTEMPTS = 5;
 const _syncFlushInFlight = new Map();
+// While the phone's storage refuses the queue write (full, private mode),
+// the queue for that owner lives here instead, so the upload is still
+// attempted and the status still tells the truth. Lost on reload; the
+// session itself is already in the owner's history.
+const _syncMemoryQueue = new Map();
 
 function readPendingSync(owner) {
+  if (_syncMemoryQueue.has(owner)) return _syncMemoryQueue.get(owner).slice();
   return safeParseArray(store.get(ownedKeyFor(owner, SYNC_PENDING_KEY))).filter((it) => it && it.table && it.row);
 }
 
+// Returns true only when the storage write was accepted. On failure the
+// items are kept in memory and remain pending.
 function writePendingSync(owner, items) {
   const key = ownedKeyFor(owner, SYNC_PENDING_KEY);
-  if (!items.length) store.remove(key);
-  else store.set(key, JSON.stringify(items));
+  let ok = false;
+  try {
+    if (!items.length) {
+      localStorage.removeItem(key);
+      ok = localStorage.getItem(key) === null;
+    } else {
+      const json = JSON.stringify(items);
+      localStorage.setItem(key, json);
+      ok = localStorage.getItem(key) === json;
+    }
+  } catch (e) {
+    ok = false;
+  }
+  if (ok) _syncMemoryQueue.delete(owner);
+  else _syncMemoryQueue.set(owner, items.slice());
+  return ok;
 }
 
 function pendingSyncCount(owner = _dataOwner) {
@@ -16534,9 +16559,25 @@ async function syncSessionToSupabase(table, data) {
   const key = table + ':' + String(data?.id ?? '');
   if (!items.some((it) => it.key === key)) {
     items.push({ key, table, row: data, attempts: 0, queuedAt: new Date().toISOString() });
+    // If storage refuses the write, the item is held in memory and the
+    // upload below still happens; "synced" is only shown once the database
+    // has confirmed it.
     writePendingSync(owner, items);
   }
   await flushPendingSync(owner);
+}
+
+// After a unique-key answer: is the row with this id ours? `true` means an
+// earlier attempt landed; `false` means another account owns that id;
+// `null` means the check itself failed and should be retried later.
+async function cloudRowBelongsToOwner(table, id, owner) {
+  try {
+    const { data, error } = await sb.from(table).select('id').eq('id', id).eq('user_id', owner).maybeSingle();
+    if (error) return null;
+    return !!data;
+  } catch (e) {
+    return null;
+  }
 }
 
 // Uploads whatever `owner` still has queued, once per item per call. Items
@@ -16549,7 +16590,8 @@ async function flushPendingSync(owner = _dataOwner, opts = {}) {
     const gen = _authGen;
     let items = readPendingSync(owner);
     if (opts.resetAttempts && items.length) {
-      items.forEach((it) => { it.attempts = 0; });
+      // An id collision cannot be fixed by trying again; everything else can.
+      items.forEach((it) => { if (!it.unresolved) it.attempts = 0; });
       writePendingSync(owner, items);
     }
     const due = items.filter((it) => (Number(it.attempts) || 0) < MAX_SYNC_ATTEMPTS);
@@ -16567,9 +16609,17 @@ async function flushPendingSync(owner = _dataOwner, opts = {}) {
       // owner's, so the rest waits.
       if (!isAuthGenCurrent(gen)) break;
       let failure = null;
+      let collision = false;
       try {
         const { error } = await sb.from(item.table).insert({ ...item.row, user_id: owner });
-        if (error && error.code !== '23505') failure = error;
+        if (error && error.code === '23505') {
+          const ours = await cloudRowBelongsToOwner(item.table, item.row.id, owner);
+          if (ours === null) failure = { code: '23505', message: 'could not verify existing row' };
+          else if (ours === false) { collision = true; failure = { code: 'id_collision', message: 'id already used by another account' }; }
+          // ours === true: an earlier attempt landed, nothing more to do.
+        } else if (error) {
+          failure = error;
+        }
       } catch (e) {
         failure = e || new Error('network');
       }
@@ -16580,8 +16630,16 @@ async function flushPendingSync(owner = _dataOwner, opts = {}) {
         if (!failure) {
           items.splice(idx, 1);
         } else {
-          items[idx].attempts = (Number(items[idx].attempts) || 0) + 1;
           items[idx].lastError = String(failure.code || failure.message || 'error').slice(0, 120);
+          if (collision) {
+            // Retrying cannot help: the id belongs to someone else's row,
+            // which must never be overwritten or deleted. Stays listed as
+            // not saved, out of the automatic retry loop.
+            items[idx].unresolved = 'id_collision';
+            items[idx].attempts = MAX_SYNC_ATTEMPTS;
+          } else {
+            items[idx].attempts = (Number(items[idx].attempts) || 0) + 1;
+          }
         }
         writePendingSync(owner, items);
       }
