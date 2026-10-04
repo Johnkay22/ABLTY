@@ -12911,17 +12911,34 @@ function normalizeDreamTagResponse(data) {
   return normalizeDreamTags(tags);
 }
 
-async function updateDreamEntryTags(entryId, tags) {
+// A dream save (and its background tagging) belongs to the account that
+// pressed Save, in the login it was pressed in. `owner` is the data owner and
+// `gen` the auth generation at that moment; both must still be current for
+// the operation to touch anything a person can see.
+function beginDreamSaveContext() {
+  return { owner: _dataOwner, gen: _authGen };
+}
+
+function isDreamSaveContextCurrent(ctx) {
+  return !!ctx && isAuthGenCurrent(ctx.gen) && _dataOwner === ctx.owner;
+}
+
+// Writes the tags only while the signed-in session still belongs to the
+// account that wrote the dream. Returns false when it did not write.
+async function updateDreamEntryTags(entryId, tags, ownerId) {
+  if (!sb) return false;
   const userId = await getLoggedInUserId();
-  if (!userId || !sb) return;
-  await sb
+  if (!userId || (ownerId && String(userId) !== String(ownerId))) return false;
+  const { error } = await sb
     .from('dream_entries')
     .update({ ai_tags: normalizeDreamTags(tags) })
     .eq('id', entryId)
     .eq('user_id', userId);
+  return !error;
 }
 
-async function postDreamTagsInBackground(entryId, bodyText) {
+async function postDreamTagsInBackground(entryId, bodyText, ctx) {
+  const saveCtx = ctx || beginDreamSaveContext();
   try {
     const resp = await fetch(WORKER_URL + '/tag-dream', {
       method: 'POST',
@@ -12930,7 +12947,10 @@ async function postDreamTagsInBackground(entryId, bodyText) {
     });
     const data = await resp.json().catch(() => []);
     const tags = normalizeDreamTagResponse(data);
-    await updateDreamEntryTags(entryId, tags);
+    const written = await updateDreamEntryTags(entryId, tags, saveCtx.owner);
+    // The tags were written for their owner (or not at all). The screen is
+    // only updated if that owner, in that login, is still the one looking.
+    if (!written || !isDreamSaveContextCurrent(saveCtx)) return;
 
     DREAM_JOURNAL_STATE.entries = (DREAM_JOURNAL_STATE.entries || []).map((entry) =>
       String(entry.id) === String(entryId) ? { ...entry, ai_tags: tags } : entry
@@ -12943,6 +12963,8 @@ async function postDreamTagsInBackground(entryId, bodyText) {
     // Silent by design: tagging is non-blocking and optional.
   }
 }
+
+let _dreamSaveSeq = 0;
 
 async function saveDreamEntry() {
   if (!isLoggedIn()) {
@@ -12963,6 +12985,19 @@ async function saveDreamEntry() {
   }
   if (errorEl) errorEl.classList.remove('visible');
 
+  // Everything this save needs is captured before the first wait: whose
+  // save it is, which login it was started in, and what the form said.
+  const ctx = beginDreamSaveContext();
+  const saveSeq = ++_dreamSaveSeq;
+  const payload = {
+    user_id: ctx.owner,
+    clarity: clampDreamClarity(DREAM_JOURNAL_STATE.form.clarity),
+    lucid: normalizeDreamLucid(DREAM_JOURNAL_STATE.form.lucid),
+    emotion: DREAM_EMOTION_OPTIONS.includes(DREAM_JOURNAL_STATE.form.emotion) ? DREAM_JOURNAL_STATE.form.emotion : 'Neutral',
+    body: bodyText,
+    ai_tags: [],
+  };
+
   const saveBtn = document.querySelector('#screen-dream-new-entry .btn.btn-primary');
   if (saveBtn) {
     saveBtn.disabled = true;
@@ -12971,16 +13006,13 @@ async function saveDreamEntry() {
 
   try {
     const userId = await getLoggedInUserId();
-    if (!userId) throw new Error('Not signed in');
-
-    const payload = {
-      user_id: userId,
-      clarity: clampDreamClarity(DREAM_JOURNAL_STATE.form.clarity),
-      lucid: normalizeDreamLucid(DREAM_JOURNAL_STATE.form.lucid),
-      emotion: DREAM_EMOTION_OPTIONS.includes(DREAM_JOURNAL_STATE.form.emotion) ? DREAM_JOURNAL_STATE.form.emotion : 'Neutral',
-      body: bodyText,
-      ai_tags: [],
-    };
+    // The account changed before the save even left the phone: nothing is
+    // written, and the new account hears nothing about it.
+    if (!isDreamSaveContextCurrent(ctx)) return;
+    // Still the same screen, but the signed-in session is not this owner's
+    // (not signed in, or the data owner is the guest): nothing is written
+    // and the person who pressed Save is told to try again.
+    if (!userId || String(userId) !== ctx.owner) throw new Error('Not signed in as the dream owner');
 
     const { data, error } = await sb
       .from('dream_entries')
@@ -12989,6 +13021,10 @@ async function saveDreamEntry() {
       .single();
     if (error) throw error;
 
+    // Saved in the database under its owner. From here on, only that owner,
+    // still in the same login, gets to see the result.
+    if (!isDreamSaveContextCurrent(ctx)) return;
+
     const mapped = mapDreamEntryRow(data);
     DREAM_JOURNAL_STATE.entries = [mapped, ...(DREAM_JOURNAL_STATE.entries || [])];
     STATE.dreamEntries = DREAM_JOURNAL_STATE.entries.slice();
@@ -12996,12 +13032,15 @@ async function saveDreamEntry() {
 
     navigate('dream-journal');
     renderDreamJournal();
-    postDreamTagsInBackground(mapped.id, bodyText);
+    postDreamTagsInBackground(mapped.id, bodyText, ctx);
   } catch (e) {
     console.warn('[DreamJournal] save failed:', e);
-    showToast(getDreamJournalErrorMessage(e, 'save'), 'error', 4200);
+    // A failure is reported only to the account that pressed Save.
+    if (isDreamSaveContextCurrent(ctx)) showToast(getDreamJournalErrorMessage(e, 'save'), 'error', 4200);
   } finally {
-    if (saveBtn) {
+    // The button is shared by whoever is on the screen now. Re-enable it
+    // unless a newer save has since taken it over.
+    if (saveBtn && saveSeq === _dreamSaveSeq) {
       saveBtn.disabled = false;
       saveBtn.textContent = 'SAVE ENTRY';
     }
@@ -13087,7 +13126,7 @@ async function removeDreamTag(tagToRemove) {
   if (!entry) return;
   const tags = normalizeDreamTags(entry.ai_tags).filter(t => t !== tagToRemove);
   entry.ai_tags = tags;
-  await updateDreamEntryTags(entry.id, tags);
+  await updateDreamEntryTags(entry.id, tags, entry.user_id);
   renderDreamEntryDetail();
 }
 
@@ -13103,7 +13142,7 @@ async function promptAddDreamTag() {
   if (tags.includes(cleaned)) { showToast('Tag already exists', 'info'); return; }
   tags.push(cleaned);
   entry.ai_tags = tags;
-  await updateDreamEntryTags(entry.id, tags);
+  await updateDreamEntryTags(entry.id, tags, entry.user_id);
   renderDreamEntryDetail();
 }
 
