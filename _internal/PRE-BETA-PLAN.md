@@ -1,6 +1,6 @@
 # ABLTY PRE-BETA PLAN
 
-**Owner:** Johnny (founder, non-technical). **Written:** 2026-10-03 (Chicago) by Claude, from the October 3 read-only audit of `main` at `8d2efb8` (app version `2026.10.01.1`, cache `ablty-v81`) plus Johnny's decisions in the same conversation.
+**Owner:** Johnny (founder, non-technical). **Written:** 2026-10-03 (Chicago) by Claude, from the October 3 read-only audit of `main` at `8d2efb8` (app version `2026.10.01.1`, cache `ablty-v81`) plus Johnny's decisions in the same conversation. **Revised 2026-10-04** after a second review (account deletion moved before the beta, beta scope and pilot pass criteria added, stronger grading test, dashboard made optional before the beta, Gemini thinking setting corrected).
 
 **Goal:** get ABLTY safe and useful enough to hand to about 20 private beta testers, who get free Premium for 30 days with no credit card and no Stripe.
 
@@ -40,7 +40,7 @@ A step moves through: **Not started → In progress → PR open (#number) → Me
 
 | # | Step | Type | Needs Johnny | Status |
 |---|---|---|---|---|
-| 0 | Planning files (this file, work log, Cursor rules) | Docs only | Merge | PR open |
+| 0 | Planning files (this file, work log, Cursor rules) | Docs only | Merge | Merged (PR #133) |
 | 1 | Stop the website publishing internal documents | Site config | Merge | Not started |
 | 2 | Fix the beta install links | App | Merge, YOU TEST | Not started |
 | 3 | Show user and AI text safely | App | Merge | Not started |
@@ -49,17 +49,18 @@ A step moves through: **Not started → In progress → PR open (#number) → Me
 | 6 | Lock Premium so only the server can grant it | Database | Approve migration | Not started |
 | 7 | Turn off the test-mode upgrade checkout for the beta | App | Merge | Not started |
 | 8 | Beta codes, automatic expiry and expiry banner | Database + App + Worker | Approve migration, choose codes | Not started |
-| 9 | Grading upgrade: show the AI the target photo, newer model | Worker only | Review score comparison | Not started |
+| 9 | Grading upgrade: show the AI the target photo, newer model | Worker only | Review grading test results | Not started |
 | 10 | Activity log (what testers do, never what they write) | Database + App | Approve migration | Not started |
 | 11 | In-app feedback box | Database + App | Approve migration | Not started |
-| 12 | Privacy policy and Terms wording | App (legal copy) | YOU DECIDE, approve text | Not started |
-| 13 | Admin dashboard with export | Database + new page | Approve migration, set up 2-step login | Not started |
-| 14 | Release check and 2 to 3 person phone pilot | Testing | YOU TEST | Not started |
-| 15 | Invite the remaining testers | Launch | Send invites | Not started |
-| 16 | Week 2: write the survey | Copy + App + Database | Approve questions | After beta starts |
-| 17 | Day 21: survey goes live with the extra-month reward | App | Turn on | After beta starts |
+| 12 | Account deletion removes everything, reliably | Worker + Database | Approve migration if needed | Not started |
+| 13 | Privacy policy and Terms wording, including data retention | App (legal copy) | YOU DECIDE, approve text | Not started |
+| 14 | Admin dashboard with export (**optional before the beta**) | Database + new page | Approve migration, set up 2-step login | Not started |
+| 15 | Release check, cost and error alerts, 2 to 3 person phone pilot | Testing | YOU TEST | Not started |
+| 16 | Invite the remaining testers | Launch | Send invites | Not started |
+| 17 | Week 2: write the survey | Copy + App + Database | Approve questions | After beta starts |
+| 18 | Day 21: survey goes live with the extra-month reward | App | Turn on | After beta starts |
 
-**Order matters.** Steps 1 to 5 are small and independent. Step 6 must merge and be applied to production before step 8, because a beta code system is pointless if Premium can be obtained any other way. Step 12 comes after 9, 10 and 11 because those steps change what the privacy policy has to say.
+**Order matters.** Steps 1 to 5 are small and independent. Step 6 must merge and be applied to production before step 8, because a beta code system is pointless if Premium can be obtained any other way. Step 13 comes after 9 to 12 because those steps change what the privacy policy has to say. Step 14 (dashboard) does **not** block the pilot or the beta; it can be finished during the beta.
 
 ---
 
@@ -73,6 +74,16 @@ A step moves through: **Not started → In progress → PR open (#number) → Me
 - **No outside analytics or screen-recording tools.** Dreams, sketches and notes appear on screen, and recording them would break ABLTY's privacy promises.
 - **The survey is written in week 2**, after looking at what testers actually did, and goes out around day 21.
 - **Credibility rules apply everywhere:** no inflated scores, no guaranteed-outcome language, no "proven psychic" claims.
+
+---
+
+## WHAT THIS BETA INCLUDES (Johnny confirms before step 16)
+
+Testers are told exactly what they are testing, so feedback is about the right things.
+
+**In the beta:** Remote Viewing sessions with AI grading; Zener card test; Presentiment (timestamp prediction); Dream Journal with automatic tagging; dream and lucid-dreaming tools that are already in the app (reality checks, WBTB, MILD) if Johnny wants them tested; Academy **Lesson 01 only** (deliberate, the rest of the Academy is being rebuilt); account, sync and settings.
+**Not in the beta (say so to testers):** the rest of the Academy, paid subscriptions, the Daily Community RV Challenge and leaderboards, Signal Scanner, PK Arena, and any protocol not already in the app. If a new protocol (for example a new precognition test) should be part of the beta, it must be added to this plan as its own step first.
+**Known limits to disclose:** only three lucidity readings exist for WBTB content; AI grading is a scoring aid, not a judgment of ability.
 
 ---
 
@@ -113,7 +124,7 @@ Each step says what it is in plain English, why it matters, what "done" looks li
 
 **What:** in `saveDreamEntry`, if a dream save is slow and someone switches accounts on the same phone before it finishes, the finished save can update the screen of the account that is now logged in. The database record is stored correctly under the original account; only the screen is wrong. Background dream tagging has the same weakness.
 **Why:** dreams are private. Even a display mix-up is unacceptable.
-**Done when:** the save remembers which account started it, and when it finishes it only updates the screen if that same account is still logged in. Tests cover: switch accounts mid-save, switch to guest mid-save, log out and back in mid-save, and a normal save. Follow the existing account-ownership approach already used for RV (from the account isolation fix in PR #130); do not rewrite it. App version bump required.
+**Done when:** the **whole** save operation is protected, not just the ending. Before the first network wait, capture which account started the save, the login session at that moment, and the form contents. After every wait (the save itself, any error, and background tagging), only touch the screen, the journal list, the form or any message if that same account and session are still active. A failed save must not show its error to a different account either. Tests cover: switch accounts mid-save, switch to guest mid-save, log out and back in mid-save, an error arriving after a switch, tagging finishing after a switch, and a normal save. Follow the existing account-ownership approach already used for RV (from the account isolation fix in PR #130); do not rewrite it. App version bump required.
 
 ### Step 5: Honest "saved to cloud" status (audit prompt 02)
 
@@ -175,12 +186,20 @@ Each step says what it is in plain English, why it matters, what "done" looks li
 **What is wrong today:** `handleGrade` in `ablty-worker.js` sends Gemini the viewer's sketch, their notes, and only the target's **name and six descriptor words** (from `RV_TARGET_POOL`). The AI never sees the actual target photo, so it cannot judge whether shapes, lines and layout match. It also uses `gemini-2.5-flash`, which Google still serves but no longer recommends for new work.
 **Do:**
 1. Send the target photo as a second image alongside the sketch. The Worker already knows the target (`target.src`, a path under `targets/`); fetch it from `https://ablty.app/` + `target.src`, attach it as inline image data, and update the prompt so it clearly says which image is the target and which is the viewer's sketch. This does not weaken the blind protocol: grading only happens after the viewer has submitted. If the target photo cannot be fetched, fall back to today's text-only grading and record that it happened.
-2. Change the grading model to `gemini-3.8-flash`. Check Google's current documentation for the right "thinking" setting on 3.x models; today's `thinkingBudget: 0` may not apply. Keep thinking off or minimal so cost and speed stay predictable.
+2. Change the grading model to `gemini-3.8-flash`. Thinking cannot be turned off on this model: Google documents the levels `low`, `medium` (the default) and `high`, and the old `thinkingBudget: 0` setting does not apply. Use `thinking_level: low` unless the grading test shows `medium` is clearly better, and record the real cost and response time for each.
 3. Dream tagging (`handleTagDream`) can stay on `gemini-2.5-flash` or move to `gemini-3.5-flash-lite`. Either is fine; do not change its behaviour.
 4. Keep the existing grading rules, JSON response format, retry handling and the AI-artifact rule (ignore sketch background and stroke colour).
-**Score comparison before merge:** Claude exports 10 to 15 of Johnny's own past sessions (sketch, notes, target) to a local file that is never committed. Cursor writes a small local script that grades each one with the old setup and the new setup, using a Gemini key Johnny places in a local `.env` file that is never committed (add it to `.gitignore`). The pull request includes the side-by-side scores. Johnny reviews them before merging.
+**Grading test before merge (higher scores do not mean better grading):** run the old setup and the new setup on the same set of submissions and include the results in the pull request. The set must include:
+- 10 to 15 of Johnny's own real past sessions (Claude exports them; they are never committed to the repository).
+- **Mismatched pairs:** the same sketches graded against unrelated targets. A good grader scores these clearly lower.
+- **Vague submissions:** generic notes like "dark, round, some movement" with a scribble. A good grader does not reward these.
+- **Repeat runs:** grade the same submission 3 times to see how much the score wobbles.
+- For each run, record the score, the response time, and the token usage (cost).
+
+**Adopt the new setup only if** it separates real matches from mismatched and vague ones better than today, and is at least as consistent. If it does not, keep sending the target photo but stay on the current model, or report back to Johnny.
+**Where the Gemini key lives for the test:** never in the repository and never pasted into a chat. If the agent runs in the cloud (Johnny uses Cursor cloud agents from his phone), check whether the environment supports private secrets and explain the options to Johnny before doing anything.
 **Watch out for:** the current grading instructions push scores upward (for example they require 4 or 5 on geometric form whenever the sketch is "unmistakably" the subject, and the calibration bands start at 55%). Do not change those rules in this step. Flag in the comparison whether the new setup makes scores more generous, so Johnny can decide later in line with the rule against inflated results.
-**Cost:** roughly half a cent per graded session at the current introductory price, about a penny after January 1, 2027. No version bump (Worker only); Cloudflare redeploys the Worker when the change merges.
+**Cost:** about half a cent per graded session before thinking tokens at the current introductory price ($0.75 input / $3.75 output per million tokens through December 31, 2026, then double). Thinking tokens are billed as output, so measure the real number in the test rather than trusting this estimate. No version bump (Worker only); Cloudflare redeploys the Worker when the change merges.
 
 ### Step 10: Activity log
 
@@ -196,19 +215,33 @@ Each step says what it is in plain English, why it matters, what "done" looks li
 **Database (new migration):** table `feedback`: id, `user_id`, `message` (required, up to 2,000 characters), optional `category` (bug, idea, other), `app_version`, `platform`, `created_at`. Signed-in users can insert their own; nobody can read through the app. Keep the email address visible as a backup.
 **Done when:** a tester can send feedback in two taps and sees a clear "Sent, thank you" confirmation. App version bump required. Optional later: email Johnny when new feedback arrives.
 
-### Step 12: Privacy policy and Terms wording (audit prompt 06)
+### Step 12: Account deletion removes everything, reliably (audit prompt 14)
+
+**What:** testers will be writing private material from day one, so "delete my account" must actually work. Today `handleDeleteAccount` in `ablty-worker.js` deletes each table's rows in turn but never checks whether the database accepted each delete; it carries on even if one fails, then deletes the login last.
+**Why:** a partly failed deletion could leave someone's data behind while the app tells them it is gone, or block the final step.
+**Do:**
+1. First, read the live database's foreign keys (which tables delete automatically when an account is deleted, and which block it). Claude can run this read-only check on request. `dream_entries` and `wbtb_sessions` are believed to delete automatically; confirm rather than assume, and do not report them as bugs if they do.
+2. Make every delete check the database's answer. If any step fails, stop, keep the login so the person can retry, and show an honest "deletion did not finish, please try again" message.
+3. Make retrying safe: running deletion twice must not error out on data that is already gone.
+4. Include the new tables from steps 8, 10 and 11 (`beta_redemptions`, `app_events`, `feedback`) in the deletion, or give them automatic deletion rules.
+**Tests:** disposable accounts and data only (never real accounts): complete success; a failed table delete then a successful retry; deleting twice; an invalid login token.
+**Done when:** a test account deleted from the app leaves no rows behind in any table, confirmed by Claude with a read-only check after the change is live.
+
+### Step 13: Privacy policy and Terms wording (audit prompts 06 and 15)
 
 **What:** the privacy text no longer matches what the app does. The policy exists in two copies inside `app.html`; both must change together.
 **Must be accurate about:**
 - Guest RV sketches and notes are processed on a server for AI grading (today the text says guest data stays entirely on the device).
 - Dream entries are sent to Google's Gemini for automatic tagging (today only RV is mentioned).
-- Google does not use ABLTY's requests to improve its products because the API is on a paid plan. Check Google's current paid-service terms for any temporary retention (for example abuse monitoring) and describe it accurately.
+- Google does not use ABLTY's requests to improve its products because the API is on a paid plan. That is **not** the same as "never stored": Google says paid-service prompts and responses can be logged for a limited time for abuse prevention. Check Google's current terms and say exactly that.
 - After step 9, target photos are also sent for grading (no personal data, but keep the description complete).
 - The activity log (step 10) and feedback box (step 11): what is recorded, what is never recorded, and why.
 - Beta Premium: free, no card, ends automatically after 30 days.
+- **Data retention:** the policy currently promises free-account records are deleted after 90 days, but nothing in the project performs that deletion. Change the wording to what actually happens (Johnny decides the rule), rather than building a deletion job before the beta.
+- Account deletion, matching what step 12 actually does.
 **YOU DECIDE:** Johnny approves the final text before it is merged. This is an accuracy fix, not legal advice; if Johnny wants legal review, it happens before merge. App version bump required.
 
-### Step 13: Admin dashboard with export
+### Step 14: Admin dashboard with export (optional before the beta)
 
 **What Johnny gets:** a private page (for example `ablty.app/admin.html`) that only his account can use, readable on a phone, in the ABLTY design system (dark background `#0d0e10`, teal `#4af0c8`, blue `#5b9ef4`, amber `#f0a94a`; Bebas Neue, DM Mono, DM Sans).
 **Security (most important part):** the page file itself is public like every page on the site, so it must contain no data. All data comes from database functions that check, on the server, that the caller is an admin before returning anything.
@@ -223,28 +256,46 @@ Each step says what it is in plain English, why it matters, what "done" looks li
 3. **Features:** usage by feature over time, and where people stop (started vs finished).
 4. **Problems:** grading failures, failed cloud saves, AI quota or rate errors, other error codes, newest first.
 5. **Feedback inbox:** messages newest first, with tester, date, version and platform.
-6. **Survey results:** added in step 17.
+6. **Survey results:** added in step 18.
 7. **Export:** every table on every screen downloads as a CSV file that opens in Excel or Google Sheets.
 
 **Tests:** a non-admin account and a signed-out visitor get nothing from every admin function; an admin without two-step login gets nothing if MFA is required; no function returns any content column. App version bump if `sw.js` changes.
-**If this step would delay the beta:** start the beta without it. Claude can pull the same numbers from the database on request until the dashboard ships.
+**This step does not block the beta.** If it is not ready, start the pilot without it. For the first weeks, the activity log plus the feedback table are enough; Claude can pull the numbers from the database on request until the dashboard ships.
 
-### Step 14: Release check and phone pilot (audit prompt 08)
+### Step 15: Release check, cost and error alerts, phone pilot (audit prompts 08 and 16)
 
-**What:** after steps 1 to 13 merge (and the migrations are applied by Claude), confirm the live site serves the new version (`https://ablty.app/version.json`), the Worker is the new revision, and run the phone checklist on one iPhone (Safari, installed to home screen) and one Android (Chrome, installed):
-install from the beta link; open from the icon, close, reopen; app update picked up; signup, email confirmation and Terms acceptance; wrong then correct password; password reset; Google sign-in if offered; redeem a beta code (try a wrong code too); confirm Premium features unlock; complete RV, Zener, Presentiment and a dream save; airplane mode then reconnect, check the save status is honest; Academy Lesson 01 open, complete, exit; two accounts on one phone; send feedback; check the admin dashboard shows the activity. Include WBTB notifications if they are part of what testers are promised.
+**Release check:** after steps 1 to 13 merge (and Claude has applied the migrations), confirm the live site serves the new version (`https://ablty.app/version.json`) and the Worker is the new revision.
+
+**Basic cost and error visibility (before any tester):**
+- A spending alert on the Google Cloud project that pays for Gemini (for example an email at $10 a month). Johnny sets this up; Claude walks him through it.
+- Johnny knows where to see Worker errors (Cloudflare dashboard logs), and the activity log records grading failures and failed cloud saves.
+- Feedback box working, plus the email address as a backup.
+
+**Phone checklist** on one iPhone (Safari, installed to home screen) and one Android (Chrome, installed):
+install from the beta link; open from the icon, close, reopen; app update picked up; signup, email confirmation and Terms acceptance; wrong then correct password; password reset; Google sign-in if offered; redeem a beta code (try a wrong code too); Premium features unlock; complete RV, Zener, Presentiment and a dream save; close and reopen, history still there; airplane mode then reconnect, save status honest; Academy Lesson 01 open, complete, exit; two accounts on one phone; send feedback; delete a test account and confirm it is gone. Include WBTB notifications if they are part of what testers are promised.
+
 **Then:** invite 2 to 3 pilot testers and watch the first few days.
+
+**Pilot pass criteria (all required before step 16), on both iPhone and Android:**
+- Testers installed the app and created accounts without help, or with help that led to a fix.
+- Each pilot tester redeemed a code and got Premium.
+- Each completed at least one full session, and it was still in their history after closing and reopening the app.
+- At least one feedback message arrived through the app.
+- No grading failures that were not explained and fixed.
+
+**Stop and fix before inviting anyone else if any of these happen:** any sign of one account seeing another account's data; any unexplained data loss; signup or login broken on either platform; Premium obtainable without a code.
+
 **Record:** device, browser, app version, and pass / fail / not run for each item, in the work log.
 
-### Step 15: Invite the remaining testers
+### Step 16: Invite the remaining testers
 
-Only after the pilot shows no problems with login, saving, privacy or Premium. Send the install link and the code. Tell testers what the beta includes, that Premium lasts 30 days, and where to send feedback.
+Only after the pilot passes the criteria above. Send the install link and the code. Tell testers what the beta includes and does not include (see "What this beta includes"), that Premium lasts 30 days, and where to send feedback.
 
-### Step 16: Week 2, write the survey
+### Step 17: Week 2, write the survey
 
 Look at the activity data first, then write 5 or 6 questions around what it shows. Must include: what almost made you stop using it; which feature you would miss most; would you pay $4.99 a month (expect this answer to be inflated). One or two answers must be written, not multiple choice. Johnny approves the questions. Build: a `survey_responses` table (insert own, no client reads) and the survey screen; the reward is given for finishing, never for positive answers.
 
-### Step 17: Day 21, survey goes live
+### Step 18: Day 21, survey goes live
 
 A banner at about day 21 of each tester's beta: "Tell us how it's going and get another free month." Submitting extends `beta_premium_until` by 30 days, once per account, done on the server (a `SECURITY DEFINER` function, same pattern as step 8). Survey results appear on the admin dashboard.
 
@@ -252,6 +303,6 @@ A banner at about day 21 of each tester's beta: "Tell us how it's going and get 
 
 ## AFTER THE BETA (not needed to start it)
 
-From the October 3 audit, in rough order: Stripe account matching (prompt 09), Stripe subscription lifecycle (10), Stripe free-month code if ever wanted (11), subscription management (12), pricing and billing copy (13), account deletion reliability (14), the data retention promise (15), monitoring and alerts (16), community privacy before enabling community features (17), database hardening (18), small content and accessibility fixes from pilot feedback (19). Also: move website hosting to Cloudflare Pages so the repository can be private; the rest of `LAUNCH-PLAN.md` (Academy, landing page, target pool expansion and renumbering, Signal Scanner).
+From the October 3 audit, in rough order: Stripe account matching (prompt 09), Stripe subscription lifecycle (10), Stripe free-month code if ever wanted (11), subscription management (12), pricing and billing copy (13), a real data retention job if Johnny wants one (15), full monitoring and alerts beyond the basics in step 15 (16), community privacy before enabling community features (17), database hardening (18), small content and accessibility fixes from pilot feedback (19). Also: move website hosting to Cloudflare Pages so the repository can be private; the rest of `LAUNCH-PLAN.md` (Academy, landing page, target pool expansion and renumbering, Signal Scanner).
 
 The full text of those audit prompts is kept outside this public repository. Johnny pastes the relevant one in when a step needs it.
