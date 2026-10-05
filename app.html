@@ -16543,9 +16543,13 @@ async function completeSignIn(user) {
 function mapRVSessionRow(session, sessionType = 'personal') {
   const targetIdNum = parseInt(String(session?.targetId || '').replace(/\D/g, ''), 10);
   const rawScore = session?.score;
+  // `score` is an integer column: Postgres rounds a decimal on insert, so
+  // the row is rounded the same way here (half up, scores are never
+  // negative) and a read-back after a duplicate-key answer compares equal.
+  // The session kept on the phone is not changed.
   const normalizedScore = (rawScore === null || rawScore === undefined || rawScore === '')
     ? null
-    : (Number.isFinite(Number(rawScore)) ? Number(rawScore) : null);
+    : (Number.isFinite(Number(rawScore)) ? Math.round(Number(rawScore)) : null);
   return {
     id: Number(session?.id) || Date.now(),
     session_type: sessionType,

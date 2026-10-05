@@ -484,6 +484,27 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     assert.ok(t.confirmed('A').includes('rv_sessions:4001'));
   });
 
+  await test('decimal RV score: the row is sent as the integer Postgres stores, so a retry read-back is a match, not a false mismatch', async () => {
+    const t = makeCtx();
+    t.signIn('A');
+    // The grader may answer with a decimal; the phone keeps it as is.
+    const local = rvSession(4005, { score: 61.5 });
+    const row = t.ctx.mapRVSessionRow(local);
+    assert.strictEqual(row.score, 62, 'rounded half up like the integer column');
+    assert.strictEqual(local.score, 61.5, 'the local session is not changed');
+    assert.strictEqual(t.ctx.mapRVSessionRow(rvSession(1, { score: 61.4 })).score, 61);
+    assert.strictEqual(t.ctx.mapRVSessionRow(rvSession(1, { score: null })).score, null, 'a failed grading still has no score');
+    // First attempt reached the database (which stored the integer) but the answer was lost.
+    t.answers.push({ throws: true });
+    await t.ctx.syncSessionToSupabase('rv_sessions', row);
+    t.cloud('rv_sessions', 4005, 'A', { ...row, score: 62 });
+    t.answers.push({ error: { code: '23505', message: 'duplicate key' } });
+    await t.ctx.flushPendingSync('A');
+    assert.deepStrictEqual(t.queue('A'), [], 'not parked as content_mismatch');
+    assert.strictEqual(t.label(), 'Synced to cloud');
+    assert.ok(t.confirmed('A').includes('rv_sessions:4005'));
+  });
+
   await test('duplicate key, same owner, DIFFERENT contents: stays unresolved, existing row untouched, no retry offered', async () => {
     const t = makeCtx();
     t.signIn('A');
