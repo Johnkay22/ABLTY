@@ -5,8 +5,10 @@ set -euo pipefail
 #
 # Builds a throwaway PostgreSQL cluster that mirrors the live `profiles` table
 # (columns, RLS policies and grants as read from production on 2026-10-05),
-# applies the real migration files the live database already has for the tier
-# lock, is_tester and the signup trigger, then applies
+# applies, in production order, the real migration files the live database
+# already has for everything that touches profiles (tier lock, 30-day username
+# rename cooldown, is_tester, the signup trigger and its case-insensitive
+# username replacement), then applies
 # 20261005000001_profiles_lock_entitlements.sql and exercises it with the real
 # roles PostgREST uses (anon, authenticated, service_role) plus the signup
 # path (handle_new_user as SECURITY DEFINER, fired from supabase_auth_admin's
@@ -98,8 +100,12 @@ psql -X -v ON_ERROR_STOP=1 ablty <<'SQL'
 -- also touches tables this test does not build).
 CREATE POLICY "sec_profiles_delete_own" ON public.profiles FOR DELETE TO authenticated USING (auth.uid() = id);
 SQL
+psql -X -v ON_ERROR_STOP=1 ablty -f "$MIG/20260519000004_profiles_username_rename_cooldown.sql" >/dev/null
 psql -X -v ON_ERROR_STOP=1 ablty -f "$MIG/20260815131016_add_is_tester_to_profiles.sql" >/dev/null
 psql -X -v ON_ERROR_STOP=1 ablty -f "$MIG/20260911000003_handle_new_user_trigger.sql" >/dev/null
+# Live since 2026-09-19 (production version 20260919181613): replaces
+# handle_new_user and adds the lower(username) unique index.
+psql -X -v ON_ERROR_STOP=1 ablty -f "$MIG/20260914000001_case_insensitive_usernames.sql" >/dev/null
 
 # Before the migration: prove the hole is real, so the test is testing
 # something. A signed-in client creates its own profile row as premium.
@@ -163,6 +169,32 @@ BEGIN
   RESET ROLE;
   RAISE NOTICE 'ok: %', label;
 END $$;
+-- Runs `stmt` as `role` and asserts it fails with exactly `errcode` (for
+-- rejections that are not privilege errors, such as the rename cooldown's
+-- check_violation 23514 and the username index's unique_violation 23505).
+CREATE FUNCTION pg_temp.expect_error(label text, role text, stmt text, errcode text) RETURNS void LANGUAGE plpgsql AS $$
+BEGIN
+  EXECUTE format('SET LOCAL ROLE %I', role);
+  BEGIN
+    EXECUTE stmt;
+    RESET ROLE;
+    RAISE EXCEPTION 'FAIL: % (statement was accepted)', label;
+  EXCEPTION
+    WHEN OTHERS THEN
+      RESET ROLE;
+      IF SQLSTATE <> errcode THEN
+        RAISE EXCEPTION 'FAIL: % (expected SQLSTATE %, got %: %)', label, errcode, SQLSTATE, SQLERRM;
+      END IF;
+      RAISE NOTICE 'ok: % (rejected %: %)', label, SQLSTATE, SQLERRM;
+  END;
+END $$;
+
+-- Live production pieces this test depends on being present ----------------
+SELECT pg_temp.check('case-insensitive username index present (20260914000001)',
+  EXISTS (SELECT 1 FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'profiles' AND indexname = 'profiles_username_lower_unique'));
+SELECT pg_temp.check('rename cooldown trigger present (20260519000004)',
+  EXISTS (SELECT 1 FROM pg_trigger WHERE tgrelid = 'public.profiles'::regclass AND tgname = 'trg_profiles_username_cooldown'
+            AND tgfoid = 'public.enforce_username_rename_cooldown'::regproc));
 
 -- Signup -------------------------------------------------------------------
 -- Auth inserts the user as supabase_auth_admin; handle_new_user (SECURITY
@@ -176,6 +208,22 @@ SELECT pg_temp.check('signup trigger still creates the profile with free/false',
   pg_temp.row_of('10000000-0000-4000-8000-000000000001') = 'free/false/alice');
 SELECT pg_temp.check('signup trigger still creates user_settings',
   EXISTS (SELECT 1 FROM public.user_settings WHERE user_id = '10000000-0000-4000-8000-000000000001'));
+-- Only the current (20260914000001) signup function behaves this way: a
+-- requested name that collides case-insensitively aborts the whole signup
+-- instead of silently falling back to a generated name.
+SELECT pg_temp.expect_error('current signup function: requested name "ALICE" collides with "alice" and aborts the signup', 'supabase_auth_admin', $q$
+  INSERT INTO auth.users(id, email, raw_user_meta_data)
+  VALUES ('10000000-0000-4000-8000-00000000000a', 'alice2@example.test', '{"username":"ALICE"}')
+$q$, '23505');
+SELECT pg_temp.check('aborted signup left no auth user and no profile',
+  NOT EXISTS (SELECT 1 FROM auth.users WHERE id = '10000000-0000-4000-8000-00000000000a')
+  AND NOT EXISTS (SELECT 1 FROM public.profiles WHERE lower(username) = 'alice' AND id <> '10000000-0000-4000-8000-000000000001'));
+-- Provider (Google) signups carry no requested name and get the generated one.
+SELECT pg_temp.expect_ok('current signup function: provider signup without a username gets a generated seeker_ name', 'supabase_auth_admin', $q$
+  INSERT INTO auth.users(id, email) VALUES ('10000000-0000-4000-8000-00000000000b', 'google@example.test')
+$q$);
+SELECT pg_temp.check('provider signup profile is free/false with a seeker_ name',
+  pg_temp.row_of('10000000-0000-4000-8000-00000000000b') LIKE 'free/false/seeker_%');
 
 -- A user whose profile row does not exist (trigger lost the username race, or
 -- an account from before the trigger): the app's fallback upsert.
@@ -201,9 +249,22 @@ SELECT pg_temp.expect_ok('fallback upsert run again on the existing free row is 
   ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username, tier = EXCLUDED.tier
 $q$);
 
-SELECT pg_temp.expect_ok('username change is accepted', 'authenticated', $q$
+-- Renames: the live 30-day cooldown (20260519000004) applies. Bob has never
+-- renamed (username_changed_at is null), so his first rename is eligible; the
+-- statement writes username_changed_at the way the app does, and the trigger
+-- stamps it with now() regardless.
+SELECT pg_temp.check('bob has never renamed (eligible for a first rename)',
+  (SELECT username_changed_at IS NULL FROM public.profiles WHERE id = '20000000-0000-4000-8000-000000000002'));
+SELECT pg_temp.expect_ok('username change is accepted (first rename, cooldown not in effect)', 'authenticated', $q$
   UPDATE public.profiles SET username = 'bobby', username_changed_at = now() WHERE id = '20000000-0000-4000-8000-000000000002'
 $q$);
+SELECT pg_temp.check('cooldown trigger stamped username_changed_at on the rename',
+  (SELECT username_changed_at IS NOT NULL AND username_changed_at >= now() - interval '1 minute'
+     FROM public.profiles WHERE id = '20000000-0000-4000-8000-000000000002'));
+SELECT pg_temp.expect_error('premature second rename is rejected by the 30-day cooldown', 'authenticated', $q$
+  UPDATE public.profiles SET username = 'bobbie', username_changed_at = now() WHERE id = '20000000-0000-4000-8000-000000000002'
+$q$, '23514');
+SELECT pg_temp.check('username unchanged after the rejected premature rename', pg_temp.row_of('20000000-0000-4000-8000-000000000002') = 'free/false/bobby');
 SELECT pg_temp.expect_ok('legal acceptance write is accepted', 'authenticated', $q$
   UPDATE public.profiles SET terms_accepted_at = now(), privacy_accepted_at = now() WHERE id = '20000000-0000-4000-8000-000000000002'
 $q$);
@@ -260,7 +321,8 @@ SELECT pg_temp.expect_denied('anon INSERT with tier premium', 'anon', $q$
   INSERT INTO public.profiles (id, username, tier) VALUES ('40000000-0000-4000-8000-000000000004', 'mallory', 'premium')
 $q$);
 SELECT pg_temp.expect_denied('anon DELETE', 'anon', 'DELETE FROM public.profiles');
-SELECT pg_temp.check('anon left every row in place', (SELECT count(*) FROM public.profiles) = 3);
+-- alice, the provider signup, bob and carol.
+SELECT pg_temp.check('anon left every row in place', (SELECT count(*) FROM public.profiles) = 4);
 
 -- Server (service_role): the Worker's Stripe path, administrative grants,
 -- and the Worker's account deletion ------------------------------------------
@@ -288,9 +350,20 @@ SELECT pg_temp.expect_denied('premium user: client upsert with tier free onto th
   ON CONFLICT (id) DO UPDATE SET username = EXCLUDED.username, tier = EXCLUDED.tier
 $q$);
 SELECT pg_temp.check('premium kept after the rejected downgrade', pg_temp.row_of('20000000-0000-4000-8000-000000000002') = 'premium/true/bobby');
-SELECT pg_temp.expect_ok('premium user can still rename', 'authenticated', $q$
-  UPDATE public.profiles SET username = 'bob_premium' WHERE id = '20000000-0000-4000-8000-000000000002'
+-- Bob renamed moments ago, so the cooldown still applies to him.
+SELECT pg_temp.expect_error('premium user: rename inside the cooldown is still rejected', 'authenticated', $q$
+  UPDATE public.profiles SET username = 'bob_premium', username_changed_at = now() WHERE id = '20000000-0000-4000-8000-000000000002'
+$q$, '23514');
+-- Test fixture, run by the harness superuser: pretend 31 days have passed so
+-- the rename is eligible. This is time travel for the test only, not a path
+-- the app or a client has.
+UPDATE public.profiles SET username_changed_at = now() - interval '31 days' WHERE id = '20000000-0000-4000-8000-000000000002';
+SELECT pg_temp.expect_ok('premium user can still rename once the cooldown has elapsed', 'authenticated', $q$
+  UPDATE public.profiles SET username = 'bob_premium', username_changed_at = now() WHERE id = '20000000-0000-4000-8000-000000000002'
 $q$);
+SELECT pg_temp.check('eligible rename stored and re-stamped, tier and tester untouched',
+  pg_temp.row_of('20000000-0000-4000-8000-000000000002') = 'premium/true/bob_premium'
+  AND (SELECT username_changed_at >= now() - interval '1 minute' FROM public.profiles WHERE id = '20000000-0000-4000-8000-000000000002'));
 
 -- The auth.users row is created by the superuser (standing in for GoTrue's
 -- admin API); the signup trigger then makes a free profile, which we remove so
@@ -328,9 +401,15 @@ SELECT pg_temp.as_user('30000000-0000-4000-8000-000000000003');
 SELECT pg_temp.expect_denied('after the server set it: client clears beta_premium_until', 'authenticated', $q$
   UPDATE public.profiles SET beta_premium_until = NULL WHERE id = '30000000-0000-4000-8000-000000000003'
 $q$);
+-- Carol's row was just created and has never been renamed, so this rename is
+-- eligible under the cooldown.
+SELECT pg_temp.check('carol has never renamed (eligible)',
+  (SELECT username_changed_at IS NULL FROM public.profiles WHERE id = '30000000-0000-4000-8000-000000000003'));
 SELECT pg_temp.expect_ok('after the server set it: client rename leaves it alone and is accepted', 'authenticated', $q$
-  UPDATE public.profiles SET username = 'carol2' WHERE id = '30000000-0000-4000-8000-000000000003'
+  UPDATE public.profiles SET username = 'carol2', username_changed_at = now() WHERE id = '30000000-0000-4000-8000-000000000003'
 $q$);
+SELECT pg_temp.check('rename kept beta_premium_until as the server set it',
+  (SELECT beta_premium_until IS NOT NULL AND username = 'carol2' FROM public.profiles WHERE id = '30000000-0000-4000-8000-000000000003'));
 
 -- Final shape --------------------------------------------------------------
 SELECT pg_temp.check('client roles no longer hold DELETE or TRUNCATE on profiles',
@@ -351,4 +430,4 @@ SELECT pg_temp.check('function pins search_path and is not SECURITY DEFINER',
      FROM pg_proc WHERE oid = 'public.enforce_profiles_tier_lock'::regproc));
 SQL
 
-echo "PASS: PostgreSQL profiles entitlement lock (signup, fallback creation, client insert/upsert/update/delete denials, anon, service role, future beta_premium_until, idempotency)"
+echo "PASS: PostgreSQL profiles entitlement lock (current signup function and case-insensitive index, 30-day rename cooldown, fallback creation, client insert/upsert/update/delete denials, anon, service role, future beta_premium_until, idempotency)"
