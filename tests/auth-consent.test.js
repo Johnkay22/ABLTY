@@ -217,7 +217,7 @@ function makeCtx({ sbHandlers, dom, storage, timers } = {}) {
     window: { location: { hash: '', search: '' }, supabase: sdk }, history: { replaceState() {} }, URLSearchParams,
     setTimeout: timers?.setTimeout || setTimeout, clearTimeout: timers?.clearTimeout || clearTimeout, atob,
     // onSignedIn side-effect stubs
-    renderProfile() {}, renderHomeGreeting() {}, updateSyncStatus() {},
+    renderProfile() {}, renderHomeGreeting() {}, updateSyncStatus() {}, refreshSyncStatus() {},
     hasLocalGuestData: () => false, renderAnalytics() {},
     STATE: { sessions: [] }, saveState() {}, loadZenerSessions: () => [], loadTimestampAll: () => [],
     renderDreamJournal() {}, renderDreamEntryDetail() {}, guestModalCalls: 0,
