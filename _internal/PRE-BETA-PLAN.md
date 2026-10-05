@@ -46,7 +46,7 @@ A step moves through: **Not started → In progress → PR open (#number) → Me
 | 3 | Show user and AI text safely | App | Merge | Merged (PR #135) |
 | 4 | Keep dream saves in the right account | App | Merge | Merged (PR #135) |
 | 5 | Honest "saved to cloud" status | App | Merge | Merged (PR #135); phone check still to do |
-| 6 | Lock Premium so only the server can grant it | Database | Approve migration | PR open (branch `cursor/step-6-lock-premium-bbab`); Claude applies the migration to production after merge |
+| 6 | Lock Premium so only the server can grant it | Database | Approve migration | PR open (#136, branch `cursor/step-6-lock-premium-bbab`); Claude applies the migration to production after merge |
 | 7 | Turn off the test-mode upgrade checkout for the beta | App | Merge | Not started |
 | 8 | Beta code gate on the install page, signup with code, automatic expiry and expiry banner | Database + install page + App + Worker | Approve migration, choose codes | Not started |
 | 9 | Grading upgrade: show the AI the target photo, newer model | Worker only | Review grading test results | Not started |
