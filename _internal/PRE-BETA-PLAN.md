@@ -45,10 +45,10 @@ A step moves through: **Not started → In progress → PR open (#number) → Me
 | 2 | Fix the beta install links | App | Merge, YOU TEST | Merged (PR #135); phone check still to do |
 | 3 | Show user and AI text safely | App | Merge | Merged (PR #135) |
 | 4 | Keep dream saves in the right account | App | Merge | Merged (PR #135) |
-| 5 | Honest "saved to cloud" status | App | Merge | Merged (PR #135); phone check still to do. Follow-up PR #139 (draft) rewrites the row's wording in plain English and adds a DETAILS report for support |
+| 5 | Honest "saved to cloud" status | App | Merge | Merged (PR #135); phone check still to do. Follow-up PR #139 (draft) rewrites the row's wording in plain English, adds a DETAILS report for support, and fixes two false backup assurances found in review |
 | 6 | Lock Premium so only the server can grant it | Database | Approve migration | Verified (PR #136 merged 2026-10-06; migration applied to production as version `20261006015911` and verified read-only the same day) |
 | 7 | Turn off the test-mode upgrade checkout for the beta | App | Merge | Merged (PR #138, 2026-10-06, version 2026.10.06.1 / `ablty-v83`); phone check still to do. Settings version display and update-banner fixes needed to verify it are in PR #139 (draft, 2026.10.06.2 / `ablty-v84`) |
-| 8 | Beta code gate on the install page, signup with code, automatic expiry and expiry banner | Database + install page + App + Worker | Approve migration, choose codes | Not started |
+| 8 | Beta code gate on the install page, signup with code, automatic expiry and expiry banner | Database + install page + App + Worker | Approve migration, choose codes | Not started. Johnny decided 2026-10-06: leave all existing Premium accounts unchanged (see the step 8 section) |
 | 9 | Grading upgrade: show the AI the target photo, newer model | Worker only | Review grading test results | Not started |
 | 10 | Activity log (what testers do, never what they write) | Database + App | Approve migration | Not started |
 | 11 | In-app feedback box | Database + App | Approve migration | Not started |
@@ -197,7 +197,7 @@ Each step says what it is in plain English, why it matters, what "done" looks li
 
 **Creating codes:** Claude creates the actual codes in production after the migration is applied, using readable but hard-to-guess values (for example `ABLTY-FRIENDS-7K4Q`). Codes are never written into the repository.
 
-**YOU DECIDE (before building):** what happens to the testers who already have Premium from the earlier manual grants (`tier = 'premium'`, `is_tester = true`). They currently never expire. Options: leave them, or switch them to beta Premium with an end date.
+**DECIDED by Johnny on 2026-10-06:** all existing Premium accounts stay exactly as they are. The accounts that already have Premium from the earlier manual grants (`tier = 'premium'`, `is_tester = true`) are not switched to beta Premium, are not given an end date, and are not touched by the step 8 migration, the expiry logic or the banner. `has_premium` must return true for `tier = 'premium'` regardless of `beta_premium_until`, and the step 8 tests must include a paid or manually granted `tier = 'premium'` account that is never affected by beta expiry (already listed under Tests below). Step 8 has not started.
 
 **Tests:** disposable database tests for every redeem outcome (success, wrong code, expired, full, already redeemed, too many attempts, not signed in, two simultaneous redemptions at the limit), redemption at account creation through the signup trigger (valid code, invalid code, existing account), expiry turning Premium off, a paid `tier = 'premium'` account never affected by beta expiry, and the lucidity readings policy before and after expiry. App tests for the install page (code gate, form validation, post-signup message, "Sign in to finish"), the backup code box, status line and banner. **Phone testing must include a real verification email opened from both the Gmail app and Apple Mail, on an iPhone and on an Android phone**, confirming that the account already has Premium when it first signs in to the installed app, whichever browser the link opened in.
 
