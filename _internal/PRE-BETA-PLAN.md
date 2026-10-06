@@ -47,7 +47,7 @@ A step moves through: **Not started → In progress → PR open (#number) → Me
 | 4 | Keep dream saves in the right account | App | Merge | Merged (PR #135) |
 | 5 | Honest "saved to cloud" status | App | Merge | Merged (PR #135); phone check still to do |
 | 6 | Lock Premium so only the server can grant it | Database | Approve migration | Verified (PR #136 merged 2026-10-06; migration applied to production as version `20261006015911` and verified read-only the same day) |
-| 7 | Turn off the test-mode upgrade checkout for the beta | App | Merge | Not started |
+| 7 | Turn off the test-mode upgrade checkout for the beta | App | Merge | PR open (#138, branch `cursor/step-7-beta-upgrade-message-bbab`, version 2026.10.06.1 / `ablty-v83`) |
 | 8 | Beta code gate on the install page, signup with code, automatic expiry and expiry banner | Database + install page + App + Worker | Approve migration, choose codes | Not started |
 | 9 | Grading upgrade: show the AI the target photo, newer model | Worker only | Review grading test results | Not started |
 | 10 | Activity log (what testers do, never what they write) | Database + App | Approve migration | Not started |
@@ -152,6 +152,7 @@ Each step says what it is in plain English, why it matters, what "done" looks li
 **Why:** once beta Premium expires, testers will see Upgrade buttons. A test-mode checkout in front of real users is confusing at best, and depending on how the Worker's webhook is configured it could hand out Premium without any real payment. It also cannot take real money.
 **Do:** for the beta, replace the checkout with this message, decided by Johnny on 2026-10-04: **"Premium subscriptions open at launch."** Keep the Stripe code path in place but unreachable, so it is easy to restore at launch. Do not change pricing or Stripe settings.
 **Done when:** no screen in the app sends a real user to a Stripe test link. App version bump required.
+**Built 2026-10-06** (branch `cursor/step-7-beta-upgrade-message-bbab`): one switch in `app.html`, `PREMIUM_CHECKOUT_ENABLED = false`. `handleUpgradeCTA` (the only function that ever opened a checkout; reached from the Settings Upgrade row, the two signed-in upgrade modal variants and the two WBTB gate cards) now shows "Premium subscriptions open at launch." and stops. Guests tapping Upgrade still go to free-account signup, with the same message. The Stripe code moved unchanged into `openStripeCheckout()`, which only runs when the switch is true. **At launch (LAUNCH-PLAN task 4.4):** set the switch to true together with the live Payment Links. Price copy ("$4.99/month") in the modal and legal text is pricing and was left alone (task 2.1).
 
 ### Step 8: Beta code gate on the install page, signup with code, automatic expiry and expiry banner
 

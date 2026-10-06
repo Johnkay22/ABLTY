@@ -10399,17 +10399,37 @@ function openCheckoutUrl(checkoutUrl) {
   return false;
 }
 
+// Beta: paid Premium is not for sale yet (Johnny, 2026-10-04). While this is
+// false, every Upgrade action shows PREMIUM_CHECKOUT_CLOSED_MESSAGE and the
+// Stripe path below is never reached. Set it to true at launch (LAUNCH-PLAN
+// task 4.4, together with the live Payment Links).
+const PREMIUM_CHECKOUT_ENABLED = false;
+const PREMIUM_CHECKOUT_CLOSED_MESSAGE = 'Premium subscriptions open at launch.';
+
 function handleUpgradeCTA() {
   closeUpgradeModal();
   if (!isLoggedIn()) {
     clearLocalAuthCache();
     renderSettingsState();
     renderProfile();
-    showToast('Create a free account first, then upgrade.', 'info');
+    showToast(PREMIUM_CHECKOUT_ENABLED
+      ? 'Create a free account first, then upgrade.'
+      : PREMIUM_CHECKOUT_CLOSED_MESSAGE + ' Create a free account to get started.', 'info');
     openAuthScreen('signup');
     return;
   }
 
+  if (!PREMIUM_CHECKOUT_ENABLED) {
+    showToast(PREMIUM_CHECKOUT_CLOSED_MESSAGE, 'info', 4500);
+    return;
+  }
+
+  openStripeCheckout();
+}
+
+// The Stripe Payment Link path, kept for launch. Only handleUpgradeCTA calls
+// it, and only when PREMIUM_CHECKOUT_ENABLED is true.
+function openStripeCheckout() {
   const email = String(localStorage.getItem('ablty_user_email') || '').trim();
   const checkoutUrl = email
     ? ('https://buy.stripe.com/test_5kQfZhe6OfNg5On3p78g000' + '?prefilled_email=' + encodeURIComponent(email))
@@ -18402,7 +18422,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.10.04.1';
+const APP_VERSION = '2026.10.06.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
