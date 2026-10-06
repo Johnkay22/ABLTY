@@ -6333,9 +6333,12 @@ html, body {
       <!-- About -->
       <div class="section-label fade-in-delay-3">About</div>
       <div style="display:flex;flex-direction:column;gap:8px;" class="fade-in-delay-3">
-        <div class="setting-row">
-          <div class="mono-sm">ABLTY</div>
-          <div class="mono-sm" style="color:var(--dim);">v0.1.0 Alpha <span class="dev-badge" id="dev-badge" style="display:none;">DEV</span></div>
+        <div class="setting-row" id="about-version-row" onclick="handleVersionRowTap()" style="cursor:pointer;">
+          <div style="flex:1;min-width:0;">
+            <div class="mono-sm">ABLTY</div>
+            <div class="setting-desc" id="update-status-label">Checking for updates...</div>
+          </div>
+          <div class="mono-sm" style="color:var(--dim);white-space:nowrap;"><span id="app-version-label"></span> <span class="dev-badge" id="dev-badge" style="display:none;">DEV</span></div>
         </div>
       </div>
 
@@ -18422,8 +18425,55 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.10.06.1';
+const APP_VERSION = '2026.10.06.2';
 const VERSION_MANIFEST_PATH = '/version.json';
+
+// What the last update check found, so Settings can tell "this is the
+// latest version" apart from "the check itself did not work". `available`
+// is sticky until the update is applied (the page reloads).
+//   idle | checking | latest | available | failed
+const _updateCheck = { state: 'idle', checkedAt: null, remoteVersion: '', reason: '' };
+let _updateCheckInFlight = null;
+
+function setUpdateCheckState(state, extra = {}) {
+  if (_updateCheck.state === 'available' && state !== 'available') {
+    // A found update is not undone by a later failed or matching check.
+    renderUpdateStatus();
+    return;
+  }
+  _updateCheck.state = state;
+  if (state === 'latest' || state === 'available' || state === 'failed') _updateCheck.checkedAt = Date.now();
+  if (extra.remoteVersion !== undefined) _updateCheck.remoteVersion = String(extra.remoteVersion || '');
+  _updateCheck.reason = String(extra.reason || '');
+  renderUpdateStatus();
+}
+
+// Settings > About: the running version and, underneath it, the result of
+// the last update check in plain words.
+function renderUpdateStatus() {
+  const versionEl = document.getElementById('app-version-label');
+  if (versionEl) versionEl.textContent = 'v' + APP_VERSION;
+  const el = document.getElementById('update-status-label');
+  if (!el) return;
+  let when = '';
+  if (_updateCheck.checkedAt) {
+    try { when = new Date(_updateCheck.checkedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch (e) {}
+  }
+  const texts = {
+    idle: 'Checking for updates...',
+    checking: 'Checking for updates...',
+    latest: 'You have the latest version.' + (when ? ' Checked at ' + when + '.' : '') + ' Tap to check again.',
+    available: 'Update available' + (_updateCheck.remoteVersion && _updateCheck.remoteVersion !== APP_VERSION ? ' (v' + _updateCheck.remoteVersion + ')' : '') + '. Tap to install.',
+    failed: 'Could not check for updates. You may be offline.' + (when ? ' Last tried at ' + when + '.' : '') + ' Tap to try again.',
+  };
+  el.textContent = texts[_updateCheck.state] || texts.idle;
+}
+
+// Settings > About row: install a found update, otherwise check right now.
+function handleVersionRowTap() {
+  if (_updateCheck.state === 'available') { applyUpdate(); return; }
+  runUpdateCheck({ manual: true });
+}
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
   try {
@@ -18441,18 +18491,25 @@ async function fetchManifestVersion(url, cacheMode = 'default') {
   }
 }
 
-async function checkVersionManifestUpdate() {
+async function checkVersionManifestUpdate(opts = {}) {
   try {
+    // The row only says "Checking" before the first answer or on a manual
+    // tap; the minute poll does not make it flicker.
+    if (opts.manual || _updateCheck.state === 'idle') setUpdateCheckState('checking');
     const remoteUrl = VERSION_MANIFEST_PATH + '?update_check=' + Date.now();
     const remoteVersion = await fetchManifestVersion(remoteUrl, 'no-store');
-    if (!remoteVersion) return;
+    if (!remoteVersion) { setUpdateCheckState('failed', { reason: 'manifest_unreachable' }); return; }
     if (remoteVersion !== APP_VERSION) {
       window._pendingManifestVersion = remoteVersion;
+      setUpdateCheckState('available', { remoteVersion });
       showUpdateBanner();
     } else {
       window._manifestVersionMatches = true;
+      setUpdateCheckState('latest', { remoteVersion });
     }
-  } catch (e) {}
+  } catch (e) {
+    setUpdateCheckState('failed', { reason: 'manifest_error' });
+  }
 }
 
 async function checkHtmlUpdateFallback() {
@@ -18475,74 +18532,115 @@ async function checkHtmlUpdateFallback() {
   } catch (e) {}
 }
 
+// Workers already being followed to the `installed` state, so a worker seen
+// by several paths (updatefound, UPDATE_READY, a poll) shows one banner.
+const _swWatchedWorkers = new WeakSet();
+
+// Follows a new worker until it has installed, then offers it as the update.
+// The first-ever worker (no controller yet) is not an update.
+function watchInstallingWorker(worker) {
+  if (!worker || _swWatchedWorkers.has(worker)) return;
+  _swWatchedWorkers.add(worker);
+  const onState = () => {
+    if (worker.state !== 'installed') return;
+    if (!navigator.serviceWorker.controller) return;
+    window._swPendingWorker = worker;
+    setUpdateCheckState('available');
+    showUpdateBanner();
+  };
+  worker.addEventListener('statechange', onState);
+  onState();
+}
+
+// A new worker that is already waiting shows the banner at once; one that
+// is still installing is followed until it is. Returns true if one is waiting.
+function checkForWaitingUpdate(reg = window._swRegistration) {
+  if (!reg) return false;
+  if (reg.waiting) {
+    window._swPendingWorker = reg.waiting;
+    setUpdateCheckState('available');
+    showUpdateBanner();
+    return true;
+  }
+  if (reg.installing) watchInstallingWorker(reg.installing);
+  return false;
+}
+
+// One full update check: ask the browser to re-fetch sw.js, then compare
+// the deployed version.json (and, failing that, app.html) with what is
+// running. Shared by startup, the minute poll, foreground returns and the
+// Settings > About row, so they cannot disagree.
+function runUpdateCheck(opts = {}) {
+  if (_updateCheckInFlight) return _updateCheckInFlight;
+  _updateCheckInFlight = (async () => {
+    try {
+      const reg = window._swRegistration;
+      if (reg && typeof reg.update === 'function') {
+        try { await reg.update(); } catch (e) {}
+        checkForWaitingUpdate(reg);
+      }
+      await checkVersionManifestUpdate(opts);
+      await checkHtmlUpdateFallback();
+    } finally {
+      _updateCheckInFlight = null;
+    }
+  })();
+  return _updateCheckInFlight;
+}
+
 async function registerSW() {
-  if (!('serviceWorker' in navigator)) return;
+  renderUpdateStatus();
+  if (!('serviceWorker' in navigator)) {
+    // No service worker (some in-app browsers): the version file still says
+    // whether this page is current.
+    runUpdateCheck();
+    return;
+  }
   try {
     const reg = await navigator.serviceWorker.register('/sw.js');
     console.log('[ABLTY] Service worker registered');
     window._swRegistration = reg;
     if (!window._swPendingWorker) window._swPendingWorker = null;
 
-    const checkForWaitingUpdate = () => {
-      // Primary path: officially waiting worker.
-      if (reg.waiting) {
-        window._swPendingWorker = reg.waiting;
-        showUpdateBanner();
-        return;
-      }
-      // Fallback path for browsers that delay `reg.waiting` population.
-      const installing = reg.installing;
-      if (installing && installing.state === 'installed' && navigator.serviceWorker.controller) {
-        window._swPendingWorker = installing;
-        showUpdateBanner();
-      }
-    };
-
-    // Common case on reopen: new SW is already waiting.
-    checkForWaitingUpdate();
-
-    // Trigger an explicit update check at startup.
-    try {
-      await reg.update();
-      checkForWaitingUpdate();
-      checkVersionManifestUpdate();
-      checkHtmlUpdateFallback();
-    } catch(e) {}
-
-    // Detect when a new version is waiting
-    reg.addEventListener('updatefound', () => {
-      const newWorker = reg.installing;
-      if (!newWorker) return;
-      newWorker.addEventListener('statechange', () => {
-        if (newWorker.state !== 'installed') return;
-        if (navigator.serviceWorker.controller) {
-          window._swPendingWorker = newWorker;
-          showUpdateBanner();
-          return;
-        }
-        checkForWaitingUpdate();
-      });
-    });
+    // Listeners go on before the first reg.update(). That call can find a
+    // new sw.js and fire `updatefound` (and the worker's UPDATE_READY
+    // message) before it resolves; anything attached afterwards misses the
+    // install, and the banner used to wait for the next poll instead.
+    reg.addEventListener('updatefound', () => watchInstallingWorker(reg.installing));
 
     // If the controller changes after SKIP_WAITING, reload once.
-    if (navigator.serviceWorker && !window.__abltySwReloadBound) {
+    if (!window.__abltySwReloadBound) {
       window.__abltySwReloadBound = true;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         window.location.reload();
       });
     }
 
+    if (!window.__abltySwMessageBound) {
+      window.__abltySwMessageBound = true;
+      navigator.serviceWorker.addEventListener('message', event => {
+        if (event.data && event.data.type === 'RC_OPEN')     openRCTask();
+        if (event.data && event.data.type === 'WBTB_OPEN')   openWBTBWakeScreen();
+        if (event.data && event.data.type === 'WBTB_RETURN') showWBTBReturnPrompt();
+        if (event.data && event.data.type === 'UPDATE_READY') {
+          // Sent while the new worker is still installing: follow it.
+          checkForWaitingUpdate(reg);
+          checkVersionManifestUpdate();
+        }
+      });
+    }
+
+    // Common case on reopen: the new worker is already waiting or installing.
+    checkForWaitingUpdate(reg);
+
+    // Explicit update check at startup (not awaited: push validation and
+    // the poll set-up below do not depend on it).
+    runUpdateCheck();
+
     // Re-check periodically and when app returns to foreground.
     if (!window.__abltySwPollBound) {
       window.__abltySwPollBound = true;
-      const poll = async () => {
-        try {
-          await reg.update();
-        } catch (e) {}
-        checkForWaitingUpdate();
-        checkVersionManifestUpdate();
-        checkHtmlUpdateFallback();
-      };
+      const poll = () => runUpdateCheck();
       setInterval(poll, 60000);
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') poll();
@@ -18550,23 +18648,16 @@ async function registerSW() {
       window.addEventListener('focus', poll);
     }
 
-    navigator.serviceWorker.addEventListener('message', event => {
-      if (event.data && event.data.type === 'RC_OPEN')     openRCTask();
-      if (event.data && event.data.type === 'WBTB_OPEN')   openWBTBWakeScreen();
-      if (event.data && event.data.type === 'WBTB_RETURN') showWBTBReturnPrompt();
-      if (event.data && event.data.type === 'UPDATE_READY') {
-        checkForWaitingUpdate();
-        checkVersionManifestUpdate();
-      }
-    });
-
     setTimeout(() => validatePushSubscription(reg), 2000);
   } catch(e) {
     console.warn('[ABLTY] SW registration failed:', e);
+    setUpdateCheckState('failed', { reason: 'sw_register_failed' });
+    runUpdateCheck();
   }
 }
 
 function showUpdateBanner() {
+  if (_updateCheck.state !== 'available') setUpdateCheckState('available');
   const existing = document.getElementById('update-banner');
   if (existing) return;
   const banner = document.createElement('div');
