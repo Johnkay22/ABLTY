@@ -10816,36 +10816,66 @@ async function saveNewPassword() {
 // ═══════════════════════════════════════════════════════
 
 // Plain words for what is still waiting, built from the queue itself so the
-// row never promises something a tap cannot deliver. Each sentence says
-// where the result is (on this phone, in the cloud), what is not backed up
-// and what to do next. Items with an `unresolved` reason are out of the
-// retry loop for good, so they are not offered a retry; the rest are. The
-// reason codes themselves (id_collision, content_mismatch) stay in the
-// Sync details report rather than on the row.
+// row never promises something a tap cannot deliver. Every item is sorted
+// on two questions: did the phone keep it (`localSaved !== false`), and can
+// a retry still help (no `unresolved` reason)? Each of the four groups gets
+// one sentence saying where the result is, what is not backed up and what
+// to do next. "Saved on this device" is only ever said about results the
+// phone confirmed it kept; the account conflicts, ids and error codes
+// (id_collision, content_mismatch) stay in the Sync details report.
 function describePendingSync(items) {
-  const list = Array.isArray(items) ? items : [];
+  const list = (Array.isArray(items) ? items : []).filter(Boolean);
   const results = (n) => (n === 1 ? '1 result' : n + ' results');
-  const volatile = list.filter((it) => it && it.localSaved === false).length;
-  const otherAccount = list.filter((it) => it && it.unresolved === 'id_collision').length;
-  const sameAccount = list.filter((it) => it && it.unresolved && it.unresolved !== 'id_collision').length;
-  const stuck = otherAccount + sameAccount;
-  const retryable = list.length - stuck;
-  const volatileRetryable = list.filter((it) => it && it.localSaved === false && !it.unresolved).length;
+  const kept = (it) => it.localSaved !== false;
+  const keptRetryable = list.filter((it) => kept(it) && !it.unresolved).length;
+  const keptStuck = list.filter((it) => kept(it) && it.unresolved).length;
+  const volatileRetryable = list.filter((it) => !kept(it) && !it.unresolved).length;
+  const volatileStuck = list.filter((it) => !kept(it) && it.unresolved).length;
   const parts = [];
-  if (volatile) {
-    parts.push(results(volatile) + ' not saved on this phone or in the cloud. ' + (volatile === 1 ? 'It is' : 'They are') + ' held only until the app closes.' + (volatileRetryable ? ' Tap to retry the cloud save.' : ''));
+  if (volatileRetryable) {
+    parts.push(results(volatileRetryable) + ' not saved on this device or in the cloud. ' + (volatileRetryable === 1 ? 'It is' : 'They are') + ' held only until the app closes. Tap to retry the cloud save.');
   }
-  if (retryable - volatileRetryable) {
-    const n = retryable - volatileRetryable;
-    parts.push(results(n) + ' saved on this phone, not backed up to the cloud yet. Tap to retry.');
+  if (keptRetryable) {
+    parts.push(results(keptRetryable) + ' saved on this device, not backed up to the cloud yet. Tap to retry.');
   }
-  if (otherAccount) {
-    parts.push(results(otherAccount) + ' saved on this phone but not backed up: another account\'s cloud backup already holds ' + (otherAccount === 1 ? 'a result' : 'results') + ' with the same ID. ' + (otherAccount === 1 ? 'It is' : 'They are') + ' safe on this phone. Open Details to copy a report for support.');
+  if (keptStuck) {
+    parts.push(results(keptStuck) + (keptStuck === 1 ? ' hasn\'t' : ' haven\'t') + ' been backed up. ' + (keptStuck === 1 ? 'It\'s' : 'They\'re') + ' saved on this device. Open Details for help.');
   }
-  if (sameAccount) {
-    parts.push(results(sameAccount) + ' saved on this phone but not backed up: this account\'s cloud backup already holds a different result with the same ID. ' + (sameAccount === 1 ? 'It is' : 'They are') + ' safe on this phone. Open Details to copy a report for support.');
+  if (volatileStuck) {
+    parts.push(results(volatileStuck) + (volatileStuck === 1 ? ' hasn\'t' : ' haven\'t') + ' been backed up and ' + (volatileStuck === 1 ? 'isn\'t' : 'aren\'t') + ' saved on this device. ' + (volatileStuck === 1 ? 'It is' : 'They are') + ' held only until the app closes. Open Details for help.');
   }
-  return { text: parts.join(' '), retryable: retryable > 0, volatile: volatile > 0, stuck: stuck > 0 };
+  return {
+    text: parts.join(' '),
+    retryable: keptRetryable + volatileRetryable > 0,
+    volatile: volatileRetryable + volatileStuck > 0,
+    stuck: keptStuck + volatileStuck > 0,
+  };
+}
+
+// The sentence Details opens with: the queue first, and when the queue is
+// empty, the state of the check that recent history is really in the
+// cloud. An empty queue alone is not proof of a backup (the queue write can
+// fail and is lost on reload), so "backed up" is only said when nothing is
+// waiting, nothing is unverified, and no check is pending or failed.
+function describeSyncState(owner = _dataOwner) {
+  if (!isLoggedIn() || !owner || owner === DATA_OWNER_GUEST) {
+    return { text: 'Guest results are kept on this device only. Sign in to back them up to the cloud.', state: 'guest' };
+  }
+  const items = readPendingSync(owner);
+  if (items.length) {
+    const pend = describePendingSync(items);
+    // The row's "Open Details" pointer is redundant inside Details itself.
+    return { text: pend.text.replace(/ Open Details for help\./g, ''), state: 'pending' };
+  }
+  const unverified = unverifiedLocalRows(owner).length;
+  if (unverified) {
+    const n = unverified === 1 ? '1 recent result' : unverified + ' recent results';
+    if (_syncVerifyFailed.has(owner) && !_syncVerifyInFlight.has(owner)) {
+      return { text: 'Could not confirm that ' + n + ' reached the cloud. ' + (unverified === 1 ? 'It is' : 'They are') + ' saved on this device. Tap the Data Sync row to check again when you are online.', state: 'unverified' };
+    }
+    return { text: 'Checking that ' + n + ' reached the cloud. ' + (unverified === 1 ? 'It is' : 'They are') + ' saved on this device.', state: 'checking' };
+  }
+  return { text: 'Everything in your recent history is saved on this device and backed up to the cloud.', state: 'synced' };
 }
 
 // A plain-text report of this account's sync state on this phone, for
@@ -10860,7 +10890,7 @@ function buildSyncDiagnostics(owner = _dataOwner) {
   lines.push('Generated: ' + new Date().toISOString());
   lines.push('Online: ' + ((typeof navigator !== 'undefined' && 'onLine' in navigator) ? (navigator.onLine ? 'yes' : 'no') : 'unknown'));
   const isAccount = !!owner && owner !== DATA_OWNER_GUEST;
-  lines.push('Account: ' + (isAccount ? shortId(owner) : 'guest (results stay on this phone; no cloud backup)'));
+  lines.push('Account: ' + (isAccount ? shortId(owner) : 'guest (results stay on this device; no cloud backup)'));
   if (isAccount) {
     const items = readPendingSync(owner);
     lines.push('Waiting for cloud backup: ' + items.length);
@@ -10878,6 +10908,7 @@ function buildSyncDiagnostics(owner = _dataOwner) {
     });
     lines.push('Confirmed in cloud (remembered ids): ' + readConfirmedSync(owner).size);
     lines.push('Recent results not yet checked against the cloud: ' + unverifiedLocalRows(owner).length);
+    lines.push('Last cloud check: ' + (_syncVerifyInFlight.has(owner) ? 'in progress' : _syncVerifyFailed.has(owner) ? 'failed (could not reach the cloud)' : 'ok'));
   }
   // Device history that explains why another account may hold an id: before
   // per-account storage, every account on a phone shared one history.
@@ -10908,15 +10939,7 @@ function openSyncDetails() {
   const report = document.getElementById('sync-details-report');
   if (!modal || !summary || !report) return;
   const owner = _dataOwner;
-  let text;
-  if (!isLoggedIn() || !owner || owner === DATA_OWNER_GUEST) {
-    text = 'Guest results are kept on this phone only. Sign in to back them up to the cloud.';
-  } else {
-    const pend = describePendingSync(readPendingSync(owner));
-    // The row's "Open Details" pointer is redundant inside Details itself.
-    text = (pend.text || 'Everything in your recent history is saved on this phone and backed up to the cloud.')
-      .replace(/ Open Details to copy a report for support\./g, '');
-  }
+  const { text } = describeSyncState(owner);
   summary.textContent = text + ' The report below lists result IDs, times and status codes only, never your notes, sketches or scores. Copy it and send it to abltyapp@gmail.com if you need help.';
   report.textContent = buildSyncDiagnostics(owner);
   modal.style.display = 'flex';

@@ -33,7 +33,7 @@ const FNS = ['safeParseArray', 'ownedKeyFor', 'ownedKey', 'isLoggedIn', 'isAuthG
   'readPendingSync', 'writePendingSync', 'pendingSyncCount', 'syncSessionToSupabase',
   'readConfirmedSync', 'markConfirmedSync', 'recentLocalHistoryRows', 'unverifiedLocalRows', 'verifyRecentCloudCopies',
   'sameCloudValue', 'cloudRowMatchesSubmission', 'flushPendingSync',
-  'listStorageKeys', 'buildSyncDiagnostics', 'ownersWithLocalData', 'openSyncDetails', 'closeSyncDetails', 'copySyncDiagnostics'];
+  'describeSyncState', 'listStorageKeys', 'buildSyncDiagnostics', 'ownersWithLocalData', 'openSyncDetails', 'closeSyncDetails', 'copySyncDiagnostics'];
 const source = DECLS.join('\n').replace(/^(const|let) /gm, 'var ') + '\n\n' + FNS.map(extractFn).join('\n\n');
 new vm.Script(source);
 
@@ -193,7 +193,7 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     await t.ctx.syncSessionToSupabase('rv_sessions', { id: 1, score: 50 });
     assert.strictEqual(t.queue('A').length, 1);
     assert.strictEqual(t.queue('A')[0].attempts, 1);
-    assert.strictEqual(t.label(), '1 result saved on this phone, not backed up to the cloud yet. Tap to retry.');
+    assert.strictEqual(t.label(), '1 result saved on this device, not backed up to the cloud yet. Tap to retry.');
     assert.ok(t.dot().includes('sync-dot-pending'));
     assert.ok(t.retryable());
   });
@@ -227,7 +227,7 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     t.answers.push({ throws: true }, { throws: true });
     await t.ctx.syncSessionToSupabase('zener_runs', { id: 2 });
     assert.strictEqual(t.queue('A').length, 2);
-    assert.strictEqual(t.label(), '2 results saved on this phone, not backed up to the cloud yet. Tap to retry.');
+    assert.strictEqual(t.label(), '2 results saved on this device, not backed up to the cloud yet. Tap to retry.');
     await t.ctx.flushPendingSync('A');
     assert.deepStrictEqual(t.queue('A'), []);
     assert.strictEqual(t.label(), 'Synced to cloud');
@@ -320,7 +320,7 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     t.answers.push({ throws: true });
     await t.ctx.syncSessionToSupabase('rv_sessions', { id: 1, score: 50 });
     assert.strictEqual(t.log.inserts.length, 1);
-    assert.strictEqual(t.label(), '1 result saved on this phone, not backed up to the cloud yet. Tap to retry.', 'no false success');
+    assert.strictEqual(t.label(), '1 result saved on this device, not backed up to the cloud yet. Tap to retry.', 'no false success');
     assert.ok(t.dot().includes('sync-dot-pending'));
     assert.strictEqual(t.ctx.pendingSyncCount('A'), 1, 'held in memory');
     // Storage recovers and the retry lands.
@@ -420,7 +420,7 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     assert.ok(t.log.toasts[0].msg.includes('held only until the app closes'), t.log.toasts[0].msg);
     assert.strictEqual(t.ctx.pendingSyncCount('A'), 1, 'still held in memory for retry');
     assert.strictEqual(t.ctx.readPendingSync('A')[0].localSaved, false);
-    assert.strictEqual(t.label(), '1 result not saved on this phone or in the cloud. It is held only until the app closes. Tap to retry the cloud save.');
+    assert.strictEqual(t.label(), '1 result not saved on this device or in the cloud. It is held only until the app closes. Tap to retry the cloud save.');
     assert.ok(t.dot().includes('sync-dot-pending'));
     assert.ok(t.retryable());
     assert.strictEqual(t.ls.has('ablty_owned:A:ablty_zener'), false, 'nothing pretended to be on the phone');
@@ -523,7 +523,7 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     assert.strictEqual(q[0].unresolved, 'content_mismatch');
     assert.strictEqual(q[0].lastError, 'content_mismatch');
     assert.strictEqual(t.cloudRows.get('rv_sessions:4002').row.notes, 'tall, white', 'the existing result was not overwritten');
-    assert.strictEqual(t.label(), '1 result saved on this phone but not backed up: this account\'s cloud backup already holds a different result with the same ID. It is safe on this phone. Open Details to copy a report for support.');
+    assert.strictEqual(t.label(), '1 result hasn\'t been backed up. It\'s saved on this device. Open Details for help.');
     assert.ok(!t.label().includes('Tap to retry'));
     assert.ok(!t.label().includes('content_mismatch'), 'the code stays in the report, not on the row');
     assert.ok(!t.retryable(), 'the row is not offered as tappable');
@@ -546,7 +546,8 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     assert.strictEqual(q.length, 1, 'still queued');
     assert.strictEqual(q[0].unresolved, 'id_collision');
     assert.strictEqual(q[0].lastError, 'id_collision');
-    assert.strictEqual(t.label(), '1 result saved on this phone but not backed up: another account\'s cloud backup already holds a result with the same ID. It is safe on this phone. Open Details to copy a report for support.');
+    assert.strictEqual(t.label(), '1 result hasn\'t been backed up. It\'s saved on this device. Open Details for help.');
+    assert.ok(!t.label().includes('account'), 'the account conflict is explained in the report, not on the row');
     assert.ok(!t.label().includes('Tap to retry'));
     assert.ok(!t.label().includes('id_collision'), 'the code stays in the report, not on the row');
     assert.ok(!t.retryable());
@@ -567,7 +568,7 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     await t.ctx.syncSessionToSupabase('rv_sessions', { id: 1, score: 50 });
     t.answers.push({ throws: true });
     await t.ctx.syncSessionToSupabase('zener_runs', { id: 2, hits: 7 });
-    assert.strictEqual(t.label(), '1 result saved on this phone, not backed up to the cloud yet. Tap to retry. 1 result saved on this phone but not backed up: another account\'s cloud backup already holds a result with the same ID. It is safe on this phone. Open Details to copy a report for support.');
+    assert.strictEqual(t.label(), '1 result saved on this device, not backed up to the cloud yet. Tap to retry. 1 result hasn\'t been backed up. It\'s saved on this device. Open Details for help.');
     assert.ok(t.retryable());
     t.ctx.retryPendingSync();
     await t.settle();
@@ -642,7 +643,7 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
   await test('sync report for a guest says results stay on the phone and lists nothing', async () => {
     const t = makeCtx();
     const report = t.ctx.buildSyncDiagnostics(t.ctx.DATA_OWNER_GUEST);
-    assert.ok(report.includes('guest (results stay on this phone; no cloud backup)'), report);
+    assert.ok(report.includes('guest (results stay on this device; no cloud backup)'), report);
     assert.ok(!report.includes('Waiting for cloud backup'));
   });
 
@@ -656,8 +657,9 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     t.ctx.openSyncDetails();
     assert.strictEqual(t.els['sync-details-modal'].style.display, 'flex');
     const summary = t.els['sync-details-summary'].textContent;
-    assert.ok(summary.startsWith('1 result saved on this phone but not backed up: another account'), summary);
+    assert.ok(summary.startsWith('1 result hasn\'t been backed up. It\'s saved on this device.'), summary);
     assert.ok(!summary.includes('Open Details'), 'no pointer to itself');
+    assert.ok(t.els['sync-details-report'].textContent.includes('status=id_collision'), 'the account conflict code is in the report');
     assert.ok(summary.includes('never your notes, sketches or scores'), summary);
     assert.ok(t.els['sync-details-report'].textContent.includes('rv_sessions id=1'));
     await t.ctx.copySyncDiagnostics();
@@ -679,7 +681,99 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     const t = makeCtx();
     t.signIn('A');
     t.ctx.openSyncDetails();
-    assert.ok(t.els['sync-details-summary'].textContent.startsWith('Everything in your recent history is saved on this phone and backed up to the cloud.'));
+    assert.ok(t.els['sync-details-summary'].textContent.startsWith('Everything in your recent history is saved on this device and backed up to the cloud.'));
+  });
+
+  // ── Review regressions: no false backup assurances ──
+
+  await test('REGRESSION: empty queue, unverified history, failed cloud check: Details does not say "backed up"', async () => {
+    const t = makeCtx();
+    t.signIn('A');
+    t.storage.refuse = (k) => k.endsWith(':ablty_sync_pending');
+    t.answers.push({ throws: true });
+    t.ctx.STATE.sessions.unshift(rvSession(6001));
+    t.ctx.saveState();
+    await t.ctx.syncSessionToSupabase('rv_sessions', t.ctx.mapRVSessionRow(t.ctx.STATE.sessions[0]));
+    // Reload offline: the queue is empty (it never reached storage), the
+    // history is not, and the cloud cannot be asked.
+    const r = reload(t, 'A');
+    assert.deepStrictEqual(r.queue('A'), [], 'the queue is empty');
+    r.setExistenceError({ code: 'PGRST000', message: 'offline' });
+    r.ctx.refreshSyncStatus();
+    // While the check is in flight, Details says so.
+    assert.ok(r.ctx._syncVerifyInFlight.has('A'), 'check in flight');
+    r.ctx.openSyncDetails();
+    let summary = r.els['sync-details-summary'].textContent;
+    assert.ok(summary.startsWith('Checking that 1 recent result reached the cloud. It is saved on this device.'), summary);
+    assert.ok(!summary.includes('backed up to the cloud'), summary);
+    await r.settle();
+    // The check failed: the row and Details agree, and neither says backed up.
+    assert.ok(r.label().startsWith('Could not confirm'), r.label());
+    r.ctx.openSyncDetails();
+    summary = r.els['sync-details-summary'].textContent;
+    assert.ok(summary.startsWith('Could not confirm that 1 recent result reached the cloud. It is saved on this device. Tap the Data Sync row to check again'), summary);
+    assert.ok(!summary.includes('backed up to the cloud'), 'an empty queue is not proof of a backup');
+    assert.strictEqual(JSON.parse(JSON.stringify(r.ctx.describeSyncState('A'))).state, 'unverified');
+    const report = r.els['sync-details-report'].textContent;
+    assert.ok(report.includes('Recent results not yet checked against the cloud: 1'), report);
+    assert.ok(report.includes('Last cloud check: failed'), report);
+    // Back online, the tap re-checks and uploads; only then does Details say backed up.
+    r.setExistenceError(null);
+    r.ctx.retryPendingSync();
+    await r.settle();
+    assert.strictEqual(r.label(), 'Synced to cloud');
+    r.ctx.openSyncDetails();
+    assert.ok(r.els['sync-details-summary'].textContent.startsWith('Everything in your recent history is saved on this device and backed up to the cloud.'));
+    assert.ok(r.els['sync-details-report'].textContent.includes('Last cloud check: ok'));
+  });
+
+  await test('REGRESSION: phone refused the save AND the id is held by another account: never "saved on this device"', async () => {
+    const t = makeCtx();
+    t.signIn('A');
+    t.storage.refuse = (k) => k.includes(':ablty_zener') || k.endsWith(':ablty_sync_pending');
+    t.cloud('zener_runs', 7001, 'B', { hits: 5 });
+    t.answers.push({ error: { code: '23505', message: 'duplicate key' } });
+    t.ctx.saveZenerSession({ id: 7001, hits: 9, hitPct: 36, symbolStats: {}, timestamp: '2026-10-04T10:00:00.000Z' });
+    await t.settle();
+    const q = t.ctx.readPendingSync('A');
+    assert.strictEqual(q.length, 1);
+    assert.strictEqual(q[0].localSaved, false);
+    assert.strictEqual(q[0].unresolved, 'id_collision');
+    const label = t.label();
+    assert.strictEqual(label, '1 result hasn\'t been backed up and isn\'t saved on this device. It is held only until the app closes. Open Details for help.');
+    assert.ok(!/(It's|They're|It is|They are) saved on this device/.test(label) && !label.includes('safe'), 'no durable-storage claim: ' + label);
+    assert.ok(!t.retryable(), 'a retry cannot help');
+    t.ctx.openSyncDetails();
+    const summary = t.els['sync-details-summary'].textContent;
+    assert.ok(summary.startsWith('1 result hasn\'t been backed up and isn\'t saved on this device.'), summary);
+    assert.ok(t.els['sync-details-report'].textContent.includes('status=id_collision last_error=id_collision NOT_SAVED_ON_PHONE'));
+    assert.strictEqual(t.cloudRows.get('zener_runs:7001').user_id, 'B', 'B\'s row untouched');
+    // Mixed queue: a kept conflict and a lost conflict are described separately.
+    t.cloud('rv_sessions', 7002, 'B', { score: 50 });
+    t.answers.push({ error: { code: '23505', message: 'duplicate key' } });
+    await t.ctx.syncSessionToSupabase('rv_sessions', { id: 7002, score: 50 });
+    assert.strictEqual(t.label(), '1 result hasn\'t been backed up. It\'s saved on this device. Open Details for help. 1 result hasn\'t been backed up and isn\'t saved on this device. It is held only until the app closes. Open Details for help.');
+  });
+
+  await test('describePendingSync: the four groups never overlap and only kept results are called saved', async () => {
+    const t = makeCtx();
+    const d = (items) => JSON.parse(JSON.stringify(t.ctx.describePendingSync(items)));
+    const all = d([
+      { localSaved: false }, { localSaved: false },
+      {}, {},
+      { unresolved: 'id_collision' }, { unresolved: 'content_mismatch' }, { unresolved: 'id_collision' },
+      { localSaved: false, unresolved: 'id_collision' },
+    ]);
+    assert.strictEqual(all.text,
+      '2 results not saved on this device or in the cloud. They are held only until the app closes. Tap to retry the cloud save. '
+      + '2 results saved on this device, not backed up to the cloud yet. Tap to retry. '
+      + '3 results haven\'t been backed up. They\'re saved on this device. Open Details for help. '
+      + '1 result hasn\'t been backed up and isn\'t saved on this device. It is held only until the app closes. Open Details for help.');
+    assert.deepStrictEqual([all.retryable, all.volatile, all.stuck], [true, true, true]);
+    const lostOnly = d([{ localSaved: false, unresolved: 'id_collision' }]);
+    assert.ok(!/(It's|They're|It is|They are) saved on this device/.test(lostOnly.text), lostOnly.text);
+    assert.deepStrictEqual([lostOnly.retryable, lostOnly.volatile, lostOnly.stuck], [false, true, true]);
+    assert.strictEqual(d([]).text, '');
   });
 
   await test('three results held by another account read as one plain sentence (the case on Johnny\'s phone)', async () => {
@@ -691,8 +785,10 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
       await t.ctx.syncSessionToSupabase('rv_sessions', { id, score: 50 });
     }
     assert.strictEqual(t.queue('A').length, 3);
-    assert.strictEqual(t.label(), '3 results saved on this phone but not backed up: another account\'s cloud backup already holds results with the same ID. They are safe on this phone. Open Details to copy a report for support.');
+    assert.strictEqual(t.label(), '3 results haven\'t been backed up. They\'re saved on this device. Open Details for help.');
     assert.ok(!t.label().includes('save ID is already taken'), 'old wording gone');
+    assert.ok(!t.label().includes('account') && !t.label().includes('ID'), 'conflict detail stays in the report');
+    assert.ok(t.ctx.buildSyncDiagnostics('A').includes('status=id_collision'));
     assert.ok(!t.retryable());
   });
 
