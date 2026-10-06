@@ -41,12 +41,12 @@ A step moves through: **Not started → In progress → PR open (#number) → Me
 | # | Step | Type | Needs Johnny | Status |
 |---|---|---|---|---|
 | 0 | Planning files (this file, work log, Cursor rules) | Docs only | Merge | Merged (PR #133) |
-| 1 | Stop the website publishing internal documents | Site config | Merge | PR open (#135, steps 1 to 5 together) |
-| 2 | Fix the beta install links | App | Merge, YOU TEST | PR open (#135) |
-| 3 | Show user and AI text safely | App | Merge | PR open (#135) |
-| 4 | Keep dream saves in the right account | App | Merge | PR open (#135) |
-| 5 | Honest "saved to cloud" status | App | Merge | PR open (#135) |
-| 6 | Lock Premium so only the server can grant it | Database | Approve migration | Not started |
+| 1 | Stop the website publishing internal documents | Site config | Merge | Merged (PR #135, steps 1 to 5 together, 2026-10-05); live check of `LAUNCH-PLAN.html` still to do |
+| 2 | Fix the beta install links | App | Merge, YOU TEST | Merged (PR #135); phone check still to do |
+| 3 | Show user and AI text safely | App | Merge | Merged (PR #135) |
+| 4 | Keep dream saves in the right account | App | Merge | Merged (PR #135) |
+| 5 | Honest "saved to cloud" status | App | Merge | Merged (PR #135); phone check still to do |
+| 6 | Lock Premium so only the server can grant it | Database | Approve migration | PR open (#136, branch `cursor/step-6-lock-premium-bbab`); Claude applies the migration to production after merge |
 | 7 | Turn off the test-mode upgrade checkout for the beta | App | Merge | Not started |
 | 8 | Beta code gate on the install page, signup with code, automatic expiry and expiry banner | Database + install page + App + Worker | Approve migration, choose codes | Not started |
 | 9 | Grading upgrade: show the AI the target photo, newer model | Worker only | Review grading test results | Not started |
@@ -143,6 +143,7 @@ Each step says what it is in plain English, why it matters, what "done" looks li
 - Keep legitimate paths working: signup (trigger `handle_new_user`), the app's fallback profile creation (it upserts with `tier: 'free'`), Claude's administrative grants through the service role, and the Worker's Stripe updates.
 **Tests:** a disposable PostgreSQL database that exercises the real roles (anon, authenticated, service role): signup, fallback profile creation, attempted privilege changes on insert/upsert/update, delete permissions, and legitimate service-role changes. The repository already has a PostgreSQL test harness (`tests/postgres-username-case-insensitive.sh` and the GitHub workflow `pr127-postgres.yml`) to copy from.
 **Never** edit or reapply migrations that already exist. Never run against production. After Johnny merges, Claude applies the migration to production and verifies it.
+**Built 2026-10-05** (branch `cursor/step-6-lock-premium-bbab`): migration `20261005000001_profiles_lock_entitlements.sql` runs the existing lock on INSERT as well as UPDATE (so upserts are covered), protects `beta_premium_until` automatically once step 8 adds that column, takes away the app's permission to delete or empty profile rows (the app never deletes profiles; the Worker deletes them with the service key, which keeps that permission), and pins the function's `search_path` (clears the Supabase advisor warning). The signup trigger and the app's fallback profile creation keep working because both only write `tier = 'free'`. Test: `tests/postgres-profiles-entitlement-lock.sh` (disposable PostgreSQL with every live profiles migration applied in production order, including the current signup function, the case-insensitive username index and the 30-day rename cooldown; also run on GitHub by `.github/workflows/profiles-entitlement-lock-postgres.yml`). **Rollback** is written in the migration's header comment. The old `trg_profiles_protect_tier` name is kept, so the existing trigger is replaced in place, not duplicated.
 
 ### Step 7: Turn off the test-mode upgrade checkout for the beta
 
