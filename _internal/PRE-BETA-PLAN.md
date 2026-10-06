@@ -45,9 +45,9 @@ A step moves through: **Not started → In progress → PR open (#number) → Me
 | 2 | Fix the beta install links | App | Merge, YOU TEST | Merged (PR #135); phone check still to do |
 | 3 | Show user and AI text safely | App | Merge | Merged (PR #135) |
 | 4 | Keep dream saves in the right account | App | Merge | Merged (PR #135) |
-| 5 | Honest "saved to cloud" status | App | Merge | Merged (PR #135); phone check still to do |
+| 5 | Honest "saved to cloud" status | App | Merge | Merged (PR #135); phone check still to do. Follow-up PR #139 (draft) rewrites the row's wording in plain English and adds a DETAILS report for support |
 | 6 | Lock Premium so only the server can grant it | Database | Approve migration | Verified (PR #136 merged 2026-10-06; migration applied to production as version `20261006015911` and verified read-only the same day) |
-| 7 | Turn off the test-mode upgrade checkout for the beta | App | Merge | PR open (#138, branch `cursor/step-7-beta-upgrade-message-bbab`, version 2026.10.06.1 / `ablty-v83`) |
+| 7 | Turn off the test-mode upgrade checkout for the beta | App | Merge | Merged (PR #138, 2026-10-06, version 2026.10.06.1 / `ablty-v83`); phone check still to do. Settings version display and update-banner fixes needed to verify it are in PR #139 (draft, 2026.10.06.2 / `ablty-v84`) |
 | 8 | Beta code gate on the install page, signup with code, automatic expiry and expiry banner | Database + install page + App + Worker | Approve migration, choose codes | Not started |
 | 9 | Grading upgrade: show the AI the target photo, newer model | Worker only | Review grading test results | Not started |
 | 10 | Activity log (what testers do, never what they write) | Database + App | Approve migration | Not started |
