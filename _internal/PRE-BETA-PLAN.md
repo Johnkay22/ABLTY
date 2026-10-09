@@ -1,5 +1,7 @@
 # ABLTY PRE-BETA PLAN
 
+**Current handoff (2026-10-09):** read [`_internal/AI-HANDOFF.md`](AI-HANDOFF.md) before choosing work. PR #141 remains a draft with two recovery issues found at `773ced0`; sync is parked, not approved for merge. Johnny's next credit priority is Step 9 target-image grading, then Step 8 as budget allows.
+
 **Owner:** Johnny (founder, non-technical). **Written:** 2026-10-03 (Chicago) by Claude, from the October 3 read-only audit of `main` at `8d2efb8` (app version `2026.10.01.1`, cache `ablty-v81`) plus Johnny's decisions in the same conversation. **Revised 2026-10-04** after a second review (account deletion moved before the beta, beta scope and pilot pass criteria added, stronger grading test, dashboard made optional before the beta, Gemini thinking setting corrected). **Revised again 2026-10-04** with the steps 1 to 5 pull request: step 8 rewritten to Johnny's code-first install page flow, Gemini 3.x request changes added to step 9, survey price corrected to $5.99.
 
 **Goal:** get ABLTY safe and useful enough to hand to about 20 private beta testers, who get free Premium for 30 days with no credit card and no Stripe.

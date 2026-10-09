@@ -19,6 +19,15 @@ Keep entries short and in plain English. Say what was actually done, not what wa
 
 ---
 
+## 2026-10-09: Review checkpoint and handoff before target-image grading
+- **Who:** Codex reviewer
+- **Branch / PR:** `docs/beta-priority-budget-20261009`, existing draft PR #140; documentation only.
+- **What changed:** Added `_internal/AI-HANDOFF.md` and prominent pointers. Reviewed #141 at `773ced0`; the original regression cases pass, but two further cases remain: destination data only in memory can bypass persistence verification, and refused queue cleanup disappears from the active retry list until reload. These are recorded for later repair; #141 is not approved for merge. Sync work is parked so Johnny can prioritize Step 9 with expiring Cursor credits.
+- **Tests:** Independently passed: sync 45, update detection 11, syntax 2 blocks; exact-head GitHub integration run 37908404333 succeeded. Two additional synthetic experiments reproduced the open cases. No phone or production test performed. Documentation diff checked; no app code changed by this handoff.
+- **Production:** nothing changed; no merge or deployment.
+- **Johnny needs to:** keep #141 draft until repaired and reviewed. Give the next agent the handoff link. Phone checks remain pending after an eventual approved deployment.
+- **Next:** Step 9 target-image grading on a separate branch; Step 8 afterwards as budget allows. Existing Premium accounts stay unchanged.
+
 ## 2026-10-09: Record budget priorities and the running sync follow-up
 - **Who:** Codex, at Johnny's request
 - **Branch / PR:** `docs/beta-priority-budget-20261009`, docs-only draft PR

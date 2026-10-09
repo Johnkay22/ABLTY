@@ -1,5 +1,7 @@
 # ABLTY LAUNCH PLAN
 
+**Current handoff (2026-10-09):** read [`_internal/AI-HANDOFF.md`](_internal/AI-HANDOFF.md) before choosing work. PR #141 remains a draft with two recovery issues found at `773ced0`; sync is parked, not approved for merge. Johnny's next credit priority is Step 9 target-image grading, then Step 8 as budget allows.
+
 **This is the one true pre-launch document. Every other status, handoff, audit, or checklist doc is dead. If another doc disagrees with this one, this one wins.**
 
 **Exception, added 2026-10-03:** the private beta has its own step-by-step plan in `_internal/PRE-BETA-PLAN.md`, with a Status board and a work log in `_internal/WORK-LOG.md`. For pre-beta work, follow that plan and record progress there as well as here.
