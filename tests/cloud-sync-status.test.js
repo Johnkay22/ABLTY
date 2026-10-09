@@ -1155,6 +1155,83 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     assert.strictEqual(JSON.parse(r2.ls.get('ablty_owned:B:ablty_zener')).filter((r) => r.id === s2[0].id).length, 1, 'one copy after reload');
   });
 
+  // ── Review of 773ced0: two more ways the move could lose a result ──
+
+  await test('REGRESSION: destination holds the identical entry only in memory (its save was refused): nothing is removed until it is stored', async () => {
+    const t = makeCtx();
+    const old = olderRv(1600000000000);
+    parkRv(t, 'A', old);
+    t.cloud('rv_sessions', old.id, 'B', t.ctx.mapRVSessionRow(old));
+    t.signIn('B');
+    t.ctx.loadState();
+    // B produced the same session earlier in this app session, but the phone refused to keep it.
+    t.storage.refuse = (k) => k === 'ablty_owned:B:ablty_sessions';
+    t.ctx.STATE.sessions.unshift(JSON.parse(JSON.stringify(old)));
+    assert.strictEqual(t.ctx.saveState(), false);
+    assert.strictEqual(t.ls.has('ablty_owned:B:ablty_sessions'), false);
+    const plan = t.ctx.planLocalMove('A', 'B', 'rv_sessions', old.id);
+    assert.strictEqual(plan.write, false, 'the plan sees nothing to change in the destination');
+    const before = { a: t.ls.get('ablty_owned:A:ablty_sessions'), q: t.ls.get('ablty_owned:A:ablty_sync_pending') };
+    assert.strictEqual(t.ctx.moveLocalResult('A', 'B', 'rv_sessions', old.id), 'refused');
+    assert.strictEqual(t.ls.get('ablty_owned:A:ablty_sessions'), before.a, 'source kept');
+    assert.strictEqual(t.ls.get('ablty_owned:A:ablty_sync_pending'), before.q, 'queue kept');
+    assert.ok(!t.confirmed('B').includes('rv_sessions:' + old.id));
+    assert.strictEqual(t.ctx.STATE.sessions.length, 1, 'memory copy still there');
+    await t.ctx.confirmForeignResultRecovery();
+    assert.ok(t.log.toasts.some((x) => x.type === 'warn' && x.msg.startsWith('Could not store 1 result on this device (storage full or blocked). Nothing was moved or removed.')), JSON.stringify(t.log.toasts));
+    assert.strictEqual(t.ls.get('ablty_owned:A:ablty_sessions'), before.a);
+    // A reload as either account still finds the result somewhere durable.
+    assert.deepStrictEqual(JSON.parse(reload(t, 'A').ls.get('ablty_owned:A:ablty_sessions')), [old]);
+    assert.strictEqual(reload(t, 'B').ctx.STATE.sessions.length, 0, 'B never had it stored');
+    // Storage back, same session: the move stores it, reads it back, then clears the source.
+    t.storage.refuse = () => false;
+    assert.strictEqual(t.ctx.moveLocalResult('A', 'B', 'rv_sessions', old.id), 'moved');
+    const r = reload(t, 'B');
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(r.ctx.STATE.sessions)), [old], 'complete entry, sketch and local-only fields included, after a reload');
+    assert.deepStrictEqual(JSON.parse(r.ls.get('ablty_owned:A:ablty_sessions')), []);
+    assert.deepStrictEqual(r.queue('A'), []);
+    assert.ok(r.confirmed('B').includes('rv_sessions:' + old.id));
+  });
+
+  await test('REGRESSION: a failed queue cleanup keeps the unfinished item in the live queue, so Details can retry in the same session', async () => {
+    const t = makeCtx();
+    const { stuck } = twoAccountPhone(t, 'A');
+    // Two parked items only.
+    t.ls.set('ablty_owned:A:ablty_sync_pending', JSON.stringify(stuck.slice(0, 2).map((r) => parkedCollision(t.ctx, r))));
+    stuck.forEach((r) => t.cloud('zener_runs', r.id, 'B', t.ctx.mapZenerRunRow(r)));
+    t.signIn('B');
+    t.storage.refuse = (k) => k === 'ablty_owned:A:ablty_sync_pending';
+    assert.strictEqual(t.ctx.moveLocalResult('A', 'B', 'zener_runs', stuck[0].id), 'partial');
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(t.ctx.readPendingSync('A').map((it) => it.row.id))), [stuck[0].id, stuck[1].id], 'the live queue still lists both');
+    assert.deepStrictEqual(t.queue('A').map((it) => it.row.id), [stuck[0].id, stuck[1].id], 'as does storage');
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(t.ctx.foreignCollisionItems('B').map((c) => c.item.row.id))), [stuck[0].id, stuck[1].id]);
+    let found = await t.ctx.findRecoverableResults('B');
+    assert.strictEqual(found.matches.length, 2, 'the recovery offer still covers the unfinished one');
+    t.ctx.openSyncDetails();
+    await t.settle();
+    assert.strictEqual(t.els['sync-recover-btn'].textContent, 'Move 2 results to this account');
+    // Still refused: the whole attempt is partial, nothing vanishes from the live queue.
+    await t.ctx.confirmForeignResultRecovery();
+    assert.ok(t.log.toasts.some((x) => x.type === 'warn' && x.msg.startsWith('2 results copied to this account, but the copy under the other account could not be removed yet.')), JSON.stringify(t.log.toasts));
+    assert.strictEqual(t.ctx.readPendingSync('A').length, 2);
+    assert.strictEqual(JSON.parse(t.ls.get('ablty_owned:A:ablty_zener')).length, 3, 'source copies already gone, only the queue is left to clear');
+    const bBefore = t.ls.get('ablty_owned:B:ablty_zener');
+    assert.strictEqual(JSON.parse(bBefore).length, 2, 'destination holds both');
+    // Storage back, same session, reopening Details finishes it.
+    t.storage.refuse = () => false;
+    found = await t.ctx.findRecoverableResults('B');
+    assert.strictEqual(found.matches.length, 2);
+    await t.ctx.confirmForeignResultRecovery();
+    assert.ok(t.log.toasts.some((x) => x.type === 'success' && x.msg.startsWith('2 results moved')), JSON.stringify(t.log.toasts));
+    assert.strictEqual(t.ctx.readPendingSync('A').length, 0);
+    assert.deepStrictEqual(t.queue('A'), []);
+    assert.strictEqual(t.ls.get('ablty_owned:B:ablty_zener'), bBefore);
+    const r = reload(t, 'A');
+    assert.deepStrictEqual(r.queue('A'), []);
+    assert.deepStrictEqual(JSON.parse(r.ls.get('ablty_owned:B:ablty_zener')).map((x) => x.id).sort(), [stuck[0].id, stuck[1].id].sort());
+    assert.strictEqual(r.ctx.foreignCollisionItems('B').length, 0);
+  });
+
   // ── Get help ──
 
   await test('Get help: opens a mailto to support with the report in the body, sends nothing itself, keeps long reports within limits', async () => {
