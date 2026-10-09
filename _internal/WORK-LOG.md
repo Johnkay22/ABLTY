@@ -19,6 +19,33 @@ Keep entries short and in plain English. Say what was actually done, not what wa
 
 ---
 
+## 2026-10-09: Final follow-up review of PR #141
+- **Who:** Codex reviewer
+- **Branch / PR:** documentation update in existing draft PR #140; reviewed application head `a38ccc1ac760297e7798c7c2db4102462df7e904` on draft #141, version `2026.10.09.3` / `ablty-v87`.
+- **What changed:** Updated the handoff and its pointers after reviewing both final corrections. Complete destination persistence is checked even for an existing in-memory entry; failed queue cleanup keeps the unfinished item in the live retry list. No remaining blocker identified in this review. This supersedes the earlier recommendation to park sync: Johnny chose to finish #141 before Step 9.
+- **Tests:** Independently passed: sync 47, update detection 11, syntax 2 blocks, whitespace check. Exact-head GitHub integration run 37911993479 succeeded. Cursor reports the other suites passing; they were not all repeated locally in this final review.
+- **Production:** nothing changed. No merge or deployment.
+- **Johnny needs to:** merge #141 if accepting the review; after Pages builds, run the phone checklist in the handoff. Phone recovery remains unverified.
+- **Next:** Step 9 target-image grading on a separate branch using current main. Step 8 remains unstarted; existing Premium accounts remain unchanged.
+
+## 2026-10-09: Review checkpoint and handoff before target-image grading
+- **Who:** Codex reviewer
+- **Branch / PR:** `docs/beta-priority-budget-20261009`, existing draft PR #140; documentation only.
+- **What changed:** Added `_internal/AI-HANDOFF.md` and prominent pointers. Reviewed #141 at `773ced0`; the original regression cases pass, but two further cases remain: destination data only in memory can bypass persistence verification, and refused queue cleanup disappears from the active retry list until reload. These are recorded for later repair; #141 is not approved for merge. Sync work is parked so Johnny can prioritize Step 9 with expiring Cursor credits.
+- **Tests:** Independently passed: sync 45, update detection 11, syntax 2 blocks; exact-head GitHub integration run 37908404333 succeeded. Two additional synthetic experiments reproduced the open cases. No phone or production test performed. Documentation diff checked; no app code changed by this handoff.
+- **Production:** nothing changed; no merge or deployment.
+- **Johnny needs to:** keep #141 draft until repaired and reviewed. Give the next agent the handoff link. Phone checks remain pending after an eventual approved deployment.
+- **Next:** Step 9 target-image grading on a separate branch; Step 8 afterwards as budget allows. Existing Premium accounts stay unchanged.
+
+## 2026-10-09: Record budget priorities and the running sync follow-up
+- **Who:** Codex, at Johnny's request
+- **Branch / PR:** `docs/beta-priority-budget-20261009`, docs-only draft PR
+- **What changed:** Recorded that the sync follow-up is already running and should finish. Next priorities are Step 9 target-photo grading, then Step 8 beta access as budget allows. Preserved unresolved sync findings and recovery requirements. Existing Premium remains unchanged; no beta release gate was waived.
+- **Tests:** documentation diff and whitespace checked; app tests not run because no app code changed.
+- **Production:** nothing changed. Earlier read-only ownership checks informed the note; no account identifiers or result contents were added to the repo.
+- **Johnny needs to:** review this documentation PR and send the priority instruction to Cursor after its current task finishes.
+- **Next:** review the running sync fix, then Step 9. Save reviewable checkpoints and an honest handoff if the budget runs out.
+
 ## 2026-10-06: Settings version display, update-banner race, plain-English sync status (between steps 7 and 8)
 - **Who:** Cursor (cloud agent)
 - **Branch / PR:** `cursor/settings-version-update-sync-fixes-bbab`, draft PR #139 (version `2026.10.06.2` / `ablty-v84`). Step 7 (PR #138) merged 2026-10-06 at `c8f2090`. Step 8 has not started.

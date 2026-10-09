@@ -1,8 +1,12 @@
 # ABLTY LAUNCH PLAN
 
+**Current handoff (2026-10-09):** read [`_internal/AI-HANDOFF.md`](_internal/AI-HANDOFF.md) before choosing work. PR #141 at `a38ccc1` passes code review and is recommended for Johnny to merge; deployment and phone recovery remain unverified. Johnny's next credit priority is Step 9 target-image grading, then Step 8 as budget allows.
+
 **This is the one true pre-launch document. Every other status, handoff, audit, or checklist doc is dead. If another doc disagrees with this one, this one wins.**
 
 **Exception, added 2026-10-03:** the private beta has its own step-by-step plan in `_internal/PRE-BETA-PLAN.md`, with a Status board and a work log in `_internal/WORK-LOG.md`. For pre-beta work, follow that plan and record progress there as well as here.
+
+**2026-10-09 development priority:** let the already-running Cursor sync follow-up finish, then prioritize Step 9 (target-photo input for grading), followed by Step 8 (beta-code access and expiry) as budget allows. Step 8 is the more complex cross-system task; Step 9 is a bounded change to the core grading experience. See the dated priority note in `_internal/PRE-BETA-PLAN.md`. Sync correctness and account isolation still need assessment before the external pilot. Existing Premium accounts remain unchanged. PR #139 is merged at `f25232b`; a supplied phone report confirms version 2026.10.06.2, but not update-banner behavior or complete cloud backup.
 
 **Created:** 2026-08-23, from a live audit of the repo, the deployed Worker, and the Supabase database.
 **Rewritten:** 2026-09-03, after a second live audit of `main` (`54ec92f`) plus Johnny's product decisions. The 2026-08-23 claims that were wrong are corrected here, not left as history.
