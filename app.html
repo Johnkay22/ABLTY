@@ -10862,12 +10862,18 @@ function describeSyncState(owner = _dataOwner) {
     return { text: 'Guest results are kept on this device only. Sign in to back them up to the cloud.', state: 'guest' };
   }
   const items = readPendingSync(owner);
+  const unverified = unverifiedLocalRows(owner).length;
   if (items.length) {
     const pend = describePendingSync(items);
     // The row's "Open Details" pointer is redundant inside Details itself.
-    return { text: pend.text.replace(/ Open Details for help\./g, ''), state: 'pending' };
+    let text = pend.text.replace(/ Open Details for help\./g, '');
+    if (items.some((it) => it && it.unresolved === 'id_collision')) {
+      text += ' The cloud already holds results with these IDs under a different account. If that account is also yours, sign in to it on this device and open Sync Details there to move them.';
+    }
+    const note = unverifiedNote(owner, unverified).text.replace(' Tap to check again.', ' Tap the Data Sync row to check again.');
+    if (note) text += ' ' + note;
+    return { text, state: 'pending' };
   }
-  const unverified = unverifiedLocalRows(owner).length;
   if (unverified) {
     const n = unverified === 1 ? '1 recent result' : unverified + ' recent results';
     if (_syncVerifyFailed.has(owner) && !_syncVerifyInFlight.has(owner)) {
@@ -10908,7 +10914,7 @@ function buildSyncDiagnostics(owner = _dataOwner) {
     });
     lines.push('Confirmed in cloud (remembered ids): ' + readConfirmedSync(owner).size);
     lines.push('Recent results not yet checked against the cloud: ' + unverifiedLocalRows(owner).length);
-    lines.push('Last cloud check: ' + (_syncVerifyInFlight.has(owner) ? 'in progress' : _syncVerifyFailed.has(owner) ? 'failed (could not reach the cloud)' : 'ok'));
+    lines.push('Last cloud check: ' + describeLastCloudCheck(owner));
   }
   // Device history that explains why another account may hold an id: before
   // per-account storage, every account on a phone shared one history.
@@ -10940,15 +10946,225 @@ function openSyncDetails() {
   if (!modal || !summary || !report) return;
   const owner = _dataOwner;
   const { text } = describeSyncState(owner);
-  summary.textContent = text + ' The report below lists result IDs, times and status codes only, never your notes, sketches or scores. Copy it and send it to abltyapp@gmail.com if you need help.';
+  summary.textContent = text + ' The report below lists result IDs, times and status codes only, never your notes, sketches or scores. Get help opens an email to abltyapp@gmail.com with it filled in; Copy report copies it instead.';
   report.textContent = buildSyncDiagnostics(owner);
+  const recoverWrap = document.getElementById('sync-recover-wrap');
+  if (recoverWrap) recoverWrap.style.display = 'none';
   modal.style.display = 'flex';
+  offerForeignResultRecovery(owner);
+}
+
+// What the last check of recent history against the cloud did, in words
+// that tell "checked and fine" apart from "never checked".
+function describeLastCloudCheck(owner = _dataOwner) {
+  if (_syncVerifyInFlight.has(owner)) return 'in progress';
+  const last = _syncVerifyLast.get(owner);
+  if (!last) return 'not run yet in this app session';
+  if (last.result === 'failed') return 'failed at ' + last.at + ' (could not reach the cloud)';
+  if (last.result === 'skipped') return 'skipped at ' + last.at + ' (the signed-in session was not this account\'s)';
+  return 'ok at ' + last.at + ' (checked ' + last.checked + ', found in cloud ' + last.found + ', re-queued ' + last.missing + ')';
+}
+
+// Opens the mail app with the report already in the body. Nothing is sent
+// until the user presses Send there. Some mail apps cut long mailto links
+// short, so the body is kept under a safe length; Copy report has the whole
+// text.
+const SYNC_HELP_MAILTO_MAX = 1900;
+function buildSyncHelpMailto(report) {
+  const subject = 'ABLTY sync help (' + APP_VERSION + ')';
+  const intro = 'Hi,\n\nI need help with results that have not backed up.\n\n[Add anything you noticed here]\n\n--- Sync report (IDs, times and status codes only; no notes, sketches or scores) ---\n';
+  const cut = '\n[Report cut short to fit. Use Copy report in the app for the full text.]';
+  let body = intro + report;
+  let url = 'mailto:abltyapp@gmail.com?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+  let keep = report.length;
+  while (url.length > SYNC_HELP_MAILTO_MAX && keep > 0) {
+    keep = Math.max(0, keep - Math.ceil(keep * 0.1));
+    body = intro + report.slice(0, keep) + cut;
+    url = 'mailto:abltyapp@gmail.com?subject=' + encodeURIComponent(subject) + '&body=' + encodeURIComponent(body);
+  }
+  return url;
+}
+
+function openSyncHelpEmail() {
+  const reportEl = document.getElementById('sync-details-report');
+  const report = (reportEl && reportEl.textContent) || buildSyncDiagnostics();
+  window.location.href = buildSyncHelpMailto(report);
+  showToast('Your mail app should open with the report filled in. Press Send there.', 'info', 4500);
+}
+
+// ── Recovery: results parked under another account on this device ──
+// Before per-account storage, every account on a phone shared one history,
+// so one account's results can sit in another account's local copy. When
+// such a result is uploaded it is refused: the cloud already holds that id
+// under its real owner. The real owner can take it back here, but only
+// after the cloud, asked with that owner's own session, confirms the row is
+// theirs and holds exactly the same contents. The cloud is never written.
+
+// Which local history keys hold rows of each table (history first).
+const HISTORY_KEYS_BY_TABLE = {
+  rv_sessions: ['ablty_sessions', 'ablty_rv_cloud_cache'],
+  zener_runs: ['ablty_zener', 'ablty_zener_cloud_cache'],
+  ts_trials: ['ablty_timestamp_all', 'ablty_timestamp', 'ablty_ts_cloud_cache'],
+};
+
+// Queue items parked as id collisions under every other account on this
+// device. Ids and rows only, read for the one purpose of asking the cloud
+// whether they are `owner`'s; nothing is shown or moved until it says so.
+function foreignCollisionItems(owner) {
+  const out = [];
+  ownersWithLocalData().forEach((other) => {
+    if (other === owner || other === DATA_OWNER_GUEST) return;
+    readPendingSync(other).forEach((it) => {
+      if (it && it.unresolved === 'id_collision' && it.table && it.row) out.push({ fromOwner: other, item: it });
+    });
+  });
+  return out;
+}
+
+// Asks the cloud, with `owner`'s own session, which parked results are
+// theirs: the row with that id must belong to `owner` and match the
+// submitted contents field for field. Read-only.
+async function findRecoverableResults(owner = _dataOwner) {
+  const result = { matches: [], mismatches: 0, notMine: 0, errors: 0 };
+  if (!sb || !owner || owner === DATA_OWNER_GUEST) return result;
+  const candidates = foreignCollisionItems(owner);
+  if (!candidates.length) return result;
+  const gen = _authGen;
+  let session = null;
+  try { session = (await sb.auth.getSession())?.data?.session || null; } catch (e) {}
+  if (!isAuthGenCurrent(gen) || !session?.user?.id || String(session.user.id) !== owner) { result.errors = candidates.length; return result; }
+  for (const c of candidates) {
+    const verdict = await cloudRowMatchesSubmission(c.item.table, c.item.row, owner);
+    if (!isAuthGenCurrent(gen)) { result.errors += 1; continue; }
+    if (verdict === 'match') result.matches.push(c);
+    else if (verdict === 'mismatch') result.mismatches += 1;
+    else if (verdict === 'other_owner') result.notMine += 1;
+    else result.errors += 1;
+  }
+  return result;
+}
+
+// Moves one confirmed result from `fromOwner`'s copy on this device to
+// `owner`'s: written to the destination first, then taken out of the source
+// history, caches and queue, so a failed write loses nothing. If the
+// destination already has the id, its entry is kept and only empty fields
+// are filled from the moved one. Returns false if the destination write
+// was refused (the source is then left untouched).
+function moveLocalResult(fromOwner, owner, table, id) {
+  const keys = HISTORY_KEYS_BY_TABLE[table];
+  if (!keys || !fromOwner || !owner || fromOwner === owner) return false;
+  const sid = String(id);
+  const same = (r) => r && String(r.id) === sid;
+  let moved = null;
+  keys.forEach((k) => {
+    if (moved) return;
+    moved = safeParseArray(store.get(ownedKeyFor(fromOwner, k))).find(same) || null;
+  });
+  if (moved) {
+    const byTime = (a, b) => (Date.parse(b?.timestamp || '') || 0) - (Date.parse(a?.timestamp || '') || 0);
+    const fill = (dest) => {
+      const existing = dest.find(same);
+      if (existing) {
+        Object.keys(moved).forEach((k) => {
+          if (existing[k] === undefined || existing[k] === null || existing[k] === '') existing[k] = moved[k];
+        });
+      } else {
+        dest.push(moved);
+        dest.sort(byTime);
+      }
+      return dest;
+    };
+    if (table === 'rv_sessions' && owner === _dataOwner && Array.isArray(STATE.sessions)) {
+      // The owner on screen keeps RV history in memory; saveState writes it.
+      STATE.sessions = fill(STATE.sessions);
+      if (saveState() === false) return false;
+    } else {
+      const destKey = ownedKeyFor(owner, keys[0]);
+      const json = JSON.stringify(fill(safeParseArray(store.get(destKey))));
+      store.set(destKey, json);
+      if (store.get(destKey) !== json) return false;
+      if (table === 'ts_trials' && !moved.miss) {
+        const hitsKey = ownedKeyFor(owner, 'ablty_timestamp');
+        store.set(hitsKey, JSON.stringify(fill(safeParseArray(store.get(hitsKey)))));
+      }
+    }
+  }
+  keys.forEach((k) => {
+    const key = ownedKeyFor(fromOwner, k);
+    const arr = safeParseArray(store.get(key));
+    if (arr.some(same)) store.set(key, JSON.stringify(arr.filter((r) => !same(r))));
+  });
+  writePendingSync(fromOwner, readPendingSync(fromOwner).filter((it) => it.key !== table + ':' + sid));
+  markConfirmedSync(owner, table, id);
+  return true;
+}
+
+// Looks for parked results this account can take back and, if there are
+// any, offers the move in the Details modal. Runs after the modal opens.
+async function offerForeignResultRecovery(owner = _dataOwner) {
+  const wrap = document.getElementById('sync-recover-wrap');
+  const textEl = document.getElementById('sync-recover-text');
+  const btn = document.getElementById('sync-recover-btn');
+  if (!wrap || !textEl || !btn) return;
+  if (!isLoggedIn() || !owner || owner === DATA_OWNER_GUEST || !foreignCollisionItems(owner).length) return;
+  const gen = _authGen;
+  const found = await findRecoverableResults(owner);
+  const modal = document.getElementById('sync-details-modal');
+  if (!isAuthGenCurrent(gen) || owner !== _dataOwner || !modal || modal.style.display === 'none') return;
+  const n = found.matches.length;
+  const results = (k) => (k === 1 ? '1 result' : k + ' results');
+  const parts = [];
+  if (n) {
+    parts.push(results(n) + ' waiting under another account on this device ' + (n === 1 ? 'is' : 'are') + ' already in this account\'s cloud backup with the same contents. Moving ' + (n === 1 ? 'it' : 'them') + ' here keeps ' + (n === 1 ? 'it' : 'them') + ' in this account only on this device and changes nothing in the cloud.');
+  }
+  if (found.mismatches) parts.push(results(found.mismatches) + ' under another account ' + (found.mismatches === 1 ? 'has' : 'have') + ' the same ID as one of yours but different contents, so ' + (found.mismatches === 1 ? 'it was' : 'they were') + ' left alone.');
+  if (found.errors) parts.push('Could not check ' + results(found.errors) + ' right now.');
+  if (!parts.length) return;
+  textEl.textContent = parts.join(' ');
+  btn.textContent = n ? 'Move ' + results(n) + ' to this account' : '';
+  btn.style.display = n ? '' : 'none';
+  btn.disabled = false;
+  wrap.style.display = 'block';
+}
+
+async function confirmForeignResultRecovery() {
+  const owner = _dataOwner;
+  const btn = document.getElementById('sync-recover-btn');
+  if (!isLoggedIn() || !owner || owner === DATA_OWNER_GUEST) return;
+  if (btn) btn.disabled = true;
+  const gen = _authGen;
+  // Checked again right now, with this account's session, so nothing is
+  // moved on the strength of an earlier answer.
+  const found = await findRecoverableResults(owner);
+  if (!isAuthGenCurrent(gen) || owner !== _dataOwner) return;
+  let moved = 0;
+  let refused = 0;
+  found.matches.forEach((c) => {
+    if (moveLocalResult(c.fromOwner, owner, c.item.table, c.item.row.id)) moved += 1;
+    else refused += 1;
+  });
+  if (moved) {
+    const results = (k) => (k === 1 ? '1 result' : k + ' results');
+    showToast(results(moved) + ' moved to this account on this device. Nothing was changed in the cloud.', 'success', 4500);
+  }
+  if (refused) showToast('Could not store ' + refused + ' of them on this device (storage full?). Nothing was removed.', 'warn', 4500);
+  refreshSyncStatus(owner);
+  if (typeof renderAnalytics === 'function' && currentScreen === 'analytics') renderAnalytics();
+  const report = document.getElementById('sync-details-report');
+  if (report) report.textContent = buildSyncDiagnostics(owner);
+  const summary = document.getElementById('sync-details-summary');
+  if (summary) summary.textContent = describeSyncState(owner).text + ' The report below lists result IDs, times and status codes only, never your notes, sketches or scores. Get help opens an email to abltyapp@gmail.com with it filled in; Copy report copies it instead.';
+  const wrap = document.getElementById('sync-recover-wrap');
+  if (wrap) wrap.style.display = 'none';
+  offerForeignResultRecovery(owner);
 }
 
 function closeSyncDetails(e) {
   const modal = document.getElementById('sync-details-modal');
   if (!modal) return;
-  if (e && e.target !== modal && !e.target.classList.contains('modal-close-btn')) return;
+  // Only a tap on the dark backdrop closes it from the overlay handler; the
+  // buttons inside (Get help, Copy report, Move) keep it open.
+  if (e && e.target !== modal) return;
   modal.style.display = 'none';
 }
 
@@ -10964,20 +11180,23 @@ async function copySyncDiagnostics() {
   }
 }
 
-function updateSyncStatus(status, detail = 0) {
+function updateSyncStatus(status, detail = 0, note = null) {
   // status: 'local' | 'syncing' | 'synced' | 'pending' | 'checking' | 'unverified'
   const dot   = document.getElementById('sync-dot');
   const label = document.getElementById('sync-status-label');
   if (!dot || !label) return;
 
   // `detail` is the queue (preferred) or, for older callers, a plain count.
+  // `note` (pending only) adds a sentence about recent results whose cloud
+  // copy is not yet known.
   const items = Array.isArray(detail) ? detail : new Array(Number(detail) || 0).fill({});
   const pend = describePendingSync(items);
+  const noteText = note && note.text ? ' ' + note.text : '';
   const states = {
     local:      { cls: 'sync-dot-local',   text: 'Local only', retry: false },
     syncing:    { cls: 'sync-dot-syncing', text: 'Syncing...', retry: false },
     synced:     { cls: 'sync-dot-synced',  text: 'Synced to cloud', retry: false },
-    pending:    { cls: 'sync-dot-pending', text: pend.text || 'Not saved to cloud yet. Tap to retry.', retry: pend.retryable },
+    pending:    { cls: 'sync-dot-pending', text: (pend.text || 'Not saved to cloud yet. Tap to retry.') + noteText, retry: pend.retryable || !!(note && note.retry) },
     checking:   { cls: 'sync-dot-syncing', text: 'Checking that your latest results reached the cloud...', retry: false },
     unverified: { cls: 'sync-dot-pending', text: 'Could not confirm that your latest results reached the cloud. Tap to check again.', retry: true },
   };
@@ -10996,20 +11215,36 @@ function updateSyncStatus(status, detail = 0) {
 function refreshSyncStatus(owner = _dataOwner) {
   if (owner !== _dataOwner || !isLoggedIn()) return;
   const items = readPendingSync(owner);
-  if (items.length) { updateSyncStatus('pending', items); return; }
   const unverified = unverifiedLocalRows(owner);
+  const checkFailed = _syncVerifyFailed.has(owner) && !_syncVerifyInFlight.has(owner);
+  // Results parked in the queue for good (an id another account holds) must
+  // not stop the rest of recent history from being checked against the
+  // cloud: the check skips queued keys, so it only ever asks about the rest.
+  if (unverified.length && !checkFailed) verifyRecentCloudCopies(owner);
+  if (items.length) { updateSyncStatus('pending', items, unverifiedNote(owner, unverified.length)); return; }
   if (!unverified.length) { updateSyncStatus('synced'); return; }
-  if (_syncVerifyFailed.has(owner) && !_syncVerifyInFlight.has(owner)) { updateSyncStatus('unverified'); return; }
-  updateSyncStatus('checking');
-  verifyRecentCloudCopies(owner);
+  updateSyncStatus(checkFailed ? 'unverified' : 'checking');
+}
+
+// One sentence about recent results whose cloud copy is not yet known, for
+// when something else is also waiting in the queue.
+function unverifiedNote(owner, count) {
+  if (!count) return { text: '', retry: false };
+  const n = count === 1 ? '1 recent result' : count + ' recent results';
+  if (_syncVerifyFailed.has(owner) && !_syncVerifyInFlight.has(owner)) {
+    return { text: 'Could not confirm that ' + n + ' reached the cloud. Tap to check again.', retry: true };
+  }
+  return { text: 'Checking that ' + n + ' reached the cloud.', retry: false };
 }
 
 function retryPendingSync() {
   if (!isLoggedIn()) return;
   const owner = _dataOwner;
+  // A failed check is worth asking again on a tap. With something queued,
+  // the flush runs first and its final status refresh starts the check.
+  _syncVerifyFailed.delete(owner);
   if (pendingSyncCount(owner)) { flushPendingSync(owner, { resetAttempts: true }); return; }
   if (unverifiedLocalRows(owner).length) {
-    _syncVerifyFailed.delete(owner);
     updateSyncStatus('checking');
     verifyRecentCloudCopies(owner);
   }
@@ -16797,6 +17032,11 @@ const _syncVerifyInFlight = new Map();
 // Owners whose last verification query failed (offline): shown as unverified
 // until the next check, never as synced.
 const _syncVerifyFailed = new Set();
+// What the last verification actually did, per owner: `{ at, result, checked,
+// found, missing }` with result 'ok' | 'failed' | 'skipped'. Absent until a
+// check has run in this app session, so the report can tell "checked and
+// fine" apart from "never checked".
+const _syncVerifyLast = new Map();
 
 function readPendingSync(owner) {
   if (_syncMemoryQueue.has(owner)) return _syncMemoryQueue.get(owner).slice();
@@ -16913,13 +17153,20 @@ async function verifyRecentCloudCopies(owner = _dataOwner) {
     await null;
     const gen = _authGen;
     let failed = false;
+    // `skipped`: the session on this page was not this owner's, so nothing
+    // was asked. Recorded as such, and the status is left alone (the next
+    // sign-in or foreground return asks again) rather than re-entering here.
+    let skipped = false;
+    let ran = false;
+    const stats = { checked: 0, found: 0, missing: 0 };
     try {
       const unverified = unverifiedLocalRows(owner);
       if (!unverified.length) return;
       let session = null;
       try { session = (await sb.auth.getSession())?.data?.session || null; } catch (e) {}
       // Only this owner's own session may ask about, or re-upload, their rows.
-      if (!isAuthGenCurrent(gen) || !session?.user?.id || String(session.user.id) !== owner) return;
+      if (!isAuthGenCurrent(gen) || !session?.user?.id || String(session.user.id) !== owner) { skipped = true; return; }
+      ran = true;
 
       const byTable = new Map();
       unverified.forEach((u) => { if (!byTable.has(u.table)) byTable.set(u.table, []); byTable.get(u.table).push(u); });
@@ -16931,8 +17178,9 @@ async function verifyRecentCloudCopies(owner = _dataOwner) {
           if (error || !Array.isArray(data)) { failed = true; continue; }
           const found = new Set(data.map((r) => String(r.id)));
           entries.forEach((u) => {
-            if (found.has(String(u.row.id))) markConfirmedSync(owner, table, u.row.id);
-            else missing.push(u);
+            stats.checked += 1;
+            if (found.has(String(u.row.id))) { stats.found += 1; markConfirmedSync(owner, table, u.row.id); }
+            else { stats.missing += 1; missing.push(u); }
           });
         } catch (e) {
           failed = true;
@@ -16953,9 +17201,12 @@ async function verifyRecentCloudCopies(owner = _dataOwner) {
       failed = true;
     } finally {
       if (failed) _syncVerifyFailed.add(owner); else _syncVerifyFailed.delete(owner);
+      if (ran || failed || skipped) {
+        _syncVerifyLast.set(owner, { at: new Date().toISOString(), result: failed ? 'failed' : skipped ? 'skipped' : 'ok', ...stats });
+      }
       _syncVerifyInFlight.delete(owner);
     }
-    if (!isAuthGenCurrent(gen)) return;
+    if (skipped || !isAuthGenCurrent(gen)) return;
     // Recovered items upload now; otherwise the status is simply refreshed.
     if (pendingSyncCount(owner)) await flushPendingSync(owner);
     else refreshSyncStatus(owner);
@@ -18573,7 +18824,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.10.06.2';
+const APP_VERSION = '2026.10.09.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 // What the last update check found, so Settings can tell "this is the
@@ -22274,8 +22525,13 @@ const ACAD = (() => {
       <div class="modal-tag">Data Sync</div>
       <div class="modal-title">Sync Details</div>
       <div class="modal-body" id="sync-details-summary"></div>
+      <div id="sync-recover-wrap" style="display:none;margin-top:14px;padding:12px 14px;border:1px solid rgba(74,240,200,0.25);border-radius:12px;background:rgba(74,240,200,0.05);">
+        <div class="modal-body" id="sync-recover-text"></div>
+        <button id="sync-recover-btn" class="modal-close-btn" style="margin-top:12px;background:var(--accent);color:#000;border-color:var(--accent);" onclick="confirmForeignResultRecovery()"></button>
+      </div>
       <pre id="sync-details-report"></pre>
-      <button class="modal-close-btn" onclick="copySyncDiagnostics()">Copy report</button>
+      <button class="modal-close-btn" onclick="openSyncHelpEmail()">Get help</button>
+      <button class="modal-close-btn" style="margin-top:8px;" onclick="copySyncDiagnostics()">Copy report</button>
       <button class="modal-close-btn" style="margin-top:8px;background:transparent;border-color:transparent;color:var(--muted);" onclick="closeSyncDetails()">Close</button>
     </div>
   </div>
