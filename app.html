@@ -3108,6 +3108,24 @@ html, body {
   cursor: pointer; padding: 0; flex-shrink: 0;
   line-height: 1;
 }
+/* Centered confirmation after a sync recovery. Covers the screen while
+   shown so the dismissing tap reaches nothing underneath. */
+#sync-recovered-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.35);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+#sync-recovered-overlay.visible { opacity: 1; pointer-events: auto; }
+#sync-recovered-card {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card); border: 1px solid rgba(74,240,200,0.4);
+  border-radius: 18px; padding: 20px 26px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.3px;
+  color: var(--accent);
+}
 
 
 /* -- WBTB TIMER ---------------------------------------- */
@@ -5647,6 +5665,14 @@ html, body {
     <div class="toast-icon" id="toast-icon"></div>
     <div class="toast-msg" id="toast-msg"></div>
     <button class="toast-close" onclick="hideToast()" aria-label="Dismiss">x</button>
+  </div>
+
+  <!-- SYNC RECOVERY CONFIRMATION (no buttons; any tap dismisses it) -->
+  <div id="sync-recovered-overlay" role="status" aria-live="polite" onclick="dismissSyncRecovered(event)">
+    <div id="sync-recovered-card">
+      <div class="toast-icon toast-icon-success">ok</div>
+      <div id="sync-recovered-text"></div>
+    </div>
   </div>
 
 
@@ -11247,13 +11273,24 @@ async function confirmForeignResultRecovery() {
     count[outcome in count ? outcome : 'refused'] += 1;
   });
   const results = (k) => (k === 1 ? '1 result' : k + ' results');
+  refreshSyncStatus(owner);
+  if (typeof renderAnalytics === 'function' && currentScreen === 'analytics') renderAnalytics();
+  // Everything moved, nothing left over anywhere in this flow: the popup
+  // closes and a short confirmation takes its place. Anything still open
+  // (a partial move, a conflict, an unchecked result, a failed or running
+  // cloud check) keeps Details on screen with the explanation.
+  const leftovers = count.partial + count.no_room + count.refused + count.conflict + found.mismatches + found.notMine + found.errors;
+  const complete = count.moved > 0 && leftovers === 0 && !foreignCollisionItems(owner).length && describeSyncState(owner).state === 'synced';
+  if (complete) {
+    closeSyncDetails();
+    showSyncRecovered(count.moved);
+    return;
+  }
   if (count.moved) showToast(results(count.moved) + ' moved to this account on this device. Nothing was changed in the cloud.', 'success', 4500);
   if (count.partial) showToast(results(count.partial) + ' copied to this account, but the copy under the other account could not be removed yet. Open Details again to finish; nothing is lost.', 'warn', 6000);
   if (count.no_room) showToast('Could not keep ' + results(count.no_room) + ' in full in this account on this device (history full). Nothing was moved or removed.', 'warn', 6000);
   if (count.refused) showToast('Could not store ' + results(count.refused) + ' on this device (storage full or blocked). Nothing was moved or removed.', 'warn', 6000);
   if (count.conflict) showToast(results(count.conflict) + ' left alone: this account already holds a different result under that ID on this device.', 'warn', 6000);
-  refreshSyncStatus(owner);
-  if (typeof renderAnalytics === 'function' && currentScreen === 'analytics') renderAnalytics();
   const report = document.getElementById('sync-details-report');
   if (report) report.textContent = buildSyncDiagnostics(owner);
   const summary = document.getElementById('sync-details-summary');
@@ -11270,6 +11307,26 @@ function closeSyncDetails(e) {
   // buttons inside (Get help, Copy report, Move) keep it open.
   if (e && e.target !== modal) return;
   modal.style.display = 'none';
+}
+
+// "N results recovered." in the middle of the screen, fading out after
+// SYNC_RECOVERED_SHOW_MS or on any tap. The tap lands on the overlay only.
+const SYNC_RECOVERED_SHOW_MS = 3000;
+let _syncRecoveredTimer = null;
+function showSyncRecovered(count) {
+  const el = document.getElementById('sync-recovered-overlay');
+  const text = document.getElementById('sync-recovered-text');
+  if (!el || !text) return;
+  text.textContent = (count === 1 ? '1 result' : count + ' results') + ' recovered.';
+  el.classList.add('visible');
+  if (_syncRecoveredTimer) clearTimeout(_syncRecoveredTimer);
+  _syncRecoveredTimer = setTimeout(() => dismissSyncRecovered(), SYNC_RECOVERED_SHOW_MS);
+}
+function dismissSyncRecovered(e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  const el = document.getElementById('sync-recovered-overlay');
+  if (el) el.classList.remove('visible');
+  if (_syncRecoveredTimer) { clearTimeout(_syncRecoveredTimer); _syncRecoveredTimer = null; }
 }
 
 async function copySyncDiagnostics() {
@@ -18928,7 +18985,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.10.09.3';
+const APP_VERSION = '2026.10.09.4';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 // What the last update check found, so Settings can tell "this is the
