@@ -11145,21 +11145,24 @@ async function findRecoverableResults(owner = _dataOwner) {
 //   'partial'  the destination holds it but a source removal or the queue
 //              write did not persist; the queue item stays so the next
 //              attempt finishes the cleanup (nothing is written twice)
+// The complete destination entry is read back from storage on every path,
+// including when the destination already had it: an entry only held in
+// memory (an earlier save the phone refused) does not count.
 function moveLocalResult(fromOwner, owner, table, id) {
   const plan = planLocalMove(fromOwner, owner, table, id);
   if (!plan) return 'refused';
   if (plan.conflict) return 'conflict';
   const { keys, sid, same, entry, onScreenRv, destKey } = plan;
-  if (plan.write) {
+  const persisted = () => {
+    const back = safeParseArray(store.get(destKey)).find(same);
+    return !!back && sameLocalValue(back, entry);
+  };
+  if (entry && !persisted()) {
     const byTime = (a, b) => (Date.parse(b?.timestamp || '') || 0) - (Date.parse(a?.timestamp || '') || 0);
     const next = plan.destList.filter((r) => !same(r)).concat([entry]).sort(byTime);
     const durable = durableHistoryList(table, next);
     const kept = durable.find(same);
     if (!kept || !sameLocalValue(kept, entry)) return 'no_room';
-    const persisted = () => {
-      const back = safeParseArray(store.get(destKey)).find(same);
-      return !!back && sameLocalValue(back, entry);
-    };
     if (onScreenRv) {
       // The owner on screen keeps RV history in memory; saveState writes it.
       const prev = STATE.sessions;
@@ -11187,8 +11190,15 @@ function moveLocalResult(fromOwner, owner, table, id) {
     if (!persistHistory(key, JSON.stringify(arr.filter((r) => !same(r))))) cleaned = false;
   });
   if (!cleaned) return 'partial';
-  const rest = readPendingSync(fromOwner).filter((it) => it.key !== table + ':' + sid);
-  if (!writePendingSync(fromOwner, rest)) return 'partial';
+  const all = readPendingSync(fromOwner);
+  const rest = all.filter((it) => it.key !== table + ':' + sid);
+  if (!writePendingSync(fromOwner, rest)) {
+    // writePendingSync keeps `rest` in memory on failure; the unfinished
+    // item must stay in the live queue too, as it does in storage, so the
+    // next Details visit retries the cleanup without a reload.
+    _syncMemoryQueue.set(fromOwner, all.slice());
+    return 'partial';
+  }
   return 'moved';
 }
 
@@ -18918,7 +18928,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.10.09.2';
+const APP_VERSION = '2026.10.09.3';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 // What the last update check found, so Settings can tell "this is the
