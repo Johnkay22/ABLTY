@@ -8395,17 +8395,21 @@ function normalizePersistentCaches() {
   } catch (e) {}
 }
 
-function saveState() {
-  const sessions = Array.isArray(STATE.sessions) ? STATE.sessions : [];
-  const pruned = sessions.slice(0, MAX_RV_LOCAL_SESSIONS).map((s, idx) => {
-    // Keep full sketch payload only for recent sessions to avoid localStorage quota exhaustion.
+// The form in which the RV history is kept on the phone: the newest
+// MAX_RV_LOCAL_SESSIONS, with the sketch payload only on the newest
+// RV_SKETCH_KEEP_RECENT (localStorage quota).
+function pruneRvForStorage(sessions) {
+  return (Array.isArray(sessions) ? sessions : []).slice(0, MAX_RV_LOCAL_SESSIONS).map((s, idx) => {
     if (idx >= RV_SKETCH_KEEP_RECENT && s && s.sketchData) {
       const { sketchData, ...rest } = s;
       return rest;
     }
     return s;
   });
-  const saved = persistHistory(ownedKey('ablty_sessions'), JSON.stringify(pruned));
+}
+
+function saveState() {
+  const saved = persistHistory(ownedKey('ablty_sessions'), JSON.stringify(pruneRvForStorage(STATE.sessions)));
   store.set('ablty_settings', JSON.stringify(STATE.settings));
   return saved;
 }
@@ -11021,11 +11025,90 @@ function foreignCollisionItems(owner) {
   return out;
 }
 
+// How many entries each history list keeps on the phone (older ones are
+// trimmed on save and on load).
+const HISTORY_LIMIT_BY_TABLE = {
+  rv_sessions: MAX_RV_LOCAL_SESSIONS,
+  zener_runs: MAX_ZENER_LOCAL_RUNS,
+  ts_trials: MAX_TS_LOCAL_TRIALS,
+};
+
+// A history entry as the row the cloud would hold for it.
+function mapHistoryRow(table, entry) {
+  if (table === 'rv_sessions') return mapRVSessionRow(entry, entry?.sessionType || 'personal');
+  if (table === 'zener_runs') return mapZenerRunRow(entry);
+  if (table === 'ts_trials') return mapTSTrialRow(entry);
+  return null;
+}
+
+// Two local values are the same when their canonical JSON is. Empty means
+// undefined, null or '' (a field that may be filled from another copy).
+function isEmptyLocalValue(v) { return v === undefined || v === null || v === ''; }
+function sameLocalValue(a, b) {
+  const canon = (v) => JSON.stringify(v === undefined ? null : v, (k, val) => (
+    val && typeof val === 'object' && !Array.isArray(val)
+      ? Object.keys(val).sort().reduce((o, kk) => { o[kk] = val[kk]; return o; }, {})
+      : val
+  ));
+  return canon(a) === canon(b);
+}
+
+// The list as it will be kept on the phone after the next save or load:
+// trimmed to the table's limit, RV sketches only on the newest entries.
+function durableHistoryList(table, list) {
+  if (table === 'rv_sessions') return pruneRvForStorage(list);
+  return trimRecent(list, HISTORY_LIMIT_BY_TABLE[table] || list.length);
+}
+
+// Works out, without writing anything, what moving one result from
+// `fromOwner`'s copy on this device into `owner`'s would do:
+//   source   the entry as it is in the source history (null if only the
+//            queue still has it)
+//   row      the source entry as a cloud row, so the cloud is asked about
+//            the data that would actually move, not the queued snapshot
+//   existing the destination's own entry under that id, if any
+//   entry    what the destination would hold afterwards
+//   conflict true when the destination already holds that id with
+//            different non-empty fields; both copies are then kept
+//   write    whether the destination needs writing at all
+function planLocalMove(fromOwner, owner, table, id) {
+  const keys = HISTORY_KEYS_BY_TABLE[table];
+  if (!keys || !fromOwner || !owner || fromOwner === owner) return null;
+  const sid = String(id);
+  const same = (r) => r && String(r.id) === sid;
+  let source = null;
+  keys.forEach((k) => {
+    if (source) return;
+    source = safeParseArray(store.get(ownedKeyFor(fromOwner, k))).find(same) || null;
+  });
+  const onScreenRv = table === 'rv_sessions' && owner === _dataOwner && Array.isArray(STATE.sessions);
+  const destKey = ownedKeyFor(owner, keys[0]);
+  const destList = onScreenRv ? STATE.sessions.slice() : safeParseArray(store.get(destKey));
+  const existing = destList.find(same) || null;
+  let entry = existing;
+  let conflict = false;
+  if (source) {
+    if (existing) {
+      entry = { ...existing };
+      Object.keys(source).forEach((k) => {
+        if (isEmptyLocalValue(existing[k])) entry[k] = source[k];
+        else if (!isEmptyLocalValue(source[k]) && !sameLocalValue(existing[k], source[k])) conflict = true;
+      });
+    } else {
+      entry = source;
+    }
+  }
+  const write = !!source && (!existing || !sameLocalValue(entry, existing));
+  return { keys, sid, same, source, row: source ? mapHistoryRow(table, source) : null, onScreenRv, destKey, destList, existing, entry, conflict, write };
+}
+
 // Asks the cloud, with `owner`'s own session, which parked results are
-// theirs: the row with that id must belong to `owner` and match the
-// submitted contents field for field. Read-only.
+// theirs: the row with that id must belong to `owner` and match, field for
+// field, the local copy that would move (or the queued snapshot when the
+// local copy is gone). Results whose id the destination already holds with
+// different contents are counted as `conflicts` and never offered. Read-only.
 async function findRecoverableResults(owner = _dataOwner) {
-  const result = { matches: [], mismatches: 0, notMine: 0, errors: 0 };
+  const result = { matches: [], mismatches: 0, notMine: 0, conflicts: 0, errors: 0 };
   if (!sb || !owner || owner === DATA_OWNER_GUEST) return result;
   const candidates = foreignCollisionItems(owner);
   if (!candidates.length) return result;
@@ -11034,7 +11117,10 @@ async function findRecoverableResults(owner = _dataOwner) {
   try { session = (await sb.auth.getSession())?.data?.session || null; } catch (e) {}
   if (!isAuthGenCurrent(gen) || !session?.user?.id || String(session.user.id) !== owner) { result.errors = candidates.length; return result; }
   for (const c of candidates) {
-    const verdict = await cloudRowMatchesSubmission(c.item.table, c.item.row, owner);
+    const plan = planLocalMove(c.fromOwner, owner, c.item.table, c.item.row.id);
+    if (!plan) { result.errors += 1; continue; }
+    if (plan.conflict) { result.conflicts += 1; continue; }
+    const verdict = await cloudRowMatchesSubmission(c.item.table, plan.row || c.item.row, owner);
     if (!isAuthGenCurrent(gen)) { result.errors += 1; continue; }
     if (verdict === 'match') result.matches.push(c);
     else if (verdict === 'mismatch') result.mismatches += 1;
@@ -11045,58 +11131,65 @@ async function findRecoverableResults(owner = _dataOwner) {
 }
 
 // Moves one confirmed result from `fromOwner`'s copy on this device to
-// `owner`'s: written to the destination first, then taken out of the source
-// history, caches and queue, so a failed write loses nothing. If the
-// destination already has the id, its entry is kept and only empty fields
-// are filled from the moved one. Returns false if the destination write
-// was refused (the source is then left untouched).
+// `owner`'s. Order: the destination is written and read back in full
+// first; only then is the source taken out of its history, caches and
+// queue, each removal read back as well. Returns one of:
+//   'moved'    done
+//   'conflict' the destination holds that id with different contents;
+//              nothing written, both copies kept
+//   'no_room'  the destination list cannot keep the whole entry (history
+//              full, or an older RV session would lose its sketch);
+//              nothing written
+//   'refused'  the destination write was refused or did not persist;
+//              the source is untouched
+//   'partial'  the destination holds it but a source removal or the queue
+//              write did not persist; the queue item stays so the next
+//              attempt finishes the cleanup (nothing is written twice)
 function moveLocalResult(fromOwner, owner, table, id) {
-  const keys = HISTORY_KEYS_BY_TABLE[table];
-  if (!keys || !fromOwner || !owner || fromOwner === owner) return false;
-  const sid = String(id);
-  const same = (r) => r && String(r.id) === sid;
-  let moved = null;
-  keys.forEach((k) => {
-    if (moved) return;
-    moved = safeParseArray(store.get(ownedKeyFor(fromOwner, k))).find(same) || null;
-  });
-  if (moved) {
+  const plan = planLocalMove(fromOwner, owner, table, id);
+  if (!plan) return 'refused';
+  if (plan.conflict) return 'conflict';
+  const { keys, sid, same, entry, onScreenRv, destKey } = plan;
+  if (plan.write) {
     const byTime = (a, b) => (Date.parse(b?.timestamp || '') || 0) - (Date.parse(a?.timestamp || '') || 0);
-    const fill = (dest) => {
-      const existing = dest.find(same);
-      if (existing) {
-        Object.keys(moved).forEach((k) => {
-          if (existing[k] === undefined || existing[k] === null || existing[k] === '') existing[k] = moved[k];
-        });
-      } else {
-        dest.push(moved);
-        dest.sort(byTime);
-      }
-      return dest;
+    const next = plan.destList.filter((r) => !same(r)).concat([entry]).sort(byTime);
+    const durable = durableHistoryList(table, next);
+    const kept = durable.find(same);
+    if (!kept || !sameLocalValue(kept, entry)) return 'no_room';
+    const persisted = () => {
+      const back = safeParseArray(store.get(destKey)).find(same);
+      return !!back && sameLocalValue(back, entry);
     };
-    if (table === 'rv_sessions' && owner === _dataOwner && Array.isArray(STATE.sessions)) {
+    if (onScreenRv) {
       // The owner on screen keeps RV history in memory; saveState writes it.
-      STATE.sessions = fill(STATE.sessions);
-      if (saveState() === false) return false;
+      const prev = STATE.sessions;
+      STATE.sessions = next;
+      if (saveState() === false || !persisted()) {
+        STATE.sessions = prev;
+        saveState();
+        return 'refused';
+      }
     } else {
-      const destKey = ownedKeyFor(owner, keys[0]);
-      const json = JSON.stringify(fill(safeParseArray(store.get(destKey))));
-      store.set(destKey, json);
-      if (store.get(destKey) !== json) return false;
-      if (table === 'ts_trials' && !moved.miss) {
+      if (!persistHistory(destKey, JSON.stringify(durable)) || !persisted()) return 'refused';
+      if (table === 'ts_trials' && !entry.miss) {
         const hitsKey = ownedKeyFor(owner, 'ablty_timestamp');
-        store.set(hitsKey, JSON.stringify(fill(safeParseArray(store.get(hitsKey)))));
+        const hits = safeParseArray(store.get(hitsKey)).filter((r) => !same(r)).concat([entry]).sort(byTime);
+        persistHistory(hitsKey, JSON.stringify(durableHistoryList(table, hits)));
       }
     }
   }
+  markConfirmedSync(owner, table, id);
+  let cleaned = true;
   keys.forEach((k) => {
     const key = ownedKeyFor(fromOwner, k);
     const arr = safeParseArray(store.get(key));
-    if (arr.some(same)) store.set(key, JSON.stringify(arr.filter((r) => !same(r))));
+    if (!arr.some(same)) return;
+    if (!persistHistory(key, JSON.stringify(arr.filter((r) => !same(r))))) cleaned = false;
   });
-  writePendingSync(fromOwner, readPendingSync(fromOwner).filter((it) => it.key !== table + ':' + sid));
-  markConfirmedSync(owner, table, id);
-  return true;
+  if (!cleaned) return 'partial';
+  const rest = readPendingSync(fromOwner).filter((it) => it.key !== table + ':' + sid);
+  if (!writePendingSync(fromOwner, rest)) return 'partial';
+  return 'moved';
 }
 
 // Looks for parked results this account can take back and, if there are
@@ -11118,6 +11211,7 @@ async function offerForeignResultRecovery(owner = _dataOwner) {
     parts.push(results(n) + ' waiting under another account on this device ' + (n === 1 ? 'is' : 'are') + ' already in this account\'s cloud backup with the same contents. Moving ' + (n === 1 ? 'it' : 'them') + ' here keeps ' + (n === 1 ? 'it' : 'them') + ' in this account only on this device and changes nothing in the cloud.');
   }
   if (found.mismatches) parts.push(results(found.mismatches) + ' under another account ' + (found.mismatches === 1 ? 'has' : 'have') + ' the same ID as one of yours but different contents, so ' + (found.mismatches === 1 ? 'it was' : 'they were') + ' left alone.');
+  if (found.conflicts) parts.push(results(found.conflicts) + ' under another account ' + (found.conflicts === 1 ? 'has' : 'have') + ' the same ID as a result already in this account on this device, with different contents. Both copies are kept and nothing is moved.');
   if (found.errors) parts.push('Could not check ' + results(found.errors) + ' right now.');
   if (!parts.length) return;
   textEl.textContent = parts.join(' ');
@@ -11137,17 +11231,17 @@ async function confirmForeignResultRecovery() {
   // moved on the strength of an earlier answer.
   const found = await findRecoverableResults(owner);
   if (!isAuthGenCurrent(gen) || owner !== _dataOwner) return;
-  let moved = 0;
-  let refused = 0;
+  const count = { moved: 0, partial: 0, conflict: 0, no_room: 0, refused: 0 };
   found.matches.forEach((c) => {
-    if (moveLocalResult(c.fromOwner, owner, c.item.table, c.item.row.id)) moved += 1;
-    else refused += 1;
+    const outcome = moveLocalResult(c.fromOwner, owner, c.item.table, c.item.row.id);
+    count[outcome in count ? outcome : 'refused'] += 1;
   });
-  if (moved) {
-    const results = (k) => (k === 1 ? '1 result' : k + ' results');
-    showToast(results(moved) + ' moved to this account on this device. Nothing was changed in the cloud.', 'success', 4500);
-  }
-  if (refused) showToast('Could not store ' + refused + ' of them on this device (storage full?). Nothing was removed.', 'warn', 4500);
+  const results = (k) => (k === 1 ? '1 result' : k + ' results');
+  if (count.moved) showToast(results(count.moved) + ' moved to this account on this device. Nothing was changed in the cloud.', 'success', 4500);
+  if (count.partial) showToast(results(count.partial) + ' copied to this account, but the copy under the other account could not be removed yet. Open Details again to finish; nothing is lost.', 'warn', 6000);
+  if (count.no_room) showToast('Could not keep ' + results(count.no_room) + ' in full in this account on this device (history full). Nothing was moved or removed.', 'warn', 6000);
+  if (count.refused) showToast('Could not store ' + results(count.refused) + ' on this device (storage full or blocked). Nothing was moved or removed.', 'warn', 6000);
+  if (count.conflict) showToast(results(count.conflict) + ' left alone: this account already holds a different result under that ID on this device.', 'warn', 6000);
   refreshSyncStatus(owner);
   if (typeof renderAnalytics === 'function' && currentScreen === 'analytics') renderAnalytics();
   const report = document.getElementById('sync-details-report');
@@ -18824,7 +18918,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.10.09.1';
+const APP_VERSION = '2026.10.09.2';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 // What the last update check found, so Settings can tell "this is the
