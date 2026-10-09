@@ -21,9 +21,11 @@ const DECLS = [
   extractDecl('SYNC_PENDING_KEY'), extractDecl('SYNC_CONFIRMED_KEY'), extractDecl('MAX_SYNC_ATTEMPTS'),
   extractDecl('SYNC_VERIFY_RECENT'), extractDecl('SYNC_CONFIRMED_KEEP'),
   extractDecl('_syncFlushInFlight'), extractDecl('_syncMemoryQueue'), extractDecl('_syncConfirmedMemory'),
-  extractDecl('_syncVerifyInFlight'), extractDecl('_syncVerifyFailed'), extractDecl('_historyWarnAt'),
+  extractDecl('_syncVerifyInFlight'), extractDecl('_syncVerifyFailed'), extractDecl('_syncVerifyLast'), extractDecl('_historyWarnAt'),
+  extractDecl('SYNC_HELP_MAILTO_MAX'), extractMultiDecl('HISTORY_KEYS_BY_TABLE'),
   extractDecl('APP_VERSION'), extractDecl('OWNED_DATA_MIGRATED_KEY'), extractDecl('LEGACY_DATA_CLAIMANT_KEY'),
   'let _dataOwner = DATA_OWNER_GUEST;',
+  'let currentScreen = "profile";',
   'let STATE = { sessions: [], settings: {} };',
 ];
 const FNS = ['safeParseArray', 'ownedKeyFor', 'ownedKey', 'isLoggedIn', 'isAuthGenCurrent', 'beginAuthContext', 'endAuthContext',
@@ -33,7 +35,9 @@ const FNS = ['safeParseArray', 'ownedKeyFor', 'ownedKey', 'isLoggedIn', 'isAuthG
   'readPendingSync', 'writePendingSync', 'pendingSyncCount', 'syncSessionToSupabase',
   'readConfirmedSync', 'markConfirmedSync', 'recentLocalHistoryRows', 'unverifiedLocalRows', 'verifyRecentCloudCopies',
   'sameCloudValue', 'cloudRowMatchesSubmission', 'flushPendingSync',
-  'describeSyncState', 'listStorageKeys', 'buildSyncDiagnostics', 'ownersWithLocalData', 'openSyncDetails', 'closeSyncDetails', 'copySyncDiagnostics'];
+  'describeSyncState', 'unverifiedNote', 'describeLastCloudCheck', 'listStorageKeys', 'buildSyncDiagnostics', 'ownersWithLocalData',
+  'openSyncDetails', 'closeSyncDetails', 'copySyncDiagnostics', 'buildSyncHelpMailto', 'openSyncHelpEmail',
+  'foreignCollisionItems', 'findRecoverableResults', 'moveLocalResult', 'offerForeignResultRecovery', 'confirmForeignResultRecovery'];
 const source = DECLS.join('\n').replace(/^(const|let) /gm, 'var ') + '\n\n' + FNS.map(extractFn).join('\n\n');
 new vm.Script(source);
 
@@ -61,7 +65,9 @@ function makeCtx(opts = {}) {
   const storage = { refuse: () => false };
   const mkEl = (id) => ({ id, className: '', textContent: '', style: { display: '' }, classList: { _s: new Set(), toggle(c, on) { on ? this._s.add(c) : this._s.delete(c); }, contains(c) { return this._s.has(c); } } });
   const els = { 'sync-dot': mkEl('sync-dot'), 'sync-status-label': mkEl('sync-status-label'), 'sync-status-row': mkEl('sync-status-row'),
-    'sync-details-modal': mkEl('sync-details-modal'), 'sync-details-summary': mkEl('sync-details-summary'), 'sync-details-report': mkEl('sync-details-report') };
+    'sync-details-modal': mkEl('sync-details-modal'), 'sync-details-summary': mkEl('sync-details-summary'), 'sync-details-report': mkEl('sync-details-report'),
+    'sync-recover-wrap': mkEl('sync-recover-wrap'), 'sync-recover-text': mkEl('sync-recover-text'), 'sync-recover-btn': mkEl('sync-recover-btn') };
+  const nav = { href: '' };
   const clipboard = { written: [], fail: false };
   const ctx = {
     console: { warn() {}, log() {}, error() {} },
@@ -75,7 +81,7 @@ function makeCtx(opts = {}) {
       key: (i) => Array.from(ls.keys())[i], get length() { return ls.size; },
     },
     document: { getElementById: (id) => els[id] || null, visibilityState: 'visible', addEventListener() {} },
-    window: { addEventListener() {} },
+    window: { addEventListener() {}, location: nav },
     navigator: { onLine: true, clipboard: { writeText: (t) => (clipboard.fail ? Promise.reject(new Error('denied')) : (clipboard.written.push(t), Promise.resolve())) } },
     setDataOwner: (owner) => { ctx._dataOwner = owner ? String(owner) : ctx.DATA_OWNER_GUEST; },
     cancelPendingPasswordRecovery() {},
@@ -129,7 +135,7 @@ function makeCtx(opts = {}) {
   vm.createContext(ctx);
   vm.runInContext(source, ctx);
   return {
-    ctx, log, answers, holds, els, ls, cloudRows, storage, clipboard,
+    ctx, log, answers, holds, els, ls, cloudRows, storage, clipboard, nav,
     setLookupError(e) { lookupError = e; },
     setExistenceError(e) { existenceError = e; },
     signIn(uid) { sessionUser = uid; ls.set('ablty_logged_in', '1'); ctx.beginAuthContext(uid); },
@@ -790,6 +796,255 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     assert.ok(!t.label().includes('account') && !t.label().includes('ID'), 'conflict detail stays in the report');
     assert.ok(t.ctx.buildSyncDiagnostics('A').includes('status=id_collision'));
     assert.ok(!t.retryable());
+  });
+
+  // ── Stuck queue items must not block verification of the rest ──
+
+  // Johnny's phone: three Zener runs parked as id collisions, five other
+  // recent results never checked against the cloud.
+  function zenerRun(id, extra = {}) {
+    return { id, hits: 6, hitPct: 24, symbolStats: { circle: 2 }, timestamp: new Date(id).toISOString(), ...extra };
+  }
+  function parkedCollision(ctx, run) {
+    return { key: 'zener_runs:' + run.id, table: 'zener_runs', row: ctx.mapZenerRunRow(run), attempts: ctx.MAX_SYNC_ATTEMPTS,
+      queuedAt: '2026-10-06T10:00:00.000Z', unresolved: 'id_collision', lastError: 'id_collision', recovered: true };
+  }
+  const STUCK_IDS = [1786801381920, 1786801418022, 1786801454170];
+  function johnnysPhone(t, owner = 'A') {
+    const stuck = STUCK_IDS.map((id) => zenerRun(id));
+    const ownZener = [zenerRun(1790000000001), zenerRun(1790000000002)];
+    t.ls.set('ablty_owned:' + owner + ':ablty_zener', JSON.stringify([...ownZener, ...stuck]));
+    t.ls.set('ablty_owned:' + owner + ':ablty_sync_pending', JSON.stringify(stuck.map((r) => parkedCollision(t.ctx, r))));
+    const ownRv = [rvSession(1790000000003), rvSession(1790000000004), rvSession(1790000000005)];
+    t.ls.set('ablty_owned:' + owner + ':ablty_sessions', JSON.stringify(ownRv));
+    return { stuck, ownZener, ownRv };
+  }
+
+  await test('REGRESSION: parked id collisions no longer stop the other recent results from being verified', async () => {
+    const t = makeCtx();
+    const { ownZener, ownRv } = johnnysPhone(t);
+    // Four of the five are in the cloud; one Zener run never got there.
+    ownZener.slice(0, 1).forEach((r) => t.cloud('zener_runs', r.id, 'A', t.ctx.mapZenerRunRow(r)));
+    ownRv.forEach((r) => t.cloud('rv_sessions', r.id, 'A', t.ctx.mapRVSessionRow(r)));
+    t.signIn('A');
+    t.ctx.loadState();
+    assert.strictEqual(t.ctx.unverifiedLocalRows('A').length, 5, 'five results the cloud was never asked about');
+    t.ctx.refreshSyncStatus();
+    assert.ok(t.label().includes('Checking that 5 recent results reached the cloud.'), t.label());
+    await t.settle();
+    assert.strictEqual(t.log.existence.length, 2, 'both tables were asked, despite the parked items');
+    const asked = t.log.existence.flatMap((q) => q.in.ids.map(String));
+    assert.ok(STUCK_IDS.every((id) => !asked.includes(String(id))), 'the parked ids are not asked about again');
+    assert.strictEqual(t.ctx.unverifiedLocalRows('A').length, 0, 'nothing unverified remains');
+    assert.strictEqual(t.log.inserts.length, 1, 'the one missing result was uploaded');
+    assert.strictEqual(t.log.inserts[0].row.id, ownZener[1].id);
+    assert.strictEqual(t.log.inserts[0].row.user_id, 'A');
+    const q = t.queue('A');
+    assert.strictEqual(q.length, 3, 'only the parked items remain queued');
+    assert.ok(q.every((it) => it.unresolved === 'id_collision'));
+    assert.strictEqual(t.label(), '3 results haven\'t been backed up. They\'re saved on this device. Open Details for help.');
+    assert.ok(!t.label().includes('Checking'), t.label());
+    const report = t.ctx.buildSyncDiagnostics('A');
+    assert.ok(report.includes('Recent results not yet checked against the cloud: 0'), report);
+    assert.ok(/Last cloud check: ok at \d{4}-\d{2}-\d{2}T.* \(checked 5, found in cloud 4, re-queued 1\)/.test(report), report);
+    // Opening Settings again asks nothing more.
+    t.ctx.refreshSyncStatus();
+    await t.settle();
+    assert.strictEqual(t.log.existence.length, 2);
+  });
+
+  await test('parked items plus a cloud check that fails: the row says both, a tap re-checks, and nothing loops', async () => {
+    const t = makeCtx();
+    johnnysPhone(t);
+    t.signIn('A');
+    t.ctx.loadState();
+    t.setExistenceError({ code: 'PGRST000', message: 'offline' });
+    t.ctx.refreshSyncStatus();
+    await t.settle();
+    assert.strictEqual(t.log.existence.length, 2, 'asked once per table, then stopped');
+    assert.strictEqual(t.label(), '3 results haven\'t been backed up. They\'re saved on this device. Open Details for help. Could not confirm that 5 recent results reached the cloud. Tap to check again.');
+    assert.ok(t.retryable(), 'the tap is offered for the re-check');
+    assert.ok(t.ctx.buildSyncDiagnostics('A').includes('Last cloud check: failed at'), t.ctx.buildSyncDiagnostics('A'));
+    t.ctx.openSyncDetails();
+    const summary = t.els['sync-details-summary'].textContent;
+    assert.ok(summary.includes('Could not confirm that 5 recent results reached the cloud. Tap the Data Sync row to check again.'), summary);
+    assert.ok(summary.includes('If that account is also yours, sign in to it on this device and open Sync Details there to move them.'), summary);
+    assert.strictEqual(t.els['sync-recover-wrap'].style.display, 'none', 'no recovery offer for the account that does not hold them');
+    // Back online, the tap checks again; no insert attempt is made for the parked items.
+    t.setExistenceError(null);
+    t.ctx.retryPendingSync();
+    await t.settle();
+    assert.strictEqual(t.log.existence.length, 4);
+    assert.strictEqual(t.log.inserts.filter((i) => STUCK_IDS.includes(i.row.id)).length, 0, 'parked items are never re-sent');
+    assert.ok(!t.label().includes('Could not confirm'), t.label());
+  });
+
+  await test('report: "Last cloud check" tells not run, ok and failed apart', async () => {
+    const t = makeCtx();
+    t.signIn('A');
+    assert.ok(t.ctx.buildSyncDiagnostics('A').includes('Last cloud check: not run yet in this app session'));
+    t.ctx.STATE.sessions.unshift(rvSession(8001));
+    t.ctx.saveState();
+    t.setExistenceError({ code: 'PGRST000', message: 'offline' });
+    t.ctx.refreshSyncStatus();
+    assert.ok(t.ctx.buildSyncDiagnostics('A').includes('Last cloud check: in progress'));
+    await t.settle();
+    assert.ok(/Last cloud check: failed at \d{4}.*\(could not reach the cloud\)/.test(t.ctx.buildSyncDiagnostics('A')));
+    t.setExistenceError(null);
+    t.cloud('rv_sessions', 8001, 'A', t.ctx.mapRVSessionRow(t.ctx.STATE.sessions[0]));
+    t.ctx.retryPendingSync();
+    await t.settle();
+    assert.ok(/Last cloud check: ok at .*\(checked 1, found in cloud 1, re-queued 0\)/.test(t.ctx.buildSyncDiagnostics('A')));
+    // The record is per account.
+    t.signOut(); t.signIn('B');
+    assert.ok(t.ctx.buildSyncDiagnostics('B').includes('Last cloud check: not run yet in this app session'));
+  });
+
+  // ── Recovery: the account that holds the ids takes its results back ──
+
+  await test('RECOVERY: signed in as the holding account, confirmed-identical results move from the other account\'s copy, cloud untouched', async () => {
+    const t = makeCtx();
+    const { stuck, ownZener, ownRv } = johnnysPhone(t, 'A');
+    ownZener.forEach((r) => t.cloud('zener_runs', r.id, 'A', t.ctx.mapZenerRunRow(r)));
+    ownRv.forEach((r) => t.cloud('rv_sessions', r.id, 'A', t.ctx.mapRVSessionRow(r)));
+    // The cloud holds the three parked ids under B, with exactly the same
+    // contents (Postgres spellings included).
+    stuck.forEach((r) => t.cloud('zener_runs', r.id, 'B', { ...t.ctx.mapZenerRunRow(r), hit_pct: '24', timestamp: new Date(r.id).toISOString().replace('.000Z', '+00:00') }));
+    t.signIn('B');
+    t.ctx.loadState();
+    assert.strictEqual(t.ctx.foreignCollisionItems('B').length, 3);
+    const found = await t.ctx.findRecoverableResults('B');
+    assert.strictEqual(found.matches.length, 3);
+    assert.deepStrictEqual([found.mismatches, found.notMine, found.errors], [0, 0, 0]);
+    assert.strictEqual(t.log.lookups.length, 3, 'each row read back by id and owner');
+    assert.ok(t.log.lookups.every((q) => q.filters.user_id === 'B'));
+    const cloudBefore = JSON.stringify([...t.cloudRows.entries()]);
+    t.ctx.openSyncDetails();
+    await t.settle();
+    assert.strictEqual(t.els['sync-recover-wrap'].style.display, 'block', 'the move is offered');
+    assert.ok(t.els['sync-recover-text'].textContent.startsWith('3 results waiting under another account on this device are already in this account\'s cloud backup with the same contents.'), t.els['sync-recover-text'].textContent);
+    assert.strictEqual(t.els['sync-recover-btn'].textContent, 'Move 3 results to this account');
+    assert.deepStrictEqual(t.queue('A').length, 3, 'nothing moved before the tap');
+
+    await t.ctx.confirmForeignResultRecovery();
+    await t.settle();
+    const aZener = JSON.parse(t.ls.get('ablty_owned:A:ablty_zener'));
+    assert.deepStrictEqual(aZener.map((r) => r.id), ownZener.map((r) => r.id), 'A keeps only its own runs');
+    assert.deepStrictEqual(t.queue('A'), [], 'A\'s queue is empty');
+    const bZener = JSON.parse(t.ls.get('ablty_owned:B:ablty_zener'));
+    assert.deepStrictEqual(bZener.map((r) => r.id).sort(), STUCK_IDS.slice().sort(), 'B now holds them on this device');
+    assert.deepStrictEqual(bZener.find((r) => r.id === STUCK_IDS[0]).symbolStats, { circle: 2 }, 'the whole local object moved, not just the uploaded fields');
+    assert.ok(STUCK_IDS.every((id) => t.confirmed('B').includes('zener_runs:' + id)), 'remembered as confirmed for B');
+    assert.strictEqual(JSON.stringify([...t.cloudRows.entries()]), cloudBefore, 'no cloud row inserted, changed or removed');
+    assert.strictEqual(t.log.inserts.length, 0);
+    assert.ok(t.log.toasts.some((x) => x.type === 'success' && x.msg.startsWith('3 results moved to this account on this device. Nothing was changed in the cloud.')), JSON.stringify(t.log.toasts));
+    assert.strictEqual(t.els['sync-recover-wrap'].style.display, 'none', 'offer gone once done');
+    assert.strictEqual(t.label(), 'Synced to cloud', 'B: nothing waiting, nothing unverified');
+
+    // Back as A: nothing is re-queued, A\'s own results verify, the row is clean.
+    t.signOut(); t.signIn('A');
+    t.ctx.loadState();
+    t.ctx.refreshSyncStatus();
+    await t.settle();
+    assert.deepStrictEqual(t.queue('A'), []);
+    assert.strictEqual(t.label(), 'Synced to cloud');
+    assert.strictEqual(t.log.inserts.length, 0, 'the moved ids were never uploaded again');
+    assert.strictEqual(t.ctx.foreignCollisionItems('B').length, 0);
+  });
+
+  await test('RECOVERY: different contents, someone else\'s row, or a failed read-back: nothing moves', async () => {
+    const t = makeCtx();
+    const { stuck } = johnnysPhone(t, 'A');
+    // id 0: B's with different contents; id 1: C's; id 2: identical but the read-back fails first time.
+    t.cloud('zener_runs', stuck[0].id, 'B', { ...t.ctx.mapZenerRunRow(stuck[0]), hits: 1 });
+    t.cloud('zener_runs', stuck[1].id, 'C', t.ctx.mapZenerRunRow(stuck[1]));
+    t.cloud('zener_runs', stuck[2].id, 'B', t.ctx.mapZenerRunRow(stuck[2]));
+    t.signIn('B');
+    t.setLookupError({ code: 'PGRST000', message: 'offline' });
+    let found = await t.ctx.findRecoverableResults('B');
+    assert.deepStrictEqual([found.matches.length, found.errors], [0, 3]);
+    t.setLookupError(null);
+    found = await t.ctx.findRecoverableResults('B');
+    assert.strictEqual(found.matches.length, 1);
+    assert.strictEqual(found.matches[0].item.row.id, stuck[2].id);
+    assert.deepStrictEqual([found.mismatches, found.notMine, found.errors], [1, 1, 0]);
+    t.ctx.openSyncDetails();
+    await t.settle();
+    const text = t.els['sync-recover-text'].textContent;
+    assert.ok(text.includes('1 result waiting under another account on this device is already in this account\'s cloud backup'), text);
+    assert.ok(text.includes('1 result under another account has the same ID as one of yours but different contents, so it was left alone.'), text);
+    await t.ctx.confirmForeignResultRecovery();
+    const aQueue = t.queue('A');
+    assert.deepStrictEqual(aQueue.map((it) => it.row.id).sort(), [stuck[0].id, stuck[1].id].sort(), 'the two unconfirmed stay parked under A');
+    assert.deepStrictEqual(JSON.parse(t.ls.get('ablty_owned:A:ablty_zener')).map((r) => r.id).includes(stuck[2].id), false);
+    assert.ok(JSON.parse(t.ls.get('ablty_owned:A:ablty_zener')).some((r) => r.id === stuck[0].id), 'A still has the mismatching run');
+    assert.strictEqual(t.cloudRows.get('zener_runs:' + stuck[0].id).row.hits, 1, 'B\'s differing row untouched');
+    assert.strictEqual(t.log.inserts.length, 0);
+  });
+
+  await test('RECOVERY: destination write refused: the source copy and queue are left exactly as they were', async () => {
+    const t = makeCtx();
+    const { stuck } = johnnysPhone(t, 'A');
+    stuck.forEach((r) => t.cloud('zener_runs', r.id, 'B', t.ctx.mapZenerRunRow(r)));
+    t.signIn('B');
+    const before = { zener: t.ls.get('ablty_owned:A:ablty_zener'), queue: t.ls.get('ablty_owned:A:ablty_sync_pending') };
+    t.storage.refuse = (k) => k === 'ablty_owned:B:ablty_zener';
+    assert.strictEqual(t.ctx.moveLocalResult('A', 'B', 'zener_runs', stuck[0].id), false);
+    assert.strictEqual(t.ls.get('ablty_owned:A:ablty_zener'), before.zener);
+    assert.strictEqual(t.ls.get('ablty_owned:A:ablty_sync_pending'), before.queue);
+    assert.strictEqual(t.ls.has('ablty_owned:B:ablty_zener'), false);
+    // Storage back: the move works, and an existing destination entry is kept with empty fields filled.
+    t.storage.refuse = () => false;
+    t.ls.set('ablty_owned:B:ablty_zener', JSON.stringify([{ ...zenerRun(stuck[1].id), symbolStats: null }]));
+    assert.strictEqual(t.ctx.moveLocalResult('A', 'B', 'zener_runs', stuck[1].id), true);
+    const bZener = JSON.parse(t.ls.get('ablty_owned:B:ablty_zener'));
+    assert.strictEqual(bZener.filter((r) => r.id === stuck[1].id).length, 1, 'no duplicate in the destination');
+    assert.deepStrictEqual(bZener[0].symbolStats, { circle: 2 }, 'empty field filled from the moved copy');
+    assert.strictEqual(t.queue('A').length, 2);
+    // RV sessions of the account on screen go through STATE.sessions and saveState.
+    const rv = rvSession(1790000000009);
+    t.ls.set('ablty_owned:A:ablty_sessions', JSON.stringify([rv]));
+    t.ls.set('ablty_owned:A:ablty_sync_pending', JSON.stringify([{ key: 'rv_sessions:' + rv.id, table: 'rv_sessions', row: t.ctx.mapRVSessionRow(rv), attempts: 5, queuedAt: 'x', unresolved: 'id_collision' }]));
+    assert.strictEqual(t.ctx.moveLocalResult('A', 'B', 'rv_sessions', rv.id), true);
+    assert.strictEqual(t.ctx.STATE.sessions[0].id, rv.id, 'in memory for the owner on screen');
+    assert.strictEqual(t.ctx.STATE.sessions[0].notes, 'tall, white');
+    assert.strictEqual(JSON.parse(t.ls.get('ablty_owned:B:ablty_sessions'))[0].id, rv.id, 'and written');
+    assert.deepStrictEqual(JSON.parse(t.ls.get('ablty_owned:A:ablty_sessions')), []);
+  });
+
+  // ── Get help ──
+
+  await test('Get help: opens a mailto to support with the report in the body, sends nothing itself, keeps long reports within limits', async () => {
+    const t = makeCtx();
+    t.signIn('A');
+    t.cloud('rv_sessions', 1, 'B', { score: 50 });
+    t.answers.push({ error: { code: '23505', message: 'duplicate key' } });
+    await t.ctx.syncSessionToSupabase('rv_sessions', { id: 1, score: 50, timestamp: '2026-10-05T09:00:00.000Z' });
+    t.ctx.openSyncDetails();
+    const report = t.els['sync-details-report'].textContent;
+    t.ctx.openSyncHelpEmail();
+    const url = t.nav.href;
+    assert.ok(url.startsWith('mailto:abltyapp@gmail.com?subject='), url);
+    const params = new URLSearchParams(url.slice(url.indexOf('?') + 1));
+    assert.strictEqual(params.get('subject'), 'ABLTY sync help (' + t.ctx.APP_VERSION + ')');
+    assert.ok(params.get('body').includes(report), 'the full report is in the body');
+    assert.ok(params.get('body').includes('no notes, sketches or scores'));
+    assert.ok(!params.get('body').includes('tall, white'), 'no session contents');
+    assert.strictEqual(t.log.inserts.length, 1, 'no network call made by Get help');
+    assert.ok(t.log.toasts.some((x) => x.msg.includes('Press Send there')));
+    assert.strictEqual(t.els['sync-details-modal'].style.display, 'flex', 'modal stays open for Copy report as a fallback');
+    // A very long report is cut to fit and says so.
+    const long = report + '\n' + 'x'.repeat(5000);
+    const longUrl = t.ctx.buildSyncHelpMailto(long);
+    assert.ok(longUrl.length <= t.ctx.SYNC_HELP_MAILTO_MAX, String(longUrl.length));
+    const longBody = new URLSearchParams(longUrl.slice(longUrl.indexOf('?') + 1)).get('body');
+    assert.ok(longBody.includes('Report cut short to fit. Use Copy report'), longBody.slice(-120));
+    assert.ok(longBody.includes('ABLTY sync report'), 'the start of the report survives');
+    // Buttons inside the modal do not close it; only the backdrop or Close does.
+    t.ctx.closeSyncDetails({ target: t.els['sync-recover-btn'] });
+    assert.strictEqual(t.els['sync-details-modal'].style.display, 'flex');
+    t.ctx.closeSyncDetails({ target: t.els['sync-details-modal'] });
+    assert.strictEqual(t.els['sync-details-modal'].style.display, 'none');
   });
 
   await test('sameCloudValue: database spellings are not differences, real changes are', async () => {
