@@ -1,8 +1,8 @@
-// ABLTY Service Worker v83
+// ABLTY Service Worker v84
 // Strategy: network-first for HTML, cache-first for static assets
 // Includes update detection to notify users of new versions
 
-const CACHE_NAME = 'ablty-v83';
+const CACHE_NAME = 'ablty-v84';
 const STATIC_ASSETS = [
   '/',
   '/app.html',
@@ -72,11 +72,16 @@ self.addEventListener('fetch', event => {
     );
   } else {
     // CACHE FIRST for everything else (images, fonts, etc.)
+    // Update probes (version.json?update_check=..., fetched with
+    // cache: 'no-store') carry a unique URL each time; storing them would
+    // grow the cache by one entry per check and they must never be served
+    // from cache anyway.
+    const storable = event.request.cache !== 'no-store';
     event.respondWith(
       caches.match(event.request).then(cached => {
         if (cached) return cached;
         return fetch(event.request).then(response => {
-          if (response.ok) {
+          if (response.ok && storable) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
           }

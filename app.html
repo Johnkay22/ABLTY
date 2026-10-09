@@ -3533,6 +3533,29 @@ html, body {
 .sync-dot-synced  { background: var(--accent); }
 .sync-dot-pending { background: var(--warn); }
 #sync-status-row.sync-retryable { cursor: pointer; }
+.sync-details-btn {
+  flex-shrink: 0; padding: 7px 10px;
+  background: transparent; border: 1px solid var(--border);
+  border-radius: 8px; color: var(--muted);
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 1.5px;
+  cursor: pointer;
+}
+.sync-details-btn:hover { border-color: var(--border2); color: var(--text); }
+#sync-details-modal .modal-box {
+  max-height: calc(100vh - 48px);
+  max-height: calc(100dvh - 48px - env(safe-area-inset-top, 0px) - var(--safe-bottom));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+#sync-details-report {
+  margin: 14px 0 0; padding: 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  font-family: var(--font-mono); font-size: 10px; line-height: 1.5; color: var(--muted);
+  white-space: pre-wrap; word-break: break-word;
+  max-height: 220px; overflow-y: auto;
+  user-select: text; -webkit-user-select: text;
+}
 
 /* ── ONBOARDING SLIDE 3 ────────────────────────────── */
 .ob-account-visual {
@@ -6274,13 +6297,14 @@ html, body {
             <button class="settings-signout-btn" onclick="handleSignOut()">Sign Out</button>
           </div>
           <div class="setting-row" id="sync-status-row" onclick="retryPendingSync()">
-            <div style="display:flex;align-items:center;gap:8px;">
+            <div style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
               <div class="sync-dot sync-dot-synced" id="sync-dot"></div>
-              <div>
+              <div style="min-width:0;">
                 <div class="setting-label">Data Sync</div>
                 <div class="setting-desc" id="sync-status-label">Synced to cloud</div>
               </div>
             </div>
+            <button type="button" class="sync-details-btn" onclick="event.stopPropagation(); openSyncDetails()">DETAILS</button>
           </div>
           <div id="settings-upgrade-row" style="display:none;background:linear-gradient(135deg,rgba(74,240,200,0.06),rgba(91,158,244,0.04));border:1px solid rgba(74,240,200,0.18);border-radius:16px;padding:18px 20px;">
             <div style="font-family:var(--font-mono);font-size:9px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:6px;">⚡ Unlock Full Access</div>
@@ -6333,9 +6357,12 @@ html, body {
       <!-- About -->
       <div class="section-label fade-in-delay-3">About</div>
       <div style="display:flex;flex-direction:column;gap:8px;" class="fade-in-delay-3">
-        <div class="setting-row">
-          <div class="mono-sm">ABLTY</div>
-          <div class="mono-sm" style="color:var(--dim);">v0.1.0 Alpha <span class="dev-badge" id="dev-badge" style="display:none;">DEV</span></div>
+        <div class="setting-row" id="about-version-row" onclick="handleVersionRowTap()" style="cursor:pointer;">
+          <div style="flex:1;min-width:0;">
+            <div class="mono-sm">ABLTY</div>
+            <div class="setting-desc" id="update-status-label">Checking for updates...</div>
+          </div>
+          <div class="mono-sm" style="color:var(--dim);white-space:nowrap;"><span id="app-version-label"></span> <span class="dev-badge" id="dev-badge" style="display:none;">DEV</span></div>
         </div>
       </div>
 
@@ -10789,28 +10816,152 @@ async function saveNewPassword() {
 // ═══════════════════════════════════════════════════════
 
 // Plain words for what is still waiting, built from the queue itself so the
-// row never promises something a tap cannot deliver. Items with an
-// `unresolved` reason (an id already used by another account, or by another
-// result of this account) are out of the retry loop for good, so they are
-// not offered a retry; the rest are.
+// row never promises something a tap cannot deliver. Every item is sorted
+// on two questions: did the phone keep it (`localSaved !== false`), and can
+// a retry still help (no `unresolved` reason)? Each of the four groups gets
+// one sentence saying where the result is, what is not backed up and what
+// to do next. "Saved on this device" is only ever said about results the
+// phone confirmed it kept; the account conflicts, ids and error codes
+// (id_collision, content_mismatch) stay in the Sync details report.
 function describePendingSync(items) {
-  const list = Array.isArray(items) ? items : [];
+  const list = (Array.isArray(items) ? items : []).filter(Boolean);
   const results = (n) => (n === 1 ? '1 result' : n + ' results');
-  const volatile = list.filter((it) => it && it.localSaved === false).length;
-  const stuck = list.filter((it) => it && it.unresolved).length;
-  const retryable = list.length - stuck;
-  const volatileRetryable = list.filter((it) => it && it.localSaved === false && !it.unresolved).length;
+  const kept = (it) => it.localSaved !== false;
+  const keptRetryable = list.filter((it) => kept(it) && !it.unresolved).length;
+  const keptStuck = list.filter((it) => kept(it) && it.unresolved).length;
+  const volatileRetryable = list.filter((it) => !kept(it) && !it.unresolved).length;
+  const volatileStuck = list.filter((it) => !kept(it) && it.unresolved).length;
   const parts = [];
-  if (volatile) {
-    parts.push(results(volatile) + ' not saved on this phone or in the cloud. ' + (volatile === 1 ? 'It is' : 'They are') + ' held only until the app closes.' + (volatileRetryable ? ' Tap to retry the cloud save.' : ''));
+  if (volatileRetryable) {
+    parts.push(results(volatileRetryable) + ' not saved on this device or in the cloud. ' + (volatileRetryable === 1 ? 'It is' : 'They are') + ' held only until the app closes. Tap to retry the cloud save.');
   }
-  if (retryable - volatileRetryable) {
-    parts.push(results(retryable - volatileRetryable) + ' not saved to cloud yet. Tap to retry.');
+  if (keptRetryable) {
+    parts.push(results(keptRetryable) + ' saved on this device, not backed up to the cloud yet. Tap to retry.');
   }
-  if (stuck) {
-    parts.push(results(stuck) + ' could not be saved to the cloud: ' + (stuck === 1 ? 'its' : 'their') + ' save ID is already taken by another result. Retrying cannot fix this; ' + (stuck === 1 ? 'it stays' : 'they stay') + ' on this phone.');
+  if (keptStuck) {
+    parts.push(results(keptStuck) + (keptStuck === 1 ? ' hasn\'t' : ' haven\'t') + ' been backed up. ' + (keptStuck === 1 ? 'It\'s' : 'They\'re') + ' saved on this device. Open Details for help.');
   }
-  return { text: parts.join(' '), retryable: retryable > 0, volatile: volatile > 0, stuck: stuck > 0 };
+  if (volatileStuck) {
+    parts.push(results(volatileStuck) + (volatileStuck === 1 ? ' hasn\'t' : ' haven\'t') + ' been backed up and ' + (volatileStuck === 1 ? 'isn\'t' : 'aren\'t') + ' saved on this device. ' + (volatileStuck === 1 ? 'It is' : 'They are') + ' held only until the app closes. Open Details for help.');
+  }
+  return {
+    text: parts.join(' '),
+    retryable: keptRetryable + volatileRetryable > 0,
+    volatile: volatileRetryable + volatileStuck > 0,
+    stuck: keptStuck + volatileStuck > 0,
+  };
+}
+
+// The sentence Details opens with: the queue first, and when the queue is
+// empty, the state of the check that recent history is really in the
+// cloud. An empty queue alone is not proof of a backup (the queue write can
+// fail and is lost on reload), so "backed up" is only said when nothing is
+// waiting, nothing is unverified, and no check is pending or failed.
+function describeSyncState(owner = _dataOwner) {
+  if (!isLoggedIn() || !owner || owner === DATA_OWNER_GUEST) {
+    return { text: 'Guest results are kept on this device only. Sign in to back them up to the cloud.', state: 'guest' };
+  }
+  const items = readPendingSync(owner);
+  if (items.length) {
+    const pend = describePendingSync(items);
+    // The row's "Open Details" pointer is redundant inside Details itself.
+    return { text: pend.text.replace(/ Open Details for help\./g, ''), state: 'pending' };
+  }
+  const unverified = unverifiedLocalRows(owner).length;
+  if (unverified) {
+    const n = unverified === 1 ? '1 recent result' : unverified + ' recent results';
+    if (_syncVerifyFailed.has(owner) && !_syncVerifyInFlight.has(owner)) {
+      return { text: 'Could not confirm that ' + n + ' reached the cloud. ' + (unverified === 1 ? 'It is' : 'They are') + ' saved on this device. Tap the Data Sync row to check again when you are online.', state: 'unverified' };
+    }
+    return { text: 'Checking that ' + n + ' reached the cloud. ' + (unverified === 1 ? 'It is' : 'They are') + ' saved on this device.', state: 'checking' };
+  }
+  return { text: 'Everything in your recent history is saved on this device and backed up to the cloud.', state: 'synced' };
+}
+
+// A plain-text report of this account's sync state on this phone, for
+// support. Carries ids, times, counts and error codes only: no notes,
+// sketches, scores or other session contents, and only the first characters
+// of any account id.
+function buildSyncDiagnostics(owner = _dataOwner) {
+  const shortId = (v) => { const s = String(v || ''); return s.length > 8 ? s.slice(0, 8) + '...' : s; };
+  const lines = [];
+  lines.push('ABLTY sync report');
+  lines.push('App version: ' + APP_VERSION);
+  lines.push('Generated: ' + new Date().toISOString());
+  lines.push('Online: ' + ((typeof navigator !== 'undefined' && 'onLine' in navigator) ? (navigator.onLine ? 'yes' : 'no') : 'unknown'));
+  const isAccount = !!owner && owner !== DATA_OWNER_GUEST;
+  lines.push('Account: ' + (isAccount ? shortId(owner) : 'guest (results stay on this device; no cloud backup)'));
+  if (isAccount) {
+    const items = readPendingSync(owner);
+    lines.push('Waiting for cloud backup: ' + items.length);
+    items.forEach((it, i) => {
+      const row = it.row || {};
+      let status;
+      if (it.unresolved) status = it.unresolved;
+      else if ((Number(it.attempts) || 0) >= MAX_SYNC_ATTEMPTS) status = 'waiting for manual retry';
+      else status = 'will retry';
+      lines.push('  ' + (i + 1) + '. ' + it.table + ' id=' + String(row.id) + ' result_time=' + String(row.timestamp || '?'));
+      lines.push('     queued=' + String(it.queuedAt || '?') + ' attempts=' + String(Number(it.attempts) || 0) + ' status=' + status
+        + (it.lastError ? ' last_error=' + it.lastError : '')
+        + (it.recovered ? ' recovered_from_history' : '')
+        + (it.localSaved === false ? ' NOT_SAVED_ON_PHONE' : ''));
+    });
+    lines.push('Confirmed in cloud (remembered ids): ' + readConfirmedSync(owner).size);
+    lines.push('Recent results not yet checked against the cloud: ' + unverifiedLocalRows(owner).length);
+    lines.push('Last cloud check: ' + (_syncVerifyInFlight.has(owner) ? 'in progress' : _syncVerifyFailed.has(owner) ? 'failed (could not reach the cloud)' : 'ok'));
+  }
+  // Device history that explains why another account may hold an id: before
+  // per-account storage, every account on a phone shared one history.
+  const owners = ownersWithLocalData();
+  const others = owners.filter((o) => o !== DATA_OWNER_GUEST && o !== owner);
+  lines.push('Device: legacy data sort done=' + (store.get(OWNED_DATA_MIGRATED_KEY) === '1' ? 'yes' : 'no')
+    + ', legacy claimant recorded=' + (store.get(LEGACY_DATA_CLAIMANT_KEY) ? 'yes' : 'no')
+    + ', guest data present=' + (owners.includes(DATA_OWNER_GUEST) ? 'yes' : 'no')
+    + ', other accounts with data on this phone=' + others.length + (others.length ? ' (' + others.map(shortId).join(', ') + ')' : ''));
+  return lines.join('\n');
+}
+
+// Every owner (guest or account id) that has data stored on this phone.
+function ownersWithLocalData() {
+  const owners = new Set();
+  listStorageKeys().forEach((k) => {
+    if (!k.startsWith('ablty_owned:')) return;
+    const rest = k.slice('ablty_owned:'.length);
+    const sep = rest.indexOf(':');
+    if (sep > 0) owners.add(rest.slice(0, sep));
+  });
+  return Array.from(owners);
+}
+
+function openSyncDetails() {
+  const modal = document.getElementById('sync-details-modal');
+  const summary = document.getElementById('sync-details-summary');
+  const report = document.getElementById('sync-details-report');
+  if (!modal || !summary || !report) return;
+  const owner = _dataOwner;
+  const { text } = describeSyncState(owner);
+  summary.textContent = text + ' The report below lists result IDs, times and status codes only, never your notes, sketches or scores. Copy it and send it to abltyapp@gmail.com if you need help.';
+  report.textContent = buildSyncDiagnostics(owner);
+  modal.style.display = 'flex';
+}
+
+function closeSyncDetails(e) {
+  const modal = document.getElementById('sync-details-modal');
+  if (!modal) return;
+  if (e && e.target !== modal && !e.target.classList.contains('modal-close-btn')) return;
+  modal.style.display = 'none';
+}
+
+async function copySyncDiagnostics() {
+  const report = document.getElementById('sync-details-report');
+  const text = report ? report.textContent : buildSyncDiagnostics();
+  try {
+    if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') throw new Error('no clipboard');
+    await navigator.clipboard.writeText(text);
+    showToast('Report copied. Paste it into an email to abltyapp@gmail.com.', 'success');
+  } catch (e) {
+    showToast('Could not copy automatically. Press and hold the report to select it.', 'warn', 4500);
+  }
 }
 
 function updateSyncStatus(status, detail = 0) {
@@ -18422,8 +18573,55 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.10.06.1';
+const APP_VERSION = '2026.10.06.2';
 const VERSION_MANIFEST_PATH = '/version.json';
+
+// What the last update check found, so Settings can tell "this is the
+// latest version" apart from "the check itself did not work". `available`
+// is sticky until the update is applied (the page reloads).
+//   idle | checking | latest | available | failed
+const _updateCheck = { state: 'idle', checkedAt: null, remoteVersion: '', reason: '' };
+let _updateCheckInFlight = null;
+
+function setUpdateCheckState(state, extra = {}) {
+  if (_updateCheck.state === 'available' && state !== 'available') {
+    // A found update is not undone by a later failed or matching check.
+    renderUpdateStatus();
+    return;
+  }
+  _updateCheck.state = state;
+  if (state === 'latest' || state === 'available' || state === 'failed') _updateCheck.checkedAt = Date.now();
+  if (extra.remoteVersion !== undefined) _updateCheck.remoteVersion = String(extra.remoteVersion || '');
+  _updateCheck.reason = String(extra.reason || '');
+  renderUpdateStatus();
+}
+
+// Settings > About: the running version and, underneath it, the result of
+// the last update check in plain words.
+function renderUpdateStatus() {
+  const versionEl = document.getElementById('app-version-label');
+  if (versionEl) versionEl.textContent = 'v' + APP_VERSION;
+  const el = document.getElementById('update-status-label');
+  if (!el) return;
+  let when = '';
+  if (_updateCheck.checkedAt) {
+    try { when = new Date(_updateCheck.checkedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch (e) {}
+  }
+  const texts = {
+    idle: 'Checking for updates...',
+    checking: 'Checking for updates...',
+    latest: 'You have the latest version.' + (when ? ' Checked at ' + when + '.' : '') + ' Tap to check again.',
+    available: 'Update available' + (_updateCheck.remoteVersion && _updateCheck.remoteVersion !== APP_VERSION ? ' (v' + _updateCheck.remoteVersion + ')' : '') + '. Tap to install.',
+    failed: 'Could not check for updates. You may be offline.' + (when ? ' Last tried at ' + when + '.' : '') + ' Tap to try again.',
+  };
+  el.textContent = texts[_updateCheck.state] || texts.idle;
+}
+
+// Settings > About row: install a found update, otherwise check right now.
+function handleVersionRowTap() {
+  if (_updateCheck.state === 'available') { applyUpdate(); return; }
+  runUpdateCheck({ manual: true });
+}
 
 async function fetchManifestVersion(url, cacheMode = 'default') {
   try {
@@ -18441,18 +18639,25 @@ async function fetchManifestVersion(url, cacheMode = 'default') {
   }
 }
 
-async function checkVersionManifestUpdate() {
+async function checkVersionManifestUpdate(opts = {}) {
   try {
+    // The row only says "Checking" before the first answer or on a manual
+    // tap; the minute poll does not make it flicker.
+    if (opts.manual || _updateCheck.state === 'idle') setUpdateCheckState('checking');
     const remoteUrl = VERSION_MANIFEST_PATH + '?update_check=' + Date.now();
     const remoteVersion = await fetchManifestVersion(remoteUrl, 'no-store');
-    if (!remoteVersion) return;
+    if (!remoteVersion) { setUpdateCheckState('failed', { reason: 'manifest_unreachable' }); return; }
     if (remoteVersion !== APP_VERSION) {
       window._pendingManifestVersion = remoteVersion;
+      setUpdateCheckState('available', { remoteVersion });
       showUpdateBanner();
     } else {
       window._manifestVersionMatches = true;
+      setUpdateCheckState('latest', { remoteVersion });
     }
-  } catch (e) {}
+  } catch (e) {
+    setUpdateCheckState('failed', { reason: 'manifest_error' });
+  }
 }
 
 async function checkHtmlUpdateFallback() {
@@ -18475,74 +18680,115 @@ async function checkHtmlUpdateFallback() {
   } catch (e) {}
 }
 
+// Workers already being followed to the `installed` state, so a worker seen
+// by several paths (updatefound, UPDATE_READY, a poll) shows one banner.
+const _swWatchedWorkers = new WeakSet();
+
+// Follows a new worker until it has installed, then offers it as the update.
+// The first-ever worker (no controller yet) is not an update.
+function watchInstallingWorker(worker) {
+  if (!worker || _swWatchedWorkers.has(worker)) return;
+  _swWatchedWorkers.add(worker);
+  const onState = () => {
+    if (worker.state !== 'installed') return;
+    if (!navigator.serviceWorker.controller) return;
+    window._swPendingWorker = worker;
+    setUpdateCheckState('available');
+    showUpdateBanner();
+  };
+  worker.addEventListener('statechange', onState);
+  onState();
+}
+
+// A new worker that is already waiting shows the banner at once; one that
+// is still installing is followed until it is. Returns true if one is waiting.
+function checkForWaitingUpdate(reg = window._swRegistration) {
+  if (!reg) return false;
+  if (reg.waiting) {
+    window._swPendingWorker = reg.waiting;
+    setUpdateCheckState('available');
+    showUpdateBanner();
+    return true;
+  }
+  if (reg.installing) watchInstallingWorker(reg.installing);
+  return false;
+}
+
+// One full update check: ask the browser to re-fetch sw.js, then compare
+// the deployed version.json (and, failing that, app.html) with what is
+// running. Shared by startup, the minute poll, foreground returns and the
+// Settings > About row, so they cannot disagree.
+function runUpdateCheck(opts = {}) {
+  if (_updateCheckInFlight) return _updateCheckInFlight;
+  _updateCheckInFlight = (async () => {
+    try {
+      const reg = window._swRegistration;
+      if (reg && typeof reg.update === 'function') {
+        try { await reg.update(); } catch (e) {}
+        checkForWaitingUpdate(reg);
+      }
+      await checkVersionManifestUpdate(opts);
+      await checkHtmlUpdateFallback();
+    } finally {
+      _updateCheckInFlight = null;
+    }
+  })();
+  return _updateCheckInFlight;
+}
+
 async function registerSW() {
-  if (!('serviceWorker' in navigator)) return;
+  renderUpdateStatus();
+  if (!('serviceWorker' in navigator)) {
+    // No service worker (some in-app browsers): the version file still says
+    // whether this page is current.
+    runUpdateCheck();
+    return;
+  }
   try {
     const reg = await navigator.serviceWorker.register('/sw.js');
     console.log('[ABLTY] Service worker registered');
     window._swRegistration = reg;
     if (!window._swPendingWorker) window._swPendingWorker = null;
 
-    const checkForWaitingUpdate = () => {
-      // Primary path: officially waiting worker.
-      if (reg.waiting) {
-        window._swPendingWorker = reg.waiting;
-        showUpdateBanner();
-        return;
-      }
-      // Fallback path for browsers that delay `reg.waiting` population.
-      const installing = reg.installing;
-      if (installing && installing.state === 'installed' && navigator.serviceWorker.controller) {
-        window._swPendingWorker = installing;
-        showUpdateBanner();
-      }
-    };
-
-    // Common case on reopen: new SW is already waiting.
-    checkForWaitingUpdate();
-
-    // Trigger an explicit update check at startup.
-    try {
-      await reg.update();
-      checkForWaitingUpdate();
-      checkVersionManifestUpdate();
-      checkHtmlUpdateFallback();
-    } catch(e) {}
-
-    // Detect when a new version is waiting
-    reg.addEventListener('updatefound', () => {
-      const newWorker = reg.installing;
-      if (!newWorker) return;
-      newWorker.addEventListener('statechange', () => {
-        if (newWorker.state !== 'installed') return;
-        if (navigator.serviceWorker.controller) {
-          window._swPendingWorker = newWorker;
-          showUpdateBanner();
-          return;
-        }
-        checkForWaitingUpdate();
-      });
-    });
+    // Listeners go on before the first reg.update(). That call can find a
+    // new sw.js and fire `updatefound` (and the worker's UPDATE_READY
+    // message) before it resolves; anything attached afterwards misses the
+    // install, and the banner used to wait for the next poll instead.
+    reg.addEventListener('updatefound', () => watchInstallingWorker(reg.installing));
 
     // If the controller changes after SKIP_WAITING, reload once.
-    if (navigator.serviceWorker && !window.__abltySwReloadBound) {
+    if (!window.__abltySwReloadBound) {
       window.__abltySwReloadBound = true;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         window.location.reload();
       });
     }
 
+    if (!window.__abltySwMessageBound) {
+      window.__abltySwMessageBound = true;
+      navigator.serviceWorker.addEventListener('message', event => {
+        if (event.data && event.data.type === 'RC_OPEN')     openRCTask();
+        if (event.data && event.data.type === 'WBTB_OPEN')   openWBTBWakeScreen();
+        if (event.data && event.data.type === 'WBTB_RETURN') showWBTBReturnPrompt();
+        if (event.data && event.data.type === 'UPDATE_READY') {
+          // Sent while the new worker is still installing: follow it.
+          checkForWaitingUpdate(reg);
+          checkVersionManifestUpdate();
+        }
+      });
+    }
+
+    // Common case on reopen: the new worker is already waiting or installing.
+    checkForWaitingUpdate(reg);
+
+    // Explicit update check at startup (not awaited: push validation and
+    // the poll set-up below do not depend on it).
+    runUpdateCheck();
+
     // Re-check periodically and when app returns to foreground.
     if (!window.__abltySwPollBound) {
       window.__abltySwPollBound = true;
-      const poll = async () => {
-        try {
-          await reg.update();
-        } catch (e) {}
-        checkForWaitingUpdate();
-        checkVersionManifestUpdate();
-        checkHtmlUpdateFallback();
-      };
+      const poll = () => runUpdateCheck();
       setInterval(poll, 60000);
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') poll();
@@ -18550,23 +18796,16 @@ async function registerSW() {
       window.addEventListener('focus', poll);
     }
 
-    navigator.serviceWorker.addEventListener('message', event => {
-      if (event.data && event.data.type === 'RC_OPEN')     openRCTask();
-      if (event.data && event.data.type === 'WBTB_OPEN')   openWBTBWakeScreen();
-      if (event.data && event.data.type === 'WBTB_RETURN') showWBTBReturnPrompt();
-      if (event.data && event.data.type === 'UPDATE_READY') {
-        checkForWaitingUpdate();
-        checkVersionManifestUpdate();
-      }
-    });
-
     setTimeout(() => validatePushSubscription(reg), 2000);
   } catch(e) {
     console.warn('[ABLTY] SW registration failed:', e);
+    setUpdateCheckState('failed', { reason: 'sw_register_failed' });
+    runUpdateCheck();
   }
 }
 
 function showUpdateBanner() {
+  if (_updateCheck.state !== 'available') setUpdateCheckState('available');
   const existing = document.getElementById('update-banner');
   if (existing) return;
   const banner = document.createElement('div');
@@ -22026,6 +22265,18 @@ const ACAD = (() => {
       <textarea id="edit-notes-input" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px;font-family:var(--font-body);font-size:13px;color:var(--text);resize:none;margin-top:6px;min-height:60px;outline:none;" placeholder="Optional notes..."></textarea>
       <button class="modal-close-btn" style="margin-top:12px;" onclick="saveEditModal()">Save</button>
       <button class="modal-close-btn" style="margin-top:8px;background:transparent;border-color:transparent;color:var(--muted);" onclick="closeEditModal()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- SYNC DETAILS MODAL (what is backed up, plus a report for support) -->
+  <div class="modal-overlay" id="sync-details-modal" style="display:none;" onclick="closeSyncDetails(event)">
+    <div class="modal-box" style="max-width:440px;">
+      <div class="modal-tag">Data Sync</div>
+      <div class="modal-title">Sync Details</div>
+      <div class="modal-body" id="sync-details-summary"></div>
+      <pre id="sync-details-report"></pre>
+      <button class="modal-close-btn" onclick="copySyncDiagnostics()">Copy report</button>
+      <button class="modal-close-btn" style="margin-top:8px;background:transparent;border-color:transparent;color:var(--muted);" onclick="closeSyncDetails()">Close</button>
     </div>
   </div>
 
