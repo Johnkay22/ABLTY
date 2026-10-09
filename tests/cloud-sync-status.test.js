@@ -17,12 +17,12 @@ const DECLS = [
   extractMultiDecl('store'), extractDecl('DATA_OWNER_GUEST'),
   extractDecl('_authGen'), extractDecl('_activeAuthUserId'), extractDecl('_enteredUserId'), extractDecl('_legalGate'),
   extractDecl('_passwordRecoveryPending'),
-  extractDecl('MAX_RV_LOCAL_SESSIONS'), extractDecl('RV_SKETCH_KEEP_RECENT'), extractDecl('MAX_ZENER_LOCAL_RUNS'),
+  extractDecl('MAX_RV_LOCAL_SESSIONS'), extractDecl('RV_SKETCH_KEEP_RECENT'), extractDecl('MAX_ZENER_LOCAL_RUNS'), extractDecl('MAX_TS_LOCAL_TRIALS'),
   extractDecl('SYNC_PENDING_KEY'), extractDecl('SYNC_CONFIRMED_KEY'), extractDecl('MAX_SYNC_ATTEMPTS'),
   extractDecl('SYNC_VERIFY_RECENT'), extractDecl('SYNC_CONFIRMED_KEEP'),
   extractDecl('_syncFlushInFlight'), extractDecl('_syncMemoryQueue'), extractDecl('_syncConfirmedMemory'),
   extractDecl('_syncVerifyInFlight'), extractDecl('_syncVerifyFailed'), extractDecl('_syncVerifyLast'), extractDecl('_historyWarnAt'),
-  extractDecl('SYNC_HELP_MAILTO_MAX'), extractMultiDecl('HISTORY_KEYS_BY_TABLE'),
+  extractDecl('SYNC_HELP_MAILTO_MAX'), extractMultiDecl('HISTORY_KEYS_BY_TABLE'), extractMultiDecl('HISTORY_LIMIT_BY_TABLE'),
   extractDecl('APP_VERSION'), extractDecl('OWNED_DATA_MIGRATED_KEY'), extractDecl('LEGACY_DATA_CLAIMANT_KEY'),
   'let _dataOwner = DATA_OWNER_GUEST;',
   'let currentScreen = "profile";',
@@ -30,14 +30,15 @@ const DECLS = [
 ];
 const FNS = ['safeParseArray', 'ownedKeyFor', 'ownedKey', 'isLoggedIn', 'isAuthGenCurrent', 'beginAuthContext', 'endAuthContext',
   'getTSTrialHit', 'mapRVSessionRow', 'mapZenerRunRow', 'mapTSTrialRow',
-  'persistHistory', 'warnHistoryNotSaved', 'saveState', 'loadState', 'loadZenerSessions', 'saveZenerSession',
+  'trimRecent', 'persistHistory', 'warnHistoryNotSaved', 'pruneRvForStorage', 'saveState', 'loadState', 'loadZenerSessions', 'saveZenerSession',
   'describePendingSync', 'updateSyncStatus', 'refreshSyncStatus', 'retryPendingSync',
   'readPendingSync', 'writePendingSync', 'pendingSyncCount', 'syncSessionToSupabase',
   'readConfirmedSync', 'markConfirmedSync', 'recentLocalHistoryRows', 'unverifiedLocalRows', 'verifyRecentCloudCopies',
   'sameCloudValue', 'cloudRowMatchesSubmission', 'flushPendingSync',
   'describeSyncState', 'unverifiedNote', 'describeLastCloudCheck', 'listStorageKeys', 'buildSyncDiagnostics', 'ownersWithLocalData',
   'openSyncDetails', 'closeSyncDetails', 'copySyncDiagnostics', 'buildSyncHelpMailto', 'openSyncHelpEmail',
-  'foreignCollisionItems', 'findRecoverableResults', 'moveLocalResult', 'offerForeignResultRecovery', 'confirmForeignResultRecovery'];
+  'foreignCollisionItems', 'mapHistoryRow', 'isEmptyLocalValue', 'sameLocalValue', 'durableHistoryList', 'planLocalMove',
+  'findRecoverableResults', 'moveLocalResult', 'offerForeignResultRecovery', 'confirmForeignResultRecovery'];
 const source = DECLS.join('\n').replace(/^(const|let) /gm, 'var ') + '\n\n' + FNS.map(extractFn).join('\n\n');
 new vm.Script(source);
 
@@ -800,8 +801,9 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
 
   // ── Stuck queue items must not block verification of the rest ──
 
-  // Johnny's phone: three Zener runs parked as id collisions, five other
-  // recent results never checked against the cloud.
+  // A phone with two accounts: three Zener runs parked as id collisions
+  // under account A (the cloud holds those ids under B), five other recent
+  // results never checked against the cloud. Ids are synthetic.
   function zenerRun(id, extra = {}) {
     return { id, hits: 6, hitPct: 24, symbolStats: { circle: 2 }, timestamp: new Date(id).toISOString(), ...extra };
   }
@@ -809,8 +811,8 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     return { key: 'zener_runs:' + run.id, table: 'zener_runs', row: ctx.mapZenerRunRow(run), attempts: ctx.MAX_SYNC_ATTEMPTS,
       queuedAt: '2026-10-06T10:00:00.000Z', unresolved: 'id_collision', lastError: 'id_collision', recovered: true };
   }
-  const STUCK_IDS = [1786801381920, 1786801418022, 1786801454170];
-  function johnnysPhone(t, owner = 'A') {
+  const STUCK_IDS = [1700000001000, 1700000002000, 1700000003000];
+  function twoAccountPhone(t, owner = 'A') {
     const stuck = STUCK_IDS.map((id) => zenerRun(id));
     const ownZener = [zenerRun(1790000000001), zenerRun(1790000000002)];
     t.ls.set('ablty_owned:' + owner + ':ablty_zener', JSON.stringify([...ownZener, ...stuck]));
@@ -822,7 +824,7 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
 
   await test('REGRESSION: parked id collisions no longer stop the other recent results from being verified', async () => {
     const t = makeCtx();
-    const { ownZener, ownRv } = johnnysPhone(t);
+    const { ownZener, ownRv } = twoAccountPhone(t);
     // Four of the five are in the cloud; one Zener run never got there.
     ownZener.slice(0, 1).forEach((r) => t.cloud('zener_runs', r.id, 'A', t.ctx.mapZenerRunRow(r)));
     ownRv.forEach((r) => t.cloud('rv_sessions', r.id, 'A', t.ctx.mapRVSessionRow(r)));
@@ -855,7 +857,7 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
 
   await test('parked items plus a cloud check that fails: the row says both, a tap re-checks, and nothing loops', async () => {
     const t = makeCtx();
-    johnnysPhone(t);
+    twoAccountPhone(t);
     t.signIn('A');
     t.ctx.loadState();
     t.setExistenceError({ code: 'PGRST000', message: 'offline' });
@@ -904,7 +906,7 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
 
   await test('RECOVERY: signed in as the holding account, confirmed-identical results move from the other account\'s copy, cloud untouched', async () => {
     const t = makeCtx();
-    const { stuck, ownZener, ownRv } = johnnysPhone(t, 'A');
+    const { stuck, ownZener, ownRv } = twoAccountPhone(t, 'A');
     ownZener.forEach((r) => t.cloud('zener_runs', r.id, 'A', t.ctx.mapZenerRunRow(r)));
     ownRv.forEach((r) => t.cloud('rv_sessions', r.id, 'A', t.ctx.mapRVSessionRow(r)));
     // The cloud holds the three parked ids under B, with exactly the same
@@ -954,7 +956,7 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
 
   await test('RECOVERY: different contents, someone else\'s row, or a failed read-back: nothing moves', async () => {
     const t = makeCtx();
-    const { stuck } = johnnysPhone(t, 'A');
+    const { stuck } = twoAccountPhone(t, 'A');
     // id 0: B's with different contents; id 1: C's; id 2: identical but the read-back fails first time.
     t.cloud('zener_runs', stuck[0].id, 'B', { ...t.ctx.mapZenerRunRow(stuck[0]), hits: 1 });
     t.cloud('zener_runs', stuck[1].id, 'C', t.ctx.mapZenerRunRow(stuck[1]));
@@ -984,19 +986,20 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
 
   await test('RECOVERY: destination write refused: the source copy and queue are left exactly as they were', async () => {
     const t = makeCtx();
-    const { stuck } = johnnysPhone(t, 'A');
+    const { stuck } = twoAccountPhone(t, 'A');
     stuck.forEach((r) => t.cloud('zener_runs', r.id, 'B', t.ctx.mapZenerRunRow(r)));
     t.signIn('B');
     const before = { zener: t.ls.get('ablty_owned:A:ablty_zener'), queue: t.ls.get('ablty_owned:A:ablty_sync_pending') };
     t.storage.refuse = (k) => k === 'ablty_owned:B:ablty_zener';
-    assert.strictEqual(t.ctx.moveLocalResult('A', 'B', 'zener_runs', stuck[0].id), false);
+    assert.strictEqual(t.ctx.moveLocalResult('A', 'B', 'zener_runs', stuck[0].id), 'refused');
     assert.strictEqual(t.ls.get('ablty_owned:A:ablty_zener'), before.zener);
     assert.strictEqual(t.ls.get('ablty_owned:A:ablty_sync_pending'), before.queue);
     assert.strictEqual(t.ls.has('ablty_owned:B:ablty_zener'), false);
+    assert.ok(!t.confirmed('B').length, 'not marked confirmed either');
     // Storage back: the move works, and an existing destination entry is kept with empty fields filled.
     t.storage.refuse = () => false;
     t.ls.set('ablty_owned:B:ablty_zener', JSON.stringify([{ ...zenerRun(stuck[1].id), symbolStats: null }]));
-    assert.strictEqual(t.ctx.moveLocalResult('A', 'B', 'zener_runs', stuck[1].id), true);
+    assert.strictEqual(t.ctx.moveLocalResult('A', 'B', 'zener_runs', stuck[1].id), 'moved');
     const bZener = JSON.parse(t.ls.get('ablty_owned:B:ablty_zener'));
     assert.strictEqual(bZener.filter((r) => r.id === stuck[1].id).length, 1, 'no duplicate in the destination');
     assert.deepStrictEqual(bZener[0].symbolStats, { circle: 2 }, 'empty field filled from the moved copy');
@@ -1005,11 +1008,151 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     const rv = rvSession(1790000000009);
     t.ls.set('ablty_owned:A:ablty_sessions', JSON.stringify([rv]));
     t.ls.set('ablty_owned:A:ablty_sync_pending', JSON.stringify([{ key: 'rv_sessions:' + rv.id, table: 'rv_sessions', row: t.ctx.mapRVSessionRow(rv), attempts: 5, queuedAt: 'x', unresolved: 'id_collision' }]));
-    assert.strictEqual(t.ctx.moveLocalResult('A', 'B', 'rv_sessions', rv.id), true);
+    assert.strictEqual(t.ctx.moveLocalResult('A', 'B', 'rv_sessions', rv.id), 'moved');
     assert.strictEqual(t.ctx.STATE.sessions[0].id, rv.id, 'in memory for the owner on screen');
     assert.strictEqual(t.ctx.STATE.sessions[0].notes, 'tall, white');
     assert.strictEqual(JSON.parse(t.ls.get('ablty_owned:B:ablty_sessions'))[0].id, rv.id, 'and written');
     assert.deepStrictEqual(JSON.parse(t.ls.get('ablty_owned:A:ablty_sessions')), []);
+  });
+
+  // ── Review of PR #141: three ways the move used to lose or mix data ──
+
+  // An RV session recorded earlier than B's own; `extra` tweaks it.
+  function olderRv(id, extra = {}) {
+    return rvSession(id, { timestamp: new Date(id).toISOString(), notes: 'older notes', sketchData: 'data:image/png;base64,OLDER=', ...extra });
+  }
+  function parkRv(t, owner, session) {
+    t.ls.set('ablty_owned:' + owner + ':ablty_sessions', JSON.stringify([session]));
+    t.ls.set('ablty_owned:' + owner + ':ablty_sync_pending', JSON.stringify([{ key: 'rv_sessions:' + session.id, table: 'rv_sessions', row: t.ctx.mapRVSessionRow(session), attempts: 5, queuedAt: '2026-10-06T10:00:00.000Z', unresolved: 'id_collision', lastError: 'id_collision', recovered: true }]));
+  }
+
+  await test('REGRESSION: full RV history: a recovered older session that saveState would trim or strip is refused, nothing removed', async () => {
+    const t = makeCtx();
+    const old = olderRv(1600000000000);
+    parkRv(t, 'A', old);
+    t.cloud('rv_sessions', old.id, 'B', t.ctx.mapRVSessionRow(old));
+    // B already holds MAX_RV_LOCAL_SESSIONS newer sessions on this device.
+    const newer = Array.from({ length: t.ctx.MAX_RV_LOCAL_SESSIONS }, (_, i) => rvSession(1790000100000 + i, { timestamp: new Date(1790000100000 + i).toISOString(), sketchData: null }));
+    newer.sort((a, b) => b.id - a.id);
+    t.ls.set('ablty_owned:B:ablty_sessions', JSON.stringify(newer));
+    t.signIn('B');
+    t.ctx.loadState();
+    assert.strictEqual(t.ctx.STATE.sessions.length, t.ctx.MAX_RV_LOCAL_SESSIONS);
+    const before = { a: t.ls.get('ablty_owned:A:ablty_sessions'), q: t.ls.get('ablty_owned:A:ablty_sync_pending'), b: t.ls.get('ablty_owned:B:ablty_sessions') };
+    const found = await t.ctx.findRecoverableResults('B');
+    assert.strictEqual(found.matches.length, 1, 'the cloud agrees it is B\'s');
+    await t.ctx.confirmForeignResultRecovery();
+    assert.ok(t.log.toasts.some((x) => x.type === 'warn' && x.msg.startsWith('Could not keep 1 result in full in this account on this device (history full). Nothing was moved or removed.')), JSON.stringify(t.log.toasts));
+    assert.ok(!t.log.toasts.some((x) => x.type === 'success'));
+    assert.strictEqual(t.ls.get('ablty_owned:A:ablty_sessions'), before.a, 'source kept, sketch included');
+    assert.strictEqual(t.ls.get('ablty_owned:A:ablty_sync_pending'), before.q, 'queue kept');
+    assert.strictEqual(t.ls.get('ablty_owned:B:ablty_sessions'), before.b, 'destination storage unchanged');
+    assert.strictEqual(t.ctx.STATE.sessions.length, t.ctx.MAX_RV_LOCAL_SESSIONS, 'memory rolled back');
+    assert.ok(!t.ctx.STATE.sessions.some((s) => s.id === old.id));
+    assert.ok(!t.confirmed('B').includes('rv_sessions:' + old.id), 'not marked confirmed');
+    // Fewer sessions, but still more than RV_SKETCH_KEEP_RECENT newer ones: the sketch would be stripped, so it is refused too.
+    t.ls.set('ablty_owned:B:ablty_sessions', JSON.stringify(newer.slice(0, t.ctx.RV_SKETCH_KEEP_RECENT)));
+    t.ctx.loadState();
+    assert.strictEqual(t.ctx.moveLocalResult('A', 'B', 'rv_sessions', old.id), 'no_room');
+    assert.strictEqual(t.ls.get('ablty_owned:A:ablty_sessions'), before.a);
+    assert.strictEqual(JSON.parse(t.ls.get('ablty_owned:B:ablty_sessions')).length, t.ctx.RV_SKETCH_KEEP_RECENT);
+    // With room for the sketch, it moves whole and survives a reload.
+    t.ls.set('ablty_owned:B:ablty_sessions', JSON.stringify(newer.slice(0, t.ctx.RV_SKETCH_KEEP_RECENT - 1)));
+    t.ctx.loadState();
+    assert.strictEqual(t.ctx.moveLocalResult('A', 'B', 'rv_sessions', old.id), 'moved');
+    const r = reload(t, 'B');
+    const back = r.ctx.STATE.sessions.find((s) => s.id === old.id);
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(back)), old, 'the complete session, sketch and local-only fields included, after a reload');
+    assert.strictEqual(r.ctx.STATE.sessions.length, t.ctx.RV_SKETCH_KEEP_RECENT);
+    assert.deepStrictEqual(JSON.parse(r.ls.get('ablty_owned:A:ablty_sessions')), []);
+    assert.deepStrictEqual(r.queue('A'), []);
+    assert.ok(r.confirmed('B').includes('rv_sessions:' + old.id));
+    assert.strictEqual(r.ctx.foreignCollisionItems('B').length, 0);
+  });
+
+  await test('REGRESSION: destination already holds that id with different contents: refused, both copies kept; the local copy is what is checked, not the queued snapshot', async () => {
+    const t = makeCtx();
+    const { stuck } = twoAccountPhone(t, 'A');
+    stuck.forEach((r) => t.cloud('zener_runs', r.id, 'B', t.ctx.mapZenerRunRow(r)));
+    // id 0: B's own copy on this device differs (non-empty field, other value).
+    // id 1: B's copy agrees where both have a value; only an empty field differs.
+    // id 2: A's local copy was edited after it was queued; the snapshot still matches the cloud.
+    t.ls.set('ablty_owned:B:ablty_zener', JSON.stringify([{ ...zenerRun(stuck[0].id), hits: 9 }, { ...zenerRun(stuck[1].id), symbolStats: null }]));
+    const aZener = JSON.parse(t.ls.get('ablty_owned:A:ablty_zener')).map((r) => (r.id === stuck[2].id ? { ...r, hits: 7 } : r));
+    t.ls.set('ablty_owned:A:ablty_zener', JSON.stringify(aZener));
+    t.signIn('B');
+    const before = { a: t.ls.get('ablty_owned:A:ablty_zener'), b: t.ls.get('ablty_owned:B:ablty_zener') };
+    const found = await t.ctx.findRecoverableResults('B');
+    assert.deepStrictEqual([found.matches.length, found.conflicts, found.mismatches, found.notMine, found.errors], [1, 1, 1, 0, 0]);
+    assert.strictEqual(found.matches[0].item.row.id, stuck[1].id);
+    assert.strictEqual(t.log.lookups.filter((q) => String(q.filters.id) === String(stuck[0].id)).length, 0, 'a local conflict is never even asked about');
+    const edited = t.log.lookups.find((q) => String(q.filters.id) === String(stuck[2].id));
+    assert.ok(edited.cols.includes('hits'), 'the edited local copy was compared, which is why it is a mismatch');
+    t.ctx.openSyncDetails();
+    await t.settle();
+    const text = t.els['sync-recover-text'].textContent;
+    assert.ok(text.includes('1 result under another account has the same ID as a result already in this account on this device, with different contents. Both copies are kept and nothing is moved.'), text);
+    assert.strictEqual(t.els['sync-recover-btn'].textContent, 'Move 1 result to this account');
+    assert.strictEqual(t.ctx.moveLocalResult('A', 'B', 'zener_runs', stuck[0].id), 'conflict', 'a direct call is refused as well');
+    await t.ctx.confirmForeignResultRecovery();
+    assert.strictEqual(t.ls.get('ablty_owned:A:ablty_zener') !== before.a, true, 'only the agreeing one left A');
+    const aAfter = JSON.parse(t.ls.get('ablty_owned:A:ablty_zener'));
+    assert.ok(aAfter.some((r) => r.id === stuck[0].id && r.hits === 6), 'A keeps its copy of the conflicting run');
+    assert.ok(aAfter.some((r) => r.id === stuck[2].id && r.hits === 7), 'A keeps its edited run');
+    const bAfter = JSON.parse(t.ls.get('ablty_owned:B:ablty_zener'));
+    assert.strictEqual(bAfter.find((r) => r.id === stuck[0].id).hits, 9, 'B keeps its own different copy');
+    assert.deepStrictEqual(bAfter.find((r) => r.id === stuck[1].id).symbolStats, { circle: 2 }, 'the empty field was filled');
+    assert.deepStrictEqual(t.queue('A').map((it) => it.row.id).sort(), [stuck[0].id, stuck[2].id].sort(), 'conflict and mismatch stay parked');
+    assert.ok(!t.confirmed('B').includes('zener_runs:' + stuck[0].id), 'conflict not marked confirmed');
+    assert.ok(t.confirmed('B').includes('zener_runs:' + stuck[1].id));
+    const r = reload(t, 'A');
+    assert.strictEqual(r.queue('A').length, 2);
+    assert.strictEqual(JSON.parse(r.ls.get('ablty_owned:A:ablty_zener')).length, 4);
+  });
+
+  await test('REGRESSION: source history write refused after the copy: queue kept, reported as partial, finished by the next attempt', async () => {
+    const t = makeCtx();
+    const { stuck } = twoAccountPhone(t, 'A');
+    stuck.forEach((r) => t.cloud('zener_runs', r.id, 'B', t.ctx.mapZenerRunRow(r)));
+    t.signIn('B');
+    t.storage.refuse = (k) => k === 'ablty_owned:A:ablty_zener';
+    await t.ctx.confirmForeignResultRecovery();
+    assert.ok(t.log.toasts.some((x) => x.type === 'warn' && x.msg.startsWith('3 results copied to this account, but the copy under the other account could not be removed yet. Open Details again to finish; nothing is lost.')), JSON.stringify(t.log.toasts));
+    assert.ok(!t.log.toasts.some((x) => x.type === 'success'), 'not called a success');
+    assert.strictEqual(t.queue('A').length, 3, 'the queue items stay until the cleanup is done');
+    assert.strictEqual(JSON.parse(t.ls.get('ablty_owned:A:ablty_zener')).length, 5, 'source still has them');
+    assert.deepStrictEqual(JSON.parse(t.ls.get('ablty_owned:B:ablty_zener')).map((r) => r.id).sort(), STUCK_IDS.slice().sort(), 'destination holds them');
+    assert.ok(STUCK_IDS.every((id) => t.confirmed('B').includes('zener_runs:' + id)));
+    await t.settle();
+    assert.strictEqual(t.els['sync-recover-wrap'].style.display, 'block', 'the offer is shown again so the user can finish');
+    assert.strictEqual(t.els['sync-recover-btn'].textContent, 'Move 3 results to this account');
+    // A reload as A shows the truth: three results still waiting.
+    const a = reload(t, 'A');
+    a.ctx.refreshSyncStatus();
+    await a.settle();
+    assert.strictEqual(a.label(), '3 results haven\'t been backed up. They\'re saved on this device. Open Details for help.');
+    assert.strictEqual(a.log.inserts.filter((i) => STUCK_IDS.includes(i.row.id)).length, 0, 'never re-sent');
+    // Storage back, second attempt: nothing is written twice, the cleanup completes.
+    t.storage.refuse = () => false;
+    const bBefore = t.ls.get('ablty_owned:B:ablty_zener');
+    await t.ctx.confirmForeignResultRecovery();
+    assert.ok(t.log.toasts.some((x) => x.type === 'success' && x.msg.startsWith('3 results moved')), JSON.stringify(t.log.toasts));
+    assert.strictEqual(t.ls.get('ablty_owned:B:ablty_zener'), bBefore, 'destination untouched by the retry');
+    assert.deepStrictEqual(t.queue('A'), []);
+    assert.strictEqual(JSON.parse(t.ls.get('ablty_owned:A:ablty_zener')).length, 2);
+    // Queue write refused instead: also partial, and a reload still sees the item until it can be cleared.
+    const t2 = makeCtx();
+    const s2 = twoAccountPhone(t2, 'A').stuck;
+    s2.forEach((r) => t2.cloud('zener_runs', r.id, 'B', t2.ctx.mapZenerRunRow(r)));
+    t2.signIn('B');
+    t2.storage.refuse = (k) => k === 'ablty_owned:A:ablty_sync_pending';
+    assert.strictEqual(t2.ctx.moveLocalResult('A', 'B', 'zener_runs', s2[0].id), 'partial');
+    assert.strictEqual(reload(t2, 'A').queue('A').length, 3, 'the stored queue still lists it');
+    t2.storage.refuse = () => false;
+    assert.strictEqual(t2.ctx.moveLocalResult('A', 'B', 'zener_runs', s2[0].id), 'moved');
+    assert.strictEqual(reload(t2, 'A').queue('A').length, 2);
+    const r2 = reload(t2, 'B');
+    assert.strictEqual(JSON.parse(r2.ls.get('ablty_owned:B:ablty_zener')).filter((r) => r.id === s2[0].id).length, 1, 'one copy after reload');
   });
 
   // ── Get help ──
