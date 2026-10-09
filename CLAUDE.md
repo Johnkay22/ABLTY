@@ -1,6 +1,6 @@
 # ABLTY Project Instructions
 
-**Current handoff (2026-10-09):** read [`_internal/AI-HANDOFF.md`](_internal/AI-HANDOFF.md) before choosing work. PR #141 remains a draft with two recovery issues found at `773ced0`; sync is parked, not approved for merge. Johnny's next credit priority is Step 9 target-image grading, then Step 8 as budget allows.
+**Current handoff (2026-10-09):** read [`_internal/AI-HANDOFF.md`](_internal/AI-HANDOFF.md) before choosing work. PR #141 at `a38ccc1` passes code review and is recommended for Johnny to merge; deployment and phone recovery remain unverified. Johnny's next credit priority is Step 9 target-image grading, then Step 8 as budget allows.
 
 ## Workflow
 - Read `LAUNCH-PLAN.md` in full at the start of every session. It is the overall launch status document. Update it in the same PR as your work.

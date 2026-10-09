@@ -19,6 +19,15 @@ Keep entries short and in plain English. Say what was actually done, not what wa
 
 ---
 
+## 2026-10-09: Final follow-up review of PR #141
+- **Who:** Codex reviewer
+- **Branch / PR:** documentation update in existing draft PR #140; reviewed application head `a38ccc1ac760297e7798c7c2db4102462df7e904` on draft #141, version `2026.10.09.3` / `ablty-v87`.
+- **What changed:** Updated the handoff and its pointers after reviewing both final corrections. Complete destination persistence is checked even for an existing in-memory entry; failed queue cleanup keeps the unfinished item in the live retry list. No remaining blocker identified in this review. This supersedes the earlier recommendation to park sync: Johnny chose to finish #141 before Step 9.
+- **Tests:** Independently passed: sync 47, update detection 11, syntax 2 blocks, whitespace check. Exact-head GitHub integration run 37911993479 succeeded. Cursor reports the other suites passing; they were not all repeated locally in this final review.
+- **Production:** nothing changed. No merge or deployment.
+- **Johnny needs to:** merge #141 if accepting the review; after Pages builds, run the phone checklist in the handoff. Phone recovery remains unverified.
+- **Next:** Step 9 target-image grading on a separate branch using current main. Step 8 remains unstarted; existing Premium accounts remain unchanged.
+
 ## 2026-10-09: Review checkpoint and handoff before target-image grading
 - **Who:** Codex reviewer
 - **Branch / PR:** `docs/beta-priority-budget-20261009`, existing draft PR #140; documentation only.

@@ -6,13 +6,13 @@ Last updated: 2026-10-09, Chicago. This is a dated checkpoint, not proof of the 
 
 Read `CLAUDE.md`, `.cursor/rules/ablty-workflow.mdc`, this file, `LAUNCH-PLAN.md`, `_internal/PRE-BETA-PLAN.md`, and the latest `_internal/WORK-LOG.md` entries. Check whether PRs #140 and #141 have changed or merged. This handoff is proposed in draft PR #140 on `docs/beta-priority-budget-20261009`; it is not on main until merged.
 
-Johnny is conserving a small amount of expiring Cursor credit. Do not restart a broad audit or duplicate another agent's active work. Next priority is Step 9, target-image grading. Keep the sync follow-up below parked, accurately marked unfinished. Step 8 follows as budget allows; do not start it automatically.
+Johnny is conserving a small amount of expiring Cursor credit. Do not restart a broad audit or duplicate another agent's active work. Johnny chose to finish #141 first. Its code review now passes; next priority is Step 9, target-image grading. Sync deployment and phone verification remain pending. Step 8 follows as budget allows; do not start it automatically.
 
 ## Current status
 
 - Steps 1 through 7: implemented in prior PRs. Step 6's production application has a separate recorded verification. Preserve the existing deployment and phone-test distinctions in the plan.
 - PR #139: merged at `f25232b2a2c8096f2d9ce3069f167f11f70d94c4`. Johnny's supplied diagnostic report confirmed the installed version was `2026.10.06.2`. It did not prove the update banner or sync recovery worked on a phone.
-- PR #141: OPEN DRAFT at reviewed head `773ced097fcc40d0ad548d151627a5be18346ddf`, branch `cursor/sync-recovery-get-help-bbab`, proposed version `2026.10.09.2` / `ablty-v86`. Not approved for merge by this review. No deployment or production change was made during this review.
+- PR #141: OPEN DRAFT at reviewed head `a38ccc1ac760297e7798c7c2db4102462df7e904`, branch `cursor/sync-recovery-get-help-bbab`, proposed version `2026.10.09.3` / `ablty-v87`. Reviewed with no remaining blocker identified; recommended for Johnny to merge. This is a review recommendation, not an actual merge or device verification. No deployment or production change was made during this review.
 - PR #140: documentation-only priority and handoff record. It does not release the sync changes. Reconcile dated status text if merging alongside newer documentation in #141.
 - Steps 8 and 9: not started according to the supplied work reports at this checkpoint. Verify current branches before beginning.
 
@@ -20,22 +20,22 @@ Johnny is conserving a small amount of expiring Cursor credit. Do not restart a 
 
 Three parked Zener results blocked checks of five other recent results. The blocked check and the misleading default "Last cloud check: ok" were fixed in #141. Read-only production investigation established that the three IDs are held by another account which Johnny also owns. The exact contents of the copies on the phone still require the guarded in-app comparison. Do not publish account identifiers, result IDs, or private result contents.
 
-The new recovery feature is local-only and must preserve all distinct data, verify cloud ownership and contents, and never regenerate IDs or alter cloud rows. The first review found failures involving full RV history, conflicting destination contents, and refused source cleanup. The updated tests cover those original cases, but the follow-up review found two remaining gaps.
+The new recovery feature is local-only and must preserve all distinct data, verify cloud ownership and contents, and never regenerate IDs or alter cloud rows. The first review found failures involving full RV history, conflicting destination contents, and refused source cleanup. The second review found the two persistence/retry gaps below. All five findings are addressed in the reviewed head; do not reopen them solely because older work-log entries describe them as open.
 
-## Resume sync here, before merging #141
+## Sync review complete; deployment and phone check remain
 
-1. **Destination already in memory but not durable.** `planLocalMove` can return `write: false` for an RV entry already present in `STATE.sessions`. `moveLocalResult` then skips its destination persistence check. Independently reproduced with a synthetic source entry, a matching cloud row and matching destination memory, but a refused destination history save: recovery reports success, removes the source and its queue, and after reload neither local history contains the entry. Cloud data remains, but local-only fields can be lost. Require durable verification of the complete destination entry on every path, including the no-write path, before source cleanup. Test failed saves and previously pruned destination entries with reloads.
-2. **Failed queue cleanup is hidden in the current session.** `writePendingSync(fromOwner, rest)` installs `rest` in `_syncMemoryQueue` when persistence fails. Recovery returns `partial`, but the removed item is no longer visible to `readPendingSync` or `findRecoverableResults` until reload. Independently reproduced with two synthetic parked items: persistent queue still has both, current queue and the recovery offer contain only the second. Preserve unfinished cleanup in the live queue and keep it actionable without reloading. Add a same-session retry test as well as reload coverage.
+1. **Destination already in memory but not durable: fixed.** `moveLocalResult` now reads back the complete destination entry even when the planning step says no write is needed. It attempts to persist a memory-only entry before source cleanup and refuses the move if that write fails. The new regression preserves the source on failure and verifies the successful retry after reload, including the complete entry.
+2. **Failed queue cleanup hidden in the current session: fixed.** A refused shortened-queue write now restores the full active queue. The new regression checks that the unfinished item remains in the current recovery offer and can be cleaned up in the same session, with reload verification afterwards.
 
-Do not mark either issue fixed on the strength of this document. Correct them on the existing #141 branch, rerun targeted regressions, and have the new head reviewed. Do not merge or deploy without Johnny's approval. Leaving #141 as a draft allows the separate grading task to proceed; it does not clear sync readiness for beta testers.
+No remaining merge blocker was identified in this review at `a38ccc1`. Johnny must still authorize/perform the merge. Do not merge or deploy automatically. Do not equate passing automated tests with completed phone recovery or external-beta readiness.
 
 ### Evidence at reviewed head
 
-- Independently run: cloud-sync-status 45 passed, update-detection 11 passed, app syntax 2 script blocks passed.
-- GitHub workflow `PR 127 browser and local Supabase integration`: success on this exact head, run `37908404333`.
-- Two additional synthetic experiments reproduced the outstanding gaps above using the real functions through the existing test harness. They were read-only with respect to the repository and production; no fix was committed.
+- Independently run: cloud-sync-status 47 passed, update-detection 11 passed, app syntax 2 script blocks passed; whitespace check passed.
+- GitHub workflow `PR 127 browser and local Supabase integration`: success on this exact head, run `37911993479`.
+- Source review confirms the two final corrections address the synthetic failures reproduced at `773ced0`. The added tests exercise failed persistence, same-session retry and reload behavior. Cursor additionally reports both tests fail on the earlier code; this final review did not repeat the old-head comparison.
 - Cursor reports the remaining suites and browser recovery walk-through passing. This review did not repeat that entire suite locally.
-- Phone recovery and deployment: not tested. After an approved fix is merged and Pages builds, verify the actual released version, checks of recent results, guarded recovery under the cloud-owning account, return to the original account, and persistence after closing/reopening. Do not promise exact found/re-queued counts before the device reports them. Do not clear app storage or delete results to remove warnings.
+- Phone recovery and deployment: not tested. After Johnny merges and Pages builds, confirm installed version `2026.10.09.3` (or a later intentionally released version). Under the original account, verify the other recent results are checked. Under the account holding the cloud rows, open Details and use the recovery offer only if contents match. Return to the original account, then close/reopen and confirm the recovered items do not reappear as waiting. If recovery reports a partial cleanup, retry through Details; if it persists, retain the diagnostic report and stop. Do not promise exact found/re-queued counts before the device reports them. Do not clear app storage or delete results to remove warnings.
 
 ## Next credit priority: Step 9, Gemini target image
 
