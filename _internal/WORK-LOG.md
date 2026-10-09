@@ -19,6 +19,15 @@ Keep entries short and in plain English. Say what was actually done, not what wa
 
 ---
 
+## 2026-10-09: Record budget priorities and the running sync follow-up
+- **Who:** Codex, at Johnny's request
+- **Branch / PR:** `docs/beta-priority-budget-20261009`, docs-only draft PR
+- **What changed:** Recorded that the sync follow-up is already running and should finish. Next priorities are Step 9 target-photo grading, then Step 8 beta access as budget allows. Preserved unresolved sync findings and recovery requirements. Existing Premium remains unchanged; no beta release gate was waived.
+- **Tests:** documentation diff and whitespace checked; app tests not run because no app code changed.
+- **Production:** nothing changed. Earlier read-only ownership checks informed the note; no account identifiers or result contents were added to the repo.
+- **Johnny needs to:** review this documentation PR and send the priority instruction to Cursor after its current task finishes.
+- **Next:** review the running sync fix, then Step 9. Save reviewable checkpoints and an honest handoff if the budget runs out.
+
 ## 2026-10-06: Settings version display, update-banner race, plain-English sync status (between steps 7 and 8)
 - **Who:** Cursor (cloud agent)
 - **Branch / PR:** `cursor/settings-version-update-sync-fixes-bbab`, draft PR #139 (version `2026.10.06.2` / `ablty-v84`). Step 7 (PR #138) merged 2026-10-06 at `c8f2090`. Step 8 has not started.

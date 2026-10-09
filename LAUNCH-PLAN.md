@@ -4,6 +4,8 @@
 
 **Exception, added 2026-10-03:** the private beta has its own step-by-step plan in `_internal/PRE-BETA-PLAN.md`, with a Status board and a work log in `_internal/WORK-LOG.md`. For pre-beta work, follow that plan and record progress there as well as here.
 
+**2026-10-09 development priority:** let the already-running Cursor sync follow-up finish, then prioritize Step 9 (target-photo input for grading), followed by Step 8 (beta-code access and expiry) as budget allows. Step 8 is the more complex cross-system task; Step 9 is a bounded change to the core grading experience. See the dated priority note in `_internal/PRE-BETA-PLAN.md`. Sync correctness and account isolation still need assessment before the external pilot. Existing Premium accounts remain unchanged. PR #139 is merged at `f25232b`; a supplied phone report confirms version 2026.10.06.2, but not update-banner behavior or complete cloud backup.
+
 **Created:** 2026-08-23, from a live audit of the repo, the deployed Worker, and the Supabase database.
 **Rewritten:** 2026-09-03, after a second live audit of `main` (`54ec92f`) plus Johnny's product decisions. The 2026-08-23 claims that were wrong are corrected here, not left as history.
 **Status synced:** 2026-09-25 (Chicago), with read-only checks of the ABLTY production Supabase project and GitHub PR #126. PR #125 merged at `19891d9`; PR #127 merged on 2026-09-19 at `1b0846a`. The September 13 rollout evidence is preserved below as a dated record. The live website, installed PWA, email settings, and physical-device behavior were not verified in this update.

@@ -64,6 +64,29 @@ A step moves through: **Not started → In progress → PR open (#number) → Me
 
 ---
 
+## 2026-10-09 priority decision: finish the running sync task, then grading and beta access
+
+Johnny has limited remaining Cursor credits and wants them used for difficult implementation. The sync follow-up prompt is already running in Cursor: let that task finish and review its result; do not interrupt, duplicate or restart it. The findings below remain tracked until that work is verified. This changes development order, not beta release requirements.
+
+**Next priority after the running task: Step 9, image-aware grading.** Start with the Worker sending the actual target photo alongside the submitted sketch, with clear image labels, appropriate image-fetch handling and tests. This is a bounded change to the core grading experience. Audit the current Worker first. Check current official Gemini documentation before selecting a model or changing request settings; do not treat model names, pricing or availability in this plan as permanently current. Preserve the grading rules and response format. Real comparison testing, consistency checks and cost measurements remain required before claiming the grading is better. Do not put private session contents or credentials in the repo. If a live evaluation needs unavailable credentials, checkpoint the tested implementation and document the exact remaining evaluation rather than spending the session on setup or declaring it complete.
+
+**Next use of any remaining budget: Step 8, beta-code access and expiry.** This is the more complex task because it spans database permissions and concurrent redemption, signup, Worker entitlement caching, app access and expiry. Follow the full Step 8 specification below; all existing Premium accounts remain unchanged. Prioritize the server-side design, migration and meaningful tests, then the planned app/install integration. Keep accurate checkpoints in a separate draft PR; do not mark a partial implementation complete. Do not start other steps automatically.
+
+**Budget discipline:** no model-performance or dollar-completion guarantee is assumed. Keep progress summaries short, skip cosmetic polish, and preserve reviewable commits and a handoff if the budget ends. No production migration, deployment or merge is authorized by this priority change.
+
+**Sync follow-up already running, verify before the external beta pilot:**
+- A phone diagnostic report running 2026.10.06.2 shows older Zener results queued as recovered-history ownership conflicts. A read-only database check confirmed the corresponding IDs exist under a different account; Johnny confirmed both accounts are his. Full local/cloud content equality and the historical cause have not been established. Keep identifiers and personal data out of the public repo.
+- Investigate whether unresolved queue entries prevent other recent history being verified. Test a mixed queue so unrelated results keep syncing and verification does not loop indefinitely.
+- Correct the diagnostic distinction between a successful cloud check and a check that has not run. An empty failure flag is not proof of a successful check.
+- Prepare recovery only after checking contents and ownership. Preserve unique local results, keep accounts separate, and prevent recovered conflicts being queued again. Do not merely hide warnings, reassign ownership, regenerate IDs or delete records.
+- Record the phone verification of the version display separately from update-banner behavior, which is still not confirmed by the report.
+
+**Lower-priority support improvement:** a Get help action should prepare an email with the existing privacy-limited report. The user presses Send. Retain Copy report as fallback. This convenience can wait beyond the sync correctness work.
+
+**Release gate:** investigate and resolve or explicitly assess the deferred sync findings before inviting external pilot testers. This deferral does not waive account isolation, data preservation or honest backup status. Steps 9 and 8 can be developed while these findings remain open; the external pilot still requires the sync assessment.
+
+---
+
 ## DECISIONS ALREADY MADE (do not reopen these)
 
 - **No Stripe for the beta.** Testers get Premium for free through beta codes. Stripe work (audit prompts 09 to 13) waits until after the beta.
