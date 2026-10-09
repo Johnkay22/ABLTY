@@ -19,6 +19,16 @@ Keep entries short and in plain English. Say what was actually done, not what wa
 
 ---
 
+## 2026-10-09: Recovery confirmation after a full move (UX follow-up to PR #141)
+- **Who:** Cursor (cloud agent)
+- **Branch / PR:** `cursor/sync-recovery-confirmation-bbab`, draft PR #142 (version `2026.10.09.4` / `ablty-v88`), based on `main` after PR #141 merged 2026-10-09 at `ae123ac`. Step 8 has not started.
+- **What changed:** On the phone, after "Move 3 results to this account", the green box went away but Sync Details stayed open with Get help and Copy report, so success looked unfinished. Now, when every matched result moved and nothing is left over in this flow (no partial move, conflict, mismatch, check error, other parked result, pending upload, unchecked result, or failed or running cloud check), the whole Details popup closes, the Data Sync row is refreshed, and a small green "N results recovered." (real count, singular for one) shows centered on the screen with no buttons or report, fading after 3 seconds or on any tap; the tap reaches nothing underneath. If anything remains, Details stays open and explains it as before. Recovery and data-safety logic unchanged; the account guard after the one await still covers the close and the confirmation.
+- **Tests:** passed: `cloud-sync-status` 51 (was 47; four new: full success, unresolved cases keep Details open, tap dismissal, account switch; three earlier full-success assertions moved from the old toast to the closed popup), unchanged `check-app-syntax`, `check-page-links` (36), `auth-consent` (107), `safe-text-rendering` (6), `dream-save-isolation` (10), `username-case-insensitive` (8), `upgrade-cta-beta` (9), `update-detection` (11), `browser-account-isolation` (32/32). Headless-Chromium render with synthetic accounts: Details closed, "3 results recovered.", row "Synced to cloud", tap dismisses with the screen underneath unchanged (screenshot in the PR). Not run: anything on a phone.
+- **Phone evidence (Johnny, 2026-10-09):** on version 2026.10.09.3 the three-result recovery offer appeared for the holding account and disappeared after tapping Move. Returning to the original account and closing and reopening the app has not yet been confirmed.
+- **Production:** nothing changed.
+- **Johnny needs to:** review and merge; then sign back into the original account, check Settings > Data Sync says "Synced to cloud", close and reopen the app and check it still does.
+- **Next:** Step 9, Gemini seeing the target image. Step 8 stays unstarted and all existing Premium accounts stay unchanged.
+
 ## 2026-10-09: Second review round for the recovery path in PR #141 (between steps 7 and 8)
 - **Who:** Cursor (cloud agent)
 - **Branch / PR:** `cursor/sync-recovery-get-help-bbab`, draft PR #141 (now version `2026.10.09.3` / `ablty-v87`). Step 8 has not started.

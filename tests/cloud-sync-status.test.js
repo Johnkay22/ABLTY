@@ -23,6 +23,7 @@ const DECLS = [
   extractDecl('_syncFlushInFlight'), extractDecl('_syncMemoryQueue'), extractDecl('_syncConfirmedMemory'),
   extractDecl('_syncVerifyInFlight'), extractDecl('_syncVerifyFailed'), extractDecl('_syncVerifyLast'), extractDecl('_historyWarnAt'),
   extractDecl('SYNC_HELP_MAILTO_MAX'), extractMultiDecl('HISTORY_KEYS_BY_TABLE'), extractMultiDecl('HISTORY_LIMIT_BY_TABLE'),
+  extractDecl('SYNC_RECOVERED_SHOW_MS'), extractDecl('_syncRecoveredTimer'),
   extractDecl('APP_VERSION'), extractDecl('OWNED_DATA_MIGRATED_KEY'), extractDecl('LEGACY_DATA_CLAIMANT_KEY'),
   'let _dataOwner = DATA_OWNER_GUEST;',
   'let currentScreen = "profile";',
@@ -36,7 +37,7 @@ const FNS = ['safeParseArray', 'ownedKeyFor', 'ownedKey', 'isLoggedIn', 'isAuthG
   'readConfirmedSync', 'markConfirmedSync', 'recentLocalHistoryRows', 'unverifiedLocalRows', 'verifyRecentCloudCopies',
   'sameCloudValue', 'cloudRowMatchesSubmission', 'flushPendingSync',
   'describeSyncState', 'unverifiedNote', 'describeLastCloudCheck', 'listStorageKeys', 'buildSyncDiagnostics', 'ownersWithLocalData',
-  'openSyncDetails', 'closeSyncDetails', 'copySyncDiagnostics', 'buildSyncHelpMailto', 'openSyncHelpEmail',
+  'openSyncDetails', 'closeSyncDetails', 'showSyncRecovered', 'dismissSyncRecovered', 'copySyncDiagnostics', 'buildSyncHelpMailto', 'openSyncHelpEmail',
   'foreignCollisionItems', 'mapHistoryRow', 'isEmptyLocalValue', 'sameLocalValue', 'durableHistoryList', 'planLocalMove',
   'findRecoverableResults', 'moveLocalResult', 'offerForeignResultRecovery', 'confirmForeignResultRecovery'];
 const source = DECLS.join('\n').replace(/^(const|let) /gm, 'var ') + '\n\n' + FNS.map(extractFn).join('\n\n');
@@ -64,10 +65,13 @@ function makeCtx(opts = {}) {
   let existenceError = null;
   // Which storage keys the phone refuses to write (full, private mode).
   const storage = { refuse: () => false };
-  const mkEl = (id) => ({ id, className: '', textContent: '', style: { display: '' }, classList: { _s: new Set(), toggle(c, on) { on ? this._s.add(c) : this._s.delete(c); }, contains(c) { return this._s.has(c); } } });
+  const mkEl = (id) => ({ id, className: '', textContent: '', style: { display: '' }, classList: { _s: new Set(), toggle(c, on) { on ? this._s.add(c) : this._s.delete(c); }, add(c) { this._s.add(c); }, remove(c) { this._s.delete(c); }, contains(c) { return this._s.has(c); } } });
+  // Fake timers: tests fire them by hand.
+  const timers = [];
   const els = { 'sync-dot': mkEl('sync-dot'), 'sync-status-label': mkEl('sync-status-label'), 'sync-status-row': mkEl('sync-status-row'),
     'sync-details-modal': mkEl('sync-details-modal'), 'sync-details-summary': mkEl('sync-details-summary'), 'sync-details-report': mkEl('sync-details-report'),
-    'sync-recover-wrap': mkEl('sync-recover-wrap'), 'sync-recover-text': mkEl('sync-recover-text'), 'sync-recover-btn': mkEl('sync-recover-btn') };
+    'sync-recover-wrap': mkEl('sync-recover-wrap'), 'sync-recover-text': mkEl('sync-recover-text'), 'sync-recover-btn': mkEl('sync-recover-btn'),
+    'sync-recovered-overlay': mkEl('sync-recovered-overlay'), 'sync-recovered-text': mkEl('sync-recovered-text') };
   const nav = { href: '' };
   const clipboard = { written: [], fail: false };
   const ctx = {
@@ -88,6 +92,8 @@ function makeCtx(opts = {}) {
     cancelPendingPasswordRecovery() {},
     resolveLegalGate() {},
     showToast(msg, type) { log.toasts.push({ msg, type }); },
+    setTimeout(fn, ms) { timers.push({ fn, ms }); return timers.length; },
+    clearTimeout(id) { if (timers[id - 1]) timers[id - 1] = null; },
     sb: {
       auth: { getSession: () => Promise.resolve({ data: { session: sessionUser ? { user: { id: sessionUser } } : null } }) },
       from(table) {
@@ -136,7 +142,10 @@ function makeCtx(opts = {}) {
   vm.createContext(ctx);
   vm.runInContext(source, ctx);
   return {
-    ctx, log, answers, holds, els, ls, cloudRows, storage, clipboard, nav,
+    ctx, log, answers, holds, els, ls, cloudRows, storage, clipboard, nav, timers,
+    recovered: () => els['sync-recovered-overlay'].classList.contains('visible'),
+    // Runs every pending timer once, as time passing would.
+    fireTimers() { timers.splice(0).forEach((x) => { if (x) x.fn(); }); },
     setLookupError(e) { lookupError = e; },
     setExistenceError(e) { existenceError = e; },
     signIn(uid) { sessionUser = uid; ls.set('ablty_logged_in', '1'); ctx.beginAuthContext(uid); },
@@ -939,8 +948,10 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     assert.ok(STUCK_IDS.every((id) => t.confirmed('B').includes('zener_runs:' + id)), 'remembered as confirmed for B');
     assert.strictEqual(JSON.stringify([...t.cloudRows.entries()]), cloudBefore, 'no cloud row inserted, changed or removed');
     assert.strictEqual(t.log.inserts.length, 0);
-    assert.ok(t.log.toasts.some((x) => x.type === 'success' && x.msg.startsWith('3 results moved to this account on this device. Nothing was changed in the cloud.')), JSON.stringify(t.log.toasts));
-    assert.strictEqual(t.els['sync-recover-wrap'].style.display, 'none', 'offer gone once done');
+    assert.strictEqual(t.els['sync-details-modal'].style.display, 'none', 'full success: the whole Details popup closes');
+    assert.ok(t.recovered(), 'and the centered confirmation shows');
+    assert.strictEqual(t.els['sync-recovered-text'].textContent, '3 results recovered.');
+    assert.deepStrictEqual(t.log.toasts, [], 'no toast on top of it');
     assert.strictEqual(t.label(), 'Synced to cloud', 'B: nothing waiting, nothing unverified');
 
     // Back as A: nothing is re-queued, A\'s own results verify, the row is clean.
@@ -1136,7 +1147,8 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     t.storage.refuse = () => false;
     const bBefore = t.ls.get('ablty_owned:B:ablty_zener');
     await t.ctx.confirmForeignResultRecovery();
-    assert.ok(t.log.toasts.some((x) => x.type === 'success' && x.msg.startsWith('3 results moved')), JSON.stringify(t.log.toasts));
+    assert.ok(t.recovered() && t.els['sync-recovered-text'].textContent === '3 results recovered.', 'the retry completing counts as full success');
+    assert.strictEqual(t.els['sync-details-modal'].style.display, 'none');
     assert.strictEqual(t.ls.get('ablty_owned:B:ablty_zener'), bBefore, 'destination untouched by the retry');
     assert.deepStrictEqual(t.queue('A'), []);
     assert.strictEqual(JSON.parse(t.ls.get('ablty_owned:A:ablty_zener')).length, 2);
@@ -1222,7 +1234,7 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     found = await t.ctx.findRecoverableResults('B');
     assert.strictEqual(found.matches.length, 2);
     await t.ctx.confirmForeignResultRecovery();
-    assert.ok(t.log.toasts.some((x) => x.type === 'success' && x.msg.startsWith('2 results moved')), JSON.stringify(t.log.toasts));
+    assert.ok(t.recovered() && t.els['sync-recovered-text'].textContent === '2 results recovered.', 'the retry completing counts as full success');
     assert.strictEqual(t.ctx.readPendingSync('A').length, 0);
     assert.deepStrictEqual(t.queue('A'), []);
     assert.strictEqual(t.ls.get('ablty_owned:B:ablty_zener'), bBefore);
@@ -1230,6 +1242,129 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     assert.deepStrictEqual(r.queue('A'), []);
     assert.deepStrictEqual(JSON.parse(r.ls.get('ablty_owned:B:ablty_zener')).map((x) => x.id).sort(), [stuck[0].id, stuck[1].id].sort());
     assert.strictEqual(r.ctx.foreignCollisionItems('B').length, 0);
+  });
+
+  // ── After a full recovery: Details closes, a centered confirmation shows ──
+
+  await test('CONFIRMATION: full success closes the whole Details popup, refreshes the row, says "1 result recovered." and fades after 3 seconds', async () => {
+    const t = makeCtx();
+    const { stuck } = twoAccountPhone(t, 'A');
+    t.ls.set('ablty_owned:A:ablty_sync_pending', JSON.stringify([parkedCollision(t.ctx, stuck[0])]));
+    t.cloud('zener_runs', stuck[0].id, 'B', t.ctx.mapZenerRunRow(stuck[0]));
+    t.signIn('B');
+    t.ctx.openSyncDetails();
+    await t.settle();
+    assert.strictEqual(t.els['sync-details-modal'].style.display, 'flex');
+    assert.strictEqual(t.els['sync-recover-btn'].textContent, 'Move 1 result to this account');
+    await t.ctx.confirmForeignResultRecovery();
+    assert.strictEqual(t.els['sync-details-modal'].style.display, 'none', 'Get help and Copy report go with the popup');
+    assert.ok(t.recovered());
+    assert.strictEqual(t.els['sync-recovered-text'].textContent, '1 result recovered.');
+    assert.deepStrictEqual(t.log.toasts, []);
+    assert.strictEqual(t.label(), 'Synced to cloud', 'the Data Sync row was refreshed');
+    const timer = t.timers.filter(Boolean).pop();
+    assert.strictEqual(timer.ms, t.ctx.SYNC_RECOVERED_SHOW_MS);
+    assert.strictEqual(t.ctx.SYNC_RECOVERED_SHOW_MS, 3000);
+    t.fireTimers();
+    assert.ok(!t.recovered(), 'gone after the timer');
+    // Reopening Details afterwards offers nothing more.
+    t.ctx.openSyncDetails();
+    await t.settle();
+    assert.strictEqual(t.els['sync-recover-wrap'].style.display, 'none');
+  });
+
+  await test('CONFIRMATION: a partial move, a leftover conflict or an unchecked result keeps Details open with the explanation; no confirmation', async () => {
+    // Partial: the source history write is refused.
+    let t = makeCtx();
+    let { stuck } = twoAccountPhone(t, 'A');
+    stuck.forEach((r) => t.cloud('zener_runs', r.id, 'B', t.ctx.mapZenerRunRow(r)));
+    t.signIn('B');
+    t.ctx.openSyncDetails();
+    await t.settle();
+    t.storage.refuse = (k) => k === 'ablty_owned:A:ablty_zener';
+    await t.ctx.confirmForeignResultRecovery();
+    await t.settle();
+    assert.strictEqual(t.els['sync-details-modal'].style.display, 'flex', 'partial: Details stays open');
+    assert.ok(!t.recovered());
+    assert.ok(t.log.toasts.some((x) => x.msg.startsWith('3 results copied to this account, but the copy under the other account could not be removed yet.')));
+    assert.strictEqual(t.els['sync-recover-btn'].textContent, 'Move 3 results to this account', 'offered again to finish');
+    // Conflict left over: two move, one is B's own different result.
+    t = makeCtx();
+    stuck = twoAccountPhone(t, 'A').stuck;
+    stuck.forEach((r) => t.cloud('zener_runs', r.id, 'B', t.ctx.mapZenerRunRow(r)));
+    t.ls.set('ablty_owned:B:ablty_zener', JSON.stringify([{ ...zenerRun(stuck[0].id), hits: 9 }]));
+    t.signIn('B');
+    t.ctx.openSyncDetails();
+    await t.settle();
+    await t.ctx.confirmForeignResultRecovery();
+    await t.settle();
+    assert.strictEqual(t.els['sync-details-modal'].style.display, 'flex', 'conflict: Details stays open');
+    assert.ok(!t.recovered());
+    assert.ok(t.log.toasts.some((x) => x.type === 'success' && x.msg.startsWith('2 results moved')), 'the two that moved are still reported');
+    assert.ok(t.els['sync-recover-text'].textContent.includes('Both copies are kept and nothing is moved.'), t.els['sync-recover-text'].textContent);
+    assert.strictEqual(t.queue('A').length, 1);
+    // Unchecked result of B's own: the move succeeds but the cloud check is still running or failed.
+    t = makeCtx();
+    stuck = twoAccountPhone(t, 'A').stuck;
+    stuck.forEach((r) => t.cloud('zener_runs', r.id, 'B', t.ctx.mapZenerRunRow(r)));
+    t.ls.set('ablty_owned:B:ablty_sessions', JSON.stringify([rvSession(1790000000050)]));
+    t.signIn('B');
+    t.ctx.loadState();
+    t.setExistenceError({ code: 'PGRST000', message: 'offline' });
+    t.ctx.openSyncDetails();
+    await t.settle();
+    await t.ctx.confirmForeignResultRecovery();
+    await t.settle();
+    assert.strictEqual(t.els['sync-details-modal'].style.display, 'flex', 'unchecked result: Details stays open');
+    assert.ok(!t.recovered());
+    assert.deepStrictEqual(t.queue('A'), [], 'the move itself still happened');
+    assert.ok(/^(Checking that|Could not confirm that) 1 recent result reached the cloud\./.test(t.els['sync-details-summary'].textContent), t.els['sync-details-summary'].textContent);
+  });
+
+  await test('CONFIRMATION: any tap dismisses it, the tap goes nowhere else, and the timer is cancelled', async () => {
+    const t = makeCtx();
+    t.ctx.showSyncRecovered(2);
+    assert.ok(t.recovered());
+    assert.strictEqual(t.els['sync-recovered-text'].textContent, '2 results recovered.');
+    const ev = { prevented: false, stopped: false, preventDefault() { this.prevented = true; }, stopPropagation() { this.stopped = true; } };
+    t.ctx.dismissSyncRecovered(ev);
+    assert.ok(!t.recovered());
+    assert.ok(ev.prevented && ev.stopped, 'nothing underneath receives the tap');
+    assert.strictEqual(t.ctx._syncRecoveredTimer, null);
+    t.fireTimers();
+    assert.ok(!t.recovered());
+    // Showing twice resets the timer rather than stacking.
+    t.ctx.showSyncRecovered(1);
+    t.ctx.showSyncRecovered(3);
+    assert.strictEqual(t.timers.filter(Boolean).length, 1);
+    assert.strictEqual(t.els['sync-recovered-text'].textContent, '3 results recovered.');
+  });
+
+  await test('CONFIRMATION: a late answer after an account switch closes nothing and shows no success to the other account', async () => {
+    const t = makeCtx();
+    const { stuck } = twoAccountPhone(t, 'A');
+    stuck.forEach((r) => t.cloud('zener_runs', r.id, 'B', t.ctx.mapZenerRunRow(r)));
+    t.signIn('B');
+    t.ctx.openSyncDetails();
+    await t.settle();
+    // The check hangs; meanwhile B signs out and C signs in and opens Details.
+    const held = deferred();
+    const real = t.ctx.findRecoverableResults;
+    t.ctx.findRecoverableResults = () => held.promise;
+    const p = t.ctx.confirmForeignResultRecovery();
+    t.signOut(); t.signIn('C');
+    t.ctx.openSyncDetails();
+    assert.strictEqual(t.els['sync-details-modal'].style.display, 'flex');
+    held.resolve({ matches: stuck.map((r) => ({ fromOwner: 'A', item: parkedCollision(t.ctx, r) })), mismatches: 0, notMine: 0, conflicts: 0, errors: 0 });
+    await p;
+    await t.settle();
+    assert.strictEqual(t.els['sync-details-modal'].style.display, 'flex', 'C\'s popup stays open');
+    assert.ok(!t.recovered(), 'no confirmation for C');
+    assert.deepStrictEqual(t.log.toasts, []);
+    assert.strictEqual(t.queue('A').length, 3, 'nothing moved on the strength of B\'s answer');
+    assert.strictEqual(t.ls.has('ablty_owned:B:ablty_zener'), false);
+    assert.strictEqual(t.ls.has('ablty_owned:C:ablty_zener'), false);
+    t.ctx.findRecoverableResults = real;
   });
 
   // ── Get help ──
