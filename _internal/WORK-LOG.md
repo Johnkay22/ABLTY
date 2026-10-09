@@ -19,6 +19,15 @@ Keep entries short and in plain English. Say what was actually done, not what wa
 
 ---
 
+## 2026-10-09: Second review round for the recovery path in PR #141 (between steps 7 and 8)
+- **Who:** Cursor (cloud agent)
+- **Branch / PR:** `cursor/sync-recovery-get-help-bbab`, draft PR #141 (now version `2026.10.09.3` / `ablty-v87`). Step 8 has not started.
+- **What changed:** Johnny's review of `773ced0` reproduced two more cases. (1) When the destination account already had the identical result in memory (its own earlier save refused by the phone), the move saw nothing to write, skipped the storage check, removed the source and the queue item and said "moved"; after a reload neither account had the result. The move now reads the complete destination entry back from storage on every path before anything is removed; an entry only held in memory is written first, and if the write does not persist the result is "refused" with source and queue untouched. (2) When clearing the queue item failed, `writePendingSync` kept the shortened list in memory, so the unfinished item vanished from the live queue and from the recovery offer until a reload, although storage still listed it. The live queue now keeps the full list on that failure, so reopening Details in the same session retries the cleanup.
+- **Tests:** passed: `cloud-sync-status` 47 (was 45; the two new regressions fail against `773ced0`: `'moved' !== 'refused'` and "the live queue still lists both"; each checks the same-session retry and a reload), unchanged `check-app-syntax`, `check-page-links` (36), `auth-consent` (107), `safe-text-rendering` (6), `dream-save-isolation` (10), `username-case-insensitive` (8), `upgrade-cta-beta` (9), `update-detection` (11), `browser-account-isolation` (32/32). Headless-Chromium recovery walk-through re-run: same outcome. Not run: anything on a phone.
+- **Production:** nothing changed.
+- **Johnny needs to:** review and merge; then the phone steps from the first 2026-10-09 entry, with the version now 2026.10.09.3.
+- **Next:** Step 9 (Gemini seeing the target image) once #141 passes review; Step 8 stays unstarted and all existing Premium accounts stay unchanged.
+
 ## 2026-10-09: Review fixes for the recovery path in PR #141 (between steps 7 and 8)
 - **Who:** Cursor (cloud agent)
 - **Branch / PR:** `cursor/sync-recovery-get-help-bbab`, draft PR #141 (now version `2026.10.09.2` / `ablty-v86`). Step 8 has not started.
