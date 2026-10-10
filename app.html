@@ -8083,6 +8083,10 @@ const sb = _supabaseSdk && typeof _supabaseSdk.createClient === 'function'
 // so a message sent during startup is never missed.
 const NOTIFICATION_INTENT_TYPES = { RC_OPEN: 'rc', WBTB_OPEN: 'wbtb', WBTB_RETURN: 'wbtb_return' };
 const NOTIFICATION_HANDLED_KEY = 'ablty_notification_handled';
+// Survives a reload during startup (update banner, first install); a tap
+// older than this is not opened later by surprise.
+const NOTIFICATION_PENDING_KEY = 'ablty_notification_pending';
+const NOTIFICATION_PENDING_MAX_AGE_MS = 5 * 60 * 1000;
 let _notifPending = null;
 let _notifDrainTimer = null;
 let _notifHandled = null;
@@ -8117,6 +8121,23 @@ function rememberNotificationHandled(id) {
   if (!ids.includes(id)) ids.push(id);
   while (ids.length > 20) ids.shift();
   try { sessionStorage.setItem(NOTIFICATION_HANDLED_KEY, JSON.stringify(ids)); } catch (e) {}
+}
+
+function storeNotificationPending(intent) {
+  try {
+    if (intent) sessionStorage.setItem(NOTIFICATION_PENDING_KEY, JSON.stringify(intent));
+    else sessionStorage.removeItem(NOTIFICATION_PENDING_KEY);
+  } catch (e) {}
+}
+
+function readStoredNotificationPending() {
+  let p = null;
+  try { p = JSON.parse(sessionStorage.getItem(NOTIFICATION_PENDING_KEY) || 'null'); } catch (e) {}
+  if (!p || !NOTIFICATION_INTENT_HANDLERS[p.kind] || !(Date.now() - p.at < NOTIFICATION_PENDING_MAX_AGE_MS)) {
+    storeNotificationPending(null);
+    return null;
+  }
+  return p;
 }
 
 function readNotificationIntentFromUrl(href) {
@@ -8181,7 +8202,8 @@ function acceptNotificationIntent(kind, id) {
   if (!NOTIFICATION_INTENT_HANDLERS[kind]) return false;
   const nid = cleanNotificationId(id);
   if (nid && (notificationHandledIds().includes(nid) || (_notifPending && _notifPending.id === nid))) return true;
-  _notifPending = { kind, id: nid };
+  _notifPending = { kind, id: nid, at: Date.now() };
+  storeNotificationPending(_notifPending);
   scheduleNotificationIntentDrain(0);
   return true;
 }
@@ -8199,6 +8221,7 @@ function drainNotificationIntent() {
   if (!intent) return;
   if (!notificationIntentReady(intent.kind)) { scheduleNotificationIntentDrain(250); return; }
   _notifPending = null;
+  storeNotificationPending(null);
   // Cleared just before opening, so the history entry openRCTask pushes and
   // the one beneath it both carry the clean URL. Put back if opening fails.
   const fromUrl = readNotificationIntentFromUrl();
@@ -8238,6 +8261,8 @@ function startNotificationIntents() {
   const sw = ('serviceWorker' in navigator) ? navigator.serviceWorker : null;
   if (sw) sw.addEventListener('message', onNotificationIntentMessage);
   if (!isStandaloneAppRuntime()) return;
+  const stored = readStoredNotificationPending();
+  if (stored) acceptNotificationIntent(stored.kind, stored.id);
   const fromUrl = readNotificationIntentFromUrl();
   if (fromUrl) {
     if (fromUrl.id && notificationHandledIds().includes(fromUrl.id)) clearNotificationIntentFromUrl(fromUrl.kind);
