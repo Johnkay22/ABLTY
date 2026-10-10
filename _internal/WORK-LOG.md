@@ -19,6 +19,16 @@ Keep entries short and in plain English. Say what was actually done, not what wa
 
 ---
 
+## 2026-10-10: WBTB wake screen runs one countdown
+- **Who:** Cursor (cloud agent)
+- **Branch / PR:** `cursor/wbtb-single-countdown-9435`, separate draft PR stacked on PR #144 (its base is the #144 branch, so the versions follow on). Version `2026.10.10.3` / `ablty-v91`. Not a numbered step; Johnny asked for it in the #144 review.
+- **What changed:** The double countdown is a bug already on `main` (see the entry below). The wake screen now keeps the countdown that is already running when it is opened again while showing (the alarm opens it, then the tap on the wake notification opens it again), so the tap neither starts a second timer nor resets it to 25:00. Starting a countdown always stops any earlier one first, and a finished countdown no longer clears a newer timer. Reproduced in headless Chrome with the real `sw.js` notification handler: before, the display read 24:57, 24:58, 24:56, 24:57 and one timer kept running after closing; after, 24:57, 24:56, 24:55, 24:54 and nothing runs after closing.
+- **Tests:** passed: new `node tests/wbtb-wake-countdown.test.js` (6: alarm then tap, close, reopen after close, double start, the end at Sleep now, the return prompt; 3 fail against the unfixed code); `notification-launch-browser` 12 (new: alarm in the open app then a tap on its notification, one second per step and nothing running after close; fails against the unfixed code); unchanged and passing: `check-app-syntax`, `check-page-links` (36), `auth-consent` (107), `browser-account-isolation` (32), `cloud-sync-status` (51), `dream-save-isolation` (10), `notification-intent` (22), `safe-text-rendering` (6), `settings-pull-to-close` (12), `update-detection` (11), `upgrade-cta-beta` (9), `username-case-insensitive` (8). Not run here: `browser-app-auth`, `browser-supabase-auth` (need a local Supabase stack). Not run: anything on a phone.
+- **Production:** nothing changed.
+- **Johnny needs to:** merge PR #144 first, then review this one. Phone check in the PR.
+- **Next:** Step 8 stays unstarted.
+- **Noticed, not changed:** the "Minutes remaining" label under the countdown has no `id`, so the "Return to sleep immediately" text meant for the end of the countdown never shows. After a WBTB return prompt, the wake screen keeps the "SLEEP NOW" titles if a wake screen opens later in the same session.
+
 ## 2026-10-10: Reality Check notification taps, review round: no reload of an open app window
 - **Who:** Cursor (cloud agent)
 - **Branch / PR:** `cursor/rc-notification-launch-9435`, draft PR #144 (same PR, same version `2026.10.10.2` / `ablty-v90`, not deployed).
