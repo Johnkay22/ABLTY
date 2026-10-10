@@ -241,35 +241,78 @@ html, body {
   font-size: 10px; color: var(--dim);
   letter-spacing: 0.5px; margin-top: 2px;
 }
-.profile-pull-closing {
-  transition: transform 0.22s ease, opacity 0.22s ease;
+/* Settings pull-to-close. The panel follows the finger; these times are only
+   the settle after the finger lifts. Reduced motion skips that settle. */
+#screen-profile.profile-pull-dragging {
+  z-index: 30;
+  transition: none !important;
 }
-.profile-pull-indicator {
+#screen-profile.profile-pull-returning {
+  z-index: 30;
+  transition: transform 280ms cubic-bezier(0.22, 0.8, 0.3, 1) !important;
+}
+#screen-profile.profile-pull-dismissing {
+  z-index: 30;
+  pointer-events: none;
+  transition: transform 340ms cubic-bezier(0.32, 0, 0.2, 1) !important;
+}
+#screen-profile.profile-pull-dismissed,
+#screen-profile.profile-pull-dismissed.slide-left,
+#screen-profile.profile-pull-dismissed.active {
+  transform: translateY(110%) !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transition: none !important;
+}
+#screen-home.profile-pull-revealed {
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: none !important;
+  z-index: 15;
+  transition: none !important;
+}
+#profile-pull-shield {
+  display: none;
   position: fixed;
-  top: calc(6px + var(--safe-top));
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0;
+  z-index: 80;
+  background: transparent;
+  touch-action: none;
+}
+#profile-pull-shield.active { display: block; }
+.profile-pull-indicator {
+  position: absolute;
+  top: calc(6px + var(--safe-top, 0px));
   left: 50%;
-  transform: translate(-50%, -12px);
+  transform: translateX(-50%);
   padding: 6px 11px;
   border-radius: 999px;
   border: 1px solid rgba(74,240,200,0.28);
   background: rgba(10,11,13,0.96);
   color: var(--muted);
   font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 1.2px;
-  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.2px;
+  text-transform: none;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s ease, transform 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-  z-index: 120;
+  transition: opacity 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  z-index: 40;
 }
-.profile-pull-indicator.show {
-  opacity: 1;
-  transform: translate(-50%, 0);
-}
+.profile-pull-indicator.show { opacity: 1; }
 .profile-pull-indicator.ready {
   color: var(--accent);
   border-color: rgba(74,240,200,0.5);
+}
+@media (prefers-reduced-motion: reduce) {
+  #screen-profile.profile-pull-returning,
+  #screen-profile.profile-pull-dismissing {
+    transition: none !important;
+  }
 }
 
 
@@ -6288,7 +6331,7 @@ html, body {
        SCREEN: PROFILE
   ═══════════════════════════════════ -->
   <div id="screen-profile" class="screen">
-    <div id="profile-pull-indicator" class="profile-pull-indicator">PULL TO CLOSE</div>
+    <div id="profile-pull-indicator" class="profile-pull-indicator">Pull down to close.</div>
     <div class="screen-inner">
 
       <div class="display-lg fade-in">SETTINGS</div>
@@ -18408,144 +18451,315 @@ function bindProfilePullToDismiss() {
   const screen = document.getElementById('screen-profile');
   if (!screen) return;
   profilePullGestureBound = true;
-  const DISMISS_THRESHOLD = 78;
+
+  // Tunable feel, in CSS pixels of panel travel. The panel matches the finger
+  // one-to-one after PULL_SLOP_PX and keeps moving past the close line.
+  // Closing looks only at that distance, after the finger lifts. A short or
+  // fast flick never closes Settings: speed cannot start a close.
+  const AT_TOP_PX = 2;
+  const PULL_SLOP_PX = 12;
+  const AXIS_LOCK_PX = 10;
+  const CLOSE_RATIO = 0.30;
+  const CLOSE_MIN_PX = 180;
+  const CLOSE_MAX_PX = 260;
+  const FLICK_WINDOW_MS = 160;
+  const FLICK_SPEED_PX_PER_MS = 1.4;
+  const RETURN_MS = 280;
+  const DISMISS_MS = 340;
+  const PULL_TEXT = 'Pull down to close.';
+  const RELEASE_TEXT = 'Release to close.';
 
   let indicator = document.getElementById('profile-pull-indicator') || screen.querySelector('.profile-pull-indicator');
   if (!indicator) {
     indicator = document.createElement('div');
     indicator.id = 'profile-pull-indicator';
     indicator.className = 'profile-pull-indicator';
-    indicator.textContent = 'PULL TO CLOSE';
     screen.appendChild(indicator);
   }
+  indicator.textContent = PULL_TEXT;
 
-  let startY = 0;
-  let startX = 0;
-  let dragging = false;
-  let pointerId = null;
-  let lastDelta = 0;
-  let lockedHorizontal = false;
-  let lockedVertical = false;
+  let shield = document.getElementById('profile-pull-shield');
+  if (!shield) {
+    shield = document.createElement('div');
+    shield.id = 'profile-pull-shield';
+    shield.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(shield);
+  }
 
-  function updateIndicator(delta) {
+  let gesture = null;
+  let settling = false;
+  let blockClicks = false;
+
+  function reducedMotion() {
+    try {
+      return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function closeThreshold() {
+    const height = screen.clientHeight || window.innerHeight || CLOSE_MIN_PX;
+    return Math.round(Math.min(CLOSE_MAX_PX, Math.max(CLOSE_MIN_PX, height * CLOSE_RATIO)));
+  }
+
+  function overlayOpen(target) {
+    if (target && target.closest) {
+      if (target.closest('input, textarea, select, [contenteditable="true"]')) return true;
+      if (target.closest('.modal-overlay, .legal-modal-overlay, .upgrade-modal-overlay.visible, .guest-data-modal-overlay.visible, .auth-screen.active, #sync-recovered-overlay.visible, #onboarding-screen.active')) return true;
+    }
+    const nodes = document.querySelectorAll('.modal-overlay, .legal-modal-overlay, .upgrade-modal-overlay, .guest-data-modal-overlay, .auth-screen, #sync-recovered-overlay, #onboarding-screen');
+    for (let i = 0; i < nodes.length; i++) {
+      const el = nodes[i];
+      if (el.classList.contains('auth-screen') || el.id === 'onboarding-screen') {
+        if (el.classList.contains('active')) return true;
+        continue;
+      }
+      if (el.id === 'sync-recovered-overlay' || el.classList.contains('upgrade-modal-overlay') || el.classList.contains('guest-data-modal-overlay')) {
+        if (el.classList.contains('visible')) return true;
+        continue;
+      }
+      if (window.getComputedStyle(el).display !== 'none') return true;
+    }
+    return false;
+  }
+
+  function updateIndicator(pull) {
     if (!indicator) return;
-    if (!delta || delta <= 0) {
+    if (!pull || pull <= 0) {
       indicator.classList.remove('show', 'ready');
-      indicator.textContent = 'PULL TO CLOSE';
+      indicator.textContent = PULL_TEXT;
       return;
     }
     indicator.classList.add('show');
-    const ready = delta >= DISMISS_THRESHOLD;
+    const ready = pull >= closeThreshold();
     indicator.classList.toggle('ready', ready);
-    indicator.textContent = ready ? 'RELEASE TO CLOSE' : 'PULL TO CLOSE';
+    indicator.textContent = ready ? RELEASE_TEXT : PULL_TEXT;
   }
 
-  function reset() {
-    dragging = false;
-    pointerId = null;
-    lastDelta = 0;
-    lockedHorizontal = false;
-    lockedVertical = false;
-    screen.classList.remove('profile-pull-active');
-    screen.style.transform = '';
+  function revealHome(show) {
+    const home = document.getElementById('screen-home');
+    if (!home) return;
+    home.classList.toggle('profile-pull-revealed', !!show);
+  }
+
+  function placeShield(pull) {
+    if (!shield) return;
+    if (pull == null) {
+      shield.classList.remove('active');
+      shield.style.height = '';
+      return;
+    }
+    shield.classList.add('active');
+    shield.style.height = pull === 'full' ? '100%' : Math.max(0, pull) + 'px';
+  }
+
+  function setNavBlocked(blocked) {
+    const nav = document.getElementById('nav');
+    if (!nav) return;
+    if (blocked) {
+      if (nav.dataset.pullPointer == null) nav.dataset.pullPointer = nav.style.pointerEvents || '';
+      nav.style.pointerEvents = 'none';
+    } else if (nav.dataset.pullPointer != null) {
+      nav.style.pointerEvents = nav.dataset.pullPointer;
+      delete nav.dataset.pullPointer;
+    }
+  }
+
+  function applyPull(pull) {
+    screen.style.transform = pull > 0 ? 'translateY(' + pull + 'px)' : '';
+    updateIndicator(pull);
+    placeShield(pull > 0 ? pull : 0);
+  }
+
+  function cleanupDragChrome() {
+    screen.classList.remove('profile-pull-dragging', 'profile-pull-returning', 'profile-pull-dismissing');
+    revealHome(false);
+    placeShield(null);
+    setNavBlocked(false);
     updateIndicator(0);
   }
 
-  function begin(clientX, clientY, id) {
-    if (currentScreen !== 'profile') return false;
-    if (screen.scrollTop > 2) return false;
-    startY = clientY;
-    startX = clientX;
-    pointerId = id;
-    dragging = true;
-    lastDelta = 0;
-    lockedHorizontal = false;
-    lockedVertical = false;
-    screen.classList.add('profile-pull-active');
-    indicator.classList.add('show');
-    indicator.classList.remove('ready');
-    indicator.textContent = 'PULL TO CLOSE';
+  function waitForPanel(ms) {
+    if (ms <= 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        screen.removeEventListener('transitionend', onEnd);
+        resolve();
+      };
+      const onEnd = (e) => {
+        if (e.target === screen && e.propertyName === 'transform') finish();
+      };
+      screen.addEventListener('transitionend', onEnd);
+      setTimeout(finish, ms + 90);
+    });
+  }
+
+  function releasePointer(id) {
+    try {
+      if (screen.hasPointerCapture(id)) screen.releasePointerCapture(id);
+    } catch (e) {}
+  }
+
+  function nowMs() {
+    return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  }
+
+  function shouldClose(pull, elapsed) {
+    if (pull < closeThreshold()) return false;
+    if (!(elapsed >= FLICK_WINDOW_MS)) return false;
+    if (elapsed > 0 && (pull / elapsed) > FLICK_SPEED_PX_PER_MS) return false;
     return true;
   }
 
-  function move(clientX, clientY) {
-    if (!dragging) return;
-    const dy = clientY - startY;
-    const dx = clientX - startX;
-
-    if (!lockedHorizontal && !lockedVertical) {
-      if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
-        if (Math.abs(dx) > Math.abs(dy) * 1.25) {
-          lockedHorizontal = true;
-          reset();
-          return;
-        }
-        lockedVertical = true;
-      }
-    }
-
-    if (dy <= 0) {
-      lastDelta = 0;
+  function settleBack() {
+    settling = true;
+    const ms = reducedMotion() ? 0 : RETURN_MS;
+    screen.classList.remove('profile-pull-dragging');
+    screen.classList.add('profile-pull-returning');
+    void screen.offsetWidth;
+    screen.style.transform = 'translateY(0px)';
+    return waitForPanel(ms).then(() => {
+      screen.style.transition = 'none';
       screen.style.transform = '';
-      updateIndicator(0);
-      return;
-    }
-
-    const eased = Math.min(120, dy * 0.52);
-    lastDelta = eased;
-    screen.style.transform = `translateY(${eased}px)`;
-    updateIndicator(eased);
+      cleanupDragChrome();
+      void screen.offsetWidth;
+      screen.style.transition = '';
+      settling = false;
+      setTimeout(() => { blockClicks = false; }, 80);
+    }).catch(() => {
+      cleanupDragChrome();
+      screen.style.transform = '';
+      screen.style.transition = '';
+      settling = false;
+      blockClicks = false;
+    });
   }
 
-  function end() {
-    if (!dragging) return;
-    const shouldDismiss = lastDelta >= DISMISS_THRESHOLD;
-    reset();
-    if (shouldDismiss) {
+  function settleClosed() {
+    settling = true;
+    const ms = reducedMotion() ? 0 : DISMISS_MS;
+    const distance = (screen.offsetHeight || window.innerHeight) + 48;
+    placeShield('full');
+    screen.classList.remove('profile-pull-dragging');
+    screen.classList.add('profile-pull-dismissing');
+    void screen.offsetWidth;
+    screen.style.transform = 'translateY(' + distance + 'px)';
+    return waitForPanel(ms).then(() => {
+      screen.classList.add('profile-pull-dismissed');
+      screen.classList.remove('profile-pull-dismissing');
+      screen.style.transition = 'none';
       navigate('home');
-    }
+      cleanupDragChrome();
+      setTimeout(() => { blockClicks = false; }, 80);
+      setTimeout(() => {
+        screen.classList.remove('profile-pull-dismissed');
+        screen.style.transform = '';
+        screen.style.transition = '';
+      }, 380);
+      settling = false;
+    }).catch(() => {
+      cleanupDragChrome();
+      screen.classList.remove('profile-pull-dismissed');
+      screen.style.transform = '';
+      screen.style.transition = '';
+      settling = false;
+      blockClicks = false;
+    });
   }
 
-  screen.addEventListener('touchstart', (e) => {
-    if (!e.touches || !e.touches.length) return;
-    const t = e.touches[0];
-    begin(t.clientX, t.clientY, 'touch');
-  }, { passive: true });
+  function onPointerDown(e) {
+    if (!e || e.pointerType !== 'touch') return;
+    if (gesture || settling) return;
+    if (currentScreen !== 'profile') return;
+    if (overlayOpen(e.target)) return;
+    // Only a touch that begins with Settings already at the top can close.
+    // Scrolling up to the top during this same touch stays mode "scroll".
+    const atTop = screen.scrollTop <= AT_TOP_PX;
+    gesture = {
+      id: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startTime: nowMs(),
+      mode: atTop ? 'pending' : 'scroll',
+      pull: 0,
+    };
+  }
 
-  screen.addEventListener('touchmove', (e) => {
-    if (!dragging || pointerId !== 'touch' || !e.touches || !e.touches.length) return;
-    const t = e.touches[0];
-    move(t.clientX, t.clientY);
-  }, { passive: true });
+  function onPointerMove(e) {
+    if (!gesture || e.pointerId !== gesture.id) return;
+    if (gesture.mode === 'scroll') return;
+    const dy = e.clientY - gesture.startY;
+    const dx = e.clientX - gesture.startX;
+    if (gesture.mode === 'pending') {
+      // Started at the top. An upward move is scrolling, and that same touch
+      // stays a scroll even if it later comes back down.
+      if (Math.abs(dx) < AXIS_LOCK_PX && Math.abs(dy) < AXIS_LOCK_PX) return;
+      if (dy <= 0 || Math.abs(dx) > Math.abs(dy) * 1.25) {
+        gesture.mode = 'scroll';
+        return;
+      }
+      gesture.mode = 'drag';
+      blockClicks = true;
+      screen.classList.add('profile-pull-dragging');
+      revealHome(true);
+      setNavBlocked(true);
+      try { screen.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+    if (gesture.mode !== 'drag') return;
+    if (e.cancelable) e.preventDefault();
+    const pull = Math.max(0, dy - PULL_SLOP_PX);
+    gesture.pull = pull;
+    applyPull(pull);
+  }
 
-  screen.addEventListener('touchend', () => {
-    if (pointerId !== 'touch') return;
-    end();
-  });
+  function finishPointer(e, cancelled) {
+    if (!gesture || e.pointerId !== gesture.id) return;
+    const g = gesture;
+    gesture = null;
+    untrackGesture();
+    releasePointer(g.id);
+    if (g.mode !== 'drag') return;
+    const elapsed = nowMs() - g.startTime;
+    if (!cancelled && shouldClose(g.pull, elapsed)) settleClosed();
+    else settleBack();
+  }
 
-  screen.addEventListener('touchcancel', () => {
-    if (pointerId !== 'touch') return;
-    reset();
-  });
+  function onPointerUp(e) { finishPointer(e, false); }
+  function onPointerCancel(e) { finishPointer(e, true); }
+  function trackGesture() {
+    window.addEventListener('pointermove', onPointerMove, { passive: false });
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerCancel);
+  }
+  function untrackGesture() {
+    window.removeEventListener('pointermove', onPointerMove);
+    window.removeEventListener('pointerup', onPointerUp);
+    window.removeEventListener('pointercancel', onPointerCancel);
+  }
 
   screen.addEventListener('pointerdown', (e) => {
-    if (e.pointerType !== 'touch') return;
-    begin(e.clientX, e.clientY, e.pointerId);
+    onPointerDown(e);
+    if (gesture && gesture.id === e.pointerId) trackGesture();
   });
-
-  screen.addEventListener('pointermove', (e) => {
-    if (!dragging || pointerId !== e.pointerId) return;
-    move(e.clientX, e.clientY);
-  });
-
-  screen.addEventListener('pointerup', (e) => {
-    if (pointerId !== e.pointerId) return;
-    end();
-  });
-
-  screen.addEventListener('pointercancel', (e) => {
-    if (pointerId !== e.pointerId) return;
-    reset();
+  screen.addEventListener('touchmove', (e) => {
+    if (gesture && gesture.mode === 'drag' && e.cancelable) e.preventDefault();
+  }, { passive: false });
+  document.addEventListener('click', (e) => {
+    if (!blockClicks) return;
+    e.preventDefault();
+    e.stopPropagation();
+  }, true);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden || !gesture) return;
+    const g = gesture;
+    gesture = null;
+    untrackGesture();
+    releasePointer(g.id);
+    if (g.mode === 'drag') settleBack();
   });
 }
 
@@ -18985,7 +19199,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.10.09.4';
+const APP_VERSION = '2026.10.10.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 // What the last update check found, so Settings can tell "this is the

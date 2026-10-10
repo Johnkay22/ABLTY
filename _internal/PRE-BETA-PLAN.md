@@ -62,6 +62,8 @@ A step moves through: **Not started → In progress → PR open (#number) → Me
 
 **Order matters.** Steps 1 to 5 are small and independent (Johnny chose to ship them in one pull request with one version bump, because steps 2, 3 and 5 all change `app.html`). Step 6 must merge and be applied to production before step 8, because a beta code system is pointless if Premium can be obtained any other way. Step 13 comes after 9 to 12 because those steps change what the privacy policy has to say. Step 14 (dashboard) does **not** block the pilot or the beta; it can be finished during the beta.
 
+**Settings pull-to-close (follow-up, not a numbered step):** draft PR #143 on branch `cursor/settings-pull-to-close-0dbf`, version 2026.10.10.1 / `ablty-v89`. Phone check still to do. Steps 8 and 9 have not started. Docs-only PR #140 was left open and was not changed.
+
 ---
 
 ## DECISIONS ALREADY MADE (do not reopen these)
