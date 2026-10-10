@@ -8074,6 +8074,212 @@ const sb = _supabaseSdk && typeof _supabaseSdk.createClient === 'function'
 // RV targets are now server-assigned by the Cloudflare Worker so blind-session
 // metadata is not exposed in client source.
 
+// ─── NOTIFICATION TAPS ────────────────────────
+// A Reality Check or WBTB notification tap reaches the app as the launch URL
+// (/app.html?rc=1&nid=...), as a message from sw.js, or both. Either can
+// arrive while the app is still starting, so the intent is held until the
+// splash (and, for Reality Check, onboarding and the Terms gate) are done,
+// and each notification id is acted on once. This runs before anything slow
+// so a message sent during startup is never missed.
+const NOTIFICATION_INTENT_TYPES = { RC_OPEN: 'rc', WBTB_OPEN: 'wbtb', WBTB_RETURN: 'wbtb_return' };
+const NOTIFICATION_HANDLED_KEY = 'ablty_notification_handled';
+// Survives a reload during startup (update banner, first install); a tap
+// older than this is not opened later by surprise.
+const NOTIFICATION_PENDING_KEY = 'ablty_notification_pending';
+const NOTIFICATION_PENDING_MAX_AGE_MS = 5 * 60 * 1000;
+let _notifPending = null;
+let _notifDrainTimer = null;
+let _notifHandled = null;
+
+const NOTIFICATION_INTENT_HANDLERS = {
+  rc() {
+    // A repeated tap must not reset or rotate a task the user is answering.
+    if (currentScreen !== 'rc-task') openRCTask();
+    return currentScreen === 'rc-task';
+  },
+  wbtb() { openWBTBWakeScreen(); return true; },
+  wbtb_return() { showWBTBReturnPrompt(); return true; },
+};
+
+function cleanNotificationId(id) {
+  return typeof id === 'string' && /^[a-z0-9-]{1,40}$/i.test(id) ? id : null;
+}
+
+function notificationHandledIds() {
+  if (!_notifHandled) {
+    try {
+      const arr = JSON.parse(sessionStorage.getItem(NOTIFICATION_HANDLED_KEY) || '[]');
+      _notifHandled = Array.isArray(arr) ? arr.filter((x) => typeof x === 'string') : [];
+    } catch (e) { _notifHandled = []; }
+  }
+  return _notifHandled;
+}
+
+function rememberNotificationHandled(id) {
+  if (!id) return;
+  const ids = notificationHandledIds();
+  if (!ids.includes(id)) ids.push(id);
+  while (ids.length > 20) ids.shift();
+  try { sessionStorage.setItem(NOTIFICATION_HANDLED_KEY, JSON.stringify(ids)); } catch (e) {}
+}
+
+function storeNotificationPending(intent) {
+  try {
+    if (intent) sessionStorage.setItem(NOTIFICATION_PENDING_KEY, JSON.stringify(intent));
+    else sessionStorage.removeItem(NOTIFICATION_PENDING_KEY);
+  } catch (e) {}
+}
+
+function readStoredNotificationPending() {
+  let p = null;
+  try { p = JSON.parse(sessionStorage.getItem(NOTIFICATION_PENDING_KEY) || 'null'); } catch (e) {}
+  if (!p || !NOTIFICATION_INTENT_HANDLERS[p.kind] || !(Date.now() - p.at < NOTIFICATION_PENDING_MAX_AGE_MS)) {
+    storeNotificationPending(null);
+    return null;
+  }
+  return p;
+}
+
+function readNotificationIntentFromUrl(href) {
+  let u;
+  try { u = new URL(href || window.location.href); } catch (e) { return null; }
+  const p = u.searchParams;
+  const id = cleanNotificationId(p.get('nid'));
+  if (p.get('wbtb') === 'return') return { kind: 'wbtb_return', id };
+  if (p.get('wbtb') === '1') return { kind: 'wbtb', id };
+  if (p.get('rc') === '1' || u.hash === '#reality-check') return { kind: 'rc', id };
+  return null;
+}
+
+// The same URL without the notification markers for this kind (rc=1 or
+// wbtb=..., nid, #reality-check). The path, every other parameter as it was
+// written, and any other hash (sign-in callbacks use it) are kept. Returns
+// null when there is nothing to remove.
+function notificationUrlWithout(href, kind) {
+  let u;
+  try { u = new URL(href); } catch (e) { return null; }
+  let changed = false;
+  const kept = u.search.replace(/^\?/, '').split('&').filter((part) => {
+    if (!part) return false;
+    const eq = part.indexOf('=');
+    let key, val;
+    try {
+      key = decodeURIComponent((eq < 0 ? part : part.slice(0, eq)).replace(/\+/g, ' '));
+      val = eq < 0 ? '' : decodeURIComponent(part.slice(eq + 1).replace(/\+/g, ' '));
+    } catch (e) { return true; }
+    const drop = key === 'nid'
+      || (kind === 'rc' && key === 'rc' && val === '1')
+      || (kind === 'wbtb' && key === 'wbtb' && val === '1')
+      || (kind === 'wbtb_return' && key === 'wbtb' && val === 'return');
+    if (drop) changed = true;
+    return !drop;
+  });
+  let hash = u.hash;
+  if (kind === 'rc' && hash === '#reality-check') { hash = ''; changed = true; }
+  if (!changed) return null;
+  return u.pathname + (kept.length ? '?' + kept.join('&') : '') + hash;
+}
+
+// Returns the URL before the change, for restoring it.
+function clearNotificationIntentFromUrl(kind) {
+  const next = notificationUrlWithout(window.location.href, kind);
+  if (next == null) return null;
+  const before = window.location.pathname + window.location.search + window.location.hash;
+  try { history.replaceState(history.state, '', next); } catch (e) { return null; }
+  return before;
+}
+
+function notificationIntentReady(kind) {
+  if (!splashDone) return false;
+  if (kind !== 'rc') return true;
+  const ob = document.getElementById('onboarding-screen');
+  if (ob && ob.classList.contains('active') && ob.style.display !== 'none') return false;
+  if (_legalGate) return false;
+  return true;
+}
+
+function acceptNotificationIntent(kind, id) {
+  if (!NOTIFICATION_INTENT_HANDLERS[kind]) return false;
+  const nid = cleanNotificationId(id);
+  if (nid && (notificationHandledIds().includes(nid) || (_notifPending && _notifPending.id === nid))) return true;
+  _notifPending = { kind, id: nid, at: Date.now() };
+  storeNotificationPending(_notifPending);
+  scheduleNotificationIntentDrain(0);
+  return true;
+}
+
+function scheduleNotificationIntentDrain(ms) {
+  if (_notifDrainTimer) return;
+  _notifDrainTimer = setTimeout(() => {
+    _notifDrainTimer = null;
+    drainNotificationIntent();
+  }, ms);
+}
+
+function drainNotificationIntent() {
+  const intent = _notifPending;
+  if (!intent) return;
+  if (!notificationIntentReady(intent.kind)) { scheduleNotificationIntentDrain(250); return; }
+  _notifPending = null;
+  storeNotificationPending(null);
+  // Cleared just before opening, so the history entry openRCTask pushes and
+  // the one beneath it both carry the clean URL. Put back if opening fails.
+  const fromUrl = readNotificationIntentFromUrl();
+  const restoreUrl = fromUrl && fromUrl.kind === intent.kind ? clearNotificationIntentFromUrl(intent.kind) : null;
+  let ok = false;
+  try {
+    ok = NOTIFICATION_INTENT_HANDLERS[intent.kind]() !== false;
+  } catch (e) {
+    console.warn('[ABLTY] Notification destination did not open:', e && e.message);
+  }
+  if (ok) { rememberNotificationHandled(intent.id); return; }
+  if (restoreUrl) { try { history.replaceState(history.state, '', restoreUrl); } catch (e) {} }
+}
+
+function onNotificationIntentMessage(event) {
+  const d = event && event.data;
+  if (!d || typeof d !== 'object') return;
+  const reply = (msg) => {
+    const to = event.source && typeof event.source.postMessage === 'function'
+      ? event.source
+      : navigator.serviceWorker && navigator.serviceWorker.controller;
+    try { if (to) to.postMessage(msg); } catch (e) {}
+  };
+  if (d.type === 'NOTIFICATION_INTENT_PROBE') {
+    reply({ type: 'NOTIFICATION_INTENT_PROBE_REPLY', intentId: d.intentId, app: isStandaloneAppRuntime() });
+    return;
+  }
+  const kind = NOTIFICATION_INTENT_TYPES[d.type];
+  if (!kind) return;
+  // A browser tab of app.html only shows the install guard; it must not
+  // take a tap meant for the installed app.
+  const accepted = isStandaloneAppRuntime() && acceptNotificationIntent(kind, d.intentId);
+  if (d.intentId) reply({ type: 'NOTIFICATION_INTENT_ACK', intentId: d.intentId, accepted: !!accepted });
+}
+
+function startNotificationIntents() {
+  const sw = ('serviceWorker' in navigator) ? navigator.serviceWorker : null;
+  if (sw) sw.addEventListener('message', onNotificationIntentMessage);
+  if (!isStandaloneAppRuntime()) return;
+  const stored = readStoredNotificationPending();
+  if (stored) acceptNotificationIntent(stored.kind, stored.id);
+  const fromUrl = readNotificationIntentFromUrl();
+  if (fromUrl) {
+    if (fromUrl.id && notificationHandledIds().includes(fromUrl.id)) clearNotificationIntentFromUrl(fromUrl.kind);
+    else acceptNotificationIntent(fromUrl.kind, fromUrl.id);
+  }
+  if (!sw) return;
+  // Tells sw.js this window has started. If a tap launched it but the
+  // platform dropped the URL, sw.js answers with the intent.
+  const claim = { type: 'NOTIFICATION_INTENT_CLAIM', intentId: fromUrl ? fromUrl.id : null };
+  if (sw.controller) {
+    try { sw.controller.postMessage(claim); } catch (e) {}
+  } else if (sw.ready) {
+    sw.ready.then((reg) => { if (reg && reg.active) reg.active.postMessage(claim); }).catch(() => {});
+  }
+}
+startNotificationIntents();
+
 // ─── APP STATE ────────────────────────────────
 const STATE = {
   currentTRN: null,
@@ -9943,26 +10149,6 @@ function completeRCTask(pausedForCriticalQ = false) {
   navigate('home');
 }
 
-// Check URL hash on load for notification tap
-function checkWBTBHash() {
-  const search = window.location.search;
-  if (search.includes('wbtb=1')) {
-    const tryOpen = () => {
-      if (splashDone) { openWBTBWakeScreen(); }
-      else setTimeout(tryOpen, 100);
-    };
-    tryOpen();
-    try { history.replaceState({}, '', '/app.html'); } catch(e) {}
-  } else if (search.includes('wbtb=return')) {
-    const tryReturn = () => {
-      if (splashDone) { showWBTBReturnPrompt(); }
-      else setTimeout(tryReturn, 100);
-    };
-    tryReturn();
-    try { history.replaceState({}, '', '/app.html'); } catch(e) {}
-  }
-}
-
 function showWBTBReturnPrompt() {
   // Close wake screen if open
   closeWBTBWakeScreen();
@@ -9982,22 +10168,6 @@ function showWBTBReturnPrompt() {
     screen.classList.add('active');
     // No countdown needed for return screen
     if (wbtbWakeTimer) { clearInterval(wbtbWakeTimer); wbtbWakeTimer = null; }
-  }
-}
-
-function checkRCHash() {
-  if (window.location.hash === '#reality-check' || window.location.search.includes('rc=1')) {
-    history.replaceState(null, '', '/');
-    // Poll until splash is done, then open task
-    const tryOpen = (attempts) => {
-      if (attempts <= 0) return;
-      if (splashDone) {
-        openRCTask();
-      } else {
-        setTimeout(() => tryOpen(attempts - 1), 300);
-      }
-    };
-    setTimeout(() => tryOpen(15), 200);
   }
 }
 
@@ -12539,6 +12709,9 @@ function checkRPActiveState() {
     const age = Date.now() - (saved.startedAt || 0);
     setTimeout(() => {
       if (age < RP_FRESH_WINDOW_MS) {
+        // A Reality Check notification tap is where the user asked to go;
+        // the protocol stays saved and resumes on the next open.
+        if ((_notifPending && _notifPending.kind === 'rc') || currentScreen === 'rc-task') return;
         // Fresh — auto-resume
         _rpState = saved;
         navigate('reentry-protocol');
@@ -12763,8 +12936,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   runSplash();
   bindProfilePullToDismiss();
-  checkRCHash();
-  checkWBTBHash();
   restoreWBTBIfActive();
   checkRPActiveState();
   checkPendingMorningSync();
@@ -19199,7 +19370,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.10.10.1';
+const APP_VERSION = '2026.10.10.2';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 // What the last update check found, so Settings can tell "this is the
@@ -19392,10 +19563,9 @@ async function registerSW() {
 
     if (!window.__abltySwMessageBound) {
       window.__abltySwMessageBound = true;
+      // Notification taps are handled by onNotificationIntentMessage, which
+      // is attached at startup instead of after registration.
       navigator.serviceWorker.addEventListener('message', event => {
-        if (event.data && event.data.type === 'RC_OPEN')     openRCTask();
-        if (event.data && event.data.type === 'WBTB_OPEN')   openWBTBWakeScreen();
-        if (event.data && event.data.type === 'WBTB_RETURN') showWBTBReturnPrompt();
         if (event.data && event.data.type === 'UPDATE_READY') {
           // Sent while the new worker is still installing: follow it.
           checkForWaitingUpdate(reg);

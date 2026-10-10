@@ -64,6 +64,8 @@ A step moves through: **Not started → In progress → PR open (#number) → Me
 
 **Settings pull-to-close (follow-up, not a numbered step):** draft PR #143 on branch `cursor/settings-pull-to-close-0dbf`, version 2026.10.10.1 / `ablty-v89`. Phone check still to do. Steps 8 and 9 have not started. Docs-only PR #140 was left open and was not changed.
 
+**Reality Check notification launch (follow-up, not a numbered step):** draft PR #144 on branch `cursor/rc-notification-launch-9435`, version 2026.10.10.2 / `ablty-v90`. A Reality Check tap that launched the app opened Home instead of the exercise. Review round: `sw.js` no longer reloads an open app window that answers slowly (that could lose unsaved input). Browser tests pass; phone check still to do (steps in the PR and in `_internal/WORK-LOG.md`). Steps 8 and 9 have not started.
+
 ---
 
 ## DECISIONS ALREADY MADE (do not reopen these)
