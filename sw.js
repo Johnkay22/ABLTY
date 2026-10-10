@@ -180,11 +180,14 @@ self.addEventListener('push', event => {
 // are asked first whether they are the installed app (a browser tab of
 // app.html shows the "open the installed app" guard and says no), and only
 // then is one of them focused, or a new one opened.
+//
+// An app window that is already open is never reloaded or replaced, however
+// slowly it answers: it may hold an unsaved dream, sketch or session. A slow
+// window handles the queued message once it catches up.
 const APP_PATHS        = ['/app.html', '/app'];
 const INTENT_PROBE_MS  = 1000;
-const INTENT_ACK_MS    = 4000;
-// Keeps this worker alive while a launched window starts, so a launch that
-// lost the URL can still claim the intent.
+// Keeps this worker alive while the app takes the tap, so a window that
+// starts (or restarts) without the notification URL can still claim it.
 const INTENT_LAUNCH_MS = 20000;
 
 let launchingIntent = null;
@@ -262,13 +265,6 @@ function answerIntentClaim(source, urlIntentId) {
   try { source.postMessage({ type: intent.type, intentId: intent.id }); } catch (e) {}
 }
 
-async function deliverToWindow(client, message) {
-  const acked = waitForAck(message.intentId, INTENT_ACK_MS);
-  try { await client.focus(); } catch (e) {}
-  try { client.postMessage(message); } catch (e) {}
-  return acked;
-}
-
 async function handleNotificationClick(notification) {
   const target  = notificationTarget(notification);
   const intent  = { id: newIntentId(), type: target.type };
@@ -286,21 +282,17 @@ async function handleNotificationClick(notification) {
     win = candidates.find(c => replies.get(c.id) === true)
       || candidates.find(c => !replies.has(c.id))
       || null;
-    if (win && await deliverToWindow(win, message)) return;
   }
 
-  // Nothing accepted the tap: load the destination, reusing the
-  // unresponsive app window when there is one.
   launchingIntent = intent;
-  const launched = waitForAck(intent.id, INTENT_LAUNCH_MS);
-  let opened = false;
-  if (win && typeof win.navigate === 'function') {
-    try { opened = !!(await win.navigate(launchUrl)); } catch (e) {}
-  }
-  if (!opened) {
+  const accepted = waitForAck(intent.id, INTENT_LAUNCH_MS);
+  if (win) {
+    try { await win.focus(); } catch (e) {}
+    try { win.postMessage(message); } catch (e) {}
+  } else {
     try { await self.clients.openWindow(launchUrl); } catch (e) {}
   }
-  await launched;
+  await accepted;
   if (launchingIntent === intent) launchingIntent = null;
 }
 

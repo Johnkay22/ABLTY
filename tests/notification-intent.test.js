@@ -78,10 +78,12 @@ function makeWorld() {
   // opts.standalone: the installed app (true) or a browser tab (false)
   // opts.app: the page runs app.html (false for the landing page)
   // opts.frozen: messages wait until focus(); opts.dead: never answers
+  // opts.busyMs: main thread busy, messages are handled only after this long
   // opts.ready: start with the splash already done
   world.open = (url, opts = {}) => {
     const page = {
       id: 'c' + nextId++, alive: true, focusCount: 0, frozen: !!opts.frozen, dead: !!opts.dead,
+      busyUntil: opts.busyMs ? Date.now() + opts.busyMs * SCALE : 0,
       standalone: opts.standalone !== false, app: opts.app !== false, focused: !!opts.focused,
       visible: !!(opts.focused || opts.visible), queue: [], received: [], rcOpens: 0, wbtbOpens: 0, wbtbReturns: 0,
       session: opts.session || {}, clock: opts.clock || null,
@@ -96,7 +98,8 @@ function makeWorld() {
         page.received.push(data);
         if (page.dead || !page.app) return;
         if (page.frozen) { page.queue.push(data); return; }
-        later(() => page.deliver(data));
+        const wait = Math.max(1, page.busyUntil - Date.now());
+        setTimeout(() => page.deliver(data), wait);
       },
       async focus() {
         page.focusCount += 1;
@@ -326,17 +329,36 @@ const path_ = (href) => { const u = new URL(href); return u.pathname + u.search 
     assert.strictEqual(w.opened.length, 0);
   });
 
-  await test('3c. app window that never answers: it is navigated to the notification URL (bounded fallback)', async () => {
+  await test('3c. app window busy for longer than any timeout: never reloaded, opens Reality Check once it catches up', async () => {
     const w = makeWorld();
-    const page = w.open('/app.html', { ready: true, dead: true });
+    const page = w.open('/app.html', { ready: true, busyMs: 9000 });
+    page.ctx.unsavedDraft = 'flying over a red bridge';
     const done = w.tap('/app.html?rc=1');
-    await sleep(4000 * SCALE + 1000 * SCALE + 80);
-    assert.ok(w.log.includes('navigate:' + page.id), 'navigated after the acknowledgement timeout');
-    page.ready();
-    await sleep(350);
+    await sleep(6000 * SCALE);
+    assert.strictEqual(page.rcOpens, 0, 'still busy');
+    await sleep(3000 * SCALE + 120);
     assert.strictEqual(page.rcOpens, 1);
-    assert.strictEqual(path_(page.href), '/app.html');
+    assert.strictEqual(page.ctx.unsavedDraft, 'flying over a red bridge', 'same page, nothing lost');
+    assert.ok(!w.log.some((l) => l.startsWith('navigate')), 'not reloaded');
+    assert.strictEqual(w.opened.length, 0, 'no window opened over it');
     await done;
+  });
+
+  await test('3d. app window that never answers is left alone; if it restarts by itself it still gets the tap', async () => {
+    const w = makeWorld();
+    const session = {};
+    const page = w.open('/app.html', { ready: true, dead: true, session });
+    const done = w.tap('/app.html?rc=1');
+    await sleep(8000 * SCALE);
+    assert.ok(!w.log.some((l) => l.startsWith('navigate')), 'not reloaded');
+    assert.strictEqual(w.opened.length, 0, 'no window opened over it');
+    page.close();
+    const restarted = w.open('/app.html', { session, ready: true });
+    await sleep(350);
+    assert.strictEqual(restarted.rcOpens, 1, 'the restarted window claimed the tap');
+    const t0 = Date.now();
+    await done;
+    assert.ok(Date.now() - t0 < 20000 * SCALE, 'sw.js stops waiting once the app claimed the intent');
   });
 
   await test('4. app already open on Home: same working behaviour, one task opened, no reload', async () => {

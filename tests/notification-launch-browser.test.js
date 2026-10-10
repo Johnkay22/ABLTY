@@ -239,6 +239,28 @@ async function main() {
     assert.strictEqual(s.count, 2, 'Reality Check not opened by WBTB taps');
   });
 
+  await check('app window busy for 7 s when the tap arrives: not reloaded, unsaved text kept, Reality Check opens once it catches up', async () => {
+    await app.evaluate(() => navigate('home'));
+    sw = await worker(app);
+    await app.evaluate(() => {
+      window.__samePage = true;
+      document.getElementById('dream-entry-body').value = 'unsaved dream text';
+      setTimeout(() => { const end = Date.now() + 7000; while (Date.now() < end) { /* busy */ } }, 100);
+    });
+    await app.waitForTimeout(300);
+    await tap(sw, '/app.html?rc=1');
+    await app.waitForTimeout(7500);
+    await settle(app, () => currentScreen === 'rc-task', 4000);
+    const kept = await app.evaluate(() => ({
+      same: window.__samePage === true,
+      text: document.getElementById('dream-entry-body').value,
+    }));
+    assert.strictEqual(kept.same, true, 'the window was not reloaded');
+    assert.strictEqual(kept.text, 'unsaved dream text');
+    assert.strictEqual((await appState(app)).count, 3);
+    assert.strictEqual(await sw.evaluate(() => self.__opened.length), 0, 'no window opened over it');
+  });
+
   await app.close();
 
   await check('app fully closed: the tap opens /app.html?rc=1&nid=..., and Reality Check opens after a slow first-run splash', async () => {
