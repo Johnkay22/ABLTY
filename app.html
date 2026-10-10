@@ -12845,8 +12845,11 @@ const WBTB_WAKE_DURATION = 25 * 60; // 25 minutes
 
 function openWBTBWakeScreen() {
   const screen = document.getElementById('wbtb-wake-screen');
+  // The alarm opens this screen and also shows the wake notification; a tap
+  // on that notification must not restart the countdown already running.
+  const counting = !!(screen && screen.classList.contains('active') && wbtbWakeTimer);
   if (screen) screen.classList.add('active');
-  startWBTBWakeCountdown();
+  if (!counting) startWBTBWakeCountdown();
 }
 
 function closeWBTBWakeScreen() {
@@ -12856,20 +12859,22 @@ function closeWBTBWakeScreen() {
 }
 
 function startWBTBWakeCountdown() {
+  if (wbtbWakeTimer) { clearInterval(wbtbWakeTimer); wbtbWakeTimer = null; }
   let secsLeft = WBTB_WAKE_DURATION;
   updateWBTBWakeDisplay(secsLeft);
-  wbtbWakeTimer = setInterval(() => {
+  const timer = setInterval(() => {
     secsLeft--;
     updateWBTBWakeDisplay(secsLeft);
     if (secsLeft <= 0) {
-      clearInterval(wbtbWakeTimer);
-      wbtbWakeTimer = null;
+      clearInterval(timer);
+      if (wbtbWakeTimer === timer) wbtbWakeTimer = null;
       const cd = document.getElementById('wbtb-wake-countdown');
       const lb = document.getElementById('wbtb-wake-countdown-label');
       if (cd) cd.textContent = 'Sleep now';
       if (lb) lb.textContent = 'Return to sleep immediately';
     }
   }, 1000);
+  wbtbWakeTimer = timer;
 }
 
 function updateWBTBWakeDisplay(secs) {
@@ -19370,7 +19375,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.10.10.2';
+const APP_VERSION = '2026.10.10.3';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 // What the last update check found, so Settings can tell "this is the
