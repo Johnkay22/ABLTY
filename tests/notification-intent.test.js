@@ -18,7 +18,7 @@ const ORIGIN = 'https://ablty.app';
 const SW_SOURCE = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
 
 // sw.js timings are scaled down so the suite runs quickly. Relative order
-// is what matters: probe < ack < launch, and the app's 250ms retry.
+// is what matters: probe < launch, and the app's 250ms retry.
 const SCALE = 1 / 40;
 
 const APP_DECLS = ['NOTIFICATION_INTENT_TYPES', 'NOTIFICATION_HANDLED_KEY', 'NOTIFICATION_PENDING_KEY',
