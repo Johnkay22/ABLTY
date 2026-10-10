@@ -19,6 +19,16 @@ Keep entries short and in plain English. Say what was actually done, not what wa
 
 ---
 
+## 2026-10-10: Reality Check notification taps, review round: no reload of an open app window
+- **Who:** Cursor (cloud agent)
+- **Branch / PR:** `cursor/rc-notification-launch-9435`, draft PR #144 (same PR, same version `2026.10.10.2` / `ablty-v90`, not deployed).
+- **What changed:** Johnny asked whether the fallback reload could lose unfinished work. It could: reproduced in headless Chrome with the real `sw.js` and `app.html`, an app window whose page was busy for 7 seconds when the tap arrived (it missed the 1 second "are you the app" question and the 4 second acknowledgement) was reloaded by `sw.js`, and text typed into the dream entry box was gone. A 3 second delay was safe. `sw.js` now never reloads, navigates or opens a window over an app window that is already open, however slowly it answers: it focuses it and leaves the message in its queue, and the page handles it when it catches up (checked with 7 and 25 seconds busy: same page, typed text kept, Reality Check opened). The tap stays claimable for 20 seconds, so a window that restarts by itself, or a launch without the notification URL, still gets it. A new window is opened only when no app window exists, or every open one says it is not the installed app (a browser tab). The 4 second acknowledgement timeout is removed.
+- **Tests:** passed: `notification-intent` 22 (the old "never answers, gets navigated" test replaced by "busy 9 s, never reloaded, opens once it catches up" and "never answers, left alone, a restart still gets the tap"; both fail against the previous head); `notification-launch-browser` 11 (new: page busy 7 s with typed dream text, not reloaded, text kept, Reality Check opens; fails against the previous head with "the window was not reloaded"); unchanged and passing: `auth-consent` (107), `browser-account-isolation` (32), `cloud-sync-status` (51), `dream-save-isolation` (10), `safe-text-rendering` (6), `settings-pull-to-close` (12), `update-detection` (11), `upgrade-cta-beta` (9), `username-case-insensitive` (8). Not run here: `browser-app-auth` and `browser-supabase-auth` (need a local Supabase stack; they run on GitHub). Not run: anything on a phone.
+- **WBTB countdown:** reproduced identically on `main` (`707e52e`) and on this branch, so this PR did not introduce it. When the WBTB timer runs out with the app open, the app opens the wake screen itself and also shows the wake notification; tapping that notification starts a second 25 minute countdown. The two timers write the same display, so it changes twice a second and jumps back and forth (24:57, 24:58, 24:56, 24:57, ...), and closing the wake screen stops only one, which keeps counting in the background. One tap on its own starts one countdown on both. The repair is kept out of this PR.
+- **Production:** nothing changed.
+- **Johnny needs to:** the same phone steps as the entry below, plus: with a dream half typed, put the app in the background for a while, tap a Reality Check notification, and check the typed text is still there after you go back.
+- **Next:** Step 8 stays unstarted.
+
 ## 2026-10-10: Reality Check notification taps open the exercise when they launch the app
 - **Who:** Cursor (cloud agent)
 - **Branch / PR:** `cursor/rc-notification-launch-9435`, draft PR #144. Version `2026.10.10.2` / `ablty-v90`. Not a numbered step; Johnny asked for it directly. Step 8 has not started.
@@ -27,7 +37,7 @@ Keep entries short and in plain English. Say what was actually done, not what wa
 - **Production:** nothing changed.
 - **Johnny needs to:** review the draft, then the phone steps in the PR: update to `2026.10.10.2`, then test with the app closed (swiped away), in the background, and open, plus one WBTB tap if convenient.
 - **Next:** Step 8 stays unstarted. Do not start Step 8 or Step 9 from this pull request.
-- **Noticed, not changed:** a second, different WBTB wake tap while the wake screen is open starts a second countdown timer (`startWBTBWakeCountdown` does not clear the first), so the countdown would run twice as fast; this PR only stops one tap being delivered twice. The payment return and the email sign-in callback still reset the address to `/app.html`, dropping other parameters. The Status board still calls PR #143 a draft; it is merged on main.
+- **Noticed, not changed:** a second WBTB wake opening while the wake screen is open starts a second countdown timer (`startWBTBWakeCountdown` does not clear the first); see the review round entry above for what that does on screen. This PR only stops one tap being delivered twice. The payment return and the email sign-in callback still reset the address to `/app.html`, dropping other parameters. The Status board still calls PR #143 a draft; it is merged on main.
 
 ## 2026-10-10: Settings pull-to-close follows the finger
 - **Who:** Cursor (cloud agent)
