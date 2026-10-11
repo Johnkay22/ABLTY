@@ -19,6 +19,16 @@ Keep entries short and in plain English. Say what was actually done, not what wa
 
 ---
 
+## 2026-10-11: Approved Presentiment End cancellation fix
+- **Who:** Codex (same isolated cloud checkout)
+- **Branch / PR:** `codex/presentiment-visuals`, version `2026.10.11.5` / `ablty-v96`. Branch published separately. GitHub API Forbidden blocks draft PR creation; no merge or deployment.
+- **What changed:** Johnny approved the small fix after the visual verification found the pre-existing bug recorded below. Track and cancel the three pending result/feedback/next-trial callbacks when ending or opening a batch. Normal delays, event selection, tap capture, scoring and persistence definitions are unchanged. Completed results are kept; ended batches cannot schedule later trials or interfere with a new batch.
+- **Tests:** Session browser suite 18 passed; introduction 16 passed; syntax two blocks and links 48 passed; whitespace clean. New regression checks cover End during countdown, fast-forward, tapped/missed flash, feedback and transition, plus immediate restart after early/final feedback or transition. Full three-trial flow, save/reload and scoring also pass. Corrected an initial new-test assumption about saved-result ordering to identify the new result by ID. No physical-phone or live backend tests.
+- **Review:** The visuals and 25 fps recordings remain as approved/implemented in the prior entry. Current review notes and PR description include this authorized behavior fix. PR #140's status-document overlaps and #145's status/version overlaps remain separate. Native Git pushes work; the environment lacks the GitHub API destination, so `api.github.com` was saved as an additive allowlist draft for settings review and publication. No secret or production configuration changed.
+- **Production:** Nothing changed. Cursor's working directory and active branch are untouched; `codex/settings-pull-dismiss` is preserved.
+- **Johnny needs to:** Review both screens and follow the phone checklist in `_internal/PRESENTIMENT-REVIEW.md` on a test build. To unblock API access, review/save the environment network draft and publish the environment; access still needs to be retried afterward. Alternatively create a draft PR for the published branch using the prepared description.
+- **Next:** Publish the separate draft PR once GitHub API access works. Numbered beta steps remain unchanged.
+
 ## 2026-10-11: Presentiment active trial visuals after introduction approval
 - **Who:** Codex (isolated cloud checkout)
 - **Branch / PR:** `codex/presentiment-visuals`, base main `5d2ef424`, version `2026.10.11.4` / `ablty-v95`. Separate draft PR publication pending; GitHub API reads return Forbidden. No merge or deployment.

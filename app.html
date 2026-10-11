@@ -19665,7 +19665,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.10.11.4';
+const APP_VERSION = '2026.10.11.5';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 // What the last update check found, so Settings can tell "this is the
@@ -20107,6 +20107,9 @@ const TS_STATE = {
   tickInterval:   null,
   eventTimeout:   null,
   ffInterval:     null,   // fast-forward tick interval
+  resultTimeout:  null,
+  feedbackTimeout: null,
+  nextTrialTimeout: null,
 };
 
 // ─── PERSISTENCE ──────────────────────────────
@@ -20271,7 +20274,17 @@ function buildTSWaveformInEl(el) {
 }
 
 // ─── SESSION FLOW ─────────────────────────────
+function clearTimestampFeedbackTimers() {
+  clearTimeout(TS_STATE.resultTimeout);
+  clearTimeout(TS_STATE.feedbackTimeout);
+  clearTimeout(TS_STATE.nextTrialTimeout);
+  TS_STATE.resultTimeout = null;
+  TS_STATE.feedbackTimeout = null;
+  TS_STATE.nextTrialTimeout = null;
+}
+
 function openTimestampSession() {
+  clearTimestampFeedbackTimers();
   TS_STATE.trialNum    = 0;
   TS_STATE.batchTrials = [];
   showScreen('timestamp-session', true);
@@ -20420,12 +20433,18 @@ function fireTimestampEvent() {
 
   if (TS_STATE.hasTapped) {
     // User tapped before event: show delta after flash settles
-    setTimeout(() => showTrialResult(false), 400);
+    TS_STATE.resultTimeout = setTimeout(() => {
+      TS_STATE.resultTimeout = null;
+      showTrialResult(false);
+    }, 400);
   } else {
     // MISS: event fired without a tap
     const prompt = document.getElementById('ts-tap-prompt');
     if (prompt) { prompt.textContent = 'MISS'; prompt.className = 'ts-tap-prompt'; prompt.style.color = 'var(--danger)'; }
-    setTimeout(() => showTrialResult(true), 400);
+    TS_STATE.resultTimeout = setTimeout(() => {
+      TS_STATE.resultTimeout = null;
+      showTrialResult(true);
+    }, 400);
   }
 }
 
@@ -20478,14 +20497,15 @@ function showTrialResult(isMiss) {
   updateBatchMean();
 
   // Advance or finish after 2s feedback
-  setTimeout(() => {
+  TS_STATE.feedbackTimeout = setTimeout(() => {
+    TS_STATE.feedbackTimeout = null;
     if (feedback) feedback.classList.remove('visible');
 
-    if (TS_STATE.trialNum >= TS_TRIALS_PER_RUN) {
-      setTimeout(() => viewTimestampResults(), 200);
-    } else {
-      setTimeout(() => startTimestampTrial(), 200);
-    }
+    TS_STATE.nextTrialTimeout = setTimeout(() => {
+      TS_STATE.nextTrialTimeout = null;
+      if (TS_STATE.trialNum >= TS_TRIALS_PER_RUN) viewTimestampResults();
+      else startTimestampTrial();
+    }, 200);
   }, 2000);
 }
 
@@ -20502,6 +20522,7 @@ function updateBatchMean() {
 function endTimestampBatch() {
   TS_STATE.trialActive = false;
   TS_STATE.fastForwarding = false;
+  clearTimestampFeedbackTimers();
   clearInterval(TS_STATE.tickInterval);
   clearInterval(TS_STATE.ffInterval);
   clearTimeout(TS_STATE.eventTimeout);

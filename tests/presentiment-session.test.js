@@ -1,5 +1,5 @@
 // Presentiment session checks in a real browser with synthetic guest data.
-// Trial-flow checks use Playwright's clock and a fixed random draw; production code is unchanged.
+// Trial-flow checks inject Playwright's clock and a fixed random draw in the browser only.
 // ABLTY_TEST_APP may point at an extracted baseline app.html for behavior-only comparisons.
 // Run: CHROME_PATH=/path/to/chromium node tests/presentiment-session.test.js
 const assert = require('node:assert/strict');
@@ -110,18 +110,49 @@ async function main() {
       assert.equal(await p.locator('#ts-result-mean').textContent(), '12.5s');
     });
 
-    for (const phase of ['countdown', 'fast-forward', 'feedback']) {
+    for (const phase of ['countdown', 'fast-forward', 'flash', 'miss flash', 'feedback', 'transition']) {
       await check('End during ' + phase + ' stops the batch without later trials or results', async ({ page: p }) => {
         await start(p); await p.clock.runFor(1000);
-        if (phase !== 'countdown') {
+        if (phase === 'miss flash') await p.clock.runFor(14100);
+        else if (phase !== 'countdown') {
           await p.locator('#ts-trial-area').click();
-          await p.clock.runFor(phase === 'feedback' ? 1900 : 500);
+          await p.clock.runFor({ 'fast-forward': 500, flash: 1600, feedback: 1900, transition: 4000 }[phase]);
         }
         const before = await state(p); await end(p);
         assert.equal((await state(p)).screen, 'timestamp-results');
         await p.clock.runFor(35000); const after = await state(p);
         assert.equal(after.active, false); assert.equal(after.trial, before.trial);
         assert.equal(after.saved.length, before.saved.length);
+      });
+    }
+
+    for (const phase of ['flash', 'feedback', 'transition', 'final feedback', 'final transition']) {
+      await check('new batch after End during ' + phase + ' is unaffected by the old callbacks', async ({ page: p }) => {
+        await start(p);
+        if (phase.startsWith('final')) {
+          for (let i = 0; i < 2; i++) {
+            await p.clock.runFor(1000); await p.locator('#ts-trial-area').click();
+            await p.clock.runFor(4100);
+          }
+          assert.equal((await state(p)).trial, 3);
+        }
+        await p.clock.runFor(1000); await p.locator('#ts-trial-area').click();
+        await p.clock.runFor(phase === 'flash' ? 1600 : phase.endsWith('transition') ? 4000 : 1900);
+        const completed = (await state(p)).saved;
+        await end(p); await p.evaluate(() => navigate('timestamp')); await start(p);
+        const fresh = await state(p); assert.equal(fresh.trial, 1);
+        await p.clock.runFor(3000); const after = await state(p);
+        assert.equal(after.screen, 'timestamp-session'); assert.equal(after.trial, 1);
+        assert.equal(after.active, true); assert.equal(after.start, fresh.start);
+        assert.equal(after.tap, null); assert.equal(after.count, '27');
+        assert.deepEqual(after.saved, completed);
+        await p.locator('#ts-trial-area').click(); await p.clock.runFor(1900);
+        const result = await state(p);
+        assert.equal(result.saved.length, completed.length + 1);
+        const newResults = result.saved.filter(t => !completed.some(old => old.id === t.id));
+        assert.equal(newResults.length, 1); assert.equal(newResults[0].delta, -12);
+        await end(p); await p.clock.runFor(35000);
+        assert.deepEqual((await state(p)).saved, result.saved);
       });
     }
 
