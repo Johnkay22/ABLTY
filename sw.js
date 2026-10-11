@@ -1,12 +1,18 @@
-// ABLTY Service Worker v90
+// ABLTY Service Worker v96
 // Strategy: network-first for HTML, cache-first for static assets
 // Includes update detection to notify users of new versions
 
-const CACHE_NAME = 'ablty-v90';
+const CACHE_NAME = 'ablty-v96';
 const STATIC_ASSETS = [
   '/',
   '/app.html',
   '/version.json',
+  '/assets/presentiment/menu-planet.webp',
+  '/assets/presentiment/menu-orbit.webp',
+  '/assets/presentiment/menu-planet.mp4',
+  '/assets/presentiment/menu-orbit.mp4',
+  '/assets/presentiment/trial-horizon.webp',
+  '/assets/presentiment/trial-horizon.mp4',
 ];
 
 // -- Install: cache static assets and activate immediately -----

@@ -3036,6 +3036,129 @@ html, body {
   letter-spacing: 2px; color: var(--muted); text-transform: uppercase;
 }
 
+/* Presentiment trial visuals. Ring geometry and protocol timing remain unchanged. */
+#screen-timestamp-session { bottom: 0; background: #070c0f; }
+#screen-timestamp-session .ts-session-shell { min-height: 100dvh; isolation: isolate; }
+#screen-timestamp-session .ts-session-header {
+  width: 100%; max-width: 600px; margin: 0 auto;
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 18px 16px;
+  border: 0; background: transparent;
+  display: grid; grid-template-columns: 76px 1fr 76px; gap: 8px;
+}
+#screen-timestamp-session .ts-session-end {
+  min-width: 60px; min-height: 44px; padding: 9px 13px;
+  border: 1px solid #29373f; border-radius: 14px;
+  background: linear-gradient(135deg, #14202888, #0b1015aa);
+  color: #bdc8d4; font-family: var(--font-rv-mono); font-size: 12px;
+  letter-spacing: .25em; cursor: pointer;
+}
+#screen-timestamp-session .ts-trial-counter {
+  text-align: center; white-space: nowrap;
+  font-family: var(--font-rv-mono); font-size: 16px; letter-spacing: .16em;
+  color: #8998a9;
+}
+#screen-timestamp-session #ts-trial-num { color: #f5f7fa; }
+#screen-timestamp-session .ts-trial-total { color: #788597; }
+#screen-timestamp-session .ts-batch-summary { text-align: right; line-height: 1.6; }
+#screen-timestamp-session .ts-batch-caption {
+  display: block; font-family: var(--font-rv-mono); font-size: 9px;
+  letter-spacing: .2em; color: #8a9aa7;
+}
+#screen-timestamp-session #ts-batch-mean {
+  font-family: var(--font-rv-mono); font-size: 12px;
+  color: #b9c8d3; white-space: nowrap;
+}
+#screen-timestamp-session .ts-progress-bar-wrap {
+  position: relative; z-index: 1;
+  height: 4px; margin: 0 13px; border-radius: 8px;
+  background: #182125; overflow: hidden;
+}
+#screen-timestamp-session .ts-progress-bar { background: #20e8cf; border-radius: inherit; }
+#screen-timestamp-session .ts-trial-area {
+  z-index: 1; flex: 1; justify-content: flex-start; gap: 0;
+  padding: clamp(18px, 4dvh, 38px) 18px calc(20px + var(--safe-bottom));
+  overflow-y: auto; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+#screen-timestamp-session .ts-protocol-label {
+  display: flex; align-items: center; justify-content: center; gap: 18px;
+  width: 100%; font-family: var(--font-rv-mono); font-size: 10px;
+  line-height: 1.5; letter-spacing: .3em; color: #8795a3;
+}
+#screen-timestamp-session .ts-protocol-label::before,
+#screen-timestamp-session .ts-protocol-label::after {
+  content: ''; width: 28px; height: 1px; background: #314049;
+}
+#screen-timestamp-session .ts-countdown-wrap {
+  flex-shrink: 0; width: min(72vw, 40dvh, 330px); height: auto; aspect-ratio: 1;
+  margin-top: clamp(28px, 8dvh, 72px);
+}
+#screen-timestamp-session .ts-countdown-wrap::before {
+  content: ''; position: absolute; inset: -12px; border-radius: 50%;
+  border: 1px solid #26706c33;
+  background: radial-gradient(circle, transparent 56%, #12d8bd0b 70%, transparent 73%);
+  pointer-events: none;
+}
+#screen-timestamp-session .ts-countdown-svg { width: 100%; height: 100%; overflow: visible; }
+#screen-timestamp-session .ts-ring-track { stroke: #1b282d; stroke-width: 5; }
+#screen-timestamp-session .ts-ring-fill {
+  stroke: #20efd7; stroke-width: 5;
+  filter: drop-shadow(0 0 4px #11cbbd77) drop-shadow(0 0 10px #0cbbaa44);
+}
+#screen-timestamp-session .ts-countdown-num {
+  font-family: var(--font-rv-display); font-size: clamp(72px, 23vw, 108px); font-weight: 500;
+  line-height: 1.1; letter-spacing: .025em; text-shadow: 0 0 14px #d1fff11a;
+}
+#screen-timestamp-session .ts-countdown-label {
+  margin-top: 6px; font-family: var(--font-rv-mono); font-size: 10px;
+  letter-spacing: .4em; color: #8b9bad;
+}
+#screen-timestamp-session .ts-prompt-divider {
+  flex-shrink: 0; position: relative; width: 1px; height: 34px;
+  margin: 24px 0 18px; background: linear-gradient(transparent, #3b6a70, transparent);
+}
+#screen-timestamp-session .ts-prompt-divider::after {
+  content: ''; position: absolute; left: -1.5px; top: 17px;
+  width: 4px; height: 4px; border-radius: 50%; background: #22e4d0;
+  box-shadow: 0 0 7px #16ddc9aa;
+}
+#screen-timestamp-session .ts-tap-prompt {
+  font-family: var(--font-rv-display); font-size: clamp(18px, 5.2vw, 24px); font-weight: 500;
+  line-height: 1.4; letter-spacing: .22em; color: #b7c5d8; text-align: center;
+}
+#screen-timestamp-session .ts-tap-prompt.tapped { color: #29ead3; opacity: .65; }
+#screen-timestamp-session .ts-trial-subtitle {
+  margin-top: 10px; color: #8a9aaa; font-family: var(--font-rv-mono);
+  font-size: 10px; line-height: 1.6; letter-spacing: .25em; text-align: center;
+}
+#screen-timestamp-session .ts-state-label {
+  margin-top: 12px; font-size: 10px; letter-spacing: .1em; color: #92a8b1; text-align: center;
+}
+#screen-timestamp-session .ts-delta-feedback { background: #070c0fea; }
+#screen-timestamp-session .ts-delta-value { font-size: 64px; }
+#screen-timestamp-session .ts-delta-unit { color: #b4c1ce; }
+#screen-timestamp-session .ts-session-end:focus-visible,
+#screen-timestamp-session .ts-trial-area:focus-visible { outline: 2px solid #b9fff2; outline-offset: -4px; }
+#screen-timestamp-session .ts-trial-horizon {
+  position: absolute; z-index: 0; bottom: 0; left: 0; width: 100%;
+  height: clamp(120px, 23dvh, 230px); pointer-events: none;
+  mask-image: linear-gradient(transparent, #000 25%);
+  -webkit-mask-image: linear-gradient(transparent, #000 25%);
+}
+#screen-timestamp-session .ts-trial-horizon img,
+#screen-timestamp-session .ts-trial-video { width: 100%; height: 100%; object-fit: cover; object-position: center bottom; }
+#screen-timestamp-session .ts-trial-video { position: absolute; inset: 0; opacity: 0; pointer-events: none; }
+#screen-timestamp-session .ts-trial-video[data-playing] { opacity: 1; }
+@media (max-height: 650px) {
+  #screen-timestamp-session .ts-trial-area { padding-top: 18px; }
+  #screen-timestamp-session .ts-countdown-wrap { width: min(68vw, 37dvh, 280px); margin-top: 27px; }
+  #screen-timestamp-session .ts-countdown-num { font-size: 76px; }
+  #screen-timestamp-session .ts-prompt-divider { height: 20px; margin: 18px 0 12px; }
+  #screen-timestamp-session .ts-prompt-divider::after { top: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #screen-timestamp-session .ts-trial-video { display: none; }
+}
+
 /* Brief screen stats */
 .ts-brief-stats {
   display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
@@ -3047,6 +3170,165 @@ html, body {
 .ts-stat-val {
   font-family: var(--font-display); font-size: 26px;
   color: var(--text); line-height: 1; margin-top: 4px;
+}
+
+/* Presentiment introduction only. Protocol and shared component styles stay separate. */
+#screen-timestamp-brief {
+  background: #070c0f;
+  isolation: isolate;
+}
+#screen-timestamp-brief .ts-intro-inner {
+  position: relative;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: calc(18px + env(safe-area-inset-top, 0px)) 17px calc(24px + var(--safe-bottom));
+  gap: 0;
+}
+#screen-timestamp-brief .ts-intro-planet {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: calc(160px + env(safe-area-inset-top, 0px));
+  overflow: hidden;
+  pointer-events: none;
+  mask-image: linear-gradient(#000 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(#000 85%, transparent 100%);
+}
+#screen-timestamp-brief .ts-intro-planet img,
+#screen-timestamp-brief .ts-intro-planet video {
+  width: 100%; height: 100%; object-fit: cover; object-position: 80% bottom;
+}
+#screen-timestamp-brief .ts-intro-video {
+  position: absolute; inset: 0; opacity: 0; pointer-events: none;
+}
+#screen-timestamp-brief .ts-intro-video[data-playing] { opacity: 1; }
+#screen-timestamp-brief .ts-intro-header,
+#screen-timestamp-brief .ts-intro-card,
+#screen-timestamp-brief .ts-intro-stats-heading,
+#screen-timestamp-brief .ts-brief-stats,
+#screen-timestamp-brief .ts-intro-action { position: relative; }
+#screen-timestamp-brief .ts-intro-back {
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid #30464d; border-radius: 50%;
+  background: rgba(11, 20, 24, .45); color: #e1e9ee;
+  box-shadow: inset -1px -1px 3px #25545655;
+  cursor: pointer;
+}
+#screen-timestamp-brief .ts-intro-title {
+  margin: 17px 0 5px 12px;
+  font-family: var(--font-rv-display);
+  font-size: clamp(27px, 7.4vw, 36px); font-weight: 500;
+  letter-spacing: .17em; line-height: 1.2;
+  color: #f1f4f5;
+}
+#screen-timestamp-brief .ts-intro-subtitle {
+  margin-left: 12px;
+  max-width: 95%;
+  font-family: var(--font-body); font-size: 10px;
+  line-height: 1.8; letter-spacing: .18em; color: #929eaa;
+}
+#screen-timestamp-brief .ts-intro-card {
+  margin-top: 20px;
+  padding: 19px 16px 17px;
+  border: 1px solid #2a3c43; border-radius: 13px;
+  background: linear-gradient(125deg, #18232b88, #0b1115aa 58%, #15262b66);
+  box-shadow: inset 0 0 0 1px #81cbdc08, 0 8px 24px #0003;
+}
+#screen-timestamp-brief .ts-intro-card h2,
+#screen-timestamp-brief .ts-intro-stats-heading {
+  font-family: var(--font-rv-mono); font-size: 11px; font-weight: 400;
+  line-height: 1.5; letter-spacing: .26em; color: #bbc7d1;
+  text-transform: uppercase;
+}
+#screen-timestamp-brief .ts-intro-copy {
+  width: calc(100% - 94px);
+  margin-top: 10px;
+  font-family: var(--font-body); font-size: 14px; font-weight: 400;
+  line-height: 1.62; color: #bdc7d0;
+}
+#screen-timestamp-brief .ts-intro-orbit {
+  position: absolute; right: 7px; top: 68px;
+  width: 96px; aspect-ratio: 248 / 280;
+  pointer-events: none;
+}
+#screen-timestamp-brief .ts-intro-orbit {
+  mask-image: radial-gradient(ellipse, #000 44%, transparent 72%);
+  -webkit-mask-image: radial-gradient(ellipse, #000 44%, transparent 72%);
+}
+#screen-timestamp-brief .ts-intro-orbit img,
+#screen-timestamp-brief .ts-intro-orbit video { width: 100%; height: 100%; object-fit: cover; }
+#screen-timestamp-brief .ts-intro-protocol {
+  position: relative;
+  display: flex; align-items: center; gap: 10px;
+  padding-top: 14px; margin-top: 15px;
+  color: #94a5b3;
+  font-family: var(--font-rv-display); font-size: 11px;
+  font-weight: 500; letter-spacing: .035em; line-height: 1.55;
+}
+#screen-timestamp-brief .ts-intro-protocol::before {
+  content: ''; position: absolute; top: 0; left: 0;
+  width: 30px; height: 1px; background: linear-gradient(90deg, #59757c, transparent);
+}
+#screen-timestamp-brief .ts-intro-protocol svg { flex: 0 0 22px; color: #51d7ce; }
+#screen-timestamp-brief .ts-intro-stats-heading { margin: 20px 3px 12px; }
+#screen-timestamp-brief .ts-brief-stats { gap: 9px; }
+#screen-timestamp-brief .ts-stat-cell {
+  min-width: 0; text-align: left;
+  padding: 14px 13px 13px; border-radius: 12px; border-color: #293b42;
+  background: linear-gradient(135deg, #14212799, #0b1115 68%, #10232777);
+  box-shadow: inset 0 0 0 1px #a6e2eb05;
+}
+#screen-timestamp-brief .ts-stat-cell:nth-child(2) { border-color: #264447; background-color: #0a181a; }
+#screen-timestamp-brief .ts-stat-icon { display: block; width: 22px; height: 22px; margin-bottom: 10px; color: #879cae; }
+#screen-timestamp-brief .ts-stat-cell:nth-child(2) .ts-stat-icon { color: #65a6ae; }
+#screen-timestamp-brief .mono-label {
+  font-family: var(--font-rv-mono); font-size: 10px;
+  letter-spacing: .18em; line-height: 1.5; color: #b7c4ce;
+}
+#screen-timestamp-brief .ts-stat-val {
+  font-family: var(--font-display); font-size: 34px;
+  line-height: 1.2; letter-spacing: .035em; margin-top: 5px; color: #eef3f5;
+}
+#screen-timestamp-brief #ts-brief-mean { color: #22efd6; }
+#screen-timestamp-brief #ts-brief-std { color: #a7b6c9; }
+#screen-timestamp-brief .ts-stat-cell::after {
+  content: ''; display: block; height: 1px; margin-top: 10px;
+  background: linear-gradient(90deg, #5ddbd0, #2b5f6044);
+}
+#screen-timestamp-brief .ts-stat-cell:last-child::after { background: linear-gradient(90deg, #7d9aa8, #35475133); }
+#screen-timestamp-brief .ts-intro-action {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 9px; width: 100%; min-height: 55px;
+  padding: 10px 17px; border: 1px solid #426c72; border-radius: 20px;
+  font-family: var(--font-rv-display); font-size: 17px; font-weight: 500;
+  letter-spacing: .20em; line-height: 1.2; text-transform: uppercase;
+  background: linear-gradient(120deg, #11202788, #0b1115); color: #bdccd8;
+  cursor: pointer;
+}
+#screen-timestamp-brief .ts-intro-action svg { flex-shrink: 0; }
+#screen-timestamp-brief .ts-intro-begin {
+  margin-top: 20px; min-height: 58px;
+  background: linear-gradient(115deg, #39f4dc, #13e8d0);
+  border-color: #5bffe3; color: #061b1c; font-size: 19px;
+  box-shadow: 0 0 25px #1ae5c41b, inset 0 1px 1px #c6fff488;
+}
+#screen-timestamp-brief .ts-intro-play {
+  width: 33px; height: 33px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: #09272b; color: #30f4d7; flex-shrink: 0;
+}
+#screen-timestamp-brief #ts-view-results-btn { margin-top: 13px; }
+#screen-timestamp-brief button:focus-visible { outline: 2px solid #d9fff9; outline-offset: 4px; }
+#screen-timestamp-brief .ts-intro-action:active { filter: brightness(.9); }
+@media (min-width: 400px) {
+  #screen-timestamp-brief .ts-intro-inner { padding-left: 20px; padding-right: 20px; }
+  #screen-timestamp-brief .ts-intro-copy { width: calc(100% - 110px); font-size: 15px; }
+  #screen-timestamp-brief .ts-intro-orbit { width: 112px; right: 9px; top: 60px; }
+  #screen-timestamp-brief .ts-stat-val { font-size: 38px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #screen-timestamp-brief .ts-intro-video { display: none; }
 }
 
 /* Results screen */
@@ -7033,53 +7315,58 @@ html, body {
        SCREEN: TIMESTAMP - BRIEF
   ═══════════════════════════════════ -->
   <div id="screen-timestamp-brief" class="screen">
-    <div class="screen-inner">
-
-      <div class="screen-hdr">
-        <button class="screen-hdr-back" onclick="navigate('psi')">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+    <div class="screen-inner ts-intro-inner">
+      <div class="ts-intro-planet" aria-hidden="true">
+        <img src="assets/presentiment/menu-planet.webp" alt="" decoding="async">
+        <video class="ts-intro-video" data-ts-video data-src="assets/presentiment/menu-planet.mp4" muted loop playsinline preload="none" tabindex="-1" disablepictureinpicture disableremoteplayback></video>
+      </div>
+      <header class="ts-intro-header">
+        <button class="ts-intro-back" onclick="navigate('psi')" aria-label="Back to PSI">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 5-7 7 7 7"/></svg>
         </button>
-        <div>
-          <div class="screen-hdr-title">PRESENTIMENT</div>
-          <div class="screen-hdr-sub">Timestamp prediction · Precognition protocol</div>
+        <h1 class="ts-intro-title">PRESENTIMENT</h1>
+        <p class="ts-intro-subtitle">Timestamp prediction · Precognition protocol</p>
+      </header>
+      <section class="ts-intro-card" aria-labelledby="ts-intro-how">
+        <h2 id="ts-intro-how">How It Works</h2>
+        <p class="ts-intro-copy">A random event will fire at a sealed, predetermined moment within a 30-second window. Tap when you sense the event is about to occur. The app measures whether your taps cluster closer to the event than chance predicts.</p>
+        <div class="ts-intro-orbit" aria-hidden="true">
+          <img src="assets/presentiment/menu-orbit.webp" alt="" decoding="async">
+          <video class="ts-intro-video" data-ts-video data-src="assets/presentiment/menu-orbit.mp4" muted loop playsinline preload="none" tabindex="-1" disablepictureinpicture disableremoteplayback></video>
         </div>
-      </div>
-
-      <div class="card" style="padding:16px;">
-        <div class="mono-label" style="margin-bottom:8px;">How It Works</div>
-        <div class="body-sm">
-          A random event will fire at a sealed, predetermined moment within a 30-second window. Tap when you sense the event is about to occur. The app measures whether your taps cluster closer to the event than chance predicts.
+        <div class="ts-intro-protocol">
+          <svg width="22" height="28" viewBox="0 0 24 30" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M12 2 3 6v9c0 6 9 12 9 12s9-6 9-12V6Z"/><rect x="8" y="12" width="8" height="8" rx="1"/><path d="M10 12V9a2 2 0 0 1 4 0v3m-2 3v2"/></svg>
+          <span>Based on Radin presentiment protocols.</span>
         </div>
-        <div class="body-sm" style="margin-top:10px;color:var(--accent);font-family:var(--font-mono);font-size:10px;letter-spacing:0.5px;">
-          Based on Radin presentiment protocols. Event time is generated and sealed before the trial begins.
-        </div>
-      </div>
-
-      <div class="section-label">Your Stats</div>
+      </section>
+      <h2 class="ts-intro-stats-heading">Your Stats</h2>
       <div class="ts-brief-stats">
         <div class="ts-stat-cell">
+          <svg class="ts-stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="M5 20v-6m6 6V8m6 12V3"/></svg>
           <div class="mono-label">Trials</div>
           <div class="ts-stat-val" id="ts-brief-trials">0</div>
         </div>
         <div class="ts-stat-cell">
+          <svg class="ts-stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 6v7l5 2"/></svg>
           <div class="mono-label">Mean Delta</div>
-          <div class="ts-stat-val" id="ts-brief-mean" style="color:var(--accent);">--</div>
+          <div class="ts-stat-val" id="ts-brief-mean">--</div>
         </div>
         <div class="ts-stat-cell">
+          <svg class="ts-stat-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M2 12c3-10 7-10 10 0s7 10 10 0"/></svg>
           <div class="mono-label">Std Dev</div>
-          <div class="ts-stat-val" id="ts-brief-std" style="color:var(--muted);">--</div>
+          <div class="ts-stat-val" id="ts-brief-std">--</div>
         </div>
       </div>
-
-      <button class="btn btn-primary" onclick="openTimestampSession()">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        BEGIN TRIALS
+      <button class="ts-intro-action ts-intro-begin" onclick="openTimestampSession()">
+        <span class="ts-intro-play" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="m9 5 10 7-10 7Z"/></svg></span>
+        <span>BEGIN TRIALS</span>
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"/></svg>
       </button>
-
-      <button class="btn btn-ghost" onclick="viewTimestampResults()" id="ts-view-results-btn" style="display:none;">
-        View Full Analysis
+      <button class="ts-intro-action" onclick="viewTimestampResults()" id="ts-view-results-btn" style="display:none;">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M5 20V9m7 11V3m7 17V12"/></svg>
+        <span>View Full Analysis</span>
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"/></svg>
       </button>
-
     </div>
   </div>
 
@@ -7088,20 +7375,26 @@ html, body {
   ═══════════════════════════════════ -->
   <div id="screen-timestamp-session" class="screen">
     <div class="ts-session-shell">
+      <div class="ts-trial-horizon" aria-hidden="true">
+        <img src="assets/presentiment/trial-horizon.webp" alt="" decoding="async">
+        <video class="ts-trial-video" data-ts-video data-src="assets/presentiment/trial-horizon.mp4" muted loop playsinline preload="none" tabindex="-1" disablepictureinpicture disableremoteplayback></video>
+      </div>
 
       <div class="ts-session-header">
-        <button class="tool-btn" onclick="endTimestampBatch()" style="padding:6px 10px;">END</button>
-        <div class="mono-sm">
-          Trial <span id="ts-trial-num" style="color:var(--text);">1</span><span style="color:var(--dim);">/3</span>
+        <button class="ts-session-end" onclick="endTimestampBatch()">END</button>
+        <div class="ts-trial-counter">
+          Trial <span id="ts-trial-num">1</span><span class="ts-trial-total">/3</span>
         </div>
-        <div class="mono-sm" id="ts-batch-mean" style="color:var(--muted);">--</div>
+        <div class="ts-batch-summary"><span class="ts-batch-caption">BATCH</span><span id="ts-batch-mean" aria-label="Current batch average">--</span></div>
       </div>
 
       <div class="ts-progress-bar-wrap">
         <div class="ts-progress-bar" id="ts-progress-bar" style="width:0%"></div>
       </div>
 
-      <div class="ts-trial-area" id="ts-trial-area" onclick="timestampTap()">
+      <div class="ts-trial-area" id="ts-trial-area" onclick="timestampTap()" role="button" tabindex="0" aria-label="Tap when you sense it" onkeydown="if(event.key === 'Enter' || event.key === ' ') { event.preventDefault(); timestampTap(); }">
+
+        <div class="ts-protocol-label">PRESENTIMENT</div>
 
         <!-- Countdown ring -->
         <div class="ts-countdown-wrap">
@@ -7111,12 +7404,14 @@ html, body {
                     stroke-dasharray="515.22" stroke-dashoffset="0"/>
           </svg>
           <div class="ts-countdown-center">
-            <div class="ts-countdown-num" id="ts-countdown-num">60</div>
+            <div class="ts-countdown-num" id="ts-countdown-num">30</div>
             <div class="ts-countdown-label" id="ts-countdown-label">Seconds</div>
           </div>
         </div>
 
+        <div class="ts-prompt-divider" aria-hidden="true"></div>
         <div class="ts-tap-prompt" id="ts-tap-prompt">TAP WHEN YOU SENSE IT</div>
+        <div class="ts-trial-subtitle">TRUST YOUR INTUITION</div>
         <div class="ts-state-label" id="ts-state-label">&nbsp;</div>
 
         <!-- Flash overlay -->
@@ -19370,7 +19665,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.10.10.2';
+const APP_VERSION = '2026.10.11.5';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 // What the last update check found, so Settings can tell "this is the
@@ -19812,6 +20107,9 @@ const TS_STATE = {
   tickInterval:   null,
   eventTimeout:   null,
   ffInterval:     null,   // fast-forward tick interval
+  resultTimeout:  null,
+  feedbackTimeout: null,
+  nextTrialTimeout: null,
 };
 
 // ─── PERSISTENCE ──────────────────────────────
@@ -19897,6 +20195,44 @@ function saveTimestampTrial(trial) {
   syncSessionToSupabase('ts_trials', mapTSTrialRow(normalized), { localSaved: kept });
 }
 
+// Decorative plate playback is independent of trial state and hidden event timing.
+// Still images stay underneath for reduced motion, blocked autoplay or unavailable video.
+(() => {
+  const screens = document.querySelectorAll('#screen-timestamp-brief, #screen-timestamp-session');
+  screens.forEach(screen => {
+    const videos = [...screen.querySelectorAll('[data-ts-video]')];
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const canPlay = () => screen.classList.contains('active') && !document.hidden && !reducedMotion.matches;
+    const pause = () => videos.forEach(video => {
+      video.pause();
+      video.removeAttribute('data-playing');
+    });
+    const syncPlayback = () => {
+      if (!canPlay()) { pause(); return; }
+      videos.forEach(video => {
+        video.muted = true;
+        if (!video.getAttribute('src')) video.src = video.dataset.src;
+        else if (video.error) video.load();
+        if (video.paused) video.play().catch(() => video.removeAttribute('data-playing'));
+      });
+    };
+    videos.forEach(video => {
+      video.addEventListener('playing', () => {
+        if (canPlay()) video.setAttribute('data-playing', '');
+        else pause();
+      });
+      video.addEventListener('error', () => video.removeAttribute('data-playing'));
+    });
+    new MutationObserver(syncPlayback).observe(screen, { attributes: true, attributeFilter: ['class'] });
+    document.addEventListener('visibilitychange', syncPlayback);
+    reducedMotion.addEventListener('change', syncPlayback);
+    window.addEventListener('pagehide', pause);
+    window.addEventListener('pageshow', syncPlayback);
+    window.addEventListener('online', syncPlayback);
+    syncPlayback();
+  });
+})();
+
 // ─── BRIEF SCREEN ─────────────────────────────
 function renderTimestampBrief() {
   const taps = loadTimestampTrials();
@@ -19938,7 +20274,17 @@ function buildTSWaveformInEl(el) {
 }
 
 // ─── SESSION FLOW ─────────────────────────────
+function clearTimestampFeedbackTimers() {
+  clearTimeout(TS_STATE.resultTimeout);
+  clearTimeout(TS_STATE.feedbackTimeout);
+  clearTimeout(TS_STATE.nextTrialTimeout);
+  TS_STATE.resultTimeout = null;
+  TS_STATE.feedbackTimeout = null;
+  TS_STATE.nextTrialTimeout = null;
+}
+
 function openTimestampSession() {
+  clearTimestampFeedbackTimers();
   TS_STATE.trialNum    = 0;
   TS_STATE.batchTrials = [];
   showScreen('timestamp-session', true);
@@ -20087,12 +20433,18 @@ function fireTimestampEvent() {
 
   if (TS_STATE.hasTapped) {
     // User tapped before event: show delta after flash settles
-    setTimeout(() => showTrialResult(false), 400);
+    TS_STATE.resultTimeout = setTimeout(() => {
+      TS_STATE.resultTimeout = null;
+      showTrialResult(false);
+    }, 400);
   } else {
     // MISS: event fired without a tap
     const prompt = document.getElementById('ts-tap-prompt');
     if (prompt) { prompt.textContent = 'MISS'; prompt.className = 'ts-tap-prompt'; prompt.style.color = 'var(--danger)'; }
-    setTimeout(() => showTrialResult(true), 400);
+    TS_STATE.resultTimeout = setTimeout(() => {
+      TS_STATE.resultTimeout = null;
+      showTrialResult(true);
+    }, 400);
   }
 }
 
@@ -20145,14 +20497,15 @@ function showTrialResult(isMiss) {
   updateBatchMean();
 
   // Advance or finish after 2s feedback
-  setTimeout(() => {
+  TS_STATE.feedbackTimeout = setTimeout(() => {
+    TS_STATE.feedbackTimeout = null;
     if (feedback) feedback.classList.remove('visible');
 
-    if (TS_STATE.trialNum >= TS_TRIALS_PER_RUN) {
-      setTimeout(() => viewTimestampResults(), 200);
-    } else {
-      setTimeout(() => startTimestampTrial(), 200);
-    }
+    TS_STATE.nextTrialTimeout = setTimeout(() => {
+      TS_STATE.nextTrialTimeout = null;
+      if (TS_STATE.trialNum >= TS_TRIALS_PER_RUN) viewTimestampResults();
+      else startTimestampTrial();
+    }, 200);
   }, 2000);
 }
 
@@ -20169,6 +20522,7 @@ function updateBatchMean() {
 function endTimestampBatch() {
   TS_STATE.trialActive = false;
   TS_STATE.fastForwarding = false;
+  clearTimestampFeedbackTimers();
   clearInterval(TS_STATE.tickInterval);
   clearInterval(TS_STATE.ffInterval);
   clearTimeout(TS_STATE.eventTimeout);
