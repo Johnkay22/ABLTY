@@ -10,12 +10,13 @@ const ROOT = path.resolve(__dirname, '..');
 
 async function main() {
   const server = http.createServer((req, res) => {
-    const pathname = decodeURIComponent(new URL(req.url, 'http://local').pathname);
+    const requested = decodeURIComponent(new URL(req.url, 'http://local').pathname);
+    const pathname = requested === '/' ? '/index.html' : requested;
     const file = path.resolve(ROOT, '.' + pathname);
     if (!file.startsWith(ROOT + path.sep) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
       res.writeHead(404); res.end(); return;
     }
-    res.setHeader('Content-Type', { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json' }[path.extname(file)] || 'application/octet-stream');
+    res.setHeader('Content-Type', { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.mp4': 'video/mp4', '.webp': 'image/webp' }[path.extname(file)] || 'application/octet-stream');
     res.end(fs.readFileSync(file));
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -65,11 +66,12 @@ async function main() {
     async function stats() {
       return page.evaluate(() => ['ts-brief-trials', 'ts-brief-mean', 'ts-brief-std'].map(id => document.getElementById(id).textContent));
     }
-    const motion = () => page.locator('.ts-intro-orbit-spin').first().evaluate(el => ({
-      state: getComputedStyle(el).animationPlayState,
-      transform: getComputedStyle(el).transform,
-      count: el.getAnimations().length,
-    }));
+    const motion = () => page.locator('.ts-intro-video').evaluateAll(els => els.map(el => ({
+      paused: el.paused, time: el.currentTime, shown: el.hasAttribute('data-playing'),
+      muted: el.muted, inline: el.playsInline, source: el.getAttribute('src'),
+    })));
+    const playing = () => page.waitForFunction(() => [...document.querySelectorAll('.ts-intro-video')]
+      .every(el => !el.paused && el.readyState >= 2 && el.hasAttribute('data-playing')));
     let passed = 0;
     async function check(name, fn) { await fn(); passed++; console.log('PASS  ' + name); }
     await open();
@@ -113,32 +115,60 @@ async function main() {
       await page.keyboard.press('Tab');
       assert.ok(await page.locator('.ts-intro-begin').evaluate(el => el.matches(':focus-visible') && parseFloat(getComputedStyle(el).outlineWidth) >= 2));
     });
-    await check('decorative motion runs, pauses off-screen, and resumes on return', async () => {
-      const first = await motion(); assert.equal(first.state, 'running');
-      await page.waitForTimeout(120); assert.notEqual((await motion()).transform, first.transform);
+    await check('silent inline video advances, pauses off-screen, and resumes on return', async () => {
+      await playing();
+      const first = await motion();
+      assert.ok(first.every(v => !v.paused && v.muted && v.inline && v.shown));
+      await page.waitForTimeout(180);
+      assert.ok((await motion()).every((v, i) => v.time !== first[i].time));
       await page.locator('.ts-intro-back').click();
       assert.equal(await page.evaluate(() => currentScreen), 'psi');
-      await page.waitForTimeout(50); const paused = await motion();
-      assert.equal(paused.state, 'paused');
-      await page.waitForTimeout(120); assert.equal((await motion()).transform, paused.transform);
-      await page.evaluate(() => navigate('timestamp')); assert.equal((await motion()).state, 'running');
+      const paused = await motion(); assert.ok(paused.every(v => v.paused && !v.shown));
+      await page.waitForTimeout(180); assert.deepEqual(await motion(), paused);
+      await page.evaluate(() => navigate('timestamp')); await playing();
       assert.ok(await page.locator('#nav-psi').evaluate(el => el.classList.contains('active')));
     });
     await check('visibility-change handling pauses decoration without changing trial state', async () => {
       // Simulate document visibility, not a physical device background/resume.
       const snapshot = await page.evaluate(() => JSON.stringify(TS_STATE));
       await page.evaluate(() => { Object.defineProperty(document, 'hidden', { configurable: true, value: true }); document.dispatchEvent(new Event('visibilitychange')); });
-      await page.waitForTimeout(50); const paused = await motion(); assert.equal(paused.state, 'paused');
-      await page.waitForTimeout(120); assert.equal((await motion()).transform, paused.transform);
+      const paused = await motion(); assert.ok(paused.every(v => v.paused && !v.shown));
+      await page.waitForTimeout(180); assert.deepEqual(await motion(), paused);
       await page.evaluate(() => { delete document.hidden; document.dispatchEvent(new Event('visibilitychange')); });
-      assert.equal((await motion()).state, 'running');
-      assert.equal(await page.evaluate(() => JSON.stringify(TS_STATE)), snapshot);
+      await playing(); assert.equal(await page.evaluate(() => JSON.stringify(TS_STATE)), snapshot);
     });
-    await check('reduced motion removes decorative animations', async () => {
+    await check('reduced motion pauses video and displays loaded still images', async () => {
       await page.emulateMedia({ reducedMotion: 'reduce' });
-      assert.ok(await page.locator('.ts-intro-motion').evaluateAll(els => els.every(el => !el.getAnimations().length)));
-      await page.emulateMedia({ reducedMotion: 'no-preference' });
-      assert.ok((await motion()).count > 0);
+      await page.waitForFunction(() => [...document.querySelectorAll('.ts-intro-video')].every(v => v.paused));
+      assert.ok((await motion()).every(v => v.paused && !v.shown));
+      assert.ok(await page.locator('.ts-intro-planet img, .ts-intro-orbit img').evaluateAll(els => els.every(el => el.complete && el.naturalWidth > 0)));
+      await page.emulateMedia({ reducedMotion: 'no-preference' }); await playing();
+    });
+    await check('initial reduced motion shows stills without loading video sources', async () => {
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await open(); assert.ok((await motion()).every(v => v.source === null && v.paused));
+      await page.emulateMedia({ reducedMotion: 'no-preference' }); await playing();
+    });
+    await check('unavailable video leaves still artwork and usable controls', async () => {
+      await context.route('**/assets/presentiment/*.mp4', route => route.abort());
+      await open(); await page.waitForTimeout(300);
+      assert.ok((await motion()).every(v => !v.shown));
+      assert.ok(await page.locator('.ts-intro-planet img, .ts-intro-orbit img').evaluateAll(els => els.every(el => el.complete && el.naturalWidth > 0)));
+      assert.deepEqual(await stats(), ['4', '4.0s', '1.6s']);
+      await context.unroute('**/assets/presentiment/*.mp4');
+      await page.locator('.ts-intro-back').click();
+      await page.evaluate(() => navigate('timestamp')); await playing();
+    });
+    await check('blocked autoplay keeps still artwork without a page error', async () => {
+      await page.evaluate(() => {
+        window.__platePlay = HTMLMediaElement.prototype.play;
+        HTMLMediaElement.prototype.play = () => Promise.reject(new DOMException('Blocked by test', 'NotAllowedError'));
+        navigate('psi');
+      });
+      await page.evaluate(() => navigate('timestamp'));
+      await page.waitForTimeout(80); assert.ok((await motion()).every(v => v.paused && !v.shown));
+      await page.evaluate(() => { HTMLMediaElement.prototype.play = window.__platePlay; delete window.__platePlay; navigate('psi'); });
+      await page.evaluate(() => navigate('timestamp')); await playing();
     });
     await check('analysis and Begin Trials retain their real destinations', async () => {
       await page.locator('#ts-view-results-btn').click();
@@ -164,6 +194,43 @@ async function main() {
         style.textContent = style.textContent.replace(/\/\* Presentiment introduction only\.[\s\S]*?(?=\/\* Results screen \*\/)/, '');
       });
       assert.deepEqual(await read(), before);
+    });
+    await check('the real local service worker serves artwork and video after an offline reload', async () => {
+      const offlineContext = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: 'allow' });
+      try {
+        await offlineContext.addInitScript(() => {
+          localStorage.setItem('ablty_onboarded', '1'); localStorage.setItem('ablty_splash', '1');
+          const mm = window.matchMedia.bind(window);
+          window.matchMedia = q => q.includes('display-mode: standalone')
+            ? { matches: true, media: q, addEventListener() {}, removeEventListener() {}, addListener() {}, removeListener() {} } : mm(q);
+        });
+        await offlineContext.route('**/*', route => {
+          if (route.request().url().startsWith(base + '/')) return route.continue();
+          if (route.request().url().endsWith('.js')) return route.fulfill({ contentType: 'text/javascript', body: '' });
+          return route.abort();
+        });
+        const offlinePage = await offlineContext.newPage();
+        offlinePage.on('pageerror', e => errors.push(e.message));
+        await offlinePage.goto(base + '/app.html', { waitUntil: 'networkidle' });
+        await offlinePage.evaluate(async () => {
+          await navigator.serviceWorker.register('/sw.js');
+          await navigator.serviceWorker.ready;
+        });
+        await offlinePage.waitForFunction(() => navigator.serviceWorker.controller);
+        assert.ok(await offlinePage.evaluate(async () => {
+          const paths = ['menu-planet.webp', 'menu-orbit.webp', 'menu-planet.mp4', 'menu-orbit.mp4'];
+          const cached = await Promise.all(paths.map(p => caches.match('/assets/presentiment/' + p)));
+          return cached.every(r => r && r.status === 200);
+        }));
+        await offlineContext.setOffline(true);
+        await offlinePage.reload({ waitUntil: 'domcontentloaded' });
+        await offlinePage.evaluate(() => { document.getElementById('splash-screen').style.display = 'none'; navigate('timestamp'); });
+        await offlinePage.waitForFunction(() => [...document.querySelectorAll('.ts-intro-video')].every(v => !v.paused && v.readyState >= 2 && v.currentTime > 0));
+        assert.ok(await offlinePage.locator('.ts-intro-planet img, .ts-intro-orbit img').evaluateAll(els => els.every(el => el.complete && el.naturalWidth > 0)));
+        await offlinePage.locator('.ts-intro-begin').click();
+        assert.equal(await offlinePage.evaluate(() => currentScreen), 'timestamp-session');
+        await offlinePage.locator('#screen-timestamp-session button', { hasText: 'End' }).click();
+      } finally { await offlineContext.close(); }
     });
     await check('no JavaScript errors', async () => assert.deepEqual(errors, []));
     console.log(passed + ' passed');

@@ -3066,13 +3066,20 @@ html, body {
   top: 0;
   left: 0;
   width: 100%;
-  height: 280px;
+  height: calc(160px + env(safe-area-inset-top, 0px));
   overflow: hidden;
   pointer-events: none;
-  mask-image: linear-gradient(#000 50%, transparent 100%);
-  -webkit-mask-image: linear-gradient(#000 50%, transparent 100%);
+  mask-image: linear-gradient(#000 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(#000 85%, transparent 100%);
 }
-#screen-timestamp-brief .ts-intro-planet svg { width: 100%; height: 100%; }
+#screen-timestamp-brief .ts-intro-planet img,
+#screen-timestamp-brief .ts-intro-planet video {
+  width: 100%; height: 100%; object-fit: cover; object-position: 80% bottom;
+}
+#screen-timestamp-brief .ts-intro-video {
+  position: absolute; inset: 0; opacity: 0; pointer-events: none;
+}
+#screen-timestamp-brief .ts-intro-video[data-playing] { opacity: 1; }
 #screen-timestamp-brief .ts-intro-header,
 #screen-timestamp-brief .ts-intro-card,
 #screen-timestamp-brief .ts-intro-stats-heading,
@@ -3119,11 +3126,16 @@ html, body {
   line-height: 1.62; color: #bdc7d0;
 }
 #screen-timestamp-brief .ts-intro-orbit {
-  position: absolute; right: 7px; top: 52px;
-  width: 96px; height: 140px;
+  position: absolute; right: 7px; top: 68px;
+  width: 96px; aspect-ratio: 248 / 280;
   pointer-events: none;
 }
-#screen-timestamp-brief .ts-intro-orbit svg { width: 100%; height: 100%; overflow: visible; }
+#screen-timestamp-brief .ts-intro-orbit {
+  mask-image: radial-gradient(ellipse, #000 44%, transparent 72%);
+  -webkit-mask-image: radial-gradient(ellipse, #000 44%, transparent 72%);
+}
+#screen-timestamp-brief .ts-intro-orbit img,
+#screen-timestamp-brief .ts-intro-orbit video { width: 100%; height: 100%; object-fit: cover; }
 #screen-timestamp-brief .ts-intro-protocol {
   position: relative;
   display: flex; align-items: center; gap: 10px;
@@ -3186,34 +3198,14 @@ html, body {
 #screen-timestamp-brief #ts-view-results-btn { margin-top: 13px; }
 #screen-timestamp-brief button:focus-visible { outline: 2px solid #d9fff9; outline-offset: 4px; }
 #screen-timestamp-brief .ts-intro-action:active { filter: brightness(.9); }
-#screen-timestamp-brief .ts-intro-motion { animation-play-state: paused; }
-#screen-timestamp-brief .ts-intro-rim-light {
-  stroke-dasharray: 22 350; stroke-dashoffset: 24;
-  animation: tsIntroRim 7.8s linear infinite;
-  animation-play-state: paused;
-}
-#screen-timestamp-brief .ts-intro-orbit-spin {
-  transform-origin: 70px 90px;
-  animation: tsIntroOrbit 8s linear infinite;
-  animation-play-state: paused;
-}
-#screen-timestamp-brief.active:not([data-motion-paused]) .ts-intro-motion { animation-play-state: running; }
-@keyframes tsIntroRim {
-  0% { stroke-dashoffset: 24; opacity: 0; }
-  10% { opacity: 1; }
-  85% { opacity: 1; }
-  100% { stroke-dashoffset: -310; opacity: 0; }
-}
-@keyframes tsIntroOrbit { to { transform: rotate(360deg); } }
 @media (min-width: 400px) {
   #screen-timestamp-brief .ts-intro-inner { padding-left: 20px; padding-right: 20px; }
   #screen-timestamp-brief .ts-intro-copy { width: calc(100% - 110px); font-size: 15px; }
-  #screen-timestamp-brief .ts-intro-orbit { width: 112px; right: 9px; }
+  #screen-timestamp-brief .ts-intro-orbit { width: 112px; right: 9px; top: 60px; }
   #screen-timestamp-brief .ts-stat-val { font-size: 38px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  #screen-timestamp-brief .ts-intro-motion { animation: none; }
-  #screen-timestamp-brief .ts-intro-rim-light { opacity: 0; }
+  #screen-timestamp-brief .ts-intro-video { display: none; }
 }
 
 /* Results screen */
@@ -7202,27 +7194,8 @@ html, body {
   <div id="screen-timestamp-brief" class="screen">
     <div class="screen-inner ts-intro-inner">
       <div class="ts-intro-planet" aria-hidden="true">
-        <svg viewBox="0 0 390 280" fill="none" preserveAspectRatio="xMidYMin slice">
-          <defs>
-            <radialGradient id="ts-intro-sphere">
-              <stop offset=".8" stop-color="#070c0f"/><stop offset=".91" stop-color="#091014"/>
-              <stop offset=".98" stop-color="#183a43"/><stop offset="1" stop-color="#346d78"/>
-            </radialGradient>
-            <linearGradient id="ts-intro-edge" x1="255" y1="0" x2="300" y2="265" gradientUnits="userSpaceOnUse">
-              <stop stop-color="#a5eff0" stop-opacity=".9"/><stop offset=".5" stop-color="#72c5d0" stop-opacity=".8"/>
-              <stop offset="1" stop-color="#14333b" stop-opacity="0"/>
-            </linearGradient>
-            <filter id="ts-intro-halo" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="2.5"/></filter>
-            <filter id="ts-intro-atmosphere" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="6"/></filter>
-          </defs>
-          <circle cx="34" cy="173" r="278" fill="url(#ts-intro-sphere)"/>
-          <path d="M 245 -8 A 278 278 0 0 1 301 251" stroke="#56bbc9" stroke-opacity=".38" stroke-width="12" filter="url(#ts-intro-atmosphere)"/>
-          <path d="M 245 -8 A 278 278 0 0 1 301 251" stroke="#78d5de" stroke-opacity=".65" stroke-width="4" filter="url(#ts-intro-halo)"/>
-          <path d="M 245 -8 A 278 278 0 0 1 301 251" stroke="url(#ts-intro-edge)" stroke-width="1.2"/>
-          <path class="ts-intro-motion ts-intro-rim-light" d="M 245 -8 A 278 278 0 0 1 301 251" stroke="#6ce7ed" stroke-width="18" stroke-linecap="round" filter="url(#ts-intro-atmosphere)"/>
-          <path class="ts-intro-motion ts-intro-rim-light" d="M 245 -8 A 278 278 0 0 1 301 251" stroke="#adfcff" stroke-width="5" stroke-linecap="round" filter="url(#ts-intro-halo)"/>
-          <path class="ts-intro-motion ts-intro-rim-light" d="M 245 -8 A 278 278 0 0 1 301 251" stroke="#e5ffff" stroke-width="1.8" stroke-linecap="round"/>
-        </svg>
+        <img src="assets/presentiment/menu-planet.webp" alt="" decoding="async">
+        <video class="ts-intro-video" data-src="assets/presentiment/menu-planet.mp4" muted loop playsinline preload="none" tabindex="-1" disablepictureinpicture disableremoteplayback></video>
       </div>
       <header class="ts-intro-header">
         <button class="ts-intro-back" onclick="navigate('psi')" aria-label="Back to PSI">
@@ -7235,24 +7208,8 @@ html, body {
         <h2 id="ts-intro-how">How It Works</h2>
         <p class="ts-intro-copy">A random event will fire at a sealed, predetermined moment within a 30-second window. Tap when you sense the event is about to occur. The app measures whether your taps cluster closer to the event than chance predicts.</p>
         <div class="ts-intro-orbit" aria-hidden="true">
-          <svg viewBox="0 0 140 180" fill="none">
-            <defs>
-              <radialGradient id="ts-intro-orbit-glow"><stop stop-color="#26e5d2" stop-opacity=".15"/><stop offset="1" stop-color="#16bcb6" stop-opacity="0"/></radialGradient>
-              <radialGradient id="ts-intro-core-glow"><stop stop-color="#a9fff2" stop-opacity=".85"/><stop offset=".22" stop-color="#35f7dc" stop-opacity=".5"/><stop offset="1" stop-color="#16bcb6" stop-opacity="0"/></radialGradient>
-              <linearGradient id="ts-intro-orbit-line" x1="7" y1="22" x2="125" y2="158" gradientUnits="userSpaceOnUse"><stop stop-color="#68c9c6" stop-opacity=".55"/><stop offset=".55" stop-color="#409d9e" stop-opacity=".23"/><stop offset="1" stop-color="#63c7c5" stop-opacity=".5"/></linearGradient>
-              <linearGradient id="ts-intro-orbit-axis" x1="70" y1="5" x2="70" y2="175" gradientUnits="userSpaceOnUse"><stop stop-color="#70ddd0" stop-opacity="0"/><stop offset=".5" stop-color="#70ddd0" stop-opacity=".85"/><stop offset="1" stop-color="#70ddd0" stop-opacity="0"/></linearGradient>
-            </defs>
-            <circle cx="70" cy="90" r="67" fill="url(#ts-intro-orbit-glow)"/>
-            <circle cx="70" cy="90" r="47" stroke="url(#ts-intro-orbit-line)" stroke-width="1.2"/>
-            <ellipse cx="70" cy="90" rx="67" ry="32" fill="#1d6868" fill-opacity=".04" stroke="#4b9b9c" stroke-opacity=".22" stroke-width=".8"/>
-            <g class="ts-intro-motion ts-intro-orbit-spin">
-              <ellipse cx="70" cy="90" rx="55" ry="74" stroke="url(#ts-intro-orbit-line)" stroke-width=".9"/>
-              <path d="M70 5v170" stroke="url(#ts-intro-orbit-axis)" stroke-width="1"/>
-            </g>
-            <circle cx="70" cy="90" r="17" fill="url(#ts-intro-core-glow)"/>
-            <circle cx="70" cy="90" r="3" fill="#45efdf"/>
-            <circle cx="70" cy="90" r="1.3" fill="#c2fff5"/>
-          </svg>
+          <img src="assets/presentiment/menu-orbit.webp" alt="" decoding="async">
+          <video class="ts-intro-video" data-src="assets/presentiment/menu-orbit.mp4" muted loop playsinline preload="none" tabindex="-1" disablepictureinpicture disableremoteplayback></video>
         </div>
         <div class="ts-intro-protocol">
           <svg width="22" height="28" viewBox="0 0 24 30" fill="none" stroke="currentColor" stroke-width="1.3" aria-hidden="true"><path d="M12 2 3 6v9c0 6 9 12 9 12s9-6 9-12V6Z"/><rect x="8" y="12" width="8" height="8" rx="1"/><path d="M10 12V9a2 2 0 0 1 4 0v3m-2 3v2"/></svg>
@@ -19577,7 +19534,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.10.11.2';
+const APP_VERSION = '2026.10.11.3';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 // What the last update check found, so Settings can tell "this is the
@@ -20104,14 +20061,41 @@ function saveTimestampTrial(trial) {
   syncSessionToSupabase('ts_trials', mapTSTrialRow(normalized), { localSaved: kept });
 }
 
-// Decorative introduction motion has no connection to trial state or timing.
-// CSS handles inactive/reduced-motion states; this handles backgrounding only.
+// Decorative plate playback is independent of trial state and hidden event timing.
+// Still images stay underneath for reduced motion, blocked autoplay or unavailable video.
 (() => {
   const screen = document.getElementById('screen-timestamp-brief');
   if (!screen) return;
-  const syncVisibility = () => screen.toggleAttribute('data-motion-paused', document.hidden);
-  document.addEventListener('visibilitychange', syncVisibility);
-  syncVisibility();
+  const videos = [...screen.querySelectorAll('.ts-intro-video')];
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const canPlay = () => screen.classList.contains('active') && !document.hidden && !reducedMotion.matches;
+  const pause = () => videos.forEach(video => {
+    video.pause();
+    video.removeAttribute('data-playing');
+  });
+  const syncPlayback = () => {
+    if (!canPlay()) { pause(); return; }
+    videos.forEach(video => {
+      video.muted = true;
+      if (!video.getAttribute('src')) video.src = video.dataset.src;
+      else if (video.error) video.load();
+      if (video.paused) video.play().catch(() => video.removeAttribute('data-playing'));
+    });
+  };
+  videos.forEach(video => {
+    video.addEventListener('playing', () => {
+      if (canPlay()) video.setAttribute('data-playing', '');
+      else pause();
+    });
+    video.addEventListener('error', () => video.removeAttribute('data-playing'));
+  });
+  new MutationObserver(syncPlayback).observe(screen, { attributes: true, attributeFilter: ['class'] });
+  document.addEventListener('visibilitychange', syncPlayback);
+  reducedMotion.addEventListener('change', syncPlayback);
+  window.addEventListener('pagehide', pause);
+  window.addEventListener('pageshow', syncPlayback);
+  window.addEventListener('online', syncPlayback);
+  syncPlayback();
 })();
 
 // ─── BRIEF SCREEN ─────────────────────────────

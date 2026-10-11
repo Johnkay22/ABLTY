@@ -19,6 +19,16 @@ Keep entries short and in plain English. Say what was actually done, not what wa
 
 ---
 
+## 2026-10-11: Presentiment introduction, blank plate revision
+- **Who:** Codex (same isolated cloud checkout)
+- **Branch / PR:** `codex/presentiment-visuals`, local Stage 1 checkpoint, not pushed. Version `2026.10.11.3` / `ablty-v94`. Stage 2 still awaits visual approval.
+- **What changed:** Inspected frames throughout Johnny's newly supplied `plate for menu 2.mp4` without listening to audio. Replaced the SVG planet/orbit with two decorative video crops using its actual lighting and motion. Removed audio; retained 24 fps; blended the loop seam over 0.375 seconds. Live copy, stats and buttons remain real app elements, and the footer remains only "Based on Radin presentiment protocols." Added still fallbacks for reduced motion, blocked autoplay or failed media, and playback pausing off-screen/background. Only the existing cache name/header and four precache entries changed in `sw.js`; no fetch or update rewrite. Asset provenance, sizes and regeneration instructions are in `_internal/PRESENTIMENT-ASSETS.md`.
+- **Tests:** Passed introduction suite (16 headless-Chromium checks), update detection (11), notification intent (22), app syntax (2 blocks), local links (44), and whitespace checks. The introduction suite now verifies real muted/inline playback, pause/resume, simulated document backgrounding, reduced motion without video sources, failed media, blocked autoplay, and the actual local service worker serving stills/video after an offline reload. Re-rendered 360x800, 390x844, 430x932 and 360x640 with no horizontal overflow or text/artwork overlap. Source comparison confirms active trial markup and code starting at `openTimestampSession()` are unchanged. MP4 inspection confirms two video-only streams, each 24 fps and 5.625 seconds. No physical-device or production tests.
+- **Visual evidence:** New screenshots and an approximately 11-second silent browser recording at 25 fps, using synthetic local guest history. The earlier screenshot-sequence recordings were only 8 fps, which understated the smoothness of the app; the new recording uses actual browser screencasting. Artwork remains responsive decorative layers; the whole reference screen is not embedded as the interface.
+- **Production:** Nothing changed. No merge, deployment, backend or service configuration changes. New assets total about 282 KiB and are cached with the app for offline use.
+- **Johnny needs to:** Review the blank-plate version and its smoother recording.
+- **Next:** Wait for approval before the active trial redesign. Existing potential conflicts with PR #140 documentation and PR #145 documentation/version files still need reconciliation before a later merge.
+
 ## 2026-10-11: Presentiment introduction, first visual revision
 - **Who:** Codex (same isolated cloud checkout)
 - **Branch / PR:** `codex/presentiment-visuals`, local revision of the Stage 1 checkpoint; no push or PR yet. Version `2026.10.11.2` / `ablty-v93`, with only the required cache identifier/header change in `sw.js`.
