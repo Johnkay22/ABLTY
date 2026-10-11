@@ -176,14 +176,14 @@ async function main() {
       await page.evaluate(() => navigate('timestamp'));
       await page.locator('.ts-intro-begin').click();
       assert.deepEqual(await page.evaluate(() => ({ screen: currentScreen, active: TS_STATE.trialActive, trial: TS_STATE.trialNum })), { screen: 'timestamp-session', active: true, trial: 1 });
-      assert.equal(await page.locator('#bottom-nav').isVisible(), false);
+      assert.equal(await page.locator('#nav').isVisible(), false);
       await page.locator('#screen-timestamp-session button', { hasText: 'End' }).click();
       assert.equal(await page.evaluate(() => TS_STATE.trialActive), false);
       await page.evaluate(() => navigate('timestamp')); assert.deepEqual(await stats(), ['4', '4.0s', '1.6s']);
     });
     await check('new introduction CSS does not affect Home, PSI, Settings or navigation', async () => {
       await page.evaluate(() => navigate('home'));
-      const selector = '#screen-home, #screen-home .module-card, #screen-home .screen-title, #screen-psi, #screen-profile, #screen-profile button, #bottom-nav, .nav-item';
+      const selector = '#screen-home, #screen-home .module-card, #screen-home .screen-title, #screen-psi, #screen-profile, #screen-profile button, #nav, .nav-item';
       const read = () => page.locator(selector).evaluateAll(els => els.map(el => {
         const css = getComputedStyle(el);
         return ['color', 'backgroundColor', 'fontFamily', 'fontSize', 'padding', 'borderRadius', 'display', 'position'].map(key => css[key]);
@@ -212,13 +212,10 @@ async function main() {
         const offlinePage = await offlineContext.newPage();
         offlinePage.on('pageerror', e => errors.push(e.message));
         await offlinePage.goto(base + '/app.html', { waitUntil: 'networkidle' });
-        await offlinePage.evaluate(async () => {
-          await navigator.serviceWorker.register('/sw.js');
-          await navigator.serviceWorker.ready;
-        });
-        await offlinePage.waitForFunction(() => navigator.serviceWorker.controller);
+        await offlinePage.evaluate(() => navigator.serviceWorker.register('/sw.js'));
+        await offlinePage.waitForFunction(() => navigator.serviceWorker.controller, null, { timeout: 15000 });
         assert.ok(await offlinePage.evaluate(async () => {
-          const paths = ['menu-planet.webp', 'menu-orbit.webp', 'menu-planet.mp4', 'menu-orbit.mp4'];
+          const paths = ['menu-planet.webp', 'menu-orbit.webp', 'menu-planet.mp4', 'menu-orbit.mp4', 'trial-horizon.webp', 'trial-horizon.mp4'];
           const cached = await Promise.all(paths.map(p => caches.match('/assets/presentiment/' + p)));
           return cached.every(r => r && r.status === 200);
         }));
@@ -227,7 +224,9 @@ async function main() {
         await offlinePage.evaluate(() => { document.getElementById('splash-screen').style.display = 'none'; navigate('timestamp'); });
         await offlinePage.waitForFunction(() => [...document.querySelectorAll('.ts-intro-video')].every(v => !v.paused && v.readyState >= 2 && v.currentTime > 0));
         assert.ok(await offlinePage.locator('.ts-intro-planet img, .ts-intro-orbit img').evaluateAll(els => els.every(el => el.complete && el.naturalWidth > 0)));
+        await offlinePage.evaluate(() => { Math.random = () => .95; });
         await offlinePage.locator('.ts-intro-begin').click();
+        await offlinePage.waitForFunction(() => { const v = document.querySelector('.ts-trial-video'); return !v.paused && v.readyState >= 2 && v.currentTime > 0; });
         assert.equal(await offlinePage.evaluate(() => currentScreen), 'timestamp-session');
         await offlinePage.locator('#screen-timestamp-session button', { hasText: 'End' }).click();
       } finally { await offlineContext.close(); }
