@@ -19,6 +19,15 @@ Keep entries short and in plain English. Say what was actually done, not what wa
 
 ---
 
+## 2026-10-11: Presentiment introduction, first visual revision
+- **Who:** Codex (same isolated cloud checkout)
+- **Branch / PR:** `codex/presentiment-visuals`, local revision of the Stage 1 checkpoint; no push or PR yet. Version `2026.10.11.2` / `ablty-v93`, with only the required cache identifier/header change in `sw.js`.
+- **What changed:** Johnny requested a brighter upper curve, a better orbital illustration, and removal of the event-sealing sentence in the footer. Increased the steady atmospheric glow and traveling highlight; replaced the overlapping rotating ellipses with a clear circular ring, horizontal orbital plane, slowly rotating outer ring and a brighter central light. The footer now says only "Based on Radin presentiment protocols." (Radin is the spelling in the supplied reference). Active trial and protocol logic are unchanged.
+- **Tests:** Passed the existing introduction regression suite (12 browser checks), app syntax (2 blocks), local links (36) and whitespace checks. Rendered 360x800, 390x844, 430x932 and 360x640 again, with no horizontal overflow or text/artwork overlap; inspected the revised render and motion frames. Captured new screenshots and an eight-second silent recording outside the repository with synthetic local guest history. No physical-phone or production testing. Broader account/Settings checks passed at the preceding checkpoint and were not repeated for this artwork/text-only revision.
+- **Production:** Nothing changed. No merge, deployment, backend or service configuration changes.
+- **Johnny needs to:** Review the revised introduction screenshot and recording.
+- **Next:** Wait for visual approval before implementing Stage 2.
+
 ## 2026-10-11: Presentiment visuals, Stage 1 approval checkpoint
 - **Who:** Codex (isolated cloud checkout)
 - **Branch / PR:** `codex/presentiment-visuals`, based on main `5d2ef424`; local checkpoint only, separate draft PR after the approved work is complete. The earlier `codex/settings-pull-dismiss` branch is preserved. Version `2026.10.11.1` / `ablty-v92`; v91 is already used in open PR #145. PR #140 overlaps all three status documents. PR #145 overlaps those documents, version files and unrelated app sections. Neither branch was merged or edited.
