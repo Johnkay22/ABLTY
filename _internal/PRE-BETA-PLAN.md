@@ -77,7 +77,7 @@ A step moves through: **Not started → In progress → PR open (#number) → Me
 This is the first item in Johnny's October 13 readiness work order, not a reopening of numbered step 1 (website exclusions, already implemented in #135).
 
 - Branch `codex/beta-readiness-reconcile` starts at current main `3cecab9`. Its proposed release is `2026.10.13.1` / `ablty-v97`.
-- It refreshes #140's useful handoff and priorities, corrects merged/unverified statuses, and carries #145's three WBTB timer functions and two test changes without rewriting either original branch. The replacement draft is pending publication; merging and deployment remain Johnny's decision.
+- It refreshes #140's useful handoff and priorities, corrects merged/unverified statuses, and carries #145's three WBTB timer functions and two test changes without rewriting either original branch. Replacement [draft PR #147](https://github.com/Johnkay22/ABLTY/pull/147) is open against main; merging and deployment remain Johnny's decision.
 - Once the replacement is reviewed and merged, close #140 and #145 as superseded rather than merging their older versions. Until then, both remain open and their branches are preserved.
 - Step 9, then step 8, then 10, 11, 12 and 13 remain the development order. Preserve all step-8 access decisions and all step-15 pilot gates. Step 14 stays optional. None of steps 8 to 13 is implemented by this reconciliation.
 - Phone proof is still required for sync recovery after return to the original account and reopen, WBTB alarm-plus-notification behavior, Reality Check cold/background launch, Settings gestures, Presentiment, signup/verification/reset and installed-app updates.

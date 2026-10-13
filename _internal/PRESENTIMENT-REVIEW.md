@@ -37,4 +37,4 @@ Screenshots and silent 25 fps recordings were delivered in the chat. No public i
 
 PR #146 is merged, confirmed on GitHub October 13. The earlier GitHub API Forbidden response happened during initial publication and is historical. The current main includes all visual work and the approved End fix.
 
-PR #140's handoff and PR #145's WBTB timer repair are being reconciled separately on `codex/beta-readiness-reconcile`, based on main `3cecab9`. That work preserves the Presentiment implementation and media. Cursor's branches and the earlier `codex/settings-pull-dismiss` branch remain untouched. See `AI-HANDOFF.md` for the current status and phone checks.
+PR #140's handoff and PR #145's WBTB timer repair are being reconciled separately in [draft PR #147](https://github.com/Johnkay22/ABLTY/pull/147) on `codex/beta-readiness-reconcile`, based on main `3cecab9`. That work preserves the Presentiment implementation and media. Cursor's branches and the earlier `codex/settings-pull-dismiss` branch remain untouched. See `AI-HANDOFF.md` for the current status and phone checks.
