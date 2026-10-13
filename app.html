@@ -241,20 +241,23 @@ html, body {
   font-size: 10px; color: var(--dim);
   letter-spacing: 0.5px; margin-top: 2px;
 }
-/* Settings pull-to-close. The panel follows the finger; these times are only
-   the settle after the finger lifts. Reduced motion skips that settle. */
+/* Settings pull-to-close. The panel follows the finger. The settle after
+   the finger lifts uses --pull-ms and --pull-ease, which the gesture code
+   sets per release so the slide continues at the finger's speed. Reduced
+   motion skips the settle. */
 #screen-profile.profile-pull-dragging {
   z-index: 30;
+  will-change: transform;
   transition: none !important;
 }
 #screen-profile.profile-pull-returning {
   z-index: 30;
-  transition: transform 280ms cubic-bezier(0.22, 0.8, 0.3, 1) !important;
+  transition: transform var(--pull-ms, 280ms) var(--pull-ease, cubic-bezier(0.22, 0.8, 0.3, 1)) !important;
 }
 #screen-profile.profile-pull-dismissing {
   z-index: 30;
   pointer-events: none;
-  transition: transform 340ms cubic-bezier(0.32, 0, 0.2, 1) !important;
+  transition: transform var(--pull-ms, 320ms) var(--pull-ease, cubic-bezier(0.25, 0.4, 0.35, 1)) !important;
 }
 #screen-profile.profile-pull-dismissed,
 #screen-profile.profile-pull-dismissed.slide-left,
@@ -265,12 +268,79 @@ html, body {
   pointer-events: none !important;
   transition: none !important;
 }
+/* Home sits exactly where it will land, so nothing shifts when the
+   panel finishes closing. */
 #screen-home.profile-pull-revealed {
   visibility: visible !important;
   opacity: 1 !important;
+  transform: none !important;
   pointer-events: none !important;
   z-index: 15;
   transition: none !important;
+}
+/* Exposed Home: a light dim and a small fixed blur. Only opacity changes
+   while dragging, so the blur radius is never recalculated per frame. */
+#profile-pull-scrim {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: var(--nav-h);
+  z-index: 25;
+  pointer-events: none;
+  opacity: 0;
+  background: rgba(4, 6, 8, 0.42);
+  -webkit-backdrop-filter: blur(2.5px);
+  backdrop-filter: blur(2.5px);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  #profile-pull-scrim { background: rgba(4, 6, 8, 0.5); }
+}
+/* Thin teal line on the panel's top edge, fading toward both ends, with a
+   soft halo centred on it. It lives outside the scrolling panel so the
+   halo is not clipped, and moves with the same transform. */
+#profile-pull-edge {
+  display: none;
+  position: fixed;
+  top: -12px;
+  left: 0;
+  right: 0;
+  height: 24px;
+  z-index: 31;
+  pointer-events: none;
+  opacity: 0;
+}
+#profile-pull-edge::before {
+  content: '';
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  top: 11.5px;
+  height: 1px;
+  background: linear-gradient(90deg,
+    rgba(74,240,200,0) 0%,
+    rgba(74,240,200,0.45) 26%,
+    rgba(160,255,232,0.95) 50%,
+    rgba(74,240,200,0.45) 74%,
+    rgba(74,240,200,0) 100%);
+}
+#profile-pull-edge::after {
+  content: '';
+  position: absolute;
+  left: 22%;
+  right: 22%;
+  top: 4px;
+  height: 16px;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(74,240,200,0.2), rgba(74,240,200,0) 100%);
+}
+#profile-pull-scrim.active,
+#profile-pull-edge.active { display: block; }
+#profile-pull-scrim.settling {
+  transition: opacity var(--pull-ms, 280ms) ease-out;
+}
+#profile-pull-edge.settling {
+  transition: transform var(--pull-ms, 280ms) var(--pull-ease, ease-out), opacity var(--pull-ms, 280ms) ease-out;
 }
 #profile-pull-shield {
   display: none;
@@ -300,7 +370,7 @@ html, body {
   text-transform: none;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition: opacity 0.18s ease, border-color 0.18s ease, color 0.18s ease;
   z-index: 40;
 }
 .profile-pull-indicator.show { opacity: 1; }
@@ -310,7 +380,9 @@ html, body {
 }
 @media (prefers-reduced-motion: reduce) {
   #screen-profile.profile-pull-returning,
-  #screen-profile.profile-pull-dismissing {
+  #screen-profile.profile-pull-dismissing,
+  #profile-pull-scrim.settling,
+  #profile-pull-edge.settling {
     transition: none !important;
   }
 }
@@ -9059,7 +9131,11 @@ const SCREENS = {
 };
 let currentScreen = 'home';
 
+// Set by bindProfilePullToDismiss. showScreen calls it so opening any screen
+// clears a pull or settle that is still in progress.
+let profilePullOnNavigate = null;
 function showScreen(name, hideNav = false) {
+  if (typeof profilePullOnNavigate === 'function') profilePullOnNavigate(name);
   if (currentScreen === 'rv' && name !== 'rv' && name !== 'canvas') {
     resetRVAssignmentState();
   }
@@ -18923,22 +18999,44 @@ function bindProfilePullToDismiss() {
   if (!screen) return;
   profilePullGestureBound = true;
 
-  // Tunable feel, in CSS pixels of panel travel. The panel matches the finger
-  // one-to-one after PULL_SLOP_PX and keeps moving past the close line.
-  // Closing looks only at that distance, after the finger lifts. A short or
-  // fast flick never closes Settings: speed cannot start a close.
+  // Tunable feel. Distances are CSS pixels. The panel follows the finger
+  // after PULL_SLOP_PX, with resistance that grows the farther it is pulled,
+  // and it never stops at a cap. Closing is decided only after the finger
+  // lifts: the panel must be past the close line, the pull must have lasted
+  // MIN_HOLD_MS, it must not be a fast flick, and the finger must not be
+  // pushing back up. Speed alone can never close Settings.
   const AT_TOP_PX = 2;
-  const PULL_SLOP_PX = 12;
+  const REST_MS = 220;
+  const PULL_SLOP_PX = 10;
   const AXIS_LOCK_PX = 10;
-  const CLOSE_RATIO = 0.30;
-  const CLOSE_MIN_PX = 180;
-  const CLOSE_MAX_PX = 260;
-  const FLICK_WINDOW_MS = 160;
-  const FLICK_SPEED_PX_PER_MS = 1.4;
-  const RETURN_MS = 280;
-  const DISMISS_MS = 340;
+  const UPWARD_SCROLL_PX = 3;
+  const RESIST_VIEWPORTS = 1.3;
+  const CLOSE_RATIO = 0.24;
+  const CLOSE_MIN_PX = 150;
+  const CLOSE_MAX_PX = 220;
+  const MIN_HOLD_MS = 240;
+  const FLICK_SPEED_PX_PER_MS = 1.5;
+  const BACKOFF_SPEED_PX_PER_MS = -0.25;
+  const VELOCITY_WINDOW_MS = 90;
+  const EDGE_FADE_PX = 36;
+  const RETURN_MS_MIN = 220;
+  const RETURN_MS_MAX = 340;
+  const DISMISS_MS_MIN = 220;
+  const DISMISS_MS_MAX = 360;
+  const RETURN_EASE = 'cubic-bezier(0.22, 0.8, 0.3, 1)';
   const PULL_TEXT = 'Pull down to close.';
   const RELEASE_TEXT = 'Release to close.';
+
+  function ensureLayer(id, parent) {
+    let el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement('div');
+      el.id = id;
+      el.setAttribute('aria-hidden', 'true');
+      parent.appendChild(el);
+    }
+    return el;
+  }
 
   let indicator = document.getElementById('profile-pull-indicator') || screen.querySelector('.profile-pull-indicator');
   if (!indicator) {
@@ -18948,18 +19046,21 @@ function bindProfilePullToDismiss() {
     screen.appendChild(indicator);
   }
   indicator.textContent = PULL_TEXT;
-
-  let shield = document.getElementById('profile-pull-shield');
-  if (!shield) {
-    shield = document.createElement('div');
-    shield.id = 'profile-pull-shield';
-    shield.setAttribute('aria-hidden', 'true');
-    document.body.appendChild(shield);
-  }
+  const shield = ensureLayer('profile-pull-shield', document.body);
+  const scrim = ensureLayer('profile-pull-scrim', document.body);
+  const edge = ensureLayer('profile-pull-edge', document.body);
 
   let gesture = null;
   let settling = false;
   let blockClicks = false;
+  let lastScrollAt = -Infinity;
+  let animToken = 0;
+  let dismissedTimer = null;
+  let closingByGesture = false;
+
+  function nowMs() {
+    return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  }
 
   function reducedMotion() {
     try {
@@ -18969,10 +19070,23 @@ function bindProfilePullToDismiss() {
     }
   }
 
-  function closeThreshold() {
-    const height = screen.clientHeight || window.innerHeight || CLOSE_MIN_PX;
-    return Math.round(Math.min(CLOSE_MAX_PX, Math.max(CLOSE_MIN_PX, height * CLOSE_RATIO)));
+  function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+
+  // Read layout once per drag so moving the finger never forces a layout.
+  function measure() {
+    const height = screen.clientHeight || window.innerHeight || 640;
+    const viewport = window.innerHeight || height;
+    return {
+      height: height,
+      threshold: Math.round(clamp(height * CLOSE_RATIO, CLOSE_MIN_PX, CLOSE_MAX_PX)),
+      resist: Math.max(480, viewport * RESIST_VIEWPORTS),
+    };
   }
+
+  // Finger travel to panel travel: one to one at first, then gradually
+  // heavier. There is no maximum, so the panel always keeps moving.
+  function resisted(d, k) { return d / (1 + d / k); }
+  function resistSlope(d, k) { const f = 1 + d / k; return 1 / (f * f); }
 
   function overlayOpen(target) {
     if (target && target.closest) {
@@ -18995,27 +19109,25 @@ function bindProfilePullToDismiss() {
     return false;
   }
 
-  function updateIndicator(pull) {
-    if (!indicator) return;
+  function updateIndicator(pull, threshold) {
     if (!pull || pull <= 0) {
       indicator.classList.remove('show', 'ready');
-      indicator.textContent = PULL_TEXT;
+      if (indicator.textContent !== PULL_TEXT) indicator.textContent = PULL_TEXT;
       return;
     }
     indicator.classList.add('show');
-    const ready = pull >= closeThreshold();
+    const ready = pull >= threshold;
     indicator.classList.toggle('ready', ready);
-    indicator.textContent = ready ? RELEASE_TEXT : PULL_TEXT;
+    const text = ready ? RELEASE_TEXT : PULL_TEXT;
+    if (indicator.textContent !== text) indicator.textContent = text;
   }
 
   function revealHome(show) {
     const home = document.getElementById('screen-home');
-    if (!home) return;
-    home.classList.toggle('profile-pull-revealed', !!show);
+    if (home) home.classList.toggle('profile-pull-revealed', !!show);
   }
 
   function placeShield(pull) {
-    if (!shield) return;
     if (pull == null) {
       shield.classList.remove('active');
       shield.style.height = '';
@@ -19037,18 +19149,60 @@ function bindProfilePullToDismiss() {
     }
   }
 
-  function applyPull(pull) {
-    screen.style.transform = pull > 0 ? 'translateY(' + pull + 'px)' : '';
-    updateIndicator(pull);
+  function showLayers(on) {
+    scrim.classList.toggle('active', !!on);
+    edge.classList.toggle('active', !!on);
+    revealHome(on);
+    setNavBlocked(on);
+  }
+
+  // Dim and blur of Home, and the edge glow, follow the actual panel
+  // position: they grow until the close line and hold there.
+  function scrimOpacity(pull, threshold) {
+    return clamp(pull / threshold, 0, 1);
+  }
+  function edgeOpacity(pull, threshold) {
+    if (pull <= 0) return 0;
+    return clamp(pull / EDGE_FADE_PX, 0, 1) * (0.6 + 0.4 * clamp(pull / threshold, 0, 1));
+  }
+
+  function applyPull(pull, m) {
+    const y = pull > 0 ? 'translateY(' + pull + 'px)' : '';
+    screen.style.transform = y;
+    edge.style.transform = y;
+    scrim.style.opacity = String(scrimOpacity(pull, m.threshold));
+    edge.style.opacity = String(edgeOpacity(pull, m.threshold));
+    updateIndicator(pull, m.threshold);
     placeShield(pull > 0 ? pull : 0);
+  }
+
+  function setMotion(ms, ease) {
+    [screen, scrim, edge].forEach((el) => {
+      el.style.setProperty('--pull-ms', ms + 'ms');
+      el.style.setProperty('--pull-ease', ease);
+    });
+    scrim.classList.add('settling');
+    edge.classList.add('settling');
+  }
+
+  function clearLayerStyles() {
+    [scrim, edge].forEach((el) => {
+      el.classList.remove('settling', 'active');
+      el.style.opacity = '';
+      el.style.transform = '';
+    });
+    [screen, scrim, edge].forEach((el) => {
+      el.style.removeProperty('--pull-ms');
+      el.style.removeProperty('--pull-ease');
+    });
   }
 
   function cleanupDragChrome() {
     screen.classList.remove('profile-pull-dragging', 'profile-pull-returning', 'profile-pull-dismissing');
-    revealHome(false);
+    showLayers(false);
+    clearLayerStyles();
     placeShield(null);
-    setNavBlocked(false);
-    updateIndicator(0);
+    updateIndicator(0, 1);
   }
 
   function waitForPanel(ms) {
@@ -19069,156 +19223,249 @@ function bindProfilePullToDismiss() {
     });
   }
 
-  function releasePointer(id) {
-    try {
-      if (screen.hasPointerCapture(id)) screen.releasePointerCapture(id);
-    } catch (e) {}
+  // Put the panel back to its normal resting styles without animating.
+  function restPanel() {
+    screen.style.transition = 'none';
+    screen.style.transform = '';
+    void screen.offsetWidth;
+    screen.style.transition = '';
   }
 
-  function nowMs() {
-    return (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+  function releaseClicksSoon() {
+    setTimeout(() => { blockClicks = false; }, 80);
   }
 
-  function shouldClose(pull, elapsed) {
-    if (pull < closeThreshold()) return false;
-    if (!(elapsed >= FLICK_WINDOW_MS)) return false;
-    if (elapsed > 0 && (pull / elapsed) > FLICK_SPEED_PX_PER_MS) return false;
-    return true;
-  }
-
-  function settleBack() {
+  function settleBack(fromPull) {
     settling = true;
-    const ms = reducedMotion() ? 0 : RETURN_MS;
+    const token = ++animToken;
+    const ms = reducedMotion() ? 0 : Math.round(clamp(200 + fromPull * 0.45, RETURN_MS_MIN, RETURN_MS_MAX));
+    setMotion(ms, RETURN_EASE);
     screen.classList.remove('profile-pull-dragging');
     screen.classList.add('profile-pull-returning');
     void screen.offsetWidth;
     screen.style.transform = 'translateY(0px)';
+    edge.style.transform = 'translateY(0px)';
+    scrim.style.opacity = '0';
+    edge.style.opacity = '0';
+    updateIndicator(0, 1);
     return waitForPanel(ms).then(() => {
-      screen.style.transition = 'none';
-      screen.style.transform = '';
+      if (token !== animToken) return;
       cleanupDragChrome();
-      void screen.offsetWidth;
-      screen.style.transition = '';
+      restPanel();
       settling = false;
-      setTimeout(() => { blockClicks = false; }, 80);
-    }).catch(() => {
-      cleanupDragChrome();
-      screen.style.transform = '';
-      screen.style.transition = '';
-      settling = false;
-      blockClicks = false;
+      releaseClicksSoon();
     });
   }
 
-  function settleClosed() {
+  function settleClosed(fromPull, panelSpeed) {
     settling = true;
-    const ms = reducedMotion() ? 0 : DISMISS_MS;
-    const distance = (screen.offsetHeight || window.innerHeight) + 48;
+    const token = ++animToken;
+    const distance = (screen.offsetHeight || window.innerHeight) + 40;
+    const remaining = Math.max(1, distance - fromPull);
+    const speed = Math.max(0, panelSpeed || 0);
+    let ms = 0;
+    let ease = 'linear';
+    if (!reducedMotion()) {
+      // Continue at the finger's speed: the curve's starting slope matches
+      // the release speed, then it eases out as the panel leaves.
+      ms = Math.round(clamp(remaining / Math.max(1.7, speed * 1.3), DISMISS_MS_MIN, DISMISS_MS_MAX));
+      const startSlope = clamp((speed * ms) / remaining, 0.5, 3);
+      ease = 'cubic-bezier(0.25, ' + (0.25 * startSlope).toFixed(3) + ', 0.35, 1)';
+    }
     placeShield('full');
+    setMotion(ms, ease);
     screen.classList.remove('profile-pull-dragging');
     screen.classList.add('profile-pull-dismissing');
     void screen.offsetWidth;
     screen.style.transform = 'translateY(' + distance + 'px)';
+    edge.style.transform = 'translateY(' + distance + 'px)';
+    scrim.style.opacity = '0';
     return waitForPanel(ms).then(() => {
+      if (token !== animToken) return;
       screen.classList.add('profile-pull-dismissed');
       screen.classList.remove('profile-pull-dismissing');
       screen.style.transition = 'none';
-      navigate('home');
+      closingByGesture = true;
+      try { navigate('home'); } finally { closingByGesture = false; }
       cleanupDragChrome();
-      setTimeout(() => { blockClicks = false; }, 80);
-      setTimeout(() => {
+      settling = false;
+      releaseClicksSoon();
+      dismissedTimer = setTimeout(() => {
+        dismissedTimer = null;
         screen.classList.remove('profile-pull-dismissed');
         screen.style.transform = '';
         screen.style.transition = '';
       }, 380);
-      settling = false;
-    }).catch(() => {
-      cleanupDragChrome();
-      screen.classList.remove('profile-pull-dismissed');
-      screen.style.transform = '';
-      screen.style.transition = '';
-      settling = false;
-      blockClicks = false;
     });
   }
 
-  function onPointerDown(e) {
-    if (!e || e.pointerType !== 'touch') return;
-    if (gesture || settling) return;
-    if (currentScreen !== 'profile') return;
-    if (overlayOpen(e.target)) return;
-    // Only a touch that begins with Settings already at the top can close.
-    // Scrolling up to the top during this same touch stays mode "scroll".
-    const atTop = screen.scrollTop <= AT_TOP_PX;
-    gesture = {
-      id: e.pointerId,
-      startX: e.clientX,
-      startY: e.clientY,
-      startTime: nowMs(),
-      mode: atTop ? 'pending' : 'scroll',
-      pull: 0,
-    };
-  }
-
-  function onPointerMove(e) {
-    if (!gesture || e.pointerId !== gesture.id) return;
-    if (gesture.mode === 'scroll') return;
-    const dy = e.clientY - gesture.startY;
-    const dx = e.clientX - gesture.startX;
-    if (gesture.mode === 'pending') {
-      // Started at the top. An upward move is scrolling, and that same touch
-      // stays a scroll even if it later comes back down.
-      if (Math.abs(dx) < AXIS_LOCK_PX && Math.abs(dy) < AXIS_LOCK_PX) return;
-      if (dy <= 0 || Math.abs(dx) > Math.abs(dy) * 1.25) {
-        gesture.mode = 'scroll';
-        return;
-      }
-      gesture.mode = 'drag';
-      blockClicks = true;
-      screen.classList.add('profile-pull-dragging');
-      revealHome(true);
-      setNavBlocked(true);
-      try { screen.setPointerCapture(e.pointerId); } catch (err) {}
-    }
-    if (gesture.mode !== 'drag') return;
-    if (e.cancelable) e.preventDefault();
-    const pull = Math.max(0, dy - PULL_SLOP_PX);
-    gesture.pull = pull;
-    applyPull(pull);
-  }
-
-  function finishPointer(e, cancelled) {
-    if (!gesture || e.pointerId !== gesture.id) return;
-    const g = gesture;
+  // Drop everything at once, for example when another screen opens in the
+  // middle of a pull or a settle. Nothing animates and nothing is left over.
+  function hardReset() {
+    animToken++;
+    if (gesture) detachGesture(gesture);
     gesture = null;
-    untrackGesture();
-    releasePointer(g.id);
+    if (dismissedTimer) { clearTimeout(dismissedTimer); dismissedTimer = null; }
+    screen.classList.remove('profile-pull-dismissed');
+    cleanupDragChrome();
+    restPanel();
+    settling = false;
+    blockClicks = false;
+  }
+
+  function findTouch(list, id) {
+    if (!list) return null;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].identifier === id) return list[i];
+    }
+    return null;
+  }
+
+  // Finger speed in CSS px per ms over the last moments of the pull.
+  function releaseSpeed(g) {
+    const s = g.samples;
+    if (s.length < 2) return 0;
+    const last = s[s.length - 1];
+    let first = s[0];
+    for (let i = s.length - 1; i >= 0; i--) {
+      first = s[i];
+      if (last.t - s[i].t >= VELOCITY_WINDOW_MS) break;
+    }
+    const dt = last.t - first.t;
+    return dt > 0 ? (last.y - first.y) / dt : 0;
+  }
+
+  function shouldClose(g, now, fingerSpeed) {
+    if (g.pull < g.m.threshold) return false;
+    const held = now - g.startTime;
+    if (!(held >= MIN_HOLD_MS)) return false;
+    if ((g.dy / held) > FLICK_SPEED_PX_PER_MS) return false;
+    if (fingerSpeed < BACKOFF_SPEED_PX_PER_MS) return false;
+    return true;
+  }
+
+  // The move, end and cancel listeners go on the element the finger first
+  // touched. Touch events keep going to that element even if Settings
+  // re-renders and removes it, so a pull can never be orphaned mid-drag.
+  function attachGesture(g) {
+    g.target.addEventListener('touchmove', onTouchMove, { passive: false });
+    g.target.addEventListener('touchend', onTouchEnd);
+    g.target.addEventListener('touchcancel', onTouchCancel);
+  }
+  function detachGesture(g) {
+    g.target.removeEventListener('touchmove', onTouchMove, { passive: false });
+    g.target.removeEventListener('touchend', onTouchEnd);
+    g.target.removeEventListener('touchcancel', onTouchCancel);
+  }
+
+  function startDrag(g) {
+    g.mode = 'drag';
+    g.m = measure();
+    blockClicks = true;
+    screen.classList.add('profile-pull-dragging');
+    showLayers(true);
+  }
+
+  // Let go of a touch that turned out to be a normal scroll or tap.
+  function dropGesture(g) {
+    detachGesture(g);
+    if (gesture === g) gesture = null;
+  }
+
+  function onTouchStart(e) {
+    if (gesture) {
+      // A second finger. Put Settings back rather than guess.
+      if (e.touches && e.touches.length > 1) finishGesture(gesture, true);
+      return;
+    }
+    if (settling) return;
+    if (currentScreen !== 'profile') return;
+    if (!e.touches || e.touches.length !== 1) return;
+    if (overlayOpen(e.target)) return;
+    // Only a touch that begins with Settings at the top and no longer
+    // moving can become a pull. A touch that lands while a scroll is still
+    // gliding to the top is treated as scrolling, so the habitual swipe
+    // after a fast scroll up does not close Settings.
+    if (screen.scrollTop > AT_TOP_PX) return;
+    if (nowMs() - lastScrollAt < REST_MS) return;
+    const t = e.changedTouches[0];
+    gesture = {
+      id: t.identifier,
+      target: e.target,
+      startX: t.clientX,
+      startY: t.clientY,
+      startTime: nowMs(),
+      mode: 'pending',
+      dy: 0,
+      pull: 0,
+      samples: [],
+      m: null,
+    };
+    attachGesture(gesture);
+  }
+
+  function onTouchMove(e) {
+    const g = gesture;
+    if (!g) return;
+    if (e.touches && e.touches.length > 1) { finishGesture(g, true); return; }
+    const t = findTouch(e.changedTouches, g.id);
+    if (!t) return;
+    const dy = t.clientY - g.startY;
+    const dx = t.clientX - g.startX;
+    if (g.mode === 'pending') {
+      const sideways = Math.abs(dx) >= AXIS_LOCK_PX && Math.abs(dx) > Math.abs(dy) * 1.25;
+      if (dy <= -UPWARD_SCROLL_PX || sideways) { dropGesture(g); return; }
+      if (dy <= 0) return;
+      // A downward move from the top cannot scroll Settings, so claim it
+      // now. Waiting lets the browser start its own overscroll, which
+      // cancels the touch and is why the old pull stopped short.
+      if (!e.cancelable) { dropGesture(g); return; }
+      e.preventDefault();
+      if (dy < PULL_SLOP_PX) return;
+      startDrag(g);
+    }
     if (g.mode !== 'drag') return;
-    const elapsed = nowMs() - g.startTime;
-    if (!cancelled && shouldClose(g.pull, elapsed)) settleClosed();
-    else settleBack();
+    if (e.cancelable) e.preventDefault();
+    const d = Math.max(0, dy - PULL_SLOP_PX);
+    g.dy = dy;
+    g.d = d;
+    g.pull = resisted(d, g.m.resist);
+    const now = nowMs();
+    g.samples.push({ t: now, y: t.clientY });
+    while (g.samples.length > 2 && now - g.samples[0].t > VELOCITY_WINDOW_MS * 2) g.samples.shift();
+    applyPull(g.pull, g.m);
   }
 
-  function onPointerUp(e) { finishPointer(e, false); }
-  function onPointerCancel(e) { finishPointer(e, true); }
-  function trackGesture() {
-    window.addEventListener('pointermove', onPointerMove, { passive: false });
-    window.addEventListener('pointerup', onPointerUp);
-    window.addEventListener('pointercancel', onPointerCancel);
-  }
-  function untrackGesture() {
-    window.removeEventListener('pointermove', onPointerMove);
-    window.removeEventListener('pointerup', onPointerUp);
-    window.removeEventListener('pointercancel', onPointerCancel);
+  function finishGesture(g, cancelled) {
+    detachGesture(g);
+    if (gesture === g) gesture = null;
+    if (g.mode !== 'drag') return;
+    const now = nowMs();
+    const fingerSpeed = releaseSpeed(g);
+    if (!cancelled && shouldClose(g, now, fingerSpeed)) {
+      settleClosed(g.pull, fingerSpeed * resistSlope(g.d || 0, g.m.resist));
+    } else {
+      settleBack(g.pull);
+    }
   }
 
-  screen.addEventListener('pointerdown', (e) => {
-    onPointerDown(e);
-    if (gesture && gesture.id === e.pointerId) trackGesture();
-  });
-  screen.addEventListener('touchmove', (e) => {
-    if (gesture && gesture.mode === 'drag' && e.cancelable) e.preventDefault();
-  }, { passive: false });
+  function onTouchEnd(e) {
+    const g = gesture;
+    if (!g || !findTouch(e.changedTouches, g.id)) return;
+    finishGesture(g, false);
+  }
+  function onTouchCancel(e) {
+    const g = gesture;
+    if (!g || !findTouch(e.changedTouches, g.id)) return;
+    finishGesture(g, true);
+  }
+
+  screen.addEventListener('touchstart', onTouchStart, { passive: true });
+  // A non-passive listener must already exist when the finger lands, or the
+  // browser treats the touch as scroll-only and ignores preventDefault.
+  // The pull logic itself runs in the listeners attached by attachGesture.
+  screen.addEventListener('touchmove', () => {}, { passive: false });
+  screen.addEventListener('scroll', () => { lastScrollAt = nowMs(); }, { passive: true });
   document.addEventListener('click', (e) => {
     if (!blockClicks) return;
     e.preventDefault();
@@ -19226,12 +19473,19 @@ function bindProfilePullToDismiss() {
   }, true);
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden || !gesture) return;
-    const g = gesture;
-    gesture = null;
-    untrackGesture();
-    releasePointer(g.id);
-    if (g.mode === 'drag') settleBack();
+    finishGesture(gesture, true);
   });
+
+  profilePullOnNavigate = function () {
+    if (closingByGesture) return;
+    if (gesture || settling || dismissedTimer
+      || screen.classList.contains('profile-pull-dragging')
+      || screen.classList.contains('profile-pull-returning')
+      || screen.classList.contains('profile-pull-dismissing')
+      || screen.classList.contains('profile-pull-dismissed')) {
+      hardReset();
+    }
+  };
 }
 
 // ── Time of Day pattern ─────────────────────
@@ -19670,7 +19924,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.10.13.1';
+const APP_VERSION = '2026.10.13.2';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 // What the last update check found, so Settings can tell "this is the

@@ -63,6 +63,17 @@ function readStateExpr() {
       dragging: screen.classList.contains('profile-pull-dragging'),
       returning: screen.classList.contains('profile-pull-returning'),
       dismissing: screen.classList.contains('profile-pull-dismissing'),
+      dismissed: screen.classList.contains('profile-pull-dismissed'),
+      inlineTransform: screen.style.transform,
+      scrimActive: document.getElementById('profile-pull-scrim').classList.contains('active'),
+      scrimOpacity: Number(getComputedStyle(document.getElementById('profile-pull-scrim')).opacity),
+      edgeActive: document.getElementById('profile-pull-edge').classList.contains('active'),
+      edgeOpacity: Number(getComputedStyle(document.getElementById('profile-pull-edge')).opacity),
+      edgeY: (() => { const et = getComputedStyle(document.getElementById('profile-pull-edge')).transform; return et && et !== 'none' ? Math.round(new DOMMatrixReadOnly(et).m42 * 10) / 10 : 0; })(),
+      shieldActive: document.getElementById('profile-pull-shield').classList.contains('active'),
+      homeRevealed: home.classList.contains('profile-pull-revealed'),
+      homeLeft: Math.round(home.getBoundingClientRect().left),
+      navPointer: document.getElementById('nav').style.pointerEvents,
     };
   })()`;
 }
@@ -149,6 +160,22 @@ async function main() {
       if (!screen.classList.contains('profile-pull-dragging')) screen.style.transform = '';
     });
     await page.waitForFunction(() => currentScreen === 'profile');
+    // A pull only starts once Settings has stopped scrolling for a moment.
+    await page.waitForTimeout(280);
+  }
+
+  // Everything the pull adds is gone and Settings is back at rest.
+  function assertCleanOpen(st, label) {
+    assert.strictEqual(st.screen, 'profile', label + ': screen');
+    assert.ok(Math.abs(st.y) < 1, label + ': y=' + st.y);
+    assert.strictEqual(st.inlineTransform, '', label + ': inline transform left behind');
+    assert.strictEqual(st.dragging || st.returning || st.dismissing || st.dismissed, false, label + ': pull class left behind');
+    assert.strictEqual(st.scrimActive, false, label + ': dim layer still on');
+    assert.strictEqual(st.edgeActive, false, label + ': edge glow still on');
+    assert.strictEqual(st.shieldActive, false, label + ': tap shield still on');
+    assert.strictEqual(st.homeRevealed, false, label + ': Home still revealed');
+    assert.strictEqual(st.navPointer, '', label + ': nav still blocked');
+    assert.strictEqual(st.shown, false, label + ': hint still showing');
   }
 
   // One Chrome touch for the whole gesture. A new debugger session cannot
@@ -176,11 +203,17 @@ async function main() {
       });
       await client.detach();
     }
+    async function move(y) {
+      await client.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{ x: x, y: y, id: 1 }],
+      });
+    }
     if (release || cancel) {
       await end(cancel ? 'cancel' : 'end');
       return null;
     }
-    return { end };
+    return { end, move };
   }
 
   // Timing-sensitive flicks. Debugger round trips are too slow to imitate a
@@ -188,20 +221,19 @@ async function main() {
   // the same pointer listeners in one turn.
   async function flick({ y0, y1, pointerId }) {
     return page.evaluate(({ y0, y1, pointerId }) => {
-      const screen = document.getElementById('screen-profile');
+      const target = document.querySelector('#screen-profile .display-lg');
       const t0 = performance.now();
       const fire = (type, y) => {
-        const ev = new PointerEvent(type, {
-          pointerId: pointerId, pointerType: 'touch', clientX: 200, clientY: y,
+        const touch = new Touch({ identifier: pointerId, target: target, clientX: 200, clientY: y });
+        const down = type !== 'touchend';
+        target.dispatchEvent(new TouchEvent(type, {
+          touches: down ? [touch] : [], targetTouches: down ? [touch] : [], changedTouches: [touch],
           bubbles: true, cancelable: true,
-        });
-        if (type === 'pointerdown') screen.dispatchEvent(ev);
-        else window.dispatchEvent(ev);
+        }));
       };
-      fire('pointerdown', y0);
-      fire('pointermove', y0 + (y1 - y0) * 0.5);
-      fire('pointermove', y1);
-      fire('pointerup', y1);
+      fire('touchstart', y0);
+      for (let i = 1; i <= 6; i++) fire('touchmove', y0 + (y1 - y0) * (i / 6));
+      fire('touchend', y1);
       return performance.now() - t0;
     }, { y0, y1, pointerId });
   }
@@ -242,8 +274,14 @@ async function main() {
     }
     const held = await state();
     assert.strictEqual(held.screen, 'profile', 'finger still down, Settings stays open');
-    assert.ok(held.y > 260, 'panel kept moving past a small cap, y=' + held.y);
-    assert.ok(held.y < 400, 'panel did not jump ahead of the finger, y=' + held.y);
+    assert.ok(held.y > 200, 'panel kept moving past a small cap, y=' + held.y);
+    assert.ok(held.y < 320, 'panel did not jump ahead of the finger, y=' + held.y);
+    assert.strictEqual(held.homeLeft, 0, 'revealed Home sits in its final place, left=' + held.homeLeft);
+    assert.strictEqual(held.scrimActive, true, 'exposed Home is dimmed and blurred');
+    assert.ok(held.scrimOpacity > 0.95, 'past the close line the dim is at full strength, ' + held.scrimOpacity);
+    assert.strictEqual(held.edgeActive, true, 'edge glow is on');
+    assert.ok(held.edgeOpacity > 0.9, 'edge glow is visible, ' + held.edgeOpacity);
+    assert.ok(Math.abs(held.edgeY - held.y) < 1, 'edge glow sits on the panel edge (' + held.edgeY + ' vs ' + held.y + ')');
     assert.strictEqual(held.text, 'Release to close.');
     assert.strictEqual(held.ready, true);
     assert.strictEqual(held.homeVisible, 'visible');
@@ -265,8 +303,7 @@ async function main() {
     await client.detach();
     await idle();
     const done = await state();
-    assert.strictEqual(done.screen, 'profile');
-    assert.ok(Math.abs(done.y) < 1, 'y=' + done.y);
+    assertCleanOpen(done, 'after moving back and releasing');
   });
 
   await check('the hint moves with the panel and the close line can be undone', async () => {
@@ -283,6 +320,8 @@ async function main() {
     assert.strictEqual(mid.text, 'Pull down to close.');
     assert.strictEqual(mid.screen, 'profile');
     assert.ok(mid.y > 80 && mid.y < 180, 'mid pull y=' + mid.y);
+    assert.ok(mid.y < 130 - 10, 'resistance: panel moves less than the finger, y=' + mid.y);
+    assert.ok(mid.scrimOpacity > 0.2 && mid.scrimOpacity < 0.85, 'dim follows the pull distance, ' + mid.scrimOpacity);
     const topMid = mid.indicatorTop;
     await client.send('Input.dispatchTouchEvent', {
       type: 'touchMove', touchPoints: [{ x: 200, y: 470, id: 1 }],
@@ -290,6 +329,7 @@ async function main() {
     await page.waitForTimeout(40);
     const far = await state();
     assert.strictEqual(far.text, 'Release to close.');
+    assert.ok(far.scrimOpacity > mid.scrimOpacity, 'dim grows with the pull');
     assert.ok(far.y > mid.y + 100, 'panel kept moving after the close line, y=' + far.y);
     assert.ok(far.indicatorTop > topMid + 80, 'hint moved with the panel (' + topMid + ' then ' + far.indicatorTop + ')');
     assert.strictEqual(far.screen, 'profile');
@@ -334,6 +374,12 @@ async function main() {
     assert.strictEqual(done.homeScroll, 80);
     assert.strictEqual(done.marker, 'kept');
     assert.strictEqual(done.homePointer, 'all');
+    assert.strictEqual(done.homeLeft, 0);
+    assert.strictEqual(done.homeRevealed, false);
+    assert.strictEqual(done.scrimActive, false, 'Home is sharp and full brightness again');
+    assert.strictEqual(done.edgeActive, false);
+    assert.strictEqual(done.shieldActive, false);
+    assert.strictEqual(done.navPointer, '');
     await page.screenshot({ path: '/opt/cursor/artifacts/settings-pull-closed-home.png' });
   });
 
@@ -342,9 +388,7 @@ async function main() {
     await drag({ y0: 180, y1: 280, ms: 400, steps: 8, release: true });
     await idle();
     const done = await state();
-    assert.strictEqual(done.screen, 'profile');
-    assert.ok(Math.abs(done.y) < 1, 'y=' + done.y);
-    assert.strictEqual(done.shown, false);
+    assertCleanOpen(done, 'short pull');
     assert.strictEqual(done.greeting, 'STAY-HOME');
   });
 
@@ -402,8 +446,7 @@ async function main() {
     await drag({ y0: 140, y1: 480, ms: 400, steps: 10, release: false, cancel: true });
     await idle();
     const done = await state();
-    assert.strictEqual(done.screen, 'profile');
-    assert.ok(Math.abs(done.y) < 1, 'y=' + done.y);
+    assertCleanOpen(done, 'cancelled pull');
     assert.strictEqual(done.greeting, 'STAY-HOME');
   });
 
@@ -420,11 +463,18 @@ async function main() {
     assert.ok(Math.abs(afterTouch.y) < 1, 'y=' + afterTouch.y);
     // A touch that reaches the Settings screen while the modal is open is ignored.
     await page.evaluate(() => {
-      const screen = document.getElementById('screen-profile');
-      const opts = (y) => ({ pointerId: 9, pointerType: 'touch', clientX: 180, clientY: y, bubbles: true, cancelable: true });
-      screen.dispatchEvent(new PointerEvent('pointerdown', opts(120)));
-      window.dispatchEvent(new PointerEvent('pointermove', opts(460)));
-      window.dispatchEvent(new PointerEvent('pointerup', opts(460)));
+      const target = document.querySelector('#screen-profile .display-lg');
+      const fire = (type, y) => {
+        const touch = new Touch({ identifier: 9, target: target, clientX: 180, clientY: y });
+        const down = type !== 'touchend';
+        target.dispatchEvent(new TouchEvent(type, {
+          touches: down ? [touch] : [], targetTouches: down ? [touch] : [], changedTouches: [touch],
+          bubbles: true, cancelable: true,
+        }));
+      };
+      fire('touchstart', 120);
+      for (let y = 140; y <= 460; y += 40) fire('touchmove', y);
+      fire('touchend', 460);
     });
     await page.waitForTimeout(200);
     const after = await state();
@@ -478,6 +528,160 @@ async function main() {
     assert.strictEqual(blocked.screen, 'profile');
     await heldTouch.end('end');
     await idle();
+  });
+
+  await check('normal scrolling still works in both directions', async () => {
+    await openSettings();
+    // At the top, a finger moving up scrolls Settings and never pulls it.
+    await drag({ y0: 600, y1: 300, ms: 300, steps: 15, release: true });
+    await page.waitForTimeout(150);
+    const down = await state();
+    const scrolled = await page.evaluate(() => document.getElementById('screen-profile').scrollTop);
+    assert.ok(scrolled > 100, 'finger moving up scrolled Settings, scrollTop=' + scrolled);
+    assertCleanOpen(down, 'after scrolling down the page');
+    // Below the top, a finger moving down scrolls back up and never pulls.
+    await page.waitForTimeout(300);
+    await drag({ y0: 200, y1: 330, ms: 260, steps: 13, release: true });
+    await page.waitForTimeout(150);
+    const back = await page.evaluate(() => document.getElementById('screen-profile').scrollTop);
+    assert.ok(back < scrolled, 'finger moving down scrolled back up (' + scrolled + ' then ' + back + ')');
+    assertCleanOpen(await state(), 'after scrolling back up');
+  });
+
+  await check('a swipe right after a scroll reaches the top does not pull Settings', async () => {
+    await openSettings();
+    // A fast scroll glides to the top; the habitual next swipe lands while
+    // it is still settling. That touch is a scroll, not a pull.
+    await page.evaluate(() => {
+      const screen = document.getElementById('screen-profile');
+      screen.scrollTop = 300;
+    });
+    await page.waitForTimeout(30);
+    await page.evaluate(() => { document.getElementById('screen-profile').scrollTop = 0; });
+    await page.waitForTimeout(40);
+    const held = await drag({ y0: 140, y1: 480, ms: 420, steps: 14, release: false });
+    const mid = await state();
+    assert.ok(Math.abs(mid.y) < 1, 'no pull while the scroll was still settling, y=' + mid.y);
+    assert.strictEqual(mid.scrimActive, false);
+    await held.end('end');
+    await page.waitForTimeout(500);
+    assertCleanOpen(await state(), 'after the swipe');
+    // Once Settings has rested at the top, the same pull works.
+    await page.waitForTimeout(300);
+    const ok = await drag({ y0: 140, y1: 300, ms: 200, steps: 8, release: false });
+    const pulling = await state();
+    assert.ok(pulling.y > 60, 'a deliberate pull after resting moves the panel, y=' + pulling.y);
+    await ok.end('cancel');
+    await idle();
+    assertCleanOpen(await state(), 'after cancelling the deliberate pull');
+  });
+
+  await check('pushing back up before letting go keeps Settings open', async () => {
+    await openSettings();
+    const held = await drag({ y0: 140, y1: 520, ms: 440, steps: 12, release: false });
+    const past = await state();
+    assert.strictEqual(past.text, 'Release to close.');
+    // A quick move back up that is still past the close line, then release.
+    await held.move(500);
+    await held.move(485);
+    await held.move(470);
+    const still = await state();
+    assert.strictEqual(still.text, 'Release to close.', 'still past the line when the finger lifts');
+    await held.end('end');
+    await idle();
+    await page.waitForTimeout(300);
+    assertCleanOpen(await state(), 'after pushing back up');
+  });
+
+  await check('released past the line, the panel keeps moving down without a jump', async () => {
+    await openSettings();
+    const held = await drag({ y0: 140, y1: 480, ms: 480, steps: 14, release: false });
+    const atRelease = await state();
+    await page.evaluate(() => {
+      window.__pullTrace = [];
+      const screen = document.getElementById('screen-profile');
+      const t0 = performance.now();
+      const tick = () => {
+        const t = getComputedStyle(screen).transform;
+        const y = t && t !== 'none' ? new DOMMatrixReadOnly(t).m42 : 0;
+        const scrim = Number(getComputedStyle(document.getElementById('profile-pull-scrim')).opacity);
+        window.__pullTrace.push({ y: y, scrim: scrim, screen: currentScreen });
+        if (performance.now() - t0 < 600 && currentScreen === 'profile') requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    await held.end('end');
+    await page.waitForFunction(() => currentScreen === 'home', { timeout: 2000 });
+    const trace = await page.evaluate(() => window.__pullTrace.filter((p) => p.screen === 'profile'));
+    assert.ok(trace.length >= 4, 'enough frames sampled, ' + trace.length);
+    assert.ok(trace[0].y >= atRelease.y - 2, 'no backward jump at release (' + atRelease.y + ' then ' + trace[0].y + ')');
+    for (let i = 1; i < trace.length; i++) {
+      assert.ok(trace[i].y >= trace[i - 1].y - 0.5, 'panel only moves down, frame ' + i + ': ' + trace[i - 1].y + ' then ' + trace[i].y);
+      assert.ok(trace[i].scrim <= trace[i - 1].scrim + 0.01, 'dim only fades out, frame ' + i);
+    }
+    const done = await state();
+    assert.strictEqual(done.scrimActive, false);
+    assert.strictEqual(done.homeLeft, 0);
+  });
+
+  await check('opening another screen mid-pull leaves nothing behind', async () => {
+    await openSettings();
+    const held = await drag({ y0: 140, y1: 460, ms: 360, steps: 10, release: false });
+    const mid = await state();
+    assert.ok(mid.y > 150 && mid.scrimActive, 'pull in progress');
+    // Something else opens a screen while the finger is still down, for
+    // example a notification tap or the Android back button.
+    await page.evaluate(() => navigate('analytics'));
+    const after = await state();
+    assert.strictEqual(after.screen, 'analytics');
+    assert.strictEqual(after.inlineTransform, '');
+    assert.strictEqual(after.dragging, false);
+    assert.strictEqual(after.scrimActive, false);
+    assert.strictEqual(after.edgeActive, false);
+    assert.strictEqual(after.shieldActive, false);
+    assert.strictEqual(after.homeRevealed, false);
+    assert.strictEqual(after.navPointer, '');
+    await held.end('end');
+    await page.waitForTimeout(600);
+    const later = await state();
+    assert.strictEqual(later.screen, 'analytics', 'lifting the finger afterwards did nothing');
+    // Settings opens and pulls normally afterwards.
+    await openSettings();
+    assertCleanOpen(await state(), 'reopened Settings');
+    const again = await drag({ y0: 140, y1: 300, ms: 200, steps: 8, release: false });
+    assert.ok((await state()).y > 60, 'a new pull works');
+    await again.end('cancel');
+    await idle();
+    assertCleanOpen(await state(), 'after the new pull');
+  });
+
+  await check('opening another screen while Settings slides away cancels the close', async () => {
+    await openSettings();
+    const held = await drag({ y0: 140, y1: 480, ms: 480, steps: 14, release: false });
+    await held.end('end');
+    await page.waitForTimeout(60);
+    await page.evaluate(() => navigate('psi'));
+    await page.waitForTimeout(700);
+    const st = await state();
+    assert.strictEqual(st.screen, 'psi', 'the finished slide did not override the newer screen');
+    assert.strictEqual(st.scrimActive, false);
+    assert.strictEqual(st.shieldActive, false);
+    assert.strictEqual(st.homeRevealed, false);
+    assert.strictEqual(st.dismissing || st.dismissed, false);
+    assert.strictEqual(st.navPointer, '');
+  });
+
+  await check('reopening Settings right after closing shows it immediately', async () => {
+    await openSettings();
+    await drag({ y0: 140, y1: 480, ms: 480, steps: 14, release: true });
+    await page.waitForFunction(() => currentScreen === 'home', { timeout: 2000 });
+    await page.evaluate(() => navigate('profile'));
+    await page.waitForTimeout(300);
+    const st = await state();
+    assert.strictEqual(st.screen, 'profile');
+    assert.strictEqual(st.dismissed, false, 'Settings is not still hidden by the close');
+    assert.strictEqual(st.profileActive, true);
+    assert.ok(Math.abs(st.y) < 1, 'y=' + st.y);
   });
 
   await check('reduced motion still closes, without the slide', async () => {
