@@ -239,6 +239,28 @@ async function main() {
     assert.strictEqual(s.count, 2, 'Reality Check not opened by WBTB taps');
   });
 
+  await check('WBTB alarm in the open app, then a tap on its notification: one steady countdown, stopped on close', async () => {
+    const shown = () => app.evaluate(() => document.getElementById('wbtb-wake-countdown').textContent);
+    const toSecs = (t) => { const [m, s] = t.split(':').map(Number); return m * 60 + s; };
+    await app.evaluate(() => wbtbAlarmFired());
+    await settle(app, () => document.getElementById('wbtb-wake-screen').classList.contains('active'));
+    await app.waitForTimeout(1200);
+    sw = await worker(app);
+    await tap(sw, '/app.html?wbtb=1');
+    await app.waitForTimeout(400);
+    const seen = [];
+    for (let i = 0; i < 12; i++) { seen.push(toSecs(await shown())); await app.waitForTimeout(250); }
+    for (let i = 1; i < seen.length; i++) {
+      const step = seen[i - 1] - seen[i];
+      assert.ok(step === 0 || step === 1, 'counts down one second at a time, never back: ' + seen.join(' '));
+    }
+    assert.ok(seen[0] < 25 * 60, 'not restarted at 25:00 by the tap');
+    await app.evaluate(() => closeWBTBWakeScreen());
+    const after = await shown();
+    await app.waitForTimeout(1500);
+    assert.strictEqual(await shown(), after, 'no countdown left running after closing');
+  });
+
   await check('app window busy for 7 s when the tap arrives: not reloaded, unsaved text kept, Reality Check opens once it catches up', async () => {
     await app.evaluate(() => navigate('home'));
     sw = await worker(app);
