@@ -66,7 +66,7 @@ A step moves through: **Not started → In progress → PR open (#number) → Me
 
 **Order matters.** Steps 1 to 5 are small and independent (Johnny chose to ship them in one pull request with one version bump, because steps 2, 3 and 5 all change `app.html`). Step 6 must merge and be applied to production before step 8, because a beta code system is pointless if Premium can be obtained any other way. Step 13 comes after 9 to 12 because those steps change what the privacy policy has to say. Step 14 (dashboard) does **not** block the pilot or the beta; it can be finished during the beta.
 
-**Settings pull-to-close (not a numbered step):** PR #143 merged at `707e52e`, version `2026.10.10.1` / `ablty-v89`. Phone check remains open.
+**Settings pull-to-close (not a numbered step):** PR #143 merged at `707e52e`, version `2026.10.10.1` / `ablty-v89`. Phone check remains open. Follow-up polish (finger tracking, resistance, accidental-close guards, edge glow, Home dim and blur, navigation cleanup) is a draft PR from `claude/settings-pull-close-effects-y0g4pd`, proposed `2026.10.13.2` / `ablty-v98`. Not merged; phone check to do. Does not change any numbered step.
 
 **Reality Check notification launch (not a numbered step):** PR #144 merged at `5d2ef42`, version `2026.10.10.2` / `ablty-v90`. Browser checks passed; installed-phone notification checks remain open. The open PR #145 contains a separate WBTB double-countdown repair, now carried onto current main in the reconciliation branch below.
 

@@ -13,7 +13,8 @@ The WBTB fix keeps one countdown when an alarm opens the wake screen and its not
 ## What is established
 
 - Steps 1 to 7 are implemented. The step-6 entitlement migration was recorded applied and verified in production October 6. Preserve that evidence and do not reapply it.
-- Account isolation #130, Academy Lesson 01 #132, sync/update work #139/#141/#142, Settings gestures #143, notification handling #144 and Presentiment #146 are merged.
+- Account isolation #130, Academy Lesson 01 #132, sync/update work #139/#141/#142, Settings gestures #143, notification handling #144 and Presentiment #146 are merged. Replacement reconciliation #147 has since merged at `dc9437d` (`2026.10.13.1` / `ablty-v97`).
+- A Settings pull-to-close polish follow-up is a draft PR from `claude/settings-pull-close-effects-y0g4pd` (`2026.10.13.2` / `ablty-v98`). It does not change the step 9 then step 8 priority. Its phone checklist is in the PR.
 - Johnny's October 9 phone report showed the sync recovery offer appearing and clearing after Move. Return to the original account and close/reopen remain unconfirmed. Preserve all distinct results and the guarded content comparison; never clear storage to remove a sync warning.
 - The two last #141 review issues (destination persistence and failed queue cleanup) are fixed in merged code. Do not reopen them because an older log calls them unresolved. The historical cause of pre-isolation mixed data is not established by the fix.
 - Before this repair, three of #145's six timer checks fail on current main. On this branch all six pass; notification browser checks 12, notification intent 22 and update checks 11 also pass. The browser uses local fixtures and simulated notification taps. Actual installed-phone notifications remain untested.

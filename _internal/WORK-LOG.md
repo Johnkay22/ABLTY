@@ -19,6 +19,15 @@ Keep entries short and in plain English. Say what was actually done, not what wa
 
 ---
 
+## 2026-10-13: Settings pull-to-close polish (not a numbered step)
+- **Who:** Claude Code
+- **Branch / PR:** `claude/settings-pull-close-effects-y0g4pd`, draft PR against main `dc9437d`. Proposes `2026.10.13.2` / `ablty-v98`.
+- **What changed:** Johnny asked for a smoother, more native-feeling Settings pull-to-close with subtle effects, without redesigning Settings. Only `bindProfilePullToDismiss()`, its styles, and a one-line hook in `showScreen()` changed in `app.html`; `sw.js` and `version.json` only carry the version bump. The gesture moved from pointer events to touch events and claims a downward move from the top immediately, so a phone browser cannot start its own bounce and cancel the pull (likely cause of the short stop on iPhone; not reproducible in desktop test Chrome). Added gentle resistance, a velocity-matched slide away, protection against the habitual swipe right after a fast scroll, a push-back-up cancel, a thin teal edge glow, a light dim plus 2.5px blur over the exposed Home, a fix for Home sitting 20px to the side while revealed, and a cleanup when any other screen opens mid-pull or mid-slide. Hint wording, Settings layout and controls are unchanged.
+- **Tests:** passed: `settings-pull-to-close.test.js` 19 of 19, three runs in a row (7 new checks: normal scrolling both ways, habitual swipe after a scroll, push back up before release, smooth slide with no backward jump and a fading dim, navigation mid-pull, navigation mid-slide, reopening right after closing). Against the old code, 8 of the 19 fail, so the checks do detect the old behavior. Also passed: app syntax, 48 links, update detection 11, notification intent 22, notification browser 12, safe text 6, dream save isolation 10, cloud sync 51, auth consent 107, username 8, upgrade CTA 9, WBTB 6, account isolation 32. Failed for environment reasons, identical on unchanged main: two Presentiment video playback checks (the open-source test browser cannot play the clips). Not run: the local-Supabase browser test (no local Supabase here) and anything on a phone.
+- **Production:** nothing changed.
+- **Johnny needs to:** review the draft PR; after a merge and deploy, run the phone checklist in the PR on an iPhone and an Android phone, installed and in the browser.
+- **Next:** unchanged. Step 9, then step 8.
+
 ## 2026-10-13: Readiness reconciliation and WBTB countdown repair
 - **Who:** Codex (isolated cloud checkout; independent Git metadata)
 - **Branch / PR:** `codex/beta-readiness-reconcile`, based on main `3cecab9`. Replacement draft PR #147 is open against main; proposes `2026.10.13.1` / `ablty-v97`. Original #140 and #145 branches/PRs are preserved.
