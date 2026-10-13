@@ -1,6 +1,6 @@
 # Presentiment visual review
 
-Branch: `codex/presentiment-visuals`. Version: `2026.10.11.5`, cache `ablty-v96`. Main base: `5d2ef424`. Introduction direction approved by Johnny before Stage 2 began. No merge, deployment, production data or service configuration changes.
+Branch: `codex/presentiment-visuals`. Version: `2026.10.11.5`, cache `ablty-v96`. Main base: `5d2ef424`. Introduction direction approved by Johnny before Stage 2 began. PR #146 merged October 11 at `3cecab9`; deployment and physical-phone verification were not established by that merge. This review records the original visual release.
 
 ## What changed
 
@@ -25,7 +25,7 @@ The layout retains readable text and the actual ABLTY navigation, so the introdu
 
 ## Phone checklist for a test build of this branch
 
-1. Check Settings shows version `2026.10.11.5`. Use an isolated guest test profile.
+1. Check Settings matches the intentionally merged release (`2026.10.11.5` for the original visuals, or a later release containing them). Use an isolated guest test profile.
 2. Open PSI, then Presentiment. Read the full instructions, scroll on a short screen, and check Back, Begin Trials and Full Analysis. New history should show zero trials and no analysis button.
 3. Start a batch. Watch the countdown and ring, tap once during one trial, and let another pass without tapping. Repeated taps must not add results. Finish all three trials and reopen the app to check the saved results.
 4. Check End during countdown, fast-forward and feedback. Wait at least 30 seconds on results; no extra trial or miss should appear. Start a new batch immediately after ending during feedback and confirm it stays on Trial 1 until you complete that trial.
@@ -35,6 +35,6 @@ Screenshots and silent 25 fps recordings were delivered in the chat. No public i
 
 ## Publication and parallel work
 
-The branch is pushed separately. Draft PR creation is blocked by a GitHub API Forbidden response; no PR has been created by this task. The environment allowed-domain list lacks `api.github.com`; an additive draft update is saved for the user to review, save and publish in environment settings. Native Git reads and branch pushes work. The API change is not proof that PR access will work until retried after it applies.
+PR #146 is merged, confirmed on GitHub October 13. The earlier GitHub API Forbidden response happened during initial publication and is historical. The current main includes all visual work and the approved End fix.
 
-PR #140 overlaps only `LAUNCH-PLAN.md`, `_internal/PRE-BETA-PLAN.md` and `_internal/WORK-LOG.md`. PR #145 overlaps those documents plus release/cache identifiers; its WBTB code changes are separate. Reconcile these overlaps during review. Neither PR was merged or edited, and Cursor's working directory and branch were not touched. The earlier `codex/settings-pull-dismiss` branch remains intact.
+PR #140's handoff and PR #145's WBTB timer repair are being reconciled separately in [draft PR #147](https://github.com/Johnkay22/ABLTY/pull/147) on `codex/beta-readiness-reconcile`, based on main `3cecab9`. That work preserves the Presentiment implementation and media. Cursor's branches and the earlier `codex/settings-pull-dismiss` branch remain untouched. See `AI-HANDOFF.md` for the current status and phone checks.

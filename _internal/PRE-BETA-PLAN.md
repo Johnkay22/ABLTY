@@ -2,6 +2,8 @@
 
 **Owner:** Johnny (founder, non-technical). **Written:** 2026-10-03 (Chicago) by Claude, from the October 3 read-only audit of `main` at `8d2efb8` (app version `2026.10.01.1`, cache `ablty-v81`) plus Johnny's decisions in the same conversation. **Revised 2026-10-04** after a second review (account deletion moved before the beta, beta scope and pilot pass criteria added, stronger grading test, dashboard made optional before the beta, Gemini thinking setting corrected). **Revised again 2026-10-04** with the steps 1 to 5 pull request: step 8 rewritten to Johnny's code-first install page flow, Gemini 3.x request changes added to step 9, survey price corrected to $5.99.
 
+**Current checkpoint (2026-10-13):** read [AI-HANDOFF.md](AI-HANDOFF.md) for the inspected main commit, replacement-PR scope and outstanding phone checks. Johnny authorized the readiness-plan reconciliation first. The next implementation priority is step 9, then step 8; this is the priority recorded in PR #140, not a change to the beta release gates.
+
 **Goal:** get ABLTY safe and useful enough to hand to about 20 private beta testers, who get free Premium for 30 days with no credit card and no Stripe.
 
 **Where this file lives and why:** it sits in the `_internal/` folder because the website (GitHub Pages) never publishes folders whose names start with an underscore. The repository itself is public on GitHub, so nothing in this folder may describe how to exploit a problem that is still open. Describe what to fix and what "done" looks like, never how to abuse it.
@@ -12,7 +14,7 @@
 
 ### For Johnny
 
-- The **Status board** below shows every step and where it stands. Read it top to bottom.
+- The **Status board** below shows every step and where it stands. Follow the current checkpoint priority; step numbers are stable identifiers, not a reason to redo completed work.
 - To start work in Cursor, open a new chat and type: **"Do the next step in `_internal/PRE-BETA-PLAN.md`."** Cursor will read this file, look at the code, report what it found, and stop before changing anything.
 - Every step ends as a **draft pull request** that you review and merge yourself. Nothing reaches the live app until you merge.
 - Steps marked **YOU DECIDE** need an answer from you before the AI builds them. Steps marked **YOU TEST** need your phone.
@@ -21,7 +23,7 @@
 ### For the AI doing the work (Cursor, Claude Code, or anyone else)
 
 1. Read `CLAUDE.md`, the top of `LAUNCH-PLAN.md`, this whole file, and the latest entries in `_internal/WORK-LOG.md` before doing anything.
-2. Work on **one step only**: the first step on the Status board that is not done, unless Johnny names a different one. Do not combine steps.
+2. Work on **one step only**: the step named in the current checkpoint, or otherwise the first unfinished step on the Status board, unless Johnny names a different one. Do not combine steps.
 3. **Audit first.** Read the live code the step touches, confirm the problem still exists exactly as described, and report back in plain English before editing. If the code no longer matches this plan, stop and say so. Line numbers in this file come from `8d2efb8` and will drift, so search by function name.
 4. Make the change on a new branch, add or update tests, and open a **draft** pull request. Never merge. Never push to `main`.
 5. **Never touch production.** Do not run migrations against the live Supabase project, change Cloudflare, Stripe, Google or Resend settings, read or print secrets, or send emails. New database changes go in a new migration file in `supabase/migrations/`; Johnny approves it and Claude applies it to production separately with its Supabase tools.
@@ -45,11 +47,11 @@ A step moves through: **Not started → In progress → PR open (#number) → Me
 | 2 | Fix the beta install links | App | Merge, YOU TEST | Merged (PR #135); phone check still to do |
 | 3 | Show user and AI text safely | App | Merge | Merged (PR #135) |
 | 4 | Keep dream saves in the right account | App | Merge | Merged (PR #135) |
-| 5 | Honest "saved to cloud" status | App | Merge | Merged (PR #135); phone check still to do. Follow-up PR #139 (merged 2026-10-09) rewrote the row's wording in plain English, added a DETAILS report for support, and fixed two false backup assurances found in review. Follow-up PR #141 (merged 2026-10-09, 2026.10.09.3 / `ablty-v87`) fixed parked results blocking the cloud check of other results, added a recovery path for results held by the user's other account, and a Get help email button; phone: the recovery offer showed and disappeared after Move, return to the original account not yet confirmed. UX follow-up PR #142 (draft, 2026.10.09.4 / `ablty-v88`) closes Details after a full recovery and shows "N results recovered." |
+| 5 | Honest "saved to cloud" status | App | Merge | Merged (PR #135); phone check still to do. Follow-up PR #139 (merged 2026-10-09) rewrote the row's wording in plain English, added a DETAILS report for support, and fixed two false backup assurances found in review. Follow-up PR #141 (merged 2026-10-09, 2026.10.09.3 / `ablty-v87`) fixed parked results blocking the cloud check of other results, added a recovery path for results held by the user's other account, and a Get help email button; phone: the recovery offer showed and disappeared after Move, return to the original account not yet confirmed. UX follow-up PR #142 (merged, 2026.10.09.4 / `ablty-v88`) closes Details after a full recovery and shows "N results recovered." |
 | 6 | Lock Premium so only the server can grant it | Database | Approve migration | Verified (PR #136 merged 2026-10-06; migration applied to production as version `20261006015911` and verified read-only the same day) |
 | 7 | Turn off the test-mode upgrade checkout for the beta | App | Merge | Merged (PR #138, 2026-10-06, version 2026.10.06.1 / `ablty-v83`); phone check still to do. Settings version display and update-banner fixes needed to verify it merged in PR #139 (2026-10-09, 2026.10.06.2 / `ablty-v84`) |
 | 8 | Beta code gate on the install page, signup with code, automatic expiry and expiry banner | Database + install page + App + Worker | Approve migration, choose codes | Not started. Johnny decided 2026-10-06: leave all existing Premium accounts unchanged (see the step 8 section) |
-| 9 | Grading upgrade: show the AI the target photo, newer model | Worker only | Review grading test results | Not started |
+| 9 | Grading upgrade: show the AI the target photo, newer model | Worker only | Review grading test results | Not started; next implementation priority after readiness reconciliation |
 | 10 | Activity log (what testers do, never what they write) | Database + App | Approve migration | Not started |
 | 11 | In-app feedback box | Database + App | Approve migration | Not started |
 | 12 | Account deletion removes everything, reliably | Worker + Database | Approve migration if needed | Not started |
@@ -60,13 +62,26 @@ A step moves through: **Not started → In progress → PR open (#number) → Me
 | 17 | Week 2: write the survey | Copy + App + Database | Approve questions | After beta starts |
 | 18 | Day 21: survey goes live with the extra-month reward | App | Turn on | After beta starts |
 
-**Presentiment visual refresh (requested separately, not a numbered step):** Johnny approved Stage 1 and the small End cancellation fix; Stage 2 and browser verification are complete on `codex/presentiment-visuals`, version `2026.10.11.5` / `ablty-v96`. Introduction 16 checks and session 18 checks pass. The pre-existing End-during-feedback failure is fixed without changing event timing or scoring. Screenshots and silent 25 fps recordings are ready; physical-phone review remains. Branch published, but draft PR creation returns GitHub API Forbidden. An API allowlist addition is saved for environment-settings review. No merge or deployment. Steps 8 and 9 remain unstarted.
+**Presentiment visual refresh (not a numbered step):** merged October 11 as PR #146 at `3cecab9`, version `2026.10.11.5` / `ablty-v96`, including the approved End cancellation fix. Introduction 16 and session 18 browser checks passed; phone verification remains open. The earlier API publication failure is historical.
 
 **Order matters.** Steps 1 to 5 are small and independent (Johnny chose to ship them in one pull request with one version bump, because steps 2, 3 and 5 all change `app.html`). Step 6 must merge and be applied to production before step 8, because a beta code system is pointless if Premium can be obtained any other way. Step 13 comes after 9 to 12 because those steps change what the privacy policy has to say. Step 14 (dashboard) does **not** block the pilot or the beta; it can be finished during the beta.
 
-**Settings pull-to-close (follow-up, not a numbered step):** draft PR #143 on branch `cursor/settings-pull-to-close-0dbf`, version 2026.10.10.1 / `ablty-v89`. Phone check still to do. Steps 8 and 9 have not started. Docs-only PR #140 was left open and was not changed.
+**Settings pull-to-close (not a numbered step):** PR #143 merged at `707e52e`, version `2026.10.10.1` / `ablty-v89`. Phone check remains open.
 
-**Reality Check notification launch (follow-up, not a numbered step):** draft PR #144 on branch `cursor/rc-notification-launch-9435`, version 2026.10.10.2 / `ablty-v90`. A Reality Check tap that launched the app opened Home instead of the exercise. Review round: `sw.js` no longer reloads an open app window that answers slowly (that could lose unsaved input). Browser tests pass; phone check still to do (steps in the PR and in `_internal/WORK-LOG.md`). Steps 8 and 9 have not started.
+**Reality Check notification launch (not a numbered step):** PR #144 merged at `5d2ef42`, version `2026.10.10.2` / `ablty-v90`. Browser checks passed; installed-phone notification checks remain open. The open PR #145 contains a separate WBTB double-countdown repair, now carried onto current main in the reconciliation branch below.
+
+---
+
+## Readiness reconciliation authorized 2026-10-13
+
+This is the first item in Johnny's October 13 readiness work order, not a reopening of numbered step 1 (website exclusions, already implemented in #135).
+
+- Branch `codex/beta-readiness-reconcile` starts at current main `3cecab9`. Its proposed release is `2026.10.13.1` / `ablty-v97`.
+- It refreshes #140's useful handoff and priorities, corrects merged/unverified statuses, and carries #145's three WBTB timer functions and two test changes without rewriting either original branch. Replacement [draft PR #147](https://github.com/Johnkay22/ABLTY/pull/147) is open against main; merging and deployment remain Johnny's decision.
+- Once the replacement is reviewed and merged, close #140 and #145 as superseded rather than merging their older versions. Until then, both remain open and their branches are preserved.
+- Step 9, then step 8, then 10, 11, 12 and 13 remain the development order. Preserve all step-8 access decisions and all step-15 pilot gates. Step 14 stays optional. None of steps 8 to 13 is implemented by this reconciliation.
+- Phone proof is still required for sync recovery after return to the original account and reopen, WBTB alarm-plus-notification behavior, Reality Check cold/background launch, Settings gestures, Presentiment, signup/verification/reset and installed-app updates.
+- Website/Worker requests are blocked by the cloud environment's tunnel 403 response. Check the actual deployed version and internal-page exclusions separately; a repository merge or successful build is not device evidence.
 
 ---
 
@@ -208,6 +223,8 @@ Each step says what it is in plain English, why it matters, what "done" looks li
 **Tests:** disposable database tests for every redeem outcome (success, wrong code, expired, full, already redeemed, too many attempts, not signed in, two simultaneous redemptions at the limit), redemption at account creation through the signup trigger (valid code, invalid code, existing account), expiry turning Premium off, a paid `tier = 'premium'` account never affected by beta expiry, and the lucidity readings policy before and after expiry. App tests for the install page (code gate, form validation, post-signup message, "Sign in to finish"), the backup code box, status line and banner. **Phone testing must include a real verification email opened from both the Gmail app and Apple Mail, on an iPhone and on an Android phone**, confirming that the account already has Premium when it first signs in to the installed app, whichever browser the link opened in.
 
 ### Step 9: Grading upgrade (Worker only)
+
+**Implementation checkpoint:** the model names, settings, availability and prices in the October 4 notes below must be reverified against current official Gemini documentation. They are planning assumptions, not current API guarantees. Keep the target-photo goal and comparative quality test; adopt a model change only after that test supports it. No paid API evaluation or private session export has been performed in the October 13 reconciliation.
 
 **What is wrong today:** `handleGrade` in `ablty-worker.js` sends Gemini the viewer's sketch, their notes, and only the target's **name and six descriptor words** (from `RV_TARGET_POOL`). The AI never sees the actual target photo, so it cannot judge whether shapes, lines and layout match. It also uses `gemini-2.5-flash`, which Google still serves but no longer recommends for new work.
 **Do:**
