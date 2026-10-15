@@ -1,5 +1,7 @@
 # Step 9: blind judging of the complete RV session
 
+Draft review: [PR #149](https://github.com/Johnkay22/ABLTY/pull/149). Do not merge until the evaluation and migration prerequisites below are complete.
+
 Johnny requested this plan and implementation on October 15, 2026. This replaces the older single-target grading proposal. Base: main `8a8e416`. Work stays on `codex/rv-blind-judging`, draft PR only.
 
 ## Protocol
