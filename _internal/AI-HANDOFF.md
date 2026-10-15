@@ -1,39 +1,34 @@
 # ABLTY: current beta handoff
 
-Updated 2026-10-13 (UTC). Inspected main: `3cecab9`, version `2026.10.11.5` / `ablty-v96`. Recheck GitHub before resuming; this dated checkpoint does not prove deployment or phone behavior.
+Updated October 15, 2026 (Chicago). Inspected main `8a8e416`: #147 readiness/WBTB repair and #148 Settings polish are merged, version `2026.10.13.2` / `ablty-v98`. Recheck GitHub before resuming. Main status is not phone evidence.
 
-## Current work and review
+## Current authorized task
 
-Johnny authorized the first item in the October 13 readiness work order: reconcile status and open PRs. This is separate from numbered pre-beta step 1, whose website exclusions already merged in #135.
+Johnny approved the plan and implementation of **step 9, blind judging**. It compares all written impressions and any sketch with five candidate photos without giving Gemini the answer key. This replaces the older single-target/model-upgrade plan. See [BLIND-JUDGING-PLAN.md](BLIND-JUDGING-PLAN.md).
 
-Branch `codex/beta-readiness-reconcile` starts at inspected main and proposes version `2026.10.13.1` / `ablty-v97`. Replacement [draft PR #147](https://github.com/Johnkay22/ABLTY/pull/147) is open against main and was checked as mergeable on October 13. Automated GitHub checks run separately; inspect their current result before review. It contains the useful priorities and handoff from #140, updated to current facts, plus the WBTB timer repair and tests from #145. Both original PRs and branches remain untouched. After approving and merging the replacement, Johnny can close #140 and #145 as superseded without merging them. Do not retarget, force-push or merge Cursor's branches automatically.
+Branch `codex/rv-blind-judging` is a new isolated cloud branch at that main, proposing `2026.10.15.1` / `ablty-v99`. No Cursor branch was changed. #140 and #145 were checked and remain open; their useful work is already in #147. They overlap documentation and app files but do not contain competing blind-judging work. Johnny may close them as superseded; do not merge them.
 
-The WBTB fix keeps one countdown when an alarm opens the wake screen and its notification is then tapped. Closing stops that countdown; reopening after closing starts a fresh 25 minutes. No scheduling, push delivery, protocol length or Presentiment behavior changed. `sw.js` changes only the cache/header version.
+## Implementation boundary and release gates
 
-## What is established
+- Code covers the five-photo protocol, metadata-free 768px derivatives with pinned hashes, complete-submission locking, server-calculated scores/ties, written-only submissions and rank display/history/export. Existing historical records stay intact and labelled legacy. Charts separate methods.
+- A new migration adds server-only numeric receipts and a conditional completion function for an owner's previously saved ungraded session. It stores no raw session content in receipts. Existing app-owned history stores rankings in a nullable JSON column.
+- Migration file only: **not applied**. An authorized operator must verify the live base schema, apply it separately and verify its permissions before the app/Worker release. No Supabase, Stripe or Cloudflare configuration has been changed.
+- Current Gemini model retained, dream tagging untouched. Actual Gemini schema compatibility, quality, latency and cost remain unverified. No Gemini test credential is available in this machine; official documentation requests were blocked by the proxy. Do not paste a key in chat. A development-environment draft now adds the official documentation/API domains and a personal test-key requirement without a value; user review/save/publication and secure entry are still needed. The private evaluation runner defaults to no API calls, and requires explicit `--run-paid` plus `ABLTY_GEMINI_TEST_KEY` supplied securely to run.
+- Automated tests use local fixtures and disposable PostgreSQL/Chromium. They do not establish AI accuracy, production schema compatibility, deployment, billing or physical-phone readiness. Keep the PR draft until the evaluation and migration ordering are resolved.
+- Result receipts live for two hours and expired rows are pruned on subsequent assignment creation. An interrupted model request with uncertain outcome stays blocked rather than producing a second judgment. This beta implementation is not a tamper-proof research platform.
 
-- Steps 1 to 7 are implemented. The step-6 entitlement migration was recorded applied and verified in production October 6. Preserve that evidence and do not reapply it.
-- Account isolation #130, Academy Lesson 01 #132, sync/update work #139/#141/#142, Settings gestures #143, notification handling #144 and Presentiment #146 are merged. Replacement reconciliation #147 has since merged at `dc9437d` (`2026.10.13.1` / `ablty-v97`).
-- A Settings pull-to-close polish follow-up is a draft PR from `claude/settings-pull-close-effects-y0g4pd` (`2026.10.13.2` / `ablty-v98`). It does not change the step 9 then step 8 priority. Its phone checklist is in the PR.
-- Johnny's October 9 phone report showed the sync recovery offer appearing and clearing after Move. Return to the original account and close/reopen remain unconfirmed. Preserve all distinct results and the guarded content comparison; never clear storage to remove a sync warning.
-- The two last #141 review issues (destination persistence and failed queue cleanup) are fixed in merged code. Do not reopen them because an older log calls them unresolved. The historical cause of pre-isolation mixed data is not established by the fix.
-- Before this repair, three of #145's six timer checks fail on current main. On this branch all six pass; notification browser checks 12, notification intent 22 and update checks 11 also pass. The browser uses local fixtures and simulated notification taps. Actual installed-phone notifications remain untested.
-- During the October 13 assessment, 226 existing account/sync/data-handling/update checks passed, plus app syntax and 48 local links. Those tests do not establish live database or phone readiness.
-- Public website and Worker health requests are blocked by the environment's network policy (tunnel 403), including the read-only elevated attempt. GitHub API reads work. This is an access limitation, not a finding that the live app is broken.
+## Earlier checks and remaining phone work
 
-## What Johnny needs to do for this checkpoint
+The October 14 read-only checks reached `ablty.app/version.json` at `2026.10.13.2`; `/LAUNCH-PLAN.html` and `/CLAUDE.html` returned 404. The Worker `/ping` returned Cloudflare 403 / error 1010. Do not describe it as verified healthy or assume the website result verifies phone caches.
 
-1. Review the replacement draft and its checks. Merging deploys through the existing integrations, so only Johnny decides when to merge. After it merges, close the older #140 and #145 proposals as superseded without deleting their branches.
-2. After the approved build, open Settings > About and confirm `2026.10.13.1` (or a later intentionally released version). Start a short WBTB timer and keep the app open until it ends. Tap its wake notification: the countdown should continue once per second without returning to 25:00. Close the wake screen; a later fresh wake should start one new countdown. Repeat on iPhone and Android before promising WBTB to beta testers.
-3. For sync recovery, return to the original account, inspect Settings > Data Sync, close/reopen and confirm recovered entries do not return as waiting. Keep the diagnostic report if anything remains; do not delete local data.
-4. To enable cloud read-only deployment checks, review/save the environment network draft adding `ablty.app` and `abltygrader.kayvideoproductions.workers.dev`, then publish the development environment. The saved addition preserves `api.github.com` and existing presets. It does not change application hosting or any production setting. Access must be retried afterward.
+Steps 1 to 7 are implemented. Step 6's entitlement migration was recorded applied and verified October 6; do not reapply it. Johnny's October 9 sync report showed the recovery offer clearing after Move, but return to the original account and close/reopen are still unconfirmed. Preserve all distinct results and the guarded content comparison; never clear storage to remove a warning.
 
-Record device, version, action and pass/fail/not run in the work log. The full release/phone pilot remains step 15. Remaining known WBTB copy issues from #145 (the end-label element and later wake titles after a return prompt) were not changed or declared fixed by this timer repair.
+Phone checks still required: WBTB alarm followed by its notification continues one countdown; sync recovery stays recovered after switching back/reopening; Reality Check cold/background notification; Settings gestures; Presentiment; signup/verification/reset; installed-app updates. The WBTB end-label and later wake-title copy issues were not included in #147.
 
-## Next implementation priority
+After blind-judging release approval, test a written-only and sketch-plus-impressions session, ties, missing-photo/service failure, retry, cloud restore and two-account isolation on iPhone and Android. Record device, version and pass/fail/not run. No new beta invitations until step 15's pilot gates pass.
 
-Step 9: let grading see the trusted target photo as well as the sketch. Preserve blind assignment, response format, rubric and retry behavior. Verify current Gemini model names, request fields and prices against official documentation before choosing a model. Compare matched, mismatched, vague and repeated submissions, including latency and usage. Keep private examples out of the public repo; missing API access or examples means quality evaluation is unrun, not passed.
+## Next priority
 
-Then step 8: code-first signup, verification handling and 30-day beta Premium with server-enforced limits and expiry. Existing paid or manually granted Premium remains unchanged. No Stripe or card for the beta. Follow with steps 10, 11, 12 and 13; dashboard 14 is optional, pilot 15 precedes wider invites 16. Survey work waits for steps 17 and 18.
+Complete the step 9 review/evaluation/release gates, then step 8: code-first signup, verification handling and 30-day beta Premium with server-enforced limits and expiry. Existing paid or manually granted Premium stays unchanged. No Stripe/card for beta. Steps 10, 11, 12 and 13 follow; dashboard 14 is optional; pilot 15 precedes wider invites 16.
 
-This reconciliation does not implement or authorize production rollout of those later steps. Read `CLAUDE.md`, both plans and the newest work-log entry; coordinate task ownership, use an isolated branch, and finish one task in a draft PR. No automatic merge, deployment, production migration, email or provider-setting changes.
+Keep one task per isolated branch and draft PR. No automatic merge, deployment, production migration, email or provider-settings change.

@@ -1,3 +1,5 @@
+import { createBlindAssignment, judgeBlindSubmission } from './rv-blind-judging.js';
+
 // ABLTY Cloudflare Worker
 // Routes:
 //   POST /rv-assign       - Assign blind RV target/TRN
@@ -877,33 +879,12 @@ function getTodayStr(utcOffsetMinutes) {
 // --- GRADING ------------------------------------------
 async function handleRVAssign(request, env, origin = '') {
   try {
-    if (!env.ABLTY_KV) return json({ error: 'KV not bound' }, 500, origin);
     const body = await request.json().catch(() => ({}));
     const selectedCategory = sanitizeRVCategory(String(body?.category || 'all'));
-    const target = pickRVTarget(selectedCategory);
-    if (!target) return json({ error: 'No targets available' }, 500, origin);
-
-    const assignmentId = createAssignmentId();
     const trn = createTRN();
-    const payload = {
-      targetId: target.id,
-      trn,
-      category: target.category,
-      issuedAt: Date.now(),
-    };
-    await env.ABLTY_KV.put(
-      assignmentKey(assignmentId),
-      JSON.stringify(payload),
-      { expirationTtl: RV_ASSIGN_TTL_SECONDS }
-    );
-    // category is deliberately withheld: it would narrow the pool before drawing.
-    return json({
-      assignment_id: assignmentId,
-      trn,
-      expires_in: RV_ASSIGN_TTL_SECONDS,
-    }, 200, origin);
+    return json(await createBlindAssignment(env, RV_TARGET_POOL, selectedCategory, randomBelow, trn), 200, origin);
   } catch (e) {
-    return json({ error: e.message || 'Failed to assign target' }, 500, origin);
+    return json({ error: 'Target assignment is unavailable. Please try again later.' }, 503, origin);
   }
 }
 
@@ -922,6 +903,23 @@ function buildGradingFailure(target, message, trn) {
 }
 
 async function handleGrade(request, env, origin = '') {
+  let body;
+  try {
+    const text = await request.text();
+    if (text.length > 6 * 1024 * 1024) return json({ error: 'Submission too large' }, 413, origin);
+    body = JSON.parse(text);
+  } catch (_) { return json({ error: 'Invalid submission' }, 400, origin); }
+  if (/^b[0-9a-f]{32}$/.test(body?.assignment_id || '')) {
+    const result = await judgeBlindSubmission(body, env, RV_TARGET_POOL);
+    return json(result.body, result.status, origin);
+  }
+  // Only assignments already issued by the old release can reach this path.
+  // Their existing KV assignment/retry window is preserved. Never label them blind.
+  const legacyRequest = new Request(request.url, { method: 'POST', body: JSON.stringify(body) });
+  return handleLegacyGrade(legacyRequest, env, origin);
+}
+
+async function handleLegacyGrade(request, env, origin = '') {
   try {
     if (!env.ABLTY_KV) return json({ error: 'KV not bound' }, 500, origin);
     if (!env.GEMINI_API_KEY) return json({ error: 'Missing GEMINI_API_KEY' }, 500, origin);

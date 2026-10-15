@@ -29,7 +29,7 @@ const DECLS = [
   'let currentScreen = "profile";',
   'let STATE = { sessions: [], settings: {} };',
 ];
-const FNS = ['safeParseArray', 'ownedKeyFor', 'ownedKey', 'isLoggedIn', 'isAuthGenCurrent', 'beginAuthContext', 'endAuthContext',
+const FNS = ['getBlindJudging', 'queueRetriedRVJudgment', 'safeParseArray', 'ownedKeyFor', 'ownedKey', 'isLoggedIn', 'isAuthGenCurrent', 'beginAuthContext', 'endAuthContext',
   'getTSTrialHit', 'mapRVSessionRow', 'mapZenerRunRow', 'mapTSTrialRow',
   'trimRecent', 'persistHistory', 'warnHistoryNotSaved', 'pruneRvForStorage', 'saveState', 'loadState', 'loadZenerSessions', 'saveZenerSession',
   'describePendingSync', 'updateSyncStatus', 'refreshSyncStatus', 'retryPendingSync',
@@ -1426,6 +1426,67 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     assert.strictEqual(t.log.inserts.length, 0);
     assert.strictEqual(t.log.existence.length, 0);
     assert.strictEqual(t.ls.size, 0);
+  });
+
+  const blindMetadata = {
+    protocol: 'blind-five-v1', target_rank: 1, tied: false,
+    candidates: ['A','B','C','D','E'].map((label, i) => ({ label, src: 'targets/judging/6047-5129.jpg',
+      rank: i + 1, score: 80 - i * 10, is_target: i === 0 })),
+  };
+
+  await test('BLIND: completed retry is queued and conditionally completes its saved ungraded row', async () => {
+    const t = makeCtx(); t.signIn('A');
+    const session = rvSession(991, { score: 80, blind_judging: blindMetadata });
+    t.cloud('rv_sessions', 991, 'A', t.ctx.mapRVSessionRow({ ...session, score: null, blind_judging: null }));
+    t.answers.push({ error: { code: '23505' } });
+    let calls = 0;
+    t.ctx.sb.rpc = async (name, args) => {
+      assert.strictEqual(name, 'rv_complete_blind_session'); calls++;
+      assert.strictEqual(args.p_row.notes, session.notes);
+      t.cloud('rv_sessions', 991, 'A', args.p_row);
+      return { data: true, error: null };
+    };
+    await t.ctx.queueRetriedRVJudgment(session, 'A');
+    assert.strictEqual(calls, 1); assert.strictEqual(t.queue('A').length, 0);
+    assert.strictEqual(t.cloudRows.get('rv_sessions:991').row.blind_judging.protocol, 'blind-five-v1');
+  });
+
+  await test('BLIND: failed conditional completion remains queued and visibly unsaved', async () => {
+    const t = makeCtx(); t.signIn('A');
+    const session = rvSession(992, { score: 80, blind_judging: blindMetadata });
+    t.cloud('rv_sessions', 992, 'A', t.ctx.mapRVSessionRow({ ...session, score: null, blind_judging: null }));
+    t.answers.push({ error: { code: '23505' } });
+    t.ctx.sb.rpc = async () => ({ data: null, error: { code: 'network' } });
+    await t.ctx.queueRetriedRVJudgment(session, 'A');
+    assert.strictEqual(t.queue('A').length, 1);
+    assert.strictEqual(t.queue('A')[0].lastError, 'judgment_sync');
+    assert.strictEqual(t.cloudRows.get('rv_sessions:992').row.score, null);
+  });
+
+  await test("BLIND: completing another account's colliding row never calls the RPC", async () => {
+    const t = makeCtx(); t.signIn('B');
+    const session = rvSession(993, { score: 80, blind_judging: blindMetadata });
+    t.cloud('rv_sessions', 993, 'A', t.ctx.mapRVSessionRow({ ...session, score: null }));
+    t.answers.push({ error: { code: '23505' } });
+    t.ctx.sb.rpc = async () => { throw new Error('must not be called'); };
+    await t.ctx.queueRetriedRVJudgment(session, 'B');
+    assert.strictEqual(t.queue('B')[0].unresolved, 'id_collision');
+    assert.strictEqual(t.cloudRows.get('rv_sessions:993').row.score, null);
+  });
+
+  await test('BLIND: original pending insert cannot remove a newer judgment; account switch keeps it with its owner', async () => {
+    const t = makeCtx(); t.signIn('A');
+    const session = rvSession(994, { score: 80, blind_judging: blindMetadata });
+    t.answers.push({ hold: true });
+    const first = t.ctx.syncSessionToSupabase('rv_sessions', t.ctx.mapRVSessionRow({ ...session, score: null, blind_judging: null }));
+    await tick();
+    const retry = t.ctx.queueRetriedRVJudgment(session, 'A');
+    t.signIn('B'); t.holds[0].resolve({ error: null });
+    await first; await retry;
+    assert.strictEqual(t.queue('A').length, 1);
+    assert.strictEqual(t.queue('A')[0].row.score, 80);
+    assert.strictEqual(t.queue('B').length, 0);
+    assert.strictEqual(t.log.inserts.length, 1);
   });
 
   console.log(`\n${passed} passed, 0 failed`);
