@@ -9869,6 +9869,7 @@ function renderBlindJudgingCard(id, blind) {
   if (!blind) { el.innerHTML = ''; return; }
   const names = { geometric_form: 'Form', spatial_impression: 'Space', texture_surface: 'Texture',
     emotional_tone: 'Atmosphere', movement_impression: 'Movement', color_light: 'Light' };
+  if (blind.rubric === 'seven-dimensions-v1') names.sensory_impression = 'Sensory impression';
   el.innerHTML = `<div class="mono-label" style="margin-bottom:12px;">AI blind judging</div>
     <div class="summary-text" style="margin-bottom:16px;">Your target ${blind.tied ? 'tied at rank' : 'ranked'} ${blind.target_rank} of 5. Written impressions and sketches are judged together.</div>
     ${[...blind.candidates].sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label)).map(c => `
@@ -16490,6 +16491,7 @@ function renderRVDetail(s) {
       emotional_tone:    'Emotional Tone',
       movement_impression:'Movement',
       color_light:       'Color / Light',
+      sensory_impression:'Sensory Impression',
     };
     dimGrid.innerHTML = Object.entries(dims).map(([key, val]) => `
       <div class="dimension-row">
@@ -19934,18 +19936,22 @@ function buildDimStrengths(rvSessions) {
   }
 
   const dims = ['geometric_form','spatial_impression','texture_surface','emotional_tone','movement_impression','color_light'];
+  if (sessionsWithDims.some(s => Number.isInteger(s.dimension_scores.sensory_impression))) dims.push('sensory_impression');
   const labels = {
     geometric_form: 'Geometric Form',
     spatial_impression: 'Spatial Impression',
     texture_surface: 'Texture / Surface',
     emotional_tone: 'Emotional Tone',
     movement_impression: 'Movement',
-    color_light: 'Color / Light'
+    color_light: 'Color / Light',
+    sensory_impression: 'Sensory Impression'
   };
 
   const avgs = {};
   dims.forEach(d => {
-    const vals = sessionsWithDims.map(s => s.dimension_scores[d] || 0);
+    // Older six-dimension sessions have no sensory rating, not a zero rating.
+    const rated = d === 'sensory_impression' ? sessionsWithDims.filter(s => Number.isInteger(s.dimension_scores[d])) : sessionsWithDims;
+    const vals = rated.map(s => s.dimension_scores[d] || 0);
     avgs[d] = Math.round(vals.reduce((a,b) => a+b,0) / vals.length);
   });
 
@@ -20072,7 +20078,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.10.15.1';
+const APP_VERSION = '2026.10.16.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 // What the last update check found, so Settings can tell "this is the

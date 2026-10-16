@@ -45,9 +45,20 @@ SELECT check_test(NOT has_table_privilege('anon','rv_blind_receipts','SELECT'), 
 SELECT check_test(NOT has_table_privilege('authenticated','rv_blind_receipts','SELECT'), 'accounts cannot read receipts');
 SELECT check_test(NOT has_function_privilege('authenticated','rv_blind_transition(text,text,jsonb)','EXECUTE'), 'accounts cannot claim server receipts');
 SELECT check_test(NOT has_function_privilege('anon','rv_complete_blind_session(jsonb)','EXECUTE'), 'anon cannot update cloud judgments');
+SELECT check_test((SELECT array_agg(column_name::text ORDER BY ordinal_position) = ARRAY[
+  'id','trn','candidate_ids','target_index','submission_hash','state','lease','lease_until','attempts',
+  'score_matrix','token_counts','protocol','model','rubric','created_at','finished_at','expires_at']
+  FROM information_schema.columns WHERE table_schema='public' AND table_name='rv_blind_receipts'),
+  'receipt columns contain no account IDs, notes, sketches or generated text');
 SET ROLE service_role;
 SELECT check_test(rv_blind_transition('b11111111111111111111111111111111','create',
   '{"trn":"1234-5678","candidate_ids":["T001","T002","T003","T004","T005"],"target_index":2}')->>'status' = 'created', 'service role creates receipt');
+RESET ROLE;
+SELECT check_test((SELECT created_at <= clock_timestamp() AND finished_at IS NULL
+  AND expires_at BETWEEN created_at + interval '2 hours' AND created_at + interval '2 hours 1 second'
+  AND rubric = 'seven-dimensions-v1' FROM rv_blind_receipts WHERE id='b11111111111111111111111111111111'),
+  'new receipt has creation timestamp, seven-dimension rubric and two-hour claim window');
+SET ROLE service_role;
 SELECT check_test(rv_blind_transition('b11111111111111111111111111111111','claim',
   jsonb_build_object('trn','1234-5678','submission_hash',repeat('a',64),'lease','11111111-1111-4111-8111-111111111111'))->>'status' = 'claimed', 'first submission obtains claim');
 SELECT check_test(rv_blind_transition('b11111111111111111111111111111111','claim',
@@ -58,23 +69,61 @@ SELECT check_test(rv_blind_transition('b11111111111111111111111111111111','finis
   '{"lease":"22222222-2222-4222-8222-222222222222"}')->>'status' = 'stale', 'different lease cannot finish');
 DO $$ BEGIN
   PERFORM rv_blind_transition('b11111111111111111111111111111111','finish',
-  '{"lease":"11111111-1111-4111-8111-111111111111","score_matrix":[[8,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0]]}');
+  '{"lease":"11111111-1111-4111-8111-111111111111","score_matrix":[[8,0,0,0,0,0,0],[0,0,0,0,0,0,0],[0,0,0,0,0,0,0],[0,0,0,0,0,0,0],[0,0,0,0,0,0,0]]}');
   RAISE EXCEPTION 'invalid scores accepted';
 EXCEPTION WHEN raise_exception THEN IF SQLERRM <> 'Invalid score' THEN RAISE; END IF; RAISE NOTICE 'PASS: database validates numeric scores'; END $$;
+DO $$ DECLARE width integer; matrix jsonb; BEGIN
+  FOREACH width IN ARRAY ARRAY[6,8] LOOP
+    SELECT jsonb_agg(row_scores) INTO matrix FROM (
+      SELECT (SELECT jsonb_agg(1) FROM generate_series(1,width)) AS row_scores FROM generate_series(1,5)
+    ) AS rows;
+    BEGIN
+      PERFORM rv_blind_transition('b11111111111111111111111111111111','finish',
+        jsonb_build_object('lease','11111111-1111-4111-8111-111111111111','score_matrix',matrix));
+      RAISE EXCEPTION 'wrong dimension count accepted';
+    EXCEPTION WHEN raise_exception THEN
+      IF SQLERRM <> 'Invalid dimensions' THEN RAISE; END IF;
+      RAISE NOTICE 'PASS: database rejects % dimensions per new candidate', width;
+    END;
+  END LOOP;
+END $$;
 SELECT check_test(rv_blind_transition('b11111111111111111111111111111111','finish',
-  '{"lease":"11111111-1111-4111-8111-111111111111","score_matrix":[[0,0,0,0,0,0],[1,1,1,1,1,1],[2,2,2,2,2,2],[3,3,3,3,3,3],[4,4,4,4,4,4]],"token_counts":{"input":100,"output":50}}')->>'status' = 'done', 'valid judgment committed');
+  '{"lease":"11111111-1111-4111-8111-111111111111","score_matrix":[[0,0,0,0,0,0,0],[1,1,1,1,1,1,1],[2,2,2,2,2,2,2],[3,3,3,3,3,3,3],[4,4,4,4,4,4,4]],"token_counts":{"input":100,"output":50}}')->>'status' = 'done', 'valid judgment committed');
 SELECT check_test(rv_blind_transition('b11111111111111111111111111111111','claim',
   jsonb_build_object('trn','1234-5678','submission_hash',repeat('a',64),'lease','22222222-2222-4222-8222-222222222222'))->>'status' = 'done', 'replay returns committed judgment');
 RESET ROLE;
 SELECT check_test((SELECT attempts=1 FROM rv_blind_receipts WHERE id='b11111111111111111111111111111111'), 'replay does not consume a model attempt');
+DO $$ DECLARE before_replay public.rv_blind_receipts%ROWTYPE; BEGIN
+  SELECT * INTO before_replay FROM rv_blind_receipts WHERE id='b11111111111111111111111111111111';
+  PERFORM check_test(before_replay.finished_at >= before_replay.created_at AND before_replay.finished_at <= clock_timestamp(), 'finished judgment has completion timestamp');
+  PERFORM rv_blind_transition(before_replay.id,'claim', jsonb_build_object('trn','1234-5678','submission_hash',repeat('a',64),'lease','22222222-2222-4222-8222-222222222222'));
+  PERFORM check_test((SELECT created_at=before_replay.created_at AND finished_at=before_replay.finished_at AND expires_at=before_replay.expires_at
+    FROM rv_blind_receipts WHERE id=before_replay.id), 'replay preserves creation, completion and expiry timestamps');
+END $$;
 SELECT rv_blind_transition('b22222222222222222222222222222222','create', '{"trn":"1234-5678","candidate_ids":["T001","T002","T003","T004","T005"],"target_index":0}');
 SELECT rv_blind_transition('b22222222222222222222222222222222','claim', jsonb_build_object('trn','1234-5678','submission_hash',repeat('a',64),'lease','11111111-1111-4111-8111-111111111111'));
 UPDATE rv_blind_receipts SET lease_until=clock_timestamp()-interval '1 second' WHERE id='b22222222222222222222222222222222';
 SELECT check_test(rv_blind_transition('b22222222222222222222222222222222','claim', jsonb_build_object('trn','1234-5678','submission_hash',repeat('a',64),'lease','22222222-2222-4222-8222-222222222222'))->>'status'='blocked', 'abandoned request fails closed');
 UPDATE rv_blind_receipts SET expires_at=clock_timestamp()-interval '1 second' WHERE id='b22222222222222222222222222222222';
 SELECT check_test(rv_blind_transition('b22222222222222222222222222222222','claim','{}')->>'status'='expired', 'expired receipt cannot be replayed');
+UPDATE rv_blind_receipts SET expires_at=clock_timestamp()-interval '1 second' WHERE id='b11111111111111111111111111111111';
+SELECT check_test(rv_blind_transition('b11111111111111111111111111111111','claim',
+  jsonb_build_object('trn','1234-5678','submission_hash',repeat('a',64),'lease','22222222-2222-4222-8222-222222222222'))->>'status'='expired',
+  'permanent finished receipt does not extend the two-hour replay window');
 SELECT rv_blind_transition('b33333333333333333333333333333333','create', '{"trn":"1234-5678","candidate_ids":["T001","T002","T003","T004","T005"],"target_index":0}');
 SELECT check_test(NOT EXISTS(SELECT 1 FROM rv_blind_receipts WHERE id='b22222222222222222222222222222222'), 'next assignment prunes expired receipt');
+SELECT check_test((SELECT state='done' AND finished_at IS NOT NULL AND score_matrix IS NOT NULL FROM rv_blind_receipts WHERE id='b11111111111111111111111111111111'),
+  'next assignment keeps expired finished judgment permanently');
+DO $$ DECLARE initial_expiry timestamptz; BEGIN
+  PERFORM rv_blind_transition('b33333333333333333333333333333333','claim', jsonb_build_object('trn','1234-5678','submission_hash',repeat('a',64),'lease','11111111-1111-4111-8111-111111111111'));
+  SELECT expires_at INTO initial_expiry FROM rv_blind_receipts WHERE id='b33333333333333333333333333333333';
+  PERFORM check_test(initial_expiry BETWEEN clock_timestamp()+interval '1 hour 59 minutes' AND clock_timestamp()+interval '2 hours', 'first claim starts the unchanged two-hour retry window');
+  PERFORM rv_blind_transition('b33333333333333333333333333333333','fail','{"lease":"11111111-1111-4111-8111-111111111111","retryable":true}');
+  PERFORM rv_blind_transition('b33333333333333333333333333333333','claim', jsonb_build_object('trn','1234-5678','submission_hash',repeat('a',64),'lease','11111111-1111-4111-8111-111111111111'));
+  PERFORM check_test((SELECT expires_at=initial_expiry AND finished_at IS NULL FROM rv_blind_receipts WHERE id='b33333333333333333333333333333333'), 'retry never extends expiry or marks an unfinished receipt complete');
+END $$;
+-- Restore this unfinished fixture for the existing three-attempt check.
+UPDATE rv_blind_receipts SET state='ready', attempts=0, submission_hash=NULL WHERE id='b33333333333333333333333333333333';
 DO $$ DECLARE i integer; status text; BEGIN
   FOR i IN 1..3 LOOP
     status := rv_blind_transition('b33333333333333333333333333333333','claim', jsonb_build_object('trn','1234-5678','submission_hash',repeat('a',64),'lease','11111111-1111-4111-8111-111111111111'))->>'status';
@@ -82,6 +131,19 @@ DO $$ DECLARE i integer; status text; BEGIN
     PERFORM rv_blind_transition('b33333333333333333333333333333333','fail','{"lease":"11111111-1111-4111-8111-111111111111","retryable":true}');
   END LOOP;
   PERFORM check_test(rv_blind_transition('b33333333333333333333333333333333','claim', jsonb_build_object('trn','1234-5678','submission_hash',repeat('a',64),'lease','11111111-1111-4111-8111-111111111111'))->>'status'='blocked', 'maximum three confirmed attempts');
+END $$;
+
+DO $$ DECLARE pending_state text; receipt_id text; i integer := 5; BEGIN
+  FOREACH pending_state IN ARRAY ARRAY['ready','running','retry','blocked'] LOOP
+    receipt_id := 'b' || repeat(i::text,32);
+    INSERT INTO rv_blind_receipts(id,trn,candidate_ids,target_index,state,expires_at)
+      VALUES(receipt_id,'1234-5678',ARRAY['T001','T002','T003','T004','T005'],0,pending_state,clock_timestamp()-interval '1 second');
+    i := i+1;
+  END LOOP;
+  PERFORM rv_blind_transition('b99999999999999999999999999999999','create', '{"trn":"1234-5678","candidate_ids":["T001","T002","T003","T004","T005"],"target_index":0}');
+  PERFORM check_test(NOT EXISTS(SELECT 1 FROM rv_blind_receipts WHERE expires_at < clock_timestamp() AND state <> 'done'), 'all expired unfinished states are pruned');
+  PERFORM check_test(EXISTS(SELECT 1 FROM rv_blind_receipts WHERE id='b11111111111111111111111111111111')
+    AND EXISTS(SELECT 1 FROM rv_blind_receipts WHERE id='b33333333333333333333333333333333'), 'repeated cleanup preserves finished judgments and unexpired unfinished receipts');
 END $$;
 
 INSERT INTO rv_sessions(id,user_id,session_type,trn,notes,duration,timestamp) VALUES

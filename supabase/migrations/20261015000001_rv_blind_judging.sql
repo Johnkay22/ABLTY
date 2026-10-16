@@ -1,7 +1,7 @@
 -- Step 9. Apply separately, before releasing the app/Worker. Never run by CI
--- against production. Rollback: restore the previous Worker/app first, then
--- drop the RPC and receipt table. Keep rv_sessions.blind_judging to preserve
--- history; removing it is intentionally not part of rollback.
+-- against production. Rollback: restore the previous Worker/app first. Keep
+-- rv_blind_receipts and rv_sessions.blind_judging to preserve finished numeric
+-- judgments and history; removing either is intentionally not part of rollback.
 BEGIN;
 
 ALTER TABLE public.rv_sessions ADD COLUMN IF NOT EXISTS blind_judging jsonb;
@@ -20,14 +20,16 @@ CREATE TABLE public.rv_blind_receipts (
   token_counts jsonb,
   protocol text NOT NULL DEFAULT 'blind-five-v1',
   model text NOT NULL DEFAULT 'gemini-2.5-flash',
-  rubric text NOT NULL DEFAULT 'six-dimensions-v1',
+  rubric text NOT NULL DEFAULT 'seven-dimensions-v1',
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  finished_at timestamptz,
   expires_at timestamptz NOT NULL DEFAULT (clock_timestamp() + interval '2 hours')
 );
-CREATE INDEX rv_blind_receipts_expiry ON public.rv_blind_receipts(expires_at);
+CREATE INDEX rv_blind_receipts_expiry ON public.rv_blind_receipts(expires_at) WHERE state <> 'done';
 ALTER TABLE public.rv_blind_receipts ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.rv_blind_receipts FROM PUBLIC, anon, authenticated, service_role;
 COMMENT ON TABLE public.rv_blind_receipts IS
-  'Short-lived service-only judging receipts. No account IDs, raw session content or generated descriptions. Expired rows are pruned on assignment creation.';
+  'Service-only numeric judging receipts. Finished judgments are retained permanently with creation and completion timestamps. Only expired unfinished receipts are pruned on assignment creation. Claims and retries expire after two hours. No account IDs, raw session content or generated descriptions.';
 
 CREATE FUNCTION public.rv_blind_transition(p_id text, p_action text, p_payload jsonb DEFAULT '{}'::jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
@@ -46,7 +48,7 @@ BEGIN
       OR EXISTS (SELECT 1 FROM unnest(ids) AS x WHERE x !~ '^T[0-9]{3}$') THEN
       RAISE EXCEPTION 'Invalid candidate set';
     END IF;
-    DELETE FROM public.rv_blind_receipts WHERE expires_at < clock_timestamp();
+    DELETE FROM public.rv_blind_receipts WHERE state <> 'done' AND expires_at < clock_timestamp();
     INSERT INTO public.rv_blind_receipts(id, trn, candidate_ids, target_index)
       VALUES(p_id, p_payload->>'trn', ids, (p_payload->>'target_index')::integer);
     RETURN jsonb_build_object('status', 'created');
@@ -99,14 +101,14 @@ BEGIN
     IF jsonb_typeof(p_payload->'score_matrix') IS DISTINCT FROM 'array'
       OR jsonb_array_length(p_payload->'score_matrix') <> 5 THEN RAISE EXCEPTION 'Invalid scores'; END IF;
     FOR row_value IN SELECT jsonb_array_elements(p_payload->'score_matrix') LOOP
-      IF jsonb_typeof(row_value) IS DISTINCT FROM 'array' OR jsonb_array_length(row_value) <> 6 THEN
+      IF jsonb_typeof(row_value) IS DISTINCT FROM 'array' OR jsonb_array_length(row_value) <> 7 THEN
         RAISE EXCEPTION 'Invalid dimensions';
       END IF;
       FOR value IN SELECT jsonb_array_elements(row_value) LOOP
         IF jsonb_typeof(value) <> 'number' OR value::text !~ '^[0-5]$' THEN RAISE EXCEPTION 'Invalid score'; END IF;
       END LOOP;
     END LOOP;
-    UPDATE public.rv_blind_receipts SET state = 'done', score_matrix = p_payload->'score_matrix',
+    UPDATE public.rv_blind_receipts SET state = 'done', finished_at = clock_timestamp(), score_matrix = p_payload->'score_matrix',
       token_counts = CASE WHEN jsonb_typeof(p_payload->'token_counts') = 'object' THEN jsonb_build_object(
         'input', greatest(0, least(1000000, coalesce((p_payload->'token_counts'->>'input')::integer, 0))),
         'output', greatest(0, least(1000000, coalesce((p_payload->'token_counts'->>'output')::integer, 0))),

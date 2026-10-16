@@ -7,8 +7,10 @@ const { chromium } = require('playwright');
 const { loadBlindWorker, root } = require('./helpers/blind-worker');
 const api = loadBlindWorker(() => { throw new Error('No external calls allowed'); });
 const receipt = { candidate_ids: ['T001','T002','T003','T004','T005'], target_index: 1,
-  score_matrix: [[1,1,1,1,1,1],[4,4,4,4,4,4],[4,4,4,4,4,4],[0,0,0,0,0,0],[2,2,2,2,2,2]], trn: '1234-5678' };
+  rubric: 'seven-dimensions-v1',
+  score_matrix: [[1,1,1,1,1,1,1],[4,4,4,4,4,4,4],[4,4,4,4,4,4,4],[0,0,0,0,0,0,0],[2,2,2,2,2,2,2]], trn: '1234-5678' };
 const result = JSON.parse(JSON.stringify(api.resultFromReceipt(receipt, api.RV_TARGET_POOL)));
+const oldResult = JSON.parse(JSON.stringify(api.resultFromReceipt({ ...receipt, rubric: 'six-dimensions-v1', score_matrix: receipt.score_matrix.map(row => row.slice(0, 6)) }, api.RV_TARGET_POOL)));
 let passed = 0;
 async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name); }
 
@@ -62,6 +64,8 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
         assert.equal(await page.textContent('#result-score-label'), 'Tied rank');
         assert.equal(await page.locator('#result-blind-judging .blind-candidate').count(), 5);
         assert.match(await page.textContent('#result-blind-judging'), /tied at rank 1 of 5/);
+        assert.match(await page.textContent('#result-blind-judging'), /Sensory impression: 4 \/ 5/);
+        assert.equal(await page.locator('#result-blind-judging details').first().locator('div').count(), 7);
       });
       await step(width + ': rankings survive local history reload and cloud row mapping', async () => {
         const mapped = await page.evaluate(() => mapRVSessionRow(STATE.sessions[0]));
@@ -71,6 +75,28 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
         assert.equal(await page.locator('#detail-blind-judging .blind-candidate').count(), 5);
         assert.equal(await page.textContent('#detail-score-pct'), '1/5');
         assert.match(await page.textContent('#detail-notes-card'), /Rough surface/);
+        assert.match(await page.textContent('#detail-dimensions'), /Sensory Impression/);
+        assert.equal(await page.locator('#detail-blind-judging details').first().locator('div').count(), 7);
+      });
+      await step(width + ': older six-dimension history retains scores and has no invented sensory rating', async () => {
+        await page.evaluate(old => {
+          renderResults(old, old.target, 'Synthetic older session');
+          renderRVDetail({ ...old, score: old.overall_score, timestamp: new Date().toISOString() });
+        }, oldResult);
+        assert.match(await page.textContent('#result-blind-judging'), /80\/100 correspondence/);
+        assert.equal(await page.locator('#result-blind-judging details').first().locator('div').count(), 6);
+        assert.equal(await page.locator('#detail-blind-judging details').first().locator('div').count(), 6);
+        assert.ok(!(await page.textContent('#detail-dimensions')).includes('Sensory'));
+        assert.equal(await page.textContent('#detail-score-label'), 'Tied rank');
+      });
+      await step(width + ': sensory averages omit older unmeasured sessions instead of counting them as zero', async () => {
+        const text = await page.evaluate(({ old, current }) => {
+          buildDimStrengths([old, current]);
+          return document.getElementById('dim-strength-wrap').textContent;
+        }, { old: oldResult, current: result });
+        assert.match(text, /Sensory Impression\s+4\/5/);
+        await page.evaluate(old => buildDimStrengths([old, old]), oldResult);
+        assert.ok(!(await page.textContent('#dim-strength-wrap')).includes('Sensory'));
       });
       await step(width + ': legacy results stay labelled and are excluded from blind trends', async () => {
         const compared = await page.evaluate(() => {
