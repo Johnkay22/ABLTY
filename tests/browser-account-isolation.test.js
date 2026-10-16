@@ -490,7 +490,7 @@ async function main() {
 
     await step('a slow RV grading result after sign-out is filed with A, not shown to or synced as the guest', async () => {
       await login(page, A);
-      await page.evaluate(() => { STATE.currentAssignmentId = 'asg-1'; STATE.currentTRN = 'SLOW-1'; });
+      await page.evaluate(() => { STATE.currentAssignmentId = 'asg-1'; STATE.currentTRN = 'SLOW-1'; document.getElementById('imp-form').value = 'synthetic written impression'; });
       let release;
       grade.hold = { promise: new Promise(r => { release = r; }) };
       await page.evaluate(() => { window.__submit = submitSession(); });

@@ -4,6 +4,8 @@
 
 **Exception, added 2026-10-03:** the private beta has its own step-by-step plan in `_internal/PRE-BETA-PLAN.md`, with a Status board and a work log in `_internal/WORK-LOG.md`. For pre-beta work, follow that plan and record progress there as well as here.
 
+**Current work, 2026-10-16:** Step 9 remains on `codex/rv-blind-judging` in draft PR #149, based on merged #148 (`8a8e416`). The approved audit follow-up adds sensory scoring, permanent finished numeric receipts and private comparisons of thinking settings and Gemini 2.5/3.8 Flash. Proposed release: `2026.10.16.1` / `ablty-v100`. See `_internal/BLIND-JUDGING-PLAN.md` for the protocol and evaluation details. Finished receipts are retained permanently; only expired unfinished receipts are pruned, with the two-hour claim/retry window unchanged. The migration is still a file only, not applied. Production model/settings are unchanged. Real Gemini evaluation and phone checks remain release gates. #140 and #145 remain open and untouched; step 8 follows step 9.
+
 **Created:** 2026-08-23, from a live audit of the repo, the deployed Worker, and the Supabase database.
 **Rewritten:** 2026-09-03, after a second live audit of `main` (`54ec92f`) plus Johnny's product decisions. The 2026-08-23 claims that were wrong are corrected here, not left as history.
 **Status synced:** 2026-10-13, using current GitHub main `3cecab9` and open PRs #140 and #145. This is repository evidence. Public website and Worker health requests were blocked by the cloud environment network policy (tunnel 403); deployment, email and physical-phone checks remain unverified. Historical production migration checks below keep their original dates.
@@ -88,7 +90,7 @@ The app is launch ready when all of the following are true:
 3. **It feels full, not beta.** Two psi test modules (Zener, Presentiment), a complete Academy Stage I, an 80-target RV pool with unique images, Dream Lab with enough reading content to last, and no screen that promises something that does not exist.
 4. **The front door matches reality.** The landing page sells installing a live app, not joining a waitlist.
 
-Launch does not require: Daily Community RV Challenge, Signal Scanner, PK Arena, Academy voiceover, Academy Stages II through VI, Ganzfeld, rank-order judging, CRV structured session mode, the typography migration, Capacitor, or Play Store. Those are post-launch. See the parking lot.
+Launch does not require: Daily Community RV Challenge, Signal Scanner, PK Arena, Academy voiceover, Academy Stages II through VI, Ganzfeld, CRV structured session mode, the typography migration, Capacitor, or Play Store. Those are post-launch. See the parking lot.
 
 ---
 
@@ -174,7 +176,7 @@ In recommended order:
 5. PK Arena. Standalone prototype at `pk-arena-prototype.html` (Cascade, Drift, Emerge), merged in [#121](https://github.com/Johnkay22/ABLTY/pull/121). Zero references in `app.html`. Same class of work as Signal Scanner: do not treat the prototype as a shippable module. Johnny has not scoped it for launch.
 6. Academy voiceover via ElevenLabs (pre-generated files, never live API). Browser TTS was removed in 0.3 (#123).
 7. Ganzfeld Link paired telepathy protocol
-8. Rank-order blind judging rebuild
+8. Formal RV research/statistical validation beyond the five-candidate blind judging now requested for pre-beta step 9
 9. CRV structured session mode
 10. Pre-Session Warm-Up integration (Box Breathing plus Pink Noise, v3 spec drafted)
 11. Legal acceptance server-side write (move off the client). Not needed for the 2.1 price change.
