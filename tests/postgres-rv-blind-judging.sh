@@ -146,20 +146,73 @@ DO $$ DECLARE pending_state text; receipt_id text; i integer := 5; BEGIN
     AND EXISTS(SELECT 1 FROM rv_blind_receipts WHERE id='b33333333333333333333333333333333'), 'repeated cleanup preserves finished judgments and unexpired unfinished receipts');
 END $$;
 
-INSERT INTO rv_sessions(id,user_id,session_type,trn,notes,duration,timestamp) VALUES
-  (1,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','personal','1234-5678','synthetic test notes',20,'2026-10-15T12:00:00Z');
+-- Row 1 is a failed blind session saved with its assignment, as the app does.
+INSERT INTO rv_sessions(id,user_id,session_type,trn,notes,duration,timestamp,blind_judging) VALUES
+  (1,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','personal','1234-5678','synthetic test notes',20,'2026-10-15T12:00:00Z',
+   '{"protocol":"blind-five-v1","assignment_id":"beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","retryable":true}');
 CREATE TABLE test_payload(data jsonb);
-INSERT INTO test_payload SELECT to_jsonb(r) || '{"score":40,"blind_judging":{"protocol":"blind-five-v1","candidates":[{},{},{},{},{}]},"target_id":1,"summary":"synthetic result"}'::jsonb FROM rv_sessions r WHERE id=1;
+INSERT INTO test_payload SELECT to_jsonb(r) || '{"score":40,"blind_judging":{"protocol":"blind-five-v1","assignment_id":"beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","candidates":[{},{},{},{},{}]},"blind_receipt_id":"beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","target_id":1,"summary":"synthetic result"}'::jsonb FROM rv_sessions r WHERE id=1;
 GRANT SELECT ON test_payload TO authenticated;
+SELECT check_test((SELECT data ? 'blind_receipt_id' FROM test_payload) AND (SELECT blind_receipt_id IS NULL FROM rv_sessions WHERE id=1),
+  'failed session is saved without a receipt link');
 SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',false);
 SELECT check_test(NOT rv_complete_blind_session((SELECT data FROM test_payload)), 'other account cannot finish this row');
 SELECT set_config('request.jwt.claim.sub','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',false);
 SELECT check_test(NOT rv_complete_blind_session((SELECT data || '{"notes":"different"}'::jsonb FROM test_payload)), 'changed notes cannot overwrite saved session');
 SELECT check_test(NOT rv_complete_blind_session((SELECT data || '{"sketch_data":"different"}'::jsonb FROM test_payload)), 'changed sketch cannot overwrite saved session');
+SELECT check_test(NOT rv_complete_blind_session((SELECT data - 'blind_receipt_id' FROM test_payload)), 'retry without a receipt id is refused');
+SELECT check_test(NOT rv_complete_blind_session((SELECT data || '{"blind_receipt_id":null}'::jsonb FROM test_payload)), 'retry with a null receipt id is refused');
+SELECT check_test(NOT rv_complete_blind_session((SELECT data || '{"blind_receipt_id":"bEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE"}'::jsonb FROM test_payload)), 'retry with a malformed receipt id is refused');
+SELECT check_test(NOT rv_complete_blind_session((SELECT data || '{"blind_receipt_id":12345}'::jsonb FROM test_payload)), 'retry with a non-text receipt id is refused');
+SELECT check_test(NOT rv_complete_blind_session((SELECT data || '{"blind_receipt_id":"bffffffffffffffffffffffffffffffff"}'::jsonb FROM test_payload)), 'receipt id must match the judgment');
+SELECT check_test(NOT rv_complete_blind_session((SELECT jsonb_set(data || '{"blind_receipt_id":"bffffffffffffffffffffffffffffffff"}'::jsonb,
+  '{blind_judging,assignment_id}','"bffffffffffffffffffffffffffffffff"') FROM test_payload)), 'retry cannot switch to a receipt the saved session did not record');
+SELECT check_test((SELECT score IS NULL AND blind_receipt_id IS NULL FROM rv_sessions WHERE id=1), 'refused retries leave the saved session unchanged');
 SELECT check_test(rv_complete_blind_session((SELECT data FROM test_payload)), 'same owner completes exact ungraded session');
 SELECT check_test((SELECT score=40 AND blind_judging->>'protocol'='blind-five-v1' FROM rv_sessions WHERE id=1), 'rank metadata survives cloud persistence');
+SELECT check_test((SELECT blind_receipt_id='beeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee' FROM rv_sessions WHERE id=1), 'retry path saves the receipt id');
 SELECT check_test(NOT rv_complete_blind_session((SELECT data || '{"score":99}'::jsonb FROM test_payload)), 'completed score cannot be replaced by retry');
+-- A successful first-time save is a plain insert that carries its receipt id.
+INSERT INTO rv_sessions(id,user_id,session_type,trn,score,notes,timestamp,blind_judging,blind_receipt_id) VALUES
+  (2,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','personal','2345-6789',55,'written','2026-10-15T13:00:00Z',
+   '{"protocol":"blind-five-v1","assignment_id":"b12121212121212121212121212121212"}','b12121212121212121212121212121212');
+SELECT check_test((SELECT blind_receipt_id='b12121212121212121212121212121212' FROM rv_sessions WHERE id=2), 'successful session saves its receipt id');
+DO $$ BEGIN
+  INSERT INTO public.rv_sessions(id,user_id,trn,score,blind_receipt_id) VALUES (3,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','2345-6789',90,'b12121212121212121212121212121212');
+  RAISE EXCEPTION 'shared receipt accepted';
+EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'PASS: two sessions of one account cannot share a receipt id'; END $$;
+DO $$ BEGIN
+  INSERT INTO public.rv_sessions(id,user_id,trn,score,blind_receipt_id) VALUES (4,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','2345-6789',90,'not-a-receipt');
+  RAISE EXCEPTION 'malformed receipt accepted';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE 'PASS: malformed receipt id is rejected by the database'; END $$;
+-- Older sessions, legacy grades and six-dimension results keep a null link.
+INSERT INTO rv_sessions(id,user_id,session_type,trn,score,notes,timestamp,blind_judging) VALUES
+  (5,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','personal','3456-7890',70,'older legacy session','2026-09-01T12:00:00Z',NULL),
+  (6,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','personal','4567-8901',44,'older six-dimension session','2026-10-14T12:00:00Z',
+   '{"protocol":"blind-five-v1","rubric":"six-dimensions-v1","candidates":[{},{},{},{},{}]}');
+SELECT check_test((SELECT count(*)=2 FROM rv_sessions WHERE id IN (5,6) AND blind_receipt_id IS NULL AND score IS NOT NULL),
+  'old sessions without a receipt id still save and load');
+RESET ROLE;
+SELECT set_config('request.jwt.claim.sub','',false);
+DO $$ BEGIN
+  INSERT INTO public.rv_sessions(id,user_id,trn,score,blind_receipt_id) VALUES (7,'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','2345-6789',90,'b12121212121212121212121212121212');
+  RAISE EXCEPTION 'shared receipt accepted across accounts';
+EXCEPTION WHEN unique_violation THEN RAISE NOTICE 'PASS: two accounts cannot share a receipt id'; END $$;
+-- A retry whose receipt already backs another session returns false, never raises.
+INSERT INTO rv_sessions(id,user_id,session_type,trn,notes,duration,timestamp,blind_judging) VALUES
+  (8,'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','personal','2345-6789','written',20,'2026-10-15T14:00:00Z',
+   '{"protocol":"blind-five-v1","assignment_id":"b12121212121212121212121212121212","retryable":true}');
+SET ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',false);
+SELECT check_test(NOT rv_complete_blind_session((SELECT to_jsonb(r) || '{"score":60,"blind_judging":{"protocol":"blind-five-v1","assignment_id":"b12121212121212121212121212121212","candidates":[{},{},{},{},{}]},"blind_receipt_id":"b12121212121212121212121212121212"}'::jsonb
+  FROM rv_sessions r WHERE id=8)), 'retry onto a receipt that already backs another session returns false');
+SELECT check_test((SELECT score IS NULL AND blind_receipt_id IS NULL FROM rv_sessions WHERE id=8), 'that ungraded session is left unchanged');
+SELECT check_test((SELECT count(*)=1 FROM rv_sessions WHERE blind_receipt_id='b12121212121212121212121212121212'), 'the receipt still backs exactly one session');
+-- Control: once the receipt is free, the same retry succeeds, so the refusal above was the shared receipt.
+UPDATE rv_sessions SET blind_receipt_id=NULL WHERE id=2;
+SELECT check_test(rv_complete_blind_session((SELECT to_jsonb(r) || '{"score":60,"blind_judging":{"protocol":"blind-five-v1","assignment_id":"b12121212121212121212121212121212","candidates":[{},{},{},{},{}]},"blind_receipt_id":"b12121212121212121212121212121212"}'::jsonb
+  FROM rv_sessions r WHERE id=8)), 'same retry succeeds when its receipt is not shared');
 RESET ROLE;
 SELECT rv_blind_transition('b44444444444444444444444444444444','create', '{"trn":"1234-5678","candidate_ids":["T001","T002","T003","T004","T005"],"target_index":0}');
 SQL

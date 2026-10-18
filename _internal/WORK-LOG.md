@@ -20,6 +20,8 @@ Keep entries short and in plain English. Say what was actually done, not what wa
 ---
 
 
+- **2026-10-18, Step 9 receipt link (Claude Code, `codex/rv-blind-judging`, draft PR #149):** graded blind sessions now save their receipt id in a new nullable, unique `rv_sessions.blind_receipt_id` on the submit, retry, offline queue and guest upload paths; the unapplied migration and `rv_complete_blind_session` enforce it, older sessions keep null, and a refused link stops retrying while the result stays on the phone. All suites pass except two Presentiment video checks that cannot pass here (this container's Chromium has no H.264 and Google Chrome downloads are blocked); production untouched, no version bump.
+
 ## 2026-10-16: Step 9, approved blind-judging audit follow-up
 - **Who:** Codex, independent cloud checkout, no agents or shared worktree
 - **Branch / PR:** `codex/rv-blind-judging`, existing [draft PR #149](https://github.com/Johnkay22/ABLTY/pull/149), audited at `65d8d1d`. Proposed app `2026.10.16.1` / cache `ablty-v100`. #140 and #145 still overlap documentation/app files but contain no competing blind-judging implementation; neither was changed.

@@ -27,7 +27,10 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
   try {
     for (const width of [390, 412]) {
       const context = await browser.newContext({ viewport: { width, height: 844 }, serviceWorkers: 'block' });
-      let calls = 0; let submitted; let fail = false;
+      let calls = 0; let submitted; let fail = false; let assigned = 0; let gradeHold = null;
+      // Like the Worker: each assignment is its own receipt, results name it,
+      // and the same assignment and writing again is a replay.
+      const graded = new Map();
       await context.addInitScript(() => {
         const mm = window.matchMedia.bind(window);
         window.matchMedia = q => /display-mode:\s*standalone/.test(q) ? { matches: true, addEventListener() {}, removeEventListener() {} } : mm(q);
@@ -37,10 +40,19 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
         const url = route.request().url();
         if (url.startsWith(base)) return route.continue();
         if (url.includes('@supabase/supabase-js')) return route.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(path.join(root, 'tests/helpers/fake-supabase.js'), 'utf8') });
-        if (url.endsWith('/rv-assign')) return route.fulfill({ json: { assignment_id: 'b' + '1'.repeat(32), trn: '1234-5678', judging_protocol: 'blind-five-v1' } });
+        if (url.endsWith('/rv-assign')) return route.fulfill({ json: { assignment_id: 'b' + String(++assigned).padStart(32, '0'), trn: '1234-5678', judging_protocol: 'blind-five-v1' } });
         if (url.endsWith('/grade')) {
           calls++; submitted = route.request().postDataJSON();
-          return route.fulfill({ json: fail ? { grading_failed: true, retryable: true, target: null, grading_error: 'Test service unavailable' } : result });
+          const body = submitted;
+          const answer = () => {
+            if (fail) return { grading_failed: true, retryable: true, target: null, grading_error: 'Test service unavailable' };
+            const replayed = graded.get(body.assignment_id) === body.notes;
+            graded.set(body.assignment_id, body.notes);
+            const linked = { ...result, blind_judging: { ...result.blind_judging, assignment_id: body.assignment_id } };
+            return replayed ? { ...linked, receipt_replayed: true } : linked;
+          };
+          if (gradeHold) return gradeHold.then(() => route.fulfill({ json: answer() }));
+          return route.fulfill({ json: answer() });
         }
         if (url.endsWith('.js')) return route.fulfill({ contentType: 'text/javascript', body: '' });
         return route.abort();
@@ -69,7 +81,9 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
       });
       await step(width + ': rankings survive local history reload and cloud row mapping', async () => {
         const mapped = await page.evaluate(() => mapRVSessionRow(STATE.sessions[0]));
-        assert.deepEqual(mapped.blind_judging, result.blind_judging);
+        const firstReceipt = 'b' + '1'.padStart(32, '0');
+        assert.deepEqual(mapped.blind_judging, { ...result.blind_judging, assignment_id: firstReceipt });
+        assert.equal(mapped.blind_receipt_id, firstReceipt, 'successful session saves its receipt id');
         await page.reload(); await page.waitForFunction(() => document.getElementById('splash-screen').style.display === 'none');
         await page.evaluate(() => openSessionDetail('rv', STATE.sessions[0].id));
         assert.equal(await page.locator('#detail-blind-judging .blind-candidate').count(), 5);
@@ -130,7 +144,12 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
         assert.equal(await page.getAttribute('#detail-target-img', 'src'), '');
         assert.equal(await page.locator('#detail-retry-card button').isVisible(), true);
         fail = false;
+        const failedRow = await page.evaluate(() => mapRVSessionRow(STATE.sessions[0]));
+        assert.equal(failedRow.blind_receipt_id, null, 'failed session has no receipt link');
+        assert.match(failedRow.blind_judging.assignment_id, /^b0{31}2$/);
         await page.evaluate(async () => retryGrading(STATE.sessions[0].id));
+        assert.equal(await page.evaluate(() => mapRVSessionRow(STATE.sessions[0]).blind_receipt_id), failedRow.blind_judging.assignment_id,
+          'retry path saves the receipt id');
         assert.equal(await page.getAttribute('#detail-target-img', 'src'), result.target.src);
         assert.equal(await page.locator('#detail-blind-judging .blind-candidate').count(), 5);
         assert.equal(await page.locator('#detail-retry-card button').count(), 1);
@@ -151,12 +170,23 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
         await page.evaluate(async () => {
           const owner = 'aaaaaaaa-0000-4000-8000-000000000001';
           const row = { ...mapRVSessionRow(STATE.sessions[0]), user_id: owner };
-          localStorage.setItem('__fake_backend', JSON.stringify({ users: [], tables: { rv_sessions: [row], zener_runs: [], ts_trials: [] } }));
+          // Older rows saved before the receipt link: no blind_receipt_id at all.
+          const legacy = { id: 11, user_id: owner, trn: '1111-2222', score: 70, notes: 'older legacy', timestamp: '2026-09-01T12:00:00Z' };
+          const six = { ...row, id: 12, timestamp: '2026-10-01T12:00:00Z',
+            blind_judging: { ...row.blind_judging, rubric: 'six-dimensions-v1', assignment_id: undefined } };
+          delete six.blind_receipt_id;
+          localStorage.setItem('__fake_backend', JSON.stringify({ users: [], tables: { rv_sessions: [row, legacy, six], zener_runs: [], ts_trials: [] } }));
           localStorage.setItem('sb-ghjajyxcjfqidcmqdzdp-auth-token', JSON.stringify({ user: { id: owner }, access_token: 'synthetic-test-only' }));
           beginAuthContext(owner); _dataOwner = owner; STATE.sessions = [];
           await loadAnalyticsFromCloud(owner);
+          window.__restored = STATE.sessions.map(s => ({ id: s.id, assignmentId: s.assignmentId, receipt: mapRVSessionRow(s).blind_receipt_id, score: s.score }));
+          window.__receipt = row.blind_receipt_id;
           openSessionDetail('rv', STATE.sessions[0].id);
         });
+        const restored = await page.evaluate(() => ({ list: window.__restored, receipt: window.__receipt }));
+        assert.equal(restored.list.length, 3, 'old sessions without a receipt id still load');
+        assert.equal(restored.list[0].receipt, restored.receipt); assert.equal(restored.list[0].assignmentId, restored.receipt);
+        assert.deepEqual(restored.list.slice(1).map(s => [s.id, s.receipt, s.score]), [[12, null, 80], [11, null, 70]]);
         assert.equal(await page.textContent('#detail-score-pct'), '1/5');
         assert.equal(await page.locator('#detail-blind-judging .blind-candidate').count(), 5);
         const count = await page.evaluate(async () => {
@@ -166,6 +196,43 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
           await loadAnalyticsFromCloud(other); return STATE.sessions.length;
         });
         assert.equal(count, 0);
+      });
+      await step(width + ': account switch during grading files one linked copy; resubmitting the leftover assignment saves it unlinked', async () => {
+        const assignmentId = await page.evaluate(async () => {
+          localStorage.removeItem('sb-ghjajyxcjfqidcmqdzdp-auth-token');
+          endAuthContext(); _dataOwner = DATA_OWNER_GUEST; reloadOwnedState();
+          for (const key of Object.keys(localStorage)) if (key.startsWith('ablty_rv_daily_')) localStorage.removeItem(key);
+          startRVSession(); await rvGoStep(2); openCanvas(); await new Promise(r => setTimeout(r, 100));
+          document.getElementById('imp-form').value = 'Switch during grading';
+          return STATE.currentAssignmentId;
+        });
+        let release; gradeHold = new Promise(r => { release = r; });
+        const before = calls;
+        await page.evaluate(() => { window.__switchSubmit = submitSession(); });
+        await page.waitForFunction(() => document.getElementById('grading-overlay')?.style.display === 'flex');
+        while (calls === before) await page.waitForTimeout(50);
+        const other = 'cccccccc-0000-4000-8000-000000000003';
+        await page.evaluate(owner => { beginAuthContext(owner); _dataOwner = owner; reloadOwnedState(); }, other);
+        gradeHold = null; release();
+        const filed = await page.evaluate(async ({ owner, assignmentId }) => {
+          await window.__switchSubmit;
+          const guest = safeParseArray(localStorage.getItem(ownedKeyFor(DATA_OWNER_GUEST, 'ablty_sessions')))
+            .filter(s => s.notes && s.notes.includes('Switch during grading'));
+          return { guest: guest.map(s => mapRVSessionRow(s).blind_receipt_id), owner: STATE.sessions.length,
+            ownerQueue: readPendingSync(owner).length, leftover: STATE.currentAssignmentId === assignmentId };
+        }, { owner: other, assignmentId });
+        assert.deepEqual(filed.guest, [assignmentId], 'exactly one copy, filed with the original owner and linked');
+        assert.equal(filed.owner, 0); assert.equal(filed.ownerQueue, 0);
+        assert.equal(filed.leftover, true, 'the assignment is still loaded, so the same writing can be resubmitted');
+        const copy = await page.evaluate(async () => {
+          openCanvas(); await new Promise(r => setTimeout(r, 100));
+          document.getElementById('imp-form').value = 'Switch during grading';
+          await submitSession();
+          return { receipt: mapRVSessionRow(STATE.sessions[0]).blind_receipt_id, ranks: getBlindJudging(STATE.sessions[0])?.candidates.length };
+        });
+        assert.equal(copy.receipt, null, 'the replayed second copy saves a null receipt id');
+        assert.equal(copy.ranks, 5, 'it still shows its ranking');
+        assert.deepEqual(errors, []);
       });
       await context.close();
     }

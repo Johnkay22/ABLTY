@@ -178,8 +178,10 @@ export function resultFromReceipt(record, pool) {
   const selected = candidates[record.target_index];
   const target = pool.find(t => t.id === selected.target_id);
   const rankText = `${selected.tied ? 'tied at rank' : 'ranked'} ${selected.rank} of 5`;
+  // assignment_id names the receipt this result came from, so the saved
+  // session can be linked back to it (rv_sessions.blind_receipt_id).
   const judging = { protocol: record.protocol || BLIND_PROTOCOL, rubric, model: record.model || BLIND_MODEL,
-    target_rank: selected.rank, tied: selected.tied, unique_first: selected.rank === 1 && !selected.tied,
+    assignment_id: record.id, target_rank: selected.rank, tied: selected.tied, unique_first: selected.rank === 1 && !selected.tied,
     candidates, token_counts: record.token_counts };
   return { overall_score: selected.score, dimension_scores: selected.dimension_scores,
     summary: `Your target ${rankText}. The judge compared your complete submitted session with all five photos without knowing the target.`,
@@ -207,7 +209,9 @@ export async function judgeBlindSubmission(body, env, pool) {
   try {
     claimed = await blindRPC(env, id, 'claim', { submission_hash: await submissionHash(sketch, notes), trn: body.trn, lease });
   } catch (_) { return { status: 503, body: failure('Judging storage is unavailable. Try this saved session again.') }; }
-  if (claimed.status === 'done') return { status: 200, body: resultFromReceipt(claimed.record, pool) };
+  // A replay returns a receipt that an earlier submission already received.
+  // Only a retry of that same saved session may link to it again.
+  if (claimed.status === 'done') return { status: 200, body: { ...resultFromReceipt(claimed.record, pool), receipt_replayed: true } };
   if (claimed.status !== 'claimed') {
     const messages = {
       busy: 'This submission is still being judged. Try the saved session again shortly.',

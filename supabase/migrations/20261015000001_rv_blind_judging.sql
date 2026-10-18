@@ -1,10 +1,19 @@
 -- Step 9. Apply separately, before releasing the app/Worker. Never run by CI
 -- against production. Rollback: restore the previous Worker/app first. Keep
--- rv_blind_receipts and rv_sessions.blind_judging to preserve finished numeric
--- judgments and history; removing either is intentionally not part of rollback.
+-- rv_blind_receipts, rv_sessions.blind_judging and rv_sessions.blind_receipt_id
+-- to preserve finished numeric judgments, history and the link between them;
+-- removing any of them is intentionally not part of rollback.
 BEGIN;
 
 ALTER TABLE public.rv_sessions ADD COLUMN IF NOT EXISTS blind_judging jsonb;
+-- The finished receipt a blind-judged session was graded from. Null for older,
+-- legacy and ungraded sessions. rv_sessions.score is written by the owner's
+-- device; anything shown to other users must recompute from this receipt.
+ALTER TABLE public.rv_sessions ADD COLUMN IF NOT EXISTS blind_receipt_id text
+  CONSTRAINT rv_sessions_blind_receipt_id_format CHECK (blind_receipt_id ~ '^b[0-9a-f]{32}$');
+-- One receipt can back only one session, across all accounts.
+CREATE UNIQUE INDEX rv_sessions_blind_receipt_id_key ON public.rv_sessions(blind_receipt_id)
+  WHERE blind_receipt_id IS NOT NULL;
 
 CREATE TABLE public.rv_blind_receipts (
   id text PRIMARY KEY CHECK (id ~ '^b[0-9a-f]{32}$'),
@@ -124,19 +133,27 @@ GRANT EXECUTE ON FUNCTION public.rv_blind_transition(text, text, jsonb) TO servi
 
 -- Complete this owner's previously saved, ungraded session after a retry.
 -- Row locking makes the content comparison and update one operation. The
--- caller's existing rv_sessions RLS still applies (SECURITY INVOKER).
+-- caller's existing rv_sessions RLS still applies (SECURITY INVOKER). The
+-- receipt id must be well formed, match the judgment and match the receipt
+-- the ungraded session recorded; a receipt already backing another session
+-- returns false instead of raising.
 CREATE FUNCTION public.rv_complete_blind_session(p_row jsonb)
 RETURNS boolean LANGUAGE plpgsql SECURITY INVOKER SET search_path = '' AS $$
 DECLARE r public.rv_sessions%ROWTYPE;
 BEGIN
   IF auth.uid() IS NULL OR p_row->'blind_judging'->>'protocol' IS DISTINCT FROM 'blind-five-v1'
+    OR jsonb_typeof(p_row->'blind_receipt_id') IS DISTINCT FROM 'string'
+    OR p_row->>'blind_receipt_id' !~ '^b[0-9a-f]{32}$'
+    OR p_row->'blind_judging'->>'assignment_id' IS DISTINCT FROM p_row->>'blind_receipt_id'
     OR jsonb_typeof(p_row->'blind_judging'->'candidates') IS DISTINCT FROM 'array'
     OR jsonb_array_length(p_row->'blind_judging'->'candidates') <> 5
     OR jsonb_typeof(p_row->'score') IS DISTINCT FROM 'number'
     OR p_row->>'score' !~ '^[0-9]{1,3}$'
     OR (p_row->>'score')::integer NOT BETWEEN 0 AND 100 THEN RETURN false; END IF;
   SELECT * INTO r FROM public.rv_sessions WHERE id = (p_row->>'id')::bigint AND user_id = auth.uid() FOR UPDATE;
-  IF NOT FOUND OR r.score IS NOT NULL THEN RETURN false; END IF;
+  IF NOT FOUND OR r.score IS NOT NULL
+    OR r.blind_judging->>'assignment_id' IS DISTINCT FROM p_row->>'blind_receipt_id'
+    OR coalesce(r.blind_receipt_id, p_row->>'blind_receipt_id') IS DISTINCT FROM p_row->>'blind_receipt_id' THEN RETURN false; END IF;
   IF r.trn IS DISTINCT FROM p_row->>'trn'
     OR nullif(r.notes, '') IS DISTINCT FROM nullif(p_row->>'notes', '')
     OR nullif(r.sketch_data, '') IS DISTINCT FROM nullif(p_row->>'sketch_data', '')
@@ -147,9 +164,11 @@ BEGIN
     target_id = (p_row->>'target_id')::integer, target_src = p_row->>'target_src',
     target_label = p_row->>'target_label', category = p_row->>'category',
     dimension_scores = p_row->'dimension_scores', blind_judging = p_row->'blind_judging',
-    summary = p_row->>'summary'
+    blind_receipt_id = p_row->>'blind_receipt_id', summary = p_row->>'summary'
     WHERE id = r.id AND user_id = auth.uid();
   RETURN FOUND;
+EXCEPTION WHEN unique_violation THEN
+  RETURN false;
 END;
 $$;
 REVOKE ALL ON FUNCTION public.rv_complete_blind_session(jsonb) FROM PUBLIC, anon;

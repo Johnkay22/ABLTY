@@ -24,6 +24,13 @@ October 16 follow-up: Johnny approved sensory scoring, permanent finished receip
 - Existing photos remain intact for history. Checked-in 768px judging copies use identical processing, stripped metadata and content hashes, keeping requests small and verifying exactly which images were judged. No generated replacement imagery.
 - Keep production `gemini-2.5-flash`, `thinkingBudget: 0` and dream tagging unchanged. Official Gemini documentation was reachable on October 16. The private evaluator can compare 2.5 Flash and 3.8 Flash; this does not switch the production model. No account-specific model availability, measured cost or judging-quality claim follows from documentation or mocked tests.
 
+## Scores shown to other users
+
+`rv_sessions.score` is written by the user's device and must never be trusted for anything shown to other users. Any cross-user ranking must recompute the score from `rv_blind_receipts.score_matrix` and confirm the receipt's `submission_hash` matches that session's saved sketch and notes.
+
+- `rv_sessions.blind_receipt_id` links a graded blind session to its receipt. A partial unique index lets one receipt back only one session. It is null for older, legacy, failed and six-dimension sessions saved before the link existed, and for a second copy that received a replayed receipt; those stay out of any cross-user ranking.
+- The hash is SHA-256 over the UTF-8 bytes of the JSON array `["blind-five-v1",sketch,notes]` with no spaces. `sketch` is the base64 JPEG without its `data:image/...;base64,` prefix and `notes` is the joined impressions text; an empty value hashes as `""`. The database stores the sketch with that prefix and stores empty notes or sketch as null, so strip the prefix and treat null as `""` before hashing. Also confirm the receipt is finished and its TRN matches the session. A session whose hash does not match is excluded, never trusted.
+
 ## Implementation and validation
 
 1. Add photo preparation, protocol helpers, strict response validation and server-only persistence; wire assignment and grading routes.

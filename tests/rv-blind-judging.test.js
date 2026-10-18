@@ -127,7 +127,25 @@ test('notes and sketch are both bound, including whitespace changes', async () =
 test('same submission replays the exact saved result with no extra model request', async () => {
   const s = setup(); const a = await s.assign(); const body = { ...a, notes: 'round' };
   const first = await s.grade(body); const second = await s.grade(body);
+  // The replay is marked so a second copy is never linked to the same receipt.
+  assert.equal(first.body.receipt_replayed, undefined); assert.equal(second.body.receipt_replayed, true);
+  delete second.body.receipt_replayed;
   assert.deepEqual(second, first); assert.equal(s.calls.length, 1);
+});
+
+test('every finished result names the receipt it came from, including replays and six-dimension receipts', async () => {
+  const s = setup(); const a = await s.assign();
+  const first = await s.grade({ ...a, notes: 'round' });
+  assert.match(a.assignment_id, /^b[0-9a-f]{32}$/);
+  assert.equal(first.body.blind_judging.assignment_id, a.assignment_id);
+  assert.equal((await s.grade({ ...a, notes: 'round' })).body.blind_judging.assignment_id, a.assignment_id);
+  const id = 'b' + 'd'.repeat(32);
+  const six = s.api.resultFromReceipt({ id, candidate_ids: ['T001','T002','T003','T004','T005'], target_index: 0, rubric: 'six-dimensions-v1',
+    score_matrix: [[3,2,1,4,0,5], [5,5,5,5,5,5], [0,0,0,0,0,0], [1,1,1,1,1,1], [2,2,2,2,2,2]] }, s.api.RV_TARGET_POOL);
+  assert.equal(six.blind_judging.assignment_id, id); assert.equal(six.overall_score, 44);
+  s.controls.badPhoto = true;
+  const failed = await s.grade({ ...(await s.assign()), notes: 'x' });
+  assert.equal(failed.body.grading_failed, true); assert.equal(failed.body.blind_judging, undefined);
 });
 
 test('changed writing or TRN cannot reuse a judged assignment', async () => {

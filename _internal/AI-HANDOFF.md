@@ -34,3 +34,21 @@ After blind-judging release approval, test a written-only and sketch-plus-impres
 Complete the step 9 review/evaluation/release gates, then step 8: code-first signup, verification handling and 30-day beta Premium with server-enforced limits and expiry. Existing paid or manually granted Premium stays unchanged. No Stripe/card for beta. Steps 10, 11, 12 and 13 follow; dashboard 14 is optional; pilot 15 precedes wider invites 16.
 
 Keep one task per isolated branch and draft PR. No automatic merge, deployment, production migration, email or provider-settings change.
+
+## Upcoming features and their requirements
+
+Agents must judge every change against where ABLTY is going, not only where it is today. These features are planned. Any code that touches scores, sessions, or user data must stay compatible with them.
+
+Same-target sessions (next feature after blind judging, once the pre-beta steps are done): after an RV session, the results screen will offer a button to view other users' best sessions on the same target. It shows the top 3 to 5 highest-scored sessions, the viewer's place among people who viewed that target, and a "learn from the best" angle. Sharing is anonymous and on by default. Credited usernames and public profiles showing a user's best sessions may be added later as an opt-in.
+
+Later: leaderboards, a Daily Community RV Challenge, a live public stats page, an Ability Profile, and Ganzfeld Link (paired telepathy).
+
+Requirements these features create:
+
+1. Scores shown to other users must be recomputed from rv_blind_receipts on the server. rv_sessions.score is written by the user's device and is not trustworthy for ranking.
+2. Nothing shown to other users may include user_id, email, or any value that identifies the author, unless that author has opted in to credit.
+3. Other users' written impressions and sketches will be visible to strangers, so a report or moderation path is required before launch of any sharing feature.
+4. Whether beta tester sessions (profiles.is_tester) appear in other users' results is undecided. Do not hard-code either choice.
+5. The blind protocol is non-negotiable. Other users' sessions on a target may only be shown after the viewer's own session is submitted and the target is revealed.
+
+Standing rule for every agent: if you notice a security, data integrity, privacy, or cheating risk outside your task, list it in your report under "Noticed but not touched." Never fix it without approval.
