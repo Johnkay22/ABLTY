@@ -8,7 +8,7 @@ const MODELS = ['gemini-2.5-flash', 'gemini-3.8-flash'];
 
 function parseOptions(args) {
   const values = {};
-  const valueOptions = ['--cases', '--output', '--repeats', '--rotations', '--thinking-budget', '--thinking-level', '--model', '--input-usd-per-million', '--output-usd-per-million'];
+  const valueOptions = ['--cases', '--output', '--repeats', '--thinking-budget', '--thinking-level', '--model', '--input-usd-per-million', '--output-usd-per-million'];
   for (let i = 0; i < args.length; i++) {
     const name = args[i];
     if (Object.hasOwn(values, name)) throw new Error('Duplicate option');
@@ -25,13 +25,12 @@ function parseOptions(args) {
   if (values['--thinking-budget'] !== undefined && !models.includes(MODELS[0])) throw new Error('Thinking budgets apply only to Gemini 2.5; use --thinking-level for Gemini 3.8');
   if (values['--thinking-level'] !== undefined && !models.includes(MODELS[1])) throw new Error('Thinking levels apply only to Gemini 3.8');
   const repeats = Number(values['--repeats'] ?? 3);
-  const rotations = Number(values['--rotations'] ?? 1);
-  if (!Number.isInteger(repeats) || repeats < 1 || repeats > 3 || ![1, 5].includes(rotations)) throw new Error('Use 1 to 3 repeats and 1 or 5 rotations');
+  if (!Number.isInteger(repeats) || repeats < 1 || repeats > 3) throw new Error('Use 1 to 3 repeats');
   const inputRate = Number(values['--input-usd-per-million'] ?? NaN);
   const outputRate = Number(values['--output-usd-per-million'] ?? NaN);
   if (['--input-usd-per-million', '--output-usd-per-million'].some(k => values[k] !== undefined && (!Number.isFinite(Number(values[k])) || Number(values[k]) < 0))) throw new Error('Rates must be nonnegative numbers');
   if (models.length > 1 && (Number.isFinite(inputRate) || Number.isFinite(outputRate))) throw new Error('Supply model-specific prices only in a single-model run');
-  return { casesPath: values['--cases'], outputPath: values['--output'], models, thinkingBudget, thinkingLevel, repeats, rotations,
+  return { casesPath: values['--cases'], outputPath: values['--output'], models, thinkingBudget, thinkingLevel, repeats,
     paid: values['--run-paid'] === true, inputRate, outputRate };
 }
 
@@ -59,9 +58,27 @@ function configureRequest(body, model, options) {
   return request;
 }
 
+// A failure reason that is safe to save: an HTTP status, a finish reason or a
+// fixed description. Never the response text, an error message or the key.
+class SafeFailure extends Error {
+  constructor(reason) { super(reason); this.reason = reason; }
+}
+
+function answerText(data) {
+  const candidate = data?.candidates?.[0];
+  const finish = candidate?.finishReason;
+  if (finish !== 'STOP') throw new SafeFailure('finishReason ' + (typeof finish === 'string' && /^[A-Z_]{1,40}$/.test(finish) ? finish : 'missing'));
+  return candidate.content?.parts?.filter(p => !p.thought && typeof p.text === 'string').map(p => p.text).join('') || '';
+}
+
+function parseAnswer(text) {
+  // JSON.parse error messages quote the text, so they are never kept.
+  try { return JSON.parse(text); } catch (_) { throw new SafeFailure('unparseable JSON'); }
+}
+
 async function runEvaluation(options, { fetchImpl = fetch, env = process.env } = {}) {
   if (!options.casesPath) {
-    console.log('Usage: node scripts/evaluate-rv-judging.cjs --cases /private/cases.json --output /private/results.json [--model gemini-2.5-flash,gemini-3.8-flash] [--thinking-budget 0] [--thinking-level medium] [--repeats 3] [--rotations 1] [--run-paid]');
+    console.log('Usage: node scripts/evaluate-rv-judging.cjs --cases /private/cases.json --output /private/results.json [--model gemini-2.5-flash,gemini-3.8-flash] [--thinking-budget 0] [--thinking-level medium] [--repeats 3] [--run-paid]');
     return;
   }
   const input = outsideRepo(options.casesPath, true);
@@ -85,31 +102,39 @@ async function runEvaluation(options, { fetchImpl = fetch, env = process.env } =
     if (sketch.length > 5 * 1024 * 1024) throw new Error('Private sketch exceeds the production size limit');
     return { target, canonical, ids, notes: c.notes, sketch };
   });
-  const requestCount = cases.length * options.repeats * (1 + options.rotations) * options.models.length;
-  console.log(`Prepared ${cases.length} cases; ${requestCount} model requests (legacy plus blind). Models: ${options.models.join(', ')}.`);
+  // Each repeat makes one legacy request and one blind judgment of five rotations, as in production.
+  const requestCount = cases.length * options.repeats * (1 + api.BLIND_ROTATIONS) * options.models.length;
+  console.log(`Prepared ${cases.length} cases; ${requestCount} model requests (one legacy plus ${api.BLIND_ROTATIONS} blind rotations per repeat). Models: ${options.models.join(', ')}.`);
   if (!options.paid) {
     console.log('Dry run only. No API calls made. Paid evaluation requires --run-paid and ABLTY_GEMINI_TEST_KEY in the environment.');
     return { request_count: requestCount };
   }
   const key = env.ABLTY_GEMINI_TEST_KEY;
   if (!key) throw new Error('Missing secure ABLTY_GEMINI_TEST_KEY binding; never put a key in arguments or chat');
-  const report = { models: options.models, protocol: 'blind-five-v1', rubric: 'seven-dimensions-v1', created_at: new Date().toISOString(),
-    request_count: requestCount, status: 'running', runs: [] };
+  const report = { models: options.models, protocol: 'blind-five-v1', rubric: 'seven-dimensions-v1', rotations: api.BLIND_ROTATIONS,
+    created_at: new Date().toISOString(), request_count: requestCount, status: 'running', runs: [] };
   const fd = fs.openSync(output, 'wx', 0o600);
   function save() { const bytes = Buffer.from(JSON.stringify(report, null, 2)); fs.writeSync(fd, bytes, 0, bytes.length, 0); fs.ftruncateSync(fd, bytes.length); }
-  async function call(body, model) {
+  async function call(body, model, signal) {
     const request = configureRequest(body, model, options);
     const start = performance.now();
-    const response = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify(request), signal: AbortSignal.timeout(180000),
-    });
-    if (!response.ok) throw new Error('Provider request failed');
-    const data = await response.json();
+    let response;
+    try {
+      response = await fetchImpl(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify(request), signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(180000)]) : AbortSignal.timeout(180000),
+      });
+    } catch (_) { throw new SafeFailure('network error or timeout'); }
+    if (!response.ok) throw new SafeFailure('HTTP ' + response.status);
+    let data;
+    try { data = await response.json(); } catch (_) { throw new SafeFailure('unparseable response'); }
     const elapsed_ms = Math.round(performance.now() - start);
     const count = name => Number.isSafeInteger(data.usageMetadata?.[name]) && data.usageMetadata[name] >= 0 ? data.usageMetadata[name] : null;
     const usage = { promptTokenCount: count('promptTokenCount'), candidatesTokenCount: count('candidatesTokenCount'),
       thoughtsTokenCount: count('thoughtsTokenCount'), totalTokenCount: count('totalTokenCount'), cachedContentTokenCount: count('cachedContentTokenCount') };
+    // Gemini 2.5 omits the thinking count when it did no thinking. With measured
+    // input and output, that means zero thinking tokens, not unknown usage.
+    if (usage.thoughtsTokenCount === null && usage.promptTokenCount !== null && usage.candidatesTokenCount !== null) usage.thoughtsTokenCount = 0;
     const estimatedCost = [usage.promptTokenCount, usage.candidatesTokenCount, usage.thoughtsTokenCount].every(n => n !== null)
       && Number.isFinite(options.inputRate) && Number.isFinite(options.outputRate)
       ? (usage.promptTokenCount * options.inputRate + (usage.candidatesTokenCount + usage.thoughtsTokenCount) * options.outputRate) / 1000000 : null;
@@ -117,43 +142,68 @@ async function runEvaluation(options, { fetchImpl = fetch, env = process.env } =
       token_counts: { input: usage.promptTokenCount, output: usage.candidatesTokenCount, thinking: usage.thoughtsTokenCount },
       generation_config: request.generationConfig, estimated_usd_at_supplied_rates: estimatedCost };
   }
+  // Same rotations, mapping back to candidates and scoring as production.
+  async function judgeBlind(c, model, at) {
+    const images = c.ids.map(id => ({ inlineData: { mimeType: 'image/jpeg', data: fs.readFileSync(path.join(root, api.RV_JUDGING_IMAGES[id].src)).toString('base64') } }));
+    const controller = new AbortController();
+    const start = performance.now();
+    const rotations = await Promise.all(Array.from({ length: api.BLIND_ROTATIONS }, async (_, k) => {
+      try {
+        const response = await call(api.buildBlindRequest(c.notes, c.sketch, api.rotationOrder(k).map(i => images[i])), model, controller.signal);
+        parseAnswer(answerText(response.data));
+        let numeric;
+        try { numeric = api.parseBlindResponse(response.data); } catch (_) { throw new SafeFailure('invalid scores'); }
+        const { data: _data, ...metrics } = response;
+        return { ...metrics, matrix: api.toCandidateOrder(numeric.score_matrix, k) };
+      } catch (error) {
+        controller.abort();
+        if (at.rotation === undefined) at.rotation = k;
+        throw error;
+      }
+    }));
+    const rotation_matrices = rotations.map(r => r.matrix);
+    const result = api.resultFromReceipt({ candidate_ids: c.ids, target_index: c.ids.indexOf(c.canonical), rotation_matrices,
+      trn: '', rubric: report.rubric, model }, api.RV_TARGET_POOL);
+    const costs = rotations.map(r => r.estimated_usd_at_supplied_rates);
+    const tokens = api.sumTokenCounts(rotations.map(r => [r.token_counts.input, r.token_counts.output, r.token_counts.thinking].includes(null) ? null : r.token_counts));
+    return { method: 'blind', model, score: result.overall_score, rank: result.blind_judging.target_rank, tied: result.blind_judging.tied,
+      match_strength: api.matchStrength(result.overall_score), candidate_ids: c.ids,
+      candidate_scores: result.blind_judging.candidates.map(x => ({ target_id: x.target_id, score: x.score, rank: x.rank, tied: x.tied })),
+      rotation_matrices, elapsed_ms: Math.round(performance.now() - start), token_counts: tokens, thinking_tokens: tokens ? tokens.thinking : null,
+      estimated_usd_at_supplied_rates: costs.includes(null) ? null : costs.reduce((a, b) => a + b, 0),
+      generation_config: rotations[0].generation_config,
+      // Label order k shows candidate_ids rotated by k; this keeps per-position analysis possible.
+      rotation_details: rotations.map((r, k) => ({ rotation: k, label_order: api.rotationOrder(k).map(i => c.ids[i]),
+        elapsed_ms: r.elapsed_ms, usage: r.usage, token_counts: r.token_counts, estimated_usd_at_supplied_rates: r.estimated_usd_at_supplied_rates })) };
+  }
+  let at = {};
   try {
     save();
     for (let i = 0; i < prepared.length; i++) {
       const c = prepared[i];
       for (let repeat = 0; repeat < options.repeats; repeat++) {
         for (const model of options.models) {
+          at = { case_index: i, repeat, model, method: 'legacy' };
           const legacyParts = c.sketch ? [{ inlineData: { mimeType: 'image/jpeg', data: c.sketch } }] : [];
           legacyParts.push({ text: api.buildGradingPrompt(c.notes, c.target.label, c.target.descriptors) });
           const legacy = await call({ contents: [{ parts: legacyParts }], generationConfig: { temperature: 0.2, maxOutputTokens: 4096 } }, model);
-          const candidate = legacy.data?.candidates?.[0];
-          if (candidate?.finishReason !== 'STOP') throw new Error('Incomplete legacy judgment');
-          const answer = candidate.content?.parts?.filter(p => !p.thought && typeof p.text === 'string').map(p => p.text).join('');
-          const old = JSON.parse(answer.replace(/```json|```/g, '').trim());
-          if (!Number.isFinite(old.overall_score) || old.overall_score < 0 || old.overall_score > 100) throw new Error('Invalid legacy score');
+          const old = parseAnswer(answerText(legacy.data).replace(/```json|```/g, '').trim());
+          if (!Number.isFinite(old?.overall_score) || old.overall_score < 0 || old.overall_score > 100) throw new SafeFailure('invalid scores');
           const { data: _legacyData, ...legacyMetrics } = legacy;
           report.runs.push({ case_index: i, repeat, method: 'legacy', score: old.overall_score, rank: null, ...legacyMetrics }); save();
-          for (let rotation = 0; rotation < options.rotations; rotation++) {
-            const ids = c.ids.slice(rotation).concat(c.ids.slice(0, rotation));
-            const images = ids.map(id => ({ inlineData: { mimeType: 'image/jpeg', data: fs.readFileSync(path.join(root, api.RV_JUDGING_IMAGES[id].src)).toString('base64') } }));
-            const response = await call(api.buildBlindRequest(c.notes, c.sketch, images), model);
-            const numeric = api.parseBlindResponse(response.data);
-            const result = api.resultFromReceipt({ candidate_ids: ids, target_index: ids.indexOf(c.canonical), ...numeric, trn: '', rubric: report.rubric, model }, api.RV_TARGET_POOL);
-            const { data: _blindData, ...metrics } = response;
-            report.runs.push({ case_index: i, repeat, rotation, method: 'blind', score: result.overall_score,
-              rank: result.blind_judging.target_rank, tied: result.blind_judging.tied, candidate_ids: ids,
-              candidate_scores: result.blind_judging.candidates.map(c => ({ label: c.label, score: c.score, rank: c.rank, tied: c.tied })),
-              score_matrix: numeric.score_matrix, ...metrics }); save();
-          }
+          at = { case_index: i, repeat, model, method: 'blind' };
+          report.runs.push({ case_index: i, repeat, ...(await judgeBlind(c, model, at)) }); save();
         }
       }
     }
     report.status = 'complete'; save();
     console.log('Evaluation complete. Numeric results saved privately; no session content was logged.');
     return report;
-  } catch (_) {
-    report.status = 'stopped'; save();
-    throw new Error('Evaluation stopped. Completed numeric runs are saved; no automatic retry was made.');
+  } catch (error) {
+    report.status = 'stopped';
+    report.failure = { ...at, reason: error instanceof SafeFailure ? error.reason : 'internal error' };
+    save();
+    throw new Error('Evaluation stopped: ' + report.failure.reason + '. Completed numeric runs are saved; no automatic retry was made.');
   } finally { fs.closeSync(fd); }
 }
 

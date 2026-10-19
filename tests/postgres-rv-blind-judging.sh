@@ -47,7 +47,7 @@ SELECT check_test(NOT has_function_privilege('authenticated','rv_blind_transitio
 SELECT check_test(NOT has_function_privilege('anon','rv_complete_blind_session(jsonb)','EXECUTE'), 'anon cannot update cloud judgments');
 SELECT check_test((SELECT array_agg(column_name::text ORDER BY ordinal_position) = ARRAY[
   'id','trn','candidate_ids','target_index','submission_hash','state','lease','lease_until','attempts',
-  'score_matrix','token_counts','protocol','model','rubric','created_at','finished_at','expires_at']
+  'score_matrix','rotation_matrices','token_counts','protocol','model','rubric','created_at','finished_at','expires_at']
   FROM information_schema.columns WHERE table_schema='public' AND table_name='rv_blind_receipts'),
   'receipt columns contain no account IDs, notes, sketches or generated text');
 SET ROLE service_role;
@@ -67,19 +67,33 @@ SELECT check_test(rv_blind_transition('b11111111111111111111111111111111','claim
   jsonb_build_object('trn','1234-5678','submission_hash',repeat('b',64),'lease','22222222-2222-4222-8222-222222222222'))->>'status' = 'mismatch', 'changed full-submission hash rejected');
 SELECT check_test(rv_blind_transition('b11111111111111111111111111111111','finish',
   '{"lease":"22222222-2222-4222-8222-222222222222"}')->>'status' = 'stale', 'different lease cannot finish');
-DO $$ BEGIN
+-- rotations(passes, rows, width, value) builds a rotation_matrices payload.
+CREATE FUNCTION pg_temp.rotations(passes integer, row_count integer, width integer, value jsonb DEFAULT '1') RETURNS jsonb LANGUAGE sql AS $$
+  SELECT jsonb_agg((SELECT jsonb_agg((SELECT jsonb_agg(value) FROM generate_series(1,width))) FROM generate_series(1,row_count)))
+  FROM generate_series(1,passes) $$;
+DO $$ DECLARE bad jsonb; BEGIN
+  bad := jsonb_set(pg_temp.rotations(5,5,7), '{4,0,0}', '8');
   PERFORM rv_blind_transition('b11111111111111111111111111111111','finish',
-  '{"lease":"11111111-1111-4111-8111-111111111111","score_matrix":[[8,0,0,0,0,0,0],[0,0,0,0,0,0,0],[0,0,0,0,0,0,0],[0,0,0,0,0,0,0],[0,0,0,0,0,0,0]]}');
+    jsonb_build_object('lease','11111111-1111-4111-8111-111111111111','rotation_matrices',bad));
   RAISE EXCEPTION 'invalid scores accepted';
-EXCEPTION WHEN raise_exception THEN IF SQLERRM <> 'Invalid score' THEN RAISE; END IF; RAISE NOTICE 'PASS: database validates numeric scores'; END $$;
-DO $$ DECLARE width integer; matrix jsonb; BEGIN
-  FOREACH width IN ARRAY ARRAY[6,8] LOOP
-    SELECT jsonb_agg(row_scores) INTO matrix FROM (
-      SELECT (SELECT jsonb_agg(1) FROM generate_series(1,width)) AS row_scores FROM generate_series(1,5)
-    ) AS rows;
+EXCEPTION WHEN raise_exception THEN IF SQLERRM <> 'Invalid score' THEN RAISE; END IF; RAISE NOTICE 'PASS: database validates numeric scores in every rotation'; END $$;
+DO $$ DECLARE value jsonb; BEGIN
+  FOREACH value IN ARRAY ARRAY['2.5'::jsonb, '3.0'::jsonb, '"3"'::jsonb] LOOP
     BEGIN
       PERFORM rv_blind_transition('b11111111111111111111111111111111','finish',
-        jsonb_build_object('lease','11111111-1111-4111-8111-111111111111','score_matrix',matrix));
+        jsonb_build_object('lease','11111111-1111-4111-8111-111111111111','rotation_matrices',pg_temp.rotations(5,5,7,value)));
+      RAISE EXCEPTION 'non-integer rating accepted';
+    EXCEPTION WHEN raise_exception THEN
+      IF SQLERRM <> 'Invalid score' THEN RAISE; END IF;
+      RAISE NOTICE 'PASS: database rejects rating %', value;
+    END;
+  END LOOP;
+END $$;
+DO $$ DECLARE width integer; BEGIN
+  FOREACH width IN ARRAY ARRAY[6,8] LOOP
+    BEGIN
+      PERFORM rv_blind_transition('b11111111111111111111111111111111','finish',
+        jsonb_build_object('lease','11111111-1111-4111-8111-111111111111','rotation_matrices',pg_temp.rotations(5,5,width)));
       RAISE EXCEPTION 'wrong dimension count accepted';
     EXCEPTION WHEN raise_exception THEN
       IF SQLERRM <> 'Invalid dimensions' THEN RAISE; END IF;
@@ -87,11 +101,31 @@ DO $$ DECLARE width integer; matrix jsonb; BEGIN
     END;
   END LOOP;
 END $$;
+DO $$ DECLARE shape integer[]; expected text; payload jsonb; BEGIN
+  FOREACH shape SLICE 1 IN ARRAY ARRAY[[4,5],[6,5],[5,4],[5,6],[0,0]] LOOP
+    expected := CASE WHEN shape[1] <> 5 THEN 'Invalid rotations' ELSE 'Invalid scores' END;
+    payload := CASE WHEN shape[1] = 0
+      -- The older single-matrix payload is refused for new judgments.
+      THEN '{"lease":"11111111-1111-4111-8111-111111111111","score_matrix":[[1,1,1,1,1,1,1],[1,1,1,1,1,1,1],[1,1,1,1,1,1,1],[1,1,1,1,1,1,1],[1,1,1,1,1,1,1]]}'::jsonb
+      ELSE jsonb_build_object('lease','11111111-1111-4111-8111-111111111111','rotation_matrices',pg_temp.rotations(shape[1],shape[2],7)) END;
+    BEGIN
+      PERFORM rv_blind_transition('b11111111111111111111111111111111','finish',payload);
+      RAISE EXCEPTION 'wrong rotation shape accepted';
+    EXCEPTION WHEN raise_exception THEN
+      IF SQLERRM <> expected THEN RAISE; END IF;
+      IF shape[1] = 0 THEN RAISE NOTICE 'PASS: database rejects the older single-matrix payload';
+      ELSE RAISE NOTICE 'PASS: database rejects % rotations of % candidates', shape[1], shape[2]; END IF;
+    END;
+  END LOOP;
+END $$;
 SELECT check_test(rv_blind_transition('b11111111111111111111111111111111','finish',
-  '{"lease":"11111111-1111-4111-8111-111111111111","score_matrix":[[0,0,0,0,0,0,0],[1,1,1,1,1,1,1],[2,2,2,2,2,2,2],[3,3,3,3,3,3,3],[4,4,4,4,4,4,4]],"token_counts":{"input":100,"output":50}}')->>'status' = 'done', 'valid judgment committed');
+  jsonb_build_object('lease','11111111-1111-4111-8111-111111111111','rotation_matrices',
+    jsonb_set(pg_temp.rotations(5,5,7,'0'), '{2,3}', '[3,3,3,3,3,3,3]'),'token_counts','{"input":500,"output":250}'::jsonb))->>'status' = 'done', 'valid five-rotation judgment committed');
 SELECT check_test(rv_blind_transition('b11111111111111111111111111111111','claim',
   jsonb_build_object('trn','1234-5678','submission_hash',repeat('a',64),'lease','22222222-2222-4222-8222-222222222222'))->>'status' = 'done', 'replay returns committed judgment');
 RESET ROLE;
+SELECT check_test((SELECT rotation_matrices->2->3 = '[3,3,3,3,3,3,3]'::jsonb AND jsonb_array_length(rotation_matrices) = 5 AND score_matrix IS NULL
+  FROM rv_blind_receipts WHERE id='b11111111111111111111111111111111'), 'receipt keeps all five rotations in candidate order');
 SELECT check_test((SELECT attempts=1 FROM rv_blind_receipts WHERE id='b11111111111111111111111111111111'), 'replay does not consume a model attempt');
 DO $$ DECLARE before_replay public.rv_blind_receipts%ROWTYPE; BEGIN
   SELECT * INTO before_replay FROM rv_blind_receipts WHERE id='b11111111111111111111111111111111';
@@ -112,7 +146,7 @@ SELECT check_test(rv_blind_transition('b11111111111111111111111111111111','claim
   'permanent finished receipt does not extend the two-hour replay window');
 SELECT rv_blind_transition('b33333333333333333333333333333333','create', '{"trn":"1234-5678","candidate_ids":["T001","T002","T003","T004","T005"],"target_index":0}');
 SELECT check_test(NOT EXISTS(SELECT 1 FROM rv_blind_receipts WHERE id='b22222222222222222222222222222222'), 'next assignment prunes expired receipt');
-SELECT check_test((SELECT state='done' AND finished_at IS NOT NULL AND score_matrix IS NOT NULL FROM rv_blind_receipts WHERE id='b11111111111111111111111111111111'),
+SELECT check_test((SELECT state='done' AND finished_at IS NOT NULL AND rotation_matrices IS NOT NULL FROM rv_blind_receipts WHERE id='b11111111111111111111111111111111'),
   'next assignment keeps expired finished judgment permanently');
 DO $$ DECLARE initial_expiry timestamptz; BEGIN
   PERFORM rv_blind_transition('b33333333333333333333333333333333','claim', jsonb_build_object('trn','1234-5678','submission_hash',repeat('a',64),'lease','11111111-1111-4111-8111-111111111111'));

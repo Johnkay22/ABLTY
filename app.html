@@ -903,6 +903,7 @@ html, body {
 }
 .ring-pct { font-family: var(--font-display); font-size: 42px; letter-spacing: 1px; color: #fff; line-height: 1; }
 .ring-label { font-family: var(--font-mono); font-size: 8px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+.ring-label.ring-strength { margin-top: 3px; }
 
 .result-target-row {
   display: grid; grid-template-columns: 1fr 1fr;
@@ -4771,6 +4772,7 @@ html, body {
   font-family: var(--font-rv-body); font-weight: 500; font-size: 12px;
   letter-spacing: 3px; color: var(--rv9-teal); margin-top: 5px; text-transform: uppercase;
 }
+#screen-results .ring-label.ring-strength { font-size: 10px; letter-spacing: 2px; margin-top: 3px; color: var(--muted); }
 
 #screen-results .result-target-row { gap: 12px; margin-top: 14px; }
 #screen-results .result-thumb {
@@ -6624,6 +6626,7 @@ html, body {
         <div class="ring-center">
           <div class="ring-pct" id="score-pct">0%</div>
           <div class="ring-label" id="result-score-label">Target rank</div>
+          <div class="ring-label ring-strength" id="result-match-strength" style="display:none;"></div>
         </div>
       </div>
 
@@ -7343,6 +7346,7 @@ html, body {
         <div class="ring-center">
           <div class="ring-pct" id="detail-score-pct">0%</div>
           <div class="ring-label" id="detail-score-label">Gestalt Match</div>
+          <div class="ring-label ring-strength" id="detail-match-strength" style="display:none;"></div>
         </div>
       </div>
 
@@ -9864,6 +9868,33 @@ function getBlindJudging(session) {
   return b;
 }
 
+// How strongly the target corresponded, from its 0-100 blind score. The rank
+// stays the main result; this label sits next to it. The Worker summary uses
+// the same thresholds.
+function rvMatchStrength(score) {
+  return score >= 60 ? 'Strong match' : score >= 30 ? 'Moderate match' : 'Weak match';
+}
+
+function blindMatchStrength(blind) {
+  const target = blind?.candidates?.find(c => c.is_target === true);
+  return target ? rvMatchStrength(target.score) : '';
+}
+
+// "Ranked 1 of 5 · Weak match" or "Tied at rank 1 of 5 · Weak match".
+function blindRankText(blind) {
+  return `${blind.tied ? 'Tied at rank' : 'Ranked'} ${blind.target_rank} of 5 · ${blindMatchStrength(blind)}`;
+}
+
+// Ratings averaged over the five rotations have one decimal place; older
+// single-pass ratings are whole numbers.
+function isRating(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 5;
+}
+
+function formatRating(value, blind) {
+  return blind?.rotations > 1 ? value.toFixed(1) : String(value);
+}
+
 // The judgment as saved with its session, linked to the receipt it came
 // from (the Worker names it; the submitted assignment is the fallback). A
 // replayed receipt was already received by an earlier submission, so this
@@ -9892,7 +9923,8 @@ function renderBlindJudgingCard(id, blind) {
     emotional_tone: 'Atmosphere', movement_impression: 'Movement', color_light: 'Light' };
   if (blind.rubric === 'seven-dimensions-v1') names.sensory_impression = 'Sensory impression';
   el.innerHTML = `<div class="mono-label" style="margin-bottom:12px;">AI blind judging</div>
-    <div class="summary-text" style="margin-bottom:16px;">Your target ${blind.tied ? 'tied at rank' : 'ranked'} ${blind.target_rank} of 5. Written impressions and sketches are judged together.</div>
+    <div class="summary-text blind-rank-text" style="margin-bottom:4px;color:#fff;">${escapeHtml(blindRankText(blind))}</div>
+    <div class="summary-text" style="margin-bottom:16px;">Written impressions and sketches are judged together.${blind.rotations > 1 ? ` The judge compared all five photos ${blind.rotations} times, in a different order each time, and the ratings are averages.` : ''}</div>
     ${[...blind.candidates].sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label)).map(c => `
       <div class="blind-candidate" style="display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--border);">
         <img src="${escapeHtml(c.src)}" alt="Candidate ${c.label}" loading="lazy" style="width:72px;height:72px;object-fit:cover;border-radius:8px;flex-shrink:0;">
@@ -9900,7 +9932,7 @@ function renderBlindJudgingCard(id, blind) {
           <div class="mono-label" style="color:${c.is_target ? 'var(--accent)' : 'var(--muted)'};">${c.tied ? 'Tied ' : ''}#${c.rank} · ${c.label}${c.is_target ? ' · Your target' : ''}</div>
           <div class="summary-text">${c.score}/100 correspondence</div>
           <details style="font-size:12px;color:var(--muted);margin-top:5px;"><summary>Dimension ratings</summary>
-            ${Object.entries(names).map(([key, label]) => `<div>${label}: ${Number.isInteger(c.dimension_scores?.[key]) && c.dimension_scores[key] >= 0 && c.dimension_scores[key] <= 5 ? c.dimension_scores[key] : '-'} / 5</div>`).join('')}
+            ${Object.entries(names).map(([key, label]) => `<div>${label}: ${isRating(c.dimension_scores?.[key]) ? formatRating(c.dimension_scores[key], blind) : '-'} / 5</div>`).join('')}
           </details>
         </div>
       </div>`).join('')}
@@ -9917,6 +9949,11 @@ function renderResults(result, target, notes) {
   const blind = getBlindJudging(result);
   renderBlindJudgingCard('result-blind-judging', blind);
   setEl('result-score-label', blind ? (blind.tied ? 'Tied rank' : 'Target rank') : 'Legacy match');
+  const resultStrength = document.getElementById('result-match-strength');
+  if (resultStrength) {
+    resultStrength.textContent = blind && !result?.grading_failed ? blindMatchStrength(blind) : '';
+    resultStrength.style.display = resultStrength.textContent ? 'block' : 'none';
+  }
   const targetEmpty = document.getElementById('result-target-empty');
   if (targetEmpty) targetEmpty.style.display = target?.src ? 'none' : 'block';
   const score   = Number(result.gestalt_score ?? result.overall_score ?? 0);
@@ -15793,6 +15830,7 @@ function collectExportRows(modules) {
         judging_protocol: getBlindJudging(s)?.protocol || '',
         target_rank: getBlindJudging(s)?.target_rank || '',
         tied: getBlindJudging(s) ? String(getBlindJudging(s).tied) : '',
+        match_strength: !gradingFailed && getBlindJudging(s) ? blindMatchStrength(getBlindJudging(s)) : '',
         target_id: rvSplit.target_id,
         category: rvSplit.category,
         label: s.targetLabel || (s.trn ? `TRN ${s.trn}` : 'RV Session'),
@@ -15893,6 +15931,7 @@ function downloadExportCSV() {
     'judging_protocol',
     'target_rank',
     'tied',
+    'match_strength',
     'target_id',
     'category',
     'label',
@@ -15913,6 +15952,7 @@ function downloadExportCSV() {
     judging_protocol: 'Judging method',
     target_rank: 'Target rank of 5',
     tied: 'Tied rank',
+    match_strength: 'Match strength',
     target_id: 'Target ID',
     category: 'Category',
     label: 'Label',
@@ -16236,7 +16276,10 @@ function buildCombinedLog(rvSessions, zenerRuns) {
 
   const TYPE_TAG  = { rv: 'RV', zener: 'ZNR', ts: 'PSI' };
   const TYPE_LABEL = {
-    rv:    s => (getBlindJudging(s) ? 'Blind judged · ' : 'Legacy · ') + (s.targetLabel || '-'),
+    rv:    s => {
+      const blind = getBlindJudging(s);
+      return (blind ? `Blind judged · ${blindMatchStrength(blind)} · ` : 'Legacy · ') + (s.targetLabel || '-');
+    },
     zener: s => `${s.hits}/25 hits`,
     ts:    s => {
       const elapsed = getTSElapsedSeconds(s);
@@ -16274,9 +16317,14 @@ function buildCombinedLog(rvSessions, zenerRuns) {
     const isHitMiss   = s.type === 'ts';
     const isHitLike   = getTSTrialHit(s);
     const rvScore = s.type === 'rv' ? getRVSessionScore(s) : null;
+    const rvBlind = s.type === 'rv' ? getBlindJudging(s) : null;
+    // A blind row's colour follows its match strength label, so they never disagree.
+    const strengthClass = { 'Strong match': 'high', 'Moderate match': 'mid', 'Weak match': 'low' };
     const cls = isHitMiss
       ? (isHitLike ? 'high' : 'low')
-      : (s.type === 'rv' && rvScore === null ? 'na' : (s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low'));
+      : (s.type === 'rv' && rvScore === null ? 'na'
+        : rvBlind ? (strengthClass[blindMatchStrength(rvBlind)] || 'na')
+        : (s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low'));
 
     return `<div class="session-card" onclick="openSessionDetail('${sessionType}','${sessionId}')" style="cursor:pointer;">
       <div class="session-thumb">
@@ -16426,6 +16474,11 @@ function renderRVDetail(s) {
   const score = getRVSessionScore(s);
   const failed = isRVGradingFailed(s);
   setEl('detail-score-label', blind ? (blind.tied ? 'Tied rank' : 'Target rank') : 'Legacy match');
+  const detailStrength = document.getElementById('detail-match-strength');
+  if (detailStrength) {
+    detailStrength.textContent = blind && !failed ? blindMatchStrength(blind) : '';
+    detailStrength.style.display = detailStrength.textContent ? 'block' : 'none';
+  }
   if (ring) {
     const ringScore = blind ? 100 : score ?? 0;
     ring.style.stroke = failed ? 'var(--muted)' : (ringScore >= 60 ? 'var(--accent)' : ringScore >= 35 ? 'var(--warn)' : 'var(--danger)');
@@ -16525,7 +16578,7 @@ function renderRVDetail(s) {
         <div class="dimension-bar-wrap">
           <div class="dimension-bar-fill" style="width:${(val/5)*100}%;background:${val>=4?'var(--accent)':val>=2?'var(--warn)':'var(--danger)'}"></div>
         </div>
-        <div class="dimension-val">${escapeHtml(val)}</div>
+        <div class="dimension-val">${escapeHtml(isRating(val) ? formatRating(val, blind) : val)}</div>
       </div>`).join('');
   } else if (dimWrap) {
     dimWrap.style.display = 'none';
@@ -19969,7 +20022,7 @@ function buildDimStrengths(rvSessions) {
   }
 
   const dims = ['geometric_form','spatial_impression','texture_surface','emotional_tone','movement_impression','color_light'];
-  if (sessionsWithDims.some(s => Number.isInteger(s.dimension_scores.sensory_impression))) dims.push('sensory_impression');
+  if (sessionsWithDims.some(s => isRating(s.dimension_scores.sensory_impression))) dims.push('sensory_impression');
   const labels = {
     geometric_form: 'Geometric Form',
     spatial_impression: 'Spatial Impression',
@@ -19983,7 +20036,7 @@ function buildDimStrengths(rvSessions) {
   const avgs = {};
   dims.forEach(d => {
     // Older six-dimension sessions have no sensory rating, not a zero rating.
-    const rated = d === 'sensory_impression' ? sessionsWithDims.filter(s => Number.isInteger(s.dimension_scores[d])) : sessionsWithDims;
+    const rated = d === 'sensory_impression' ? sessionsWithDims.filter(s => isRating(s.dimension_scores[d])) : sessionsWithDims;
     const vals = rated.map(s => s.dimension_scores[d] || 0);
     avgs[d] = Math.round(vals.reduce((a,b) => a+b,0) / vals.length);
   });

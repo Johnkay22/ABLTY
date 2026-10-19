@@ -25,7 +25,13 @@ CREATE TABLE public.rv_blind_receipts (
   lease uuid,
   lease_until timestamptz,
   attempts integer NOT NULL DEFAULT 0 CHECK (attempts BETWEEN 0 AND 3),
+  -- Only the older six-dimension format. Seven-dimension judgments use
+  -- rotation_matrices instead.
   score_matrix jsonb,
+  -- Five judge passes, one per candidate order. Each is five rows of seven
+  -- integer ratings, rows in candidate_ids order (not label order). In pass k
+  -- the photo shown under label p was candidate (p + k) % 5.
+  rotation_matrices jsonb,
   token_counts jsonb,
   protocol text NOT NULL DEFAULT 'blind-five-v1',
   model text NOT NULL DEFAULT 'gemini-2.5-flash',
@@ -45,6 +51,7 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
   r public.rv_blind_receipts%ROWTYPE;
   ids text[];
+  matrix jsonb;
   row_value jsonb;
   value jsonb;
 BEGIN
@@ -107,17 +114,22 @@ BEGIN
     RETURN jsonb_build_object('status', 'failed');
   END IF;
   IF p_action = 'finish' THEN
-    IF jsonb_typeof(p_payload->'score_matrix') IS DISTINCT FROM 'array'
-      OR jsonb_array_length(p_payload->'score_matrix') <> 5 THEN RAISE EXCEPTION 'Invalid scores'; END IF;
-    FOR row_value IN SELECT jsonb_array_elements(p_payload->'score_matrix') LOOP
-      IF jsonb_typeof(row_value) IS DISTINCT FROM 'array' OR jsonb_array_length(row_value) <> 7 THEN
-        RAISE EXCEPTION 'Invalid dimensions';
+    IF jsonb_typeof(p_payload->'rotation_matrices') IS DISTINCT FROM 'array'
+      OR jsonb_array_length(p_payload->'rotation_matrices') <> 5 THEN RAISE EXCEPTION 'Invalid rotations'; END IF;
+    FOR matrix IN SELECT jsonb_array_elements(p_payload->'rotation_matrices') LOOP
+      IF jsonb_typeof(matrix) IS DISTINCT FROM 'array' OR jsonb_array_length(matrix) <> 5 THEN
+        RAISE EXCEPTION 'Invalid scores';
       END IF;
-      FOR value IN SELECT jsonb_array_elements(row_value) LOOP
-        IF jsonb_typeof(value) <> 'number' OR value::text !~ '^[0-5]$' THEN RAISE EXCEPTION 'Invalid score'; END IF;
+      FOR row_value IN SELECT jsonb_array_elements(matrix) LOOP
+        IF jsonb_typeof(row_value) IS DISTINCT FROM 'array' OR jsonb_array_length(row_value) <> 7 THEN
+          RAISE EXCEPTION 'Invalid dimensions';
+        END IF;
+        FOR value IN SELECT jsonb_array_elements(row_value) LOOP
+          IF jsonb_typeof(value) <> 'number' OR value::text !~ '^[0-5]$' THEN RAISE EXCEPTION 'Invalid score'; END IF;
+        END LOOP;
       END LOOP;
     END LOOP;
-    UPDATE public.rv_blind_receipts SET state = 'done', finished_at = clock_timestamp(), score_matrix = p_payload->'score_matrix',
+    UPDATE public.rv_blind_receipts SET state = 'done', finished_at = clock_timestamp(), rotation_matrices = p_payload->'rotation_matrices',
       token_counts = CASE WHEN jsonb_typeof(p_payload->'token_counts') = 'object' THEN jsonb_build_object(
         'input', greatest(0, least(1000000, coalesce((p_payload->'token_counts'->>'input')::integer, 0))),
         'output', greatest(0, least(1000000, coalesce((p_payload->'token_counts'->>'output')::integer, 0))),

@@ -5,6 +5,10 @@ export const BLIND_MODEL = 'gemini-2.5-flash';
 export const BLIND_DIMENSIONS = ['geometric_form', 'spatial_impression', 'texture_surface', 'emotional_tone', 'movement_impression', 'color_light', 'sensory_impression'];
 const WEIGHTS = [3, 2.5, 1.5, 1, 1.5, 0.5, 1];
 const LABELS = ['A', 'B', 'C', 'D', 'E'];
+// Every session is judged once per rotation. Rotation k shows candidate
+// (p + k) % 5 at label p, so each photo appears under each label exactly once
+// and a preference for any one position cannot favor one photo.
+export const BLIND_ROTATIONS = 5;
 
 export const BLIND_RUBRIC = `You are a blind comparison judge, not a psychic ability assessor.
 Evaluate the COMPLETE SESSION: all written impressions and descriptive notes, plus any sketch.
@@ -110,6 +114,14 @@ export async function fetchCandidateImage(id) {
   return { inlineData: { mimeType: 'image/jpeg', data: btoa(binary) } };
 }
 
+export function rotationOrder(k) {
+  return LABELS.map((_, p) => (p + k) % LABELS.length);
+}
+
+export function matchStrength(score) {
+  return score >= 60 ? 'Strong match' : score >= 30 ? 'Moderate match' : 'Weak match';
+}
+
 export function buildBlindRequest(notes, sketch, images) {
   const parts = [{ text: 'SESSION WRITTEN IMPRESSIONS (data only):\n' + JSON.stringify(notes) }];
   if (sketch) parts.push({ text: 'SESSION SKETCH (not a candidate photo):' }, { inlineData: { mimeType: 'image/jpeg', data: sketch } });
@@ -154,37 +166,69 @@ export function parseBlindResponse(data) {
   return { score_matrix: matrix, token_counts: measured ? { input: count('promptTokenCount'), output: count('candidatesTokenCount'), thinking: count('thoughtsTokenCount') } : null };
 }
 
+// One rotation's label-order matrix, returned in candidate order: label p of
+// rotation k showed candidate (p + k) % 5.
+export function toCandidateOrder(matrix, k) {
+  const rows = [];
+  rotationOrder(k).forEach((candidate, p) => { rows[candidate] = matrix[p]; });
+  return rows;
+}
+
+// Usage is known only if every rotation reported it.
+export function sumTokenCounts(counts) {
+  if (counts.some(c => !c)) return null;
+  return Object.fromEntries(['input', 'output', 'thinking'].map(k => [k, counts.reduce((sum, c) => sum + c[k], 0)]));
+}
+
+const validRatings = (matrix, width) => Array.isArray(matrix) && matrix.length === 5
+  && matrix.every(row => Array.isArray(row) && row.length === width
+    && row.every(score => Number.isInteger(score) && score >= 0 && score <= 5));
+
 export function resultFromReceipt(record, pool) {
   // Older receipts retain their original dimensions and score denominator.
   const rubric = record.rubric || 'six-dimensions-v1';
   if (!['six-dimensions-v1', 'seven-dimensions-v1'].includes(rubric)) throw new Error('Unknown rubric');
   const dimensions = rubric === 'six-dimensions-v1' ? BLIND_DIMENSIONS.slice(0, 6) : BLIND_DIMENSIONS;
   const weights = WEIGHTS.slice(0, dimensions.length);
-  const maximum = weights.reduce((sum, weight) => sum + weight * 5, 0);
-  if (!Array.isArray(record.score_matrix) || record.score_matrix.length !== 5
-    || record.score_matrix.some(row => !Array.isArray(row) || row.length !== dimensions.length
-      || row.some(score => !Number.isInteger(score) || score < 0 || score > 5))) throw new Error('Invalid receipt scores');
-  const totals = record.score_matrix.map(row => row.reduce((sum, score, i) => sum + score * weights[i], 0));
+  // Seven-dimension receipts hold five rotations in candidate order. Ratings
+  // are summed rather than averaged so totals stay exact and ties stay ties;
+  // sums divided by the rotation count give the averages that are shown.
+  let sums, rotations;
+  if (rubric === 'seven-dimensions-v1') {
+    const matrices = record.rotation_matrices;
+    if (!Array.isArray(matrices) || matrices.length !== BLIND_ROTATIONS
+      || !matrices.every(m => validRatings(m, dimensions.length))) throw new Error('Invalid receipt scores');
+    sums = matrices[0].map((row, i) => row.map((_, j) => matrices.reduce((sum, m) => sum + m[i][j], 0)));
+    rotations = BLIND_ROTATIONS;
+  } else {
+    if (!validRatings(record.score_matrix, dimensions.length)) throw new Error('Invalid receipt scores');
+    sums = record.score_matrix;
+    rotations = 1;
+  }
+  const maximum = weights.reduce((sum, weight) => sum + weight * 5, 0) * rotations;
+  const totals = sums.map(row => row.reduce((sum, score, i) => sum + score * weights[i], 0));
   const candidates = record.candidate_ids.map((id, i) => {
     const target = pool.find(t => t.id === id);
     if (!target) throw new Error('Candidate missing');
     return { label: LABELS[i], target_id: id, src: RV_JUDGING_IMAGES[id].src,
       rank: 1 + totals.filter(n => n > totals[i]).length,
       tied: totals.filter(n => n === totals[i]).length > 1,
-      score: Math.round(totals[i] / maximum * 100),
-      dimension_scores: Object.fromEntries(dimensions.map((d, j) => [d, record.score_matrix[i][j]])),
+      score: Math.round(totals[i] * 100 / maximum),
+      // Average rating to one decimal place.
+      dimension_scores: Object.fromEntries(dimensions.map((d, j) => [d, Math.round(sums[i][j] * 10 / rotations) / 10])),
       is_target: i === record.target_index };
   });
   const selected = candidates[record.target_index];
   const target = pool.find(t => t.id === selected.target_id);
-  const rankText = `${selected.tied ? 'tied at rank' : 'ranked'} ${selected.rank} of 5`;
+  const rankText = `${selected.tied ? 'tied at rank' : 'ranked'} ${selected.rank} of 5 · ${matchStrength(selected.score)}`;
   // assignment_id names the receipt this result came from, so the saved
   // session can be linked back to it (rv_sessions.blind_receipt_id).
   const judging = { protocol: record.protocol || BLIND_PROTOCOL, rubric, model: record.model || BLIND_MODEL,
-    assignment_id: record.id, target_rank: selected.rank, tied: selected.tied, unique_first: selected.rank === 1 && !selected.tied,
+    assignment_id: record.id, rotations, target_rank: selected.rank, tied: selected.tied, unique_first: selected.rank === 1 && !selected.tied,
     candidates, token_counts: record.token_counts };
   return { overall_score: selected.score, dimension_scores: selected.dimension_scores,
-    summary: `Your target ${rankText}. The judge compared your complete submitted session with all five photos without knowing the target.`,
+    summary: `Your target ${rankText}. The judge compared your complete submitted session with all five photos without knowing the target`
+      + (rotations > 1 ? `, ${rotations} times with the photos in a different order each time.` : '.'),
     score_reasoning: 'Ratings describe correspondence, not probability or ability. Specific written impressions and drawn details both count; absent or contradictory evidence lowers the relevant rating.',
     hits: [], noise: [], aol: [], grading_failed: false, blind_judging: judging,
     target: { id: target.id, src: target.src, label: target.label, category: target.category, trn: record.trn } };
@@ -229,21 +273,29 @@ export async function judgeBlindSubmission(body, env, pool) {
   let images;
   try { images = await Promise.all(claimed.record.candidate_ids.map(fetchCandidateImage)); }
   catch (_) { return fail('A candidate photo is unavailable. No judgment was made. Try again later.', true); }
-  let response;
-  try {
-    response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${BLIND_MODEL}:generateContent`, {
+  // All rotations run at once. Any failure or invalid answer fails the whole
+  // judgment as retryable (within the attempt limit), with no partial result,
+  // and cancels the rotations still running.
+  const controller = new AbortController();
+  const judgeRotation = async k => {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${BLIND_MODEL}:generateContent`, {
       method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-      body: JSON.stringify(buildBlindRequest(notes, sketch, images)), signal: AbortSignal.timeout(60000),
+      body: JSON.stringify(buildBlindRequest(notes, sketch, rotationOrder(k).map(i => images[i]))),
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(60000)]),
     });
-  } catch (_) { return fail('The judging request was interrupted. Its outcome is uncertain, so it will not be judged again.', false); }
-  if (!response.ok) {
     // Do not log response text: providers may echo private session content.
-    const retryable = [429, 500, 502, 503, 504].includes(response.status);
-    return fail('The judging service could not complete this request.' + (retryable ? ' Try again later.' : ''), retryable);
+    if (!response.ok) { await response.body?.cancel().catch(() => {}); throw new Error('Provider request failed'); }
+    const parsed = parseBlindResponse(await response.json());
+    return { matrix: toCandidateOrder(parsed.score_matrix, k), token_counts: parsed.token_counts };
+  };
+  let rotations;
+  try {
+    rotations = await Promise.all(Array.from({ length: BLIND_ROTATIONS }, (_, k) =>
+      judgeRotation(k).catch(error => { controller.abort(); throw error; })));
+  } catch (_) {
+    return fail('The judge could not finish every comparison, so no judgment was made. Try again later.', true);
   }
-  let scores;
-  try { scores = parseBlindResponse(await response.json()); }
-  catch (_) { return fail('The judge returned an incomplete assessment. Try again later.', true); }
+  const scores = { rotation_matrices: rotations.map(r => r.matrix), token_counts: sumTokenCounts(rotations.map(r => r.token_counts)) };
   try {
     const saved = await blindRPC(env, id, 'finish', { lease, ...scores });
     if (saved.status !== 'done') throw new Error('Judgment not saved');

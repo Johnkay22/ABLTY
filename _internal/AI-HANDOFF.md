@@ -12,6 +12,7 @@ Branch `codex/rv-blind-judging` is a new isolated cloud branch at that main, pro
 
 ## Implementation boundary and release gates
 
+- October 19: every session is now judged five times with the photos rotated through the five slots and the ratings averaged, after a private evaluation found the judge favors slot A. A match strength label ("Strong", "Moderate" or "Weak match") sits next to the rank in results, history and export. Protocol name unchanged (`blind-five-v1`); the never-applied migration was edited in place. Cloudflare Workers Paid is active as of October 19; Supabase Pro is not.
 - Code covers the five-photo protocol, metadata-free 768px derivatives with pinned hashes, complete-submission locking, server-calculated scores/ties, written-only submissions and rank display/history/export. Existing historical records stay intact and labelled legacy. Charts separate methods.
 - A new migration adds server-only numeric receipts and a conditional completion function for an owner's previously saved ungraded session. It stores no raw session content in receipts. Existing app-owned history stores rankings in a nullable JSON column.
 - Migration file only: **not applied**. An authorized operator must verify the live base schema, apply it separately and verify its permissions before the app/Worker release. No Supabase, Stripe or Cloudflare configuration has been changed.
@@ -50,5 +51,6 @@ Requirements these features create:
 3. Other users' written impressions and sketches will be visible to strangers, so a report or moderation path is required before launch of any sharing feature.
 4. Whether beta tester sessions (profiles.is_tester) appear in other users' results is undecided. Do not hard-code either choice.
 5. The blind protocol is non-negotiable. Other users' sessions on a target may only be shown after the viewer's own session is submitted and the target is revealed.
+6. rv_sessions.dimension_scores, blind_judging, the target fields and summary are all written by the user's device, just like rv_sessions.score. Any feature shown to other users must recompute all of them, including the match strength label, from the receipt (rv_blind_receipts.rotation_matrices).
 
 Standing rule for every agent: if you notice a security, data integrity, privacy, or cheating risk outside your task, list it in your report under "Noticed but not touched." Never fix it without approval.
