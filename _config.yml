@@ -17,5 +17,8 @@ exclude:
   - design/
   - wrangler.toml
   - ablty-worker.js
+  - rv-blind-judging.js
+  - rv-judging-images.js
+  - scripts/
   - pk-arena-prototype.html
   - signal-scanner-prototype.html

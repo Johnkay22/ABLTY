@@ -903,6 +903,7 @@ html, body {
 }
 .ring-pct { font-family: var(--font-display); font-size: 42px; letter-spacing: 1px; color: #fff; line-height: 1; }
 .ring-label { font-family: var(--font-mono); font-size: 8px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+.ring-label.ring-strength { margin-top: 3px; }
 
 .result-target-row {
   display: grid; grid-template-columns: 1fr 1fr;
@@ -4771,6 +4772,7 @@ html, body {
   font-family: var(--font-rv-body); font-weight: 500; font-size: 12px;
   letter-spacing: 3px; color: var(--rv9-teal); margin-top: 5px; text-transform: uppercase;
 }
+#screen-results .ring-label.ring-strength { font-size: 10px; letter-spacing: 2px; margin-top: 3px; color: var(--muted); }
 
 #screen-results .result-target-row { gap: 12px; margin-top: 14px; }
 #screen-results .result-thumb {
@@ -6319,7 +6321,7 @@ html, body {
           </div>
           <div class="rv-protocol-item">
             <div class="rv-protocol-num">04</div>
-            <div class="rv-protocol-text">Submit when done. AI grades your session against the hidden target across 6 dimensions.</div>
+            <div class="rv-protocol-text">Submit when done. AI compares your written impressions and any sketch with five photos without knowing your target.</div>
           </div>
         </div>
       </div>
@@ -6392,7 +6394,7 @@ html, body {
         </div>
         <div class="rv-protocol-item">
           <div class="rv-protocol-num">04</div>
-          <div class="rv-protocol-text">Submit when done. AI grades against the hidden target.</div>
+          <div class="rv-protocol-text">Submit when done. AI compares your impressions and any sketch with five anonymous candidates.</div>
         </div>
       </div>
       <button class="modal-close-btn" onclick="closeProtocolModal()">Got It</button>
@@ -6419,7 +6421,7 @@ html, body {
       <div class="section-label">RV CALIBRATION</div>
       <div class="modal-title" style="font-size:30px;margin-bottom:10px;">How this is calculated</div>
       <div class="modal-body" style="margin-bottom:12px;">
-        RV Calibration compares your recent RV performance to your earlier baseline to show whether your signal is improving, stable, or dropping.
+        RV Calibration summarizes the consistency and level of correspondence ratings within one judging method. When blind-judged sessions exist, legacy grades are excluded. This is not a probability or a measure of ability.
       </div>
       <div class="mono-label" style="margin-bottom:6px;">FORMULA</div>
       <div class="modal-body" style="margin-bottom:14px;">
@@ -6623,7 +6625,8 @@ html, body {
         </svg>
         <div class="ring-center">
           <div class="ring-pct" id="score-pct">0%</div>
-          <div class="ring-label">Gestalt Match</div>
+          <div class="ring-label" id="result-score-label">Target rank</div>
+          <div class="ring-label ring-strength" id="result-match-strength" style="display:none;"></div>
         </div>
       </div>
 
@@ -6632,12 +6635,16 @@ html, body {
         <div class="result-thumb">
           <div class="result-thumb-label">Your Sketch</div>
           <img id="sketch-preview" src="" alt="Your sketch" style="width:100%;aspect-ratio:1;object-fit:cover;display:block;background:#111214;" />
+          <div id="result-sketch-empty" class="summary-text" style="display:none;padding:24px 12px;">Written-only session</div>
         </div>
         <div class="result-thumb">
           <div class="result-thumb-label">Target</div>
           <img id="target-reveal" src="" alt="Target" style="width:100%;aspect-ratio:1;object-fit:cover;display:block;background:#111;" />
+          <div id="result-target-empty" class="summary-text" style="display:none;padding:24px 12px;">Hidden until judging succeeds</div>
         </div>
       </div>
+
+      <div id="result-blind-judging" class="summary-card" style="display:none;"></div>
 
       <!-- AI Summary -->
       <div class="summary-card fade-in-delay-2">
@@ -7239,12 +7246,12 @@ html, body {
         </div>
 
         <div class="chart-card" id="rv-chart-card">
-          <div class="chart-title">RV Score Trend</div>
+          <div class="chart-title">RV Correspondence Ratings</div>
           <div class="chart-svg-wrap" id="rv-chart-wrap"></div>
         </div>
 
         <div class="chart-card">
-          <div class="chart-title">RV Accuracy by Category</div>
+          <div class="chart-title">RV Correspondence by Category</div>
           <div class="cat-breakdown" id="cat-breakdown"></div>
         </div>
 
@@ -7339,6 +7346,7 @@ html, body {
         <div class="ring-center">
           <div class="ring-pct" id="detail-score-pct">0%</div>
           <div class="ring-label" id="detail-score-label">Gestalt Match</div>
+          <div class="ring-label ring-strength" id="detail-match-strength" style="display:none;"></div>
         </div>
       </div>
 
@@ -7347,14 +7355,17 @@ html, body {
         <div class="detail-thumb-card">
           <div class="detail-thumb-label">Sketch</div>
           <img id="detail-sketch-img" src="" alt="sketch" />
+          <div id="detail-sketch-empty" class="summary-text" style="display:none;padding:24px 12px;">Written-only session</div>
         </div>
         <div class="detail-thumb-card">
           <div class="detail-thumb-label">Target</div>
           <img id="detail-target-img" src="" alt="target" />
+          <div id="detail-target-empty" class="summary-text" style="display:none;padding:24px 12px;">Target not revealed</div>
         </div>
       </div>
 
       <!-- Summary -->
+      <div id="detail-blind-judging" class="summary-card" style="display:none;"></div>
       <div class="summary-card fade-in-delay-1" id="detail-summary-card">
         <div class="mono-label" style="margin-bottom:8px;">Analyst Summary</div>
         <div class="summary-text" id="detail-summary"></div>
@@ -9595,9 +9606,26 @@ function collectImpressions() {
   return parts.join('\n\n');
 }
 
-async function submitSession() {
-  stopTimer();
+const rvSubmissionsInFlight = new Set();
 
+function hasRVSketch(canvas) {
+  if (!canvas || !canvas.width || !canvas.height) return false;
+  const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+  for (let i = 0; i < pixels.length; i += 4) {
+    if (pixels[i + 3] && (pixels[i] !== 17 || pixels[i + 1] !== 18 || pixels[i + 2] !== 20)) return true;
+  }
+  return false;
+}
+
+async function submitSession() {
+  const submissionKey = STATE.currentAssignmentId;
+  if (rvSubmissionsInFlight.has(submissionKey)) return;
+  rvSubmissionsInFlight.add(submissionKey);
+  try { await submitRVSession(); }
+  finally { rvSubmissionsInFlight.delete(submissionKey); }
+}
+
+async function submitRVSession() {
   // Switch to sketch tab first so canvas is guaranteed to be the active context
   switchTab('sketch');
 
@@ -9607,9 +9635,14 @@ async function submitSession() {
   const canvas = document.getElementById('rv-canvas');
 
   // Capture sketch as data URL  -  must happen before ANY screen transition
-  const sketchDataURL = canvas ? canvas.toDataURL('image/jpeg', 0.85) : '';
+  const sketchDataURL = hasRVSketch(canvas) ? canvas.toDataURL('image/jpeg', 0.85) : '';
   const sketchB64     = sketchDataURL.split(',')[1] || '';
   const notes = collectImpressions();
+  if (!sketchDataURL && !notes.trim()) {
+    showToast('Add written impressions, a sketch, or both before submitting.', 'warn');
+    return;
+  }
+  stopTimer();
   const assignmentId = STATE.currentAssignmentId;
   const currentTrn = STATE.currentTRN;
   // Grading can take a while. Everything about this session is captured now:
@@ -9650,8 +9683,10 @@ async function submitSession() {
     sketchPreview.style.width = '100%';
     sketchPreview.style.aspectRatio = '1';
     sketchPreview.style.objectFit = 'cover';
-    sketchPreview.style.display = 'block';
+    sketchPreview.style.display = sketchDataURL ? 'block' : 'none';
   }
+  const sketchEmpty = document.getElementById('result-sketch-empty');
+  if (sketchEmpty) sketchEmpty.style.display = sketchDataURL ? 'none' : 'block';
 
   // Target reveal is returned by the worker after grading attempt.
   const targetReveal = document.getElementById('target-reveal');
@@ -9662,9 +9697,9 @@ async function submitSession() {
   let gradingFailed = false;
   let gradingErrorMessage = '';
   try {
-    updateGradingStatus('Encoding sketch data...');
+    updateGradingStatus('Preparing your complete session...');
     await delay(600);
-    if (isSessionCurrent()) updateGradingStatus('Contacting AI analyst...');
+    if (isSessionCurrent()) updateGradingStatus('Comparing five candidate photos...');
     result = await gradeSession(sketchB64, notes, assignmentId, currentTrn);
     revealedTarget = normalizeRVTarget(result?.target, currentTrn);
     if (isSessionCurrent()) {
@@ -9700,7 +9735,10 @@ async function submitSession() {
   }
   const current = isSessionCurrent();
   if (current) {
-    if (targetReveal) targetReveal.src = revealedTarget?.src || '';
+    if (targetReveal) {
+      targetReveal.src = revealedTarget?.src || '';
+      targetReveal.style.display = revealedTarget?.src ? 'block' : 'none';
+    }
     const gradingOverlay = document.getElementById('grading-overlay');
     if (gradingOverlay) gradingOverlay.style.display = 'none';
     renderResults(result, revealedTarget, notes);
@@ -9717,6 +9755,10 @@ async function submitSession() {
     category: revealedTarget?.category || sessionCategory,
     score: gradingFailed ? null : (result.gestalt_score ?? result.overall_score ?? null),
     dimension_scores: result.dimension_scores || null,
+    blind_judging: result.blind_judging
+      ? linkBlindJudging(result.blind_judging, assignmentId, result.receipt_replayed === true)
+      : (/^b[0-9a-f]{32}$/.test(assignmentId) ? { protocol: 'blind-five-v1', assignment_id: assignmentId, retryable: result.retryable !== false } : null),
+    judging_retryable: result.retryable !== false,
     hits: result.hits || [],
     noise: result.noise || [],
     aol: result.aol || [],
@@ -9799,6 +9841,7 @@ function normalizeRVTarget(rawTarget, fallbackTrn = '') {
 }
 
 function getRVSessionScore(session) {
+  if (session?.score === null || session?.score === undefined || session?.score === '') return null;
   const score = Number(session?.score);
   if (Number.isFinite(score)) return Math.max(0, Math.min(100, score));
   return null;
@@ -9809,7 +9852,110 @@ function isRVGradingFailed(session) {
   return getRVSessionScore(session) === null;
 }
 
+function getBlindJudging(session) {
+  const b = session?.blind_judging;
+  if (b?.protocol !== 'blind-five-v1' || !Array.isArray(b.candidates) || b.candidates.length !== 5) return null;
+  if (!Number.isInteger(b.target_rank) || b.target_rank < 1 || b.target_rank > 5) return null;
+  const labels = new Set();
+  for (const c of b.candidates) {
+    if (!c || typeof c !== 'object' || !/^[A-E]$/.test(c.label) || labels.has(c.label)
+      || !/^targets\/judging\/\d{4}-\d{4}\.jpg$/.test(c.src)
+      || !Number.isInteger(c.rank) || c.rank < 1 || c.rank > 5
+      || !Number.isInteger(c.score) || c.score < 0 || c.score > 100) return null;
+    labels.add(c.label);
+  }
+  if (b.candidates.filter(c => c.is_target === true).length !== 1) return null;
+  return b;
+}
+
+// How strongly the target corresponded, from its 0-100 blind score. The rank
+// stays the main result; this label sits next to it. The Worker summary uses
+// the same thresholds.
+function rvMatchStrength(score) {
+  return score >= 60 ? 'Strong match' : score >= 30 ? 'Moderate match' : 'Weak match';
+}
+
+function blindMatchStrength(blind) {
+  const target = blind?.candidates?.find(c => c.is_target === true);
+  return target ? rvMatchStrength(target.score) : '';
+}
+
+// "Ranked 1 of 5 · Weak match" or "Tied at rank 1 of 5 · Weak match".
+function blindRankText(blind) {
+  return `${blind.tied ? 'Tied at rank' : 'Ranked'} ${blind.target_rank} of 5 · ${blindMatchStrength(blind)}`;
+}
+
+// Ratings averaged over the five rotations have one decimal place; older
+// single-pass ratings are whole numbers.
+function isRating(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 5;
+}
+
+function formatRating(value, blind) {
+  return blind?.rotations > 1 ? value.toFixed(1) : String(value);
+}
+
+// The judgment as saved with its session, linked to the receipt it came
+// from (the Worker names it; the submitted assignment is the fallback). A
+// replayed receipt was already received by an earlier submission, so this
+// copy is saved unlinked and cannot compete with that session for it.
+function linkBlindJudging(judging, assignmentId, replayed) {
+  if (!judging || typeof judging !== 'object') return judging || null;
+  const { assignment_id: workerId, ...rest } = judging;
+  if (replayed) return rest;
+  const id = workerId || assignmentId;
+  return /^b[0-9a-f]{32}$/.test(id || '') ? { ...rest, assignment_id: id } : rest;
+}
+
+// The receipt behind a complete blind judgment, or null. Failed, legacy,
+// older and unlinked sessions keep a null rv_sessions.blind_receipt_id.
+function blindReceiptIdFor(session) {
+  const id = getBlindJudging(session)?.assignment_id;
+  return typeof id === 'string' && /^b[0-9a-f]{32}$/.test(id) ? id : null;
+}
+
+function renderBlindJudgingCard(id, blind) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = blind ? 'block' : 'none';
+  if (!blind) { el.innerHTML = ''; return; }
+  const names = { geometric_form: 'Form', spatial_impression: 'Space', texture_surface: 'Texture',
+    emotional_tone: 'Atmosphere', movement_impression: 'Movement', color_light: 'Light' };
+  if (blind.rubric === 'seven-dimensions-v1') names.sensory_impression = 'Sensory impression';
+  el.innerHTML = `<div class="mono-label" style="margin-bottom:12px;">AI blind judging</div>
+    <div class="summary-text blind-rank-text" style="margin-bottom:4px;color:#fff;">${escapeHtml(blindRankText(blind))}</div>
+    <div class="summary-text" style="margin-bottom:16px;">Written impressions and sketches are judged together.${blind.rotations > 1 ? ` The judge compared all five photos ${blind.rotations} times, in a different order each time, and the ratings are averages.` : ''}</div>
+    ${[...blind.candidates].sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label)).map(c => `
+      <div class="blind-candidate" style="display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--border);">
+        <img src="${escapeHtml(c.src)}" alt="Candidate ${c.label}" loading="lazy" style="width:72px;height:72px;object-fit:cover;border-radius:8px;flex-shrink:0;">
+        <div style="min-width:0;flex:1;">
+          <div class="mono-label" style="color:${c.is_target ? 'var(--accent)' : 'var(--muted)'};">${c.tied ? 'Tied ' : ''}#${c.rank} · ${c.label}${c.is_target ? ' · Your target' : ''}</div>
+          <div class="summary-text">${c.score}/100 correspondence</div>
+          <details style="font-size:12px;color:var(--muted);margin-top:5px;"><summary>Dimension ratings</summary>
+            ${Object.entries(names).map(([key, label]) => `<div>${label}: ${isRating(c.dimension_scores?.[key]) ? formatRating(c.dimension_scores[key], blind) : '-'} / 5</div>`).join('')}
+          </details>
+        </div>
+      </div>`).join('')}
+    <div class="summary-text" style="font-size:12px;margin-top:12px;">The AI did not know which photo was your target. Ratings are not probabilities or evidence of ability. Ties stay ties.</div>`;
+}
+
+// Existing history remains available; charts compare only one judging method.
+function comparableRVSessions(sessions) {
+  const blind = sessions.filter(s => getBlindJudging(s));
+  return blind.length ? blind : sessions;
+}
+
 function renderResults(result, target, notes) {
+  const blind = getBlindJudging(result);
+  renderBlindJudgingCard('result-blind-judging', blind);
+  setEl('result-score-label', blind ? (blind.tied ? 'Tied rank' : 'Target rank') : 'Legacy match');
+  const resultStrength = document.getElementById('result-match-strength');
+  if (resultStrength) {
+    resultStrength.textContent = blind && !result?.grading_failed ? blindMatchStrength(blind) : '';
+    resultStrength.style.display = resultStrength.textContent ? 'block' : 'none';
+  }
+  const targetEmpty = document.getElementById('result-target-empty');
+  if (targetEmpty) targetEmpty.style.display = target?.src ? 'none' : 'block';
   const score   = Number(result.gestalt_score ?? result.overall_score ?? 0);
   const ring    = document.getElementById('score-ring');
   const scoreWrap = document.querySelector('#screen-results .result-score-ring');
@@ -9822,18 +9968,19 @@ function renderResults(result, target, notes) {
 
   // Toggle result views: normal scored UI vs honest grading-failed UI.
   if (scoreWrap) scoreWrap.style.display = hasGradingFailure ? 'none' : 'flex';
-  if (dataPointsHeader) dataPointsHeader.style.display = hasGradingFailure ? 'none' : 'flex';
-  if (hitList) hitList.style.display = hasGradingFailure ? 'none' : 'flex';
+  if (dataPointsHeader) dataPointsHeader.style.display = (hasGradingFailure || blind) ? 'none' : 'flex';
+  if (hitList) hitList.style.display = (hasGradingFailure || blind) ? 'none' : 'flex';
 
   if (!hasGradingFailure && ring) {
     const circumference = 364.4;
-    ring.style.stroke = score >= 60 ? 'var(--accent)' : score >= 35 ? 'var(--warn)' : 'var(--danger)';
+    ring.style.stroke = blind ? 'var(--accent)' : score >= 60 ? 'var(--accent)' : score >= 35 ? 'var(--warn)' : 'var(--danger)';
     setTimeout(() => {
-      ring.style.strokeDashoffset = circumference - (score / 100) * circumference;
+      ring.style.strokeDashoffset = blind ? 0 : circumference - (score / 100) * circumference;
     }, 200);
   }
 
-  if (!hasGradingFailure && pctEl) {
+  if (blind && pctEl) pctEl.textContent = blind.target_rank + '/5';
+  if (!hasGradingFailure && !blind && pctEl) {
     let count = 0;
     const interval = setInterval(() => {
       count += 2;
@@ -9881,7 +10028,7 @@ function renderResults(result, target, notes) {
         <div class="result-error-title">Session Saved - Grading Failed</div>
         <div class="result-error-body">Your sketch and impressions were saved successfully.</div>
         <div class="result-error-body">${gradingErrorMsg ? `Reason: ${escapeHtml(gradingErrorMsg)}` : 'The AI grading service was unreachable right now.'}</div>
-        <div class="result-error-body">You can run another session now and try grading again later.</div>
+        <div class="result-error-body">${result.retryable === false ? 'This session cannot be judged again. Start a new session.' : 'Open this session in history to retry within two hours. Keep the original impressions and sketch.'}</div>
       `;
     } else {
       errorCard.style.display = 'none';
@@ -9927,7 +10074,9 @@ async function gradeSession(sketchB64, notes, assignmentId, trn, targetId) {
 async function retryGrading(sessionId) {
   const session = STATE.sessions.find(s => String(s.id) === String(sessionId));
   if (!session) { showToast('Session not found.', 'warn'); return; }
-  if (!session.sketchData) { showToast('No sketch data saved for this session.', 'warn'); return; }
+  if (!isRVGradingFailed(session)) { showToast('This session already has a saved judgment.', 'info'); return; }
+  if (!session.sketchData && !session.notes) { showToast('No session content saved.', 'warn'); return; }
+  if (session.judging_retryable === false) { showToast('Start a new session. This judgment cannot be retried.', 'warn'); return; }
 
   const btn = document.querySelector('#detail-retry-card button');
   if (btn) { btn.disabled = true; btn.textContent = 'GRADING...'; }
@@ -9943,7 +10092,7 @@ async function retryGrading(sessionId) {
     && sessionOwner === _dataOwner;
 
   try {
-    const sketchB64 = session.sketchData.replace(/^data:image\/\w+;base64,/, '');
+    const sketchB64 = (session.sketchData || '').replace(/^data:image\/\w+;base64,/, '');
     const result = await gradeSession(sketchB64, session.notes || '', session.assignmentId || '', session.trn || '', session.targetId || '');
 
     if (result?.grading_failed) throw new Error(result.grading_error || 'Grading failed');
@@ -9951,6 +10100,14 @@ async function retryGrading(sessionId) {
     const graded = {
       score: result.gestalt_score ?? result.overall_score ?? null,
       dimension_scores: result.dimension_scores || null,
+      // A retry completes this same saved session, so a replayed receipt
+      // still belongs to it.
+      blind_judging: linkBlindJudging(result.blind_judging, session.assignmentId, false),
+      judging_retryable: false,
+      targetId: result.target?.id || session.targetId,
+      targetSrc: result.target?.src || session.targetSrc,
+      targetLabel: result.target?.label || session.targetLabel,
+      category: result.target?.category || session.category,
       hits: result.hits || [],
       noise: result.noise || [],
       aol: result.aol || [],
@@ -9972,6 +10129,7 @@ async function retryGrading(sessionId) {
       const i = list.findIndex(s => String(s?.id) === String(sessionId));
       if (i >= 0) { list[i] = { ...list[i], ...graded }; store.set(key, JSON.stringify(list)); }
     }
+    if (result.blind_judging) await queueRetriedRVJudgment({ ...session, ...graded }, sessionOwner);
     if (!saved || !isViewCurrent()) return;
 
     showToast('Grading complete!', 'success');
@@ -11436,7 +11594,7 @@ async function saveNewPassword() {
 // one sentence saying where the result is, what is not backed up and what
 // to do next. "Saved on this device" is only ever said about results the
 // phone confirmed it kept; the account conflicts, ids and error codes
-// (id_collision, content_mismatch) stay in the Sync details report.
+// (id_collision, content_mismatch, receipt_conflict) stay in the Sync details report.
 function describePendingSync(items) {
   const list = (Array.isArray(items) ? items : []).filter(Boolean);
   const results = (n) => (n === 1 ? '1 result' : n + ' results');
@@ -11483,6 +11641,9 @@ function describeSyncState(owner = _dataOwner) {
     let text = pend.text.replace(/ Open Details for help\./g, '');
     if (items.some((it) => it && it.unresolved === 'id_collision')) {
       text += ' The cloud already holds results with these IDs under a different account. If that account is also yours, sign in to it on this device and open Sync Details there to move them.';
+    }
+    if (items.some((it) => it && it.unresolved === 'receipt_conflict')) {
+      text += ' A judged session could not be backed up because its judging receipt is already attached to another saved session. It stays in your history on this device.';
     }
     const note = unverifiedNote(owner, unverified).text.replace(' Tap to check again.', ' Tap the Data Sync row to check again.');
     if (note) text += ' ' + note;
@@ -14987,7 +15148,8 @@ function renderAnalytics() {
   const tsTrials = loadTimestampAll();
   updateExportButtonState();
 
-  const scoredRvSessions = rvSessions.filter((s) => Number.isFinite(Number(s?.score)));
+  const comparedRv = comparableRVSessions(rvSessions);
+  const scoredRvSessions = comparedRv.filter((s) => Number.isFinite(Number(s?.score)));
   const rvBest = scoredRvSessions.length
     ? Math.max(...scoredRvSessions.map((s) => Number(s.score)))
     : null;
@@ -15001,15 +15163,15 @@ function renderAnalytics() {
   setEl('kpi-active-days-sub', 'Tap for detailed trends');
 
   // Keep key sections rendered by their new tab grouping
-  buildTODChart(rvSessions);
+  buildTODChart(comparedRv);
   renderStreakBanner(rvSessions, zenerRuns, tsTrials);
   buildOverviewSparklines();
   buildProtocolActivity();
 
-  renderCalibration(rvSessions);
-  buildBarChartMotivated('rv-chart-wrap', rvSessions.slice(-10), s => s.score, 100, '%', undefined, 3, 'RV session');
-  buildCatBreakdown(rvSessions);
-  buildDimStrengths(rvSessions);
+  renderCalibration(comparedRv);
+  buildBarChartMotivated('rv-chart-wrap', comparedRv.slice(-10), s => s.score, 100, '%', undefined, 3, 'RV session');
+  buildCatBreakdown(comparedRv);
+  buildDimStrengths(comparedRv);
 
   buildBarChartMotivated('zener-chart-wrap', zenerRuns.slice(-10), r => r.hitPct, 100, '%', 20, 3, 'Zener run');
   buildSymbolAccuracy(zenerRuns);
@@ -15308,7 +15470,7 @@ function buildOverviewSparklines() {
   const zenerRuns = sortByTimestampAsc(loadZenerSessions().filter((r) => Number.isFinite(Number(r?.hitPct))));
   const tsTrials = sortByTimestampAsc(typeof loadTimestampAll === 'function' ? loadTimestampAll() : []);
 
-  const rvValues = rvSessions.map((s) => Number(s.score));
+  const rvValues = comparableRVSessions(rvSessions).map((s) => Number(s.score));
   const rvAvg = rvValues.length ? (rvValues.reduce((a, b) => a + b, 0) / rvValues.length) : null;
 
   const zenerValues = zenerRuns.map((r) => Number(r.hitPct));
@@ -15332,7 +15494,7 @@ function buildOverviewSparklines() {
 
   const cards = [
     {
-      label: 'RV',
+      label: rvSessions.some(s => getBlindJudging(s)) ? 'RV BLIND' : 'RV LEGACY',
       values: rollingAverage(rvValues, 5),
       count: rvValues.length,
       baselinePct: 50,
@@ -15664,7 +15826,11 @@ function collectExportRows(modules) {
         time: dt.time,
         module: 'RV',
         score: score === null ? '' : score,
-        result: gradingFailed ? 'Not graded' : 'Graded',
+        result: gradingFailed ? 'Not graded' : getBlindJudging(s) ? 'Blind judged' : 'Legacy graded',
+        judging_protocol: getBlindJudging(s)?.protocol || '',
+        target_rank: getBlindJudging(s)?.target_rank || '',
+        tied: getBlindJudging(s) ? String(getBlindJudging(s).tied) : '',
+        match_strength: !gradingFailed && getBlindJudging(s) ? blindMatchStrength(getBlindJudging(s)) : '',
         target_id: rvSplit.target_id,
         category: rvSplit.category,
         label: s.targetLabel || (s.trn ? `TRN ${s.trn}` : 'RV Session'),
@@ -15762,6 +15928,10 @@ function downloadExportCSV() {
     'module',
     'score',
     'result',
+    'judging_protocol',
+    'target_rank',
+    'tied',
+    'match_strength',
     'target_id',
     'category',
     'label',
@@ -15779,6 +15949,10 @@ function downloadExportCSV() {
     module: 'Module',
     score: 'Score',
     result: 'Result',
+    judging_protocol: 'Judging method',
+    target_rank: 'Target rank of 5',
+    tied: 'Tied rank',
+    match_strength: 'Match strength',
     target_id: 'Target ID',
     category: 'Category',
     label: 'Label',
@@ -16102,7 +16276,10 @@ function buildCombinedLog(rvSessions, zenerRuns) {
 
   const TYPE_TAG  = { rv: 'RV', zener: 'ZNR', ts: 'PSI' };
   const TYPE_LABEL = {
-    rv:    s => s.targetLabel || '-',
+    rv:    s => {
+      const blind = getBlindJudging(s);
+      return (blind ? `Blind judged · ${blindMatchStrength(blind)} · ` : 'Legacy · ') + (s.targetLabel || '-');
+    },
     zener: s => `${s.hits}/25 hits`,
     ts:    s => {
       const elapsed = getTSElapsedSeconds(s);
@@ -16117,7 +16294,8 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   const TYPE_SCORE_DISPLAY = {
     rv:    s => {
       const score = getRVSessionScore(s);
-      return score === null ? 'Not graded' : `${score}%`;
+      const blind = getBlindJudging(s);
+      return score === null ? 'Not graded' : blind ? `${blind.tied ? 'Tied ' : ''}${blind.target_rank}/5` : `${score}%`;
     },
     zener: s => s.score + '%',
     ts:    s => {
@@ -16139,9 +16317,14 @@ function buildCombinedLog(rvSessions, zenerRuns) {
     const isHitMiss   = s.type === 'ts';
     const isHitLike   = getTSTrialHit(s);
     const rvScore = s.type === 'rv' ? getRVSessionScore(s) : null;
+    const rvBlind = s.type === 'rv' ? getBlindJudging(s) : null;
+    // A blind row's colour follows its match strength label, so they never disagree.
+    const strengthClass = { 'Strong match': 'high', 'Moderate match': 'mid', 'Weak match': 'low' };
     const cls = isHitMiss
       ? (isHitLike ? 'high' : 'low')
-      : (s.type === 'rv' && rvScore === null ? 'na' : (s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low'));
+      : (s.type === 'rv' && rvScore === null ? 'na'
+        : rvBlind ? (strengthClass[blindMatchStrength(rvBlind)] || 'na')
+        : (s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low'));
 
     return `<div class="session-card" onclick="openSessionDetail('${sessionType}','${sessionId}')" style="cursor:pointer;">
       <div class="session-thumb">
@@ -16217,6 +16400,7 @@ function openSessionDetail(type, id) {
 }
 
 function renderTSDetail(s) {
+  renderBlindJudgingCard('detail-blind-judging', null);
   const d = new Date(s.timestamp);
   const dateStr = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
   const tsHit = getTSTrialHit(s);
@@ -16276,6 +16460,8 @@ function renderTSDetail(s) {
 
 
 function renderRVDetail(s) {
+  const blind = getBlindJudging(s);
+  renderBlindJudgingCard('detail-blind-judging', blind);
   const d = new Date(s.timestamp);
   const dateStr = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
 
@@ -16287,21 +16473,30 @@ function renderRVDetail(s) {
   const pctEl = document.getElementById('detail-score-pct');
   const score = getRVSessionScore(s);
   const failed = isRVGradingFailed(s);
-  setEl('detail-score-label', 'Gestalt Match');
+  setEl('detail-score-label', blind ? (blind.tied ? 'Tied rank' : 'Target rank') : 'Legacy match');
+  const detailStrength = document.getElementById('detail-match-strength');
+  if (detailStrength) {
+    detailStrength.textContent = blind && !failed ? blindMatchStrength(blind) : '';
+    detailStrength.style.display = detailStrength.textContent ? 'block' : 'none';
+  }
   if (ring) {
-    const ringScore = score ?? 0;
+    const ringScore = blind ? 100 : score ?? 0;
     ring.style.stroke = failed ? 'var(--muted)' : (ringScore >= 60 ? 'var(--accent)' : ringScore >= 35 ? 'var(--warn)' : 'var(--danger)');
     setTimeout(() => { ring.style.strokeDashoffset = failed ? 364.4 : (364.4 - (ringScore / 100) * 364.4); }, 100);
   }
-  if (pctEl) pctEl.textContent = failed ? 'N/A' : `${score}%`;
+  if (pctEl) pctEl.textContent = failed ? 'N/A' : blind ? blind.target_rank + '/5' : `${score}%`;
 
   // Images
   const imagesRow = document.getElementById('detail-images-row');
   if (imagesRow) imagesRow.style.display = 'grid';
   const sketchImg = document.getElementById('detail-sketch-img');
   const targetImg = document.getElementById('detail-target-img');
-  if (sketchImg) sketchImg.src = s.sketchData || '';
-  if (targetImg) targetImg.src = s.targetSrc || '';
+  if (sketchImg) { sketchImg.src = s.sketchData || ''; sketchImg.style.display = s.sketchData ? 'block' : 'none'; }
+  if (targetImg) { targetImg.src = s.targetSrc || ''; targetImg.style.display = s.targetSrc ? 'block' : 'none'; }
+  const sketchEmpty = document.getElementById('detail-sketch-empty');
+  if (sketchEmpty) sketchEmpty.style.display = s.sketchData ? 'none' : 'block';
+  const targetEmpty = document.getElementById('detail-target-empty');
+  if (targetEmpty) targetEmpty.style.display = s.targetSrc ? 'none' : 'block';
 
   // Summary
   if (failed) {
@@ -16320,7 +16515,7 @@ function renderRVDetail(s) {
       summaryCard.parentNode.insertBefore(retryCard, summaryCard.nextSibling);
     }
   }
-  if (failed && s.sketchData) {
+  if (failed && (s.sketchData || s.notes) && s.judging_retryable !== false) {
     retryCard.style.display = 'block';
     retryCard.innerHTML = `<button class="btn-primary" style="width:100%;margin-top:12px;" onclick="retryGrading('${s.id}')">RETRY GRADING</button>`;
   } else {
@@ -16375,6 +16570,7 @@ function renderRVDetail(s) {
       emotional_tone:    'Emotional Tone',
       movement_impression:'Movement',
       color_light:       'Color / Light',
+      sensory_impression:'Sensory Impression',
     };
     dimGrid.innerHTML = Object.entries(dims).map(([key, val]) => `
       <div class="dimension-row">
@@ -16382,7 +16578,7 @@ function renderRVDetail(s) {
         <div class="dimension-bar-wrap">
           <div class="dimension-bar-fill" style="width:${(val/5)*100}%;background:${val>=4?'var(--accent)':val>=2?'var(--warn)':'var(--danger)'}"></div>
         </div>
-        <div class="dimension-val">${escapeHtml(val)}</div>
+        <div class="dimension-val">${escapeHtml(isRating(val) ? formatRating(val, blind) : val)}</div>
       </div>`).join('');
   } else if (dimWrap) {
     dimWrap.style.display = 'none';
@@ -16400,6 +16596,7 @@ function renderRVDetail(s) {
 }
 
 function renderZenerDetail(run) {
+  renderBlindJudgingCard('detail-blind-judging', null);
   const d = new Date(run.timestamp);
   const dateStr = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
 
@@ -16580,7 +16777,7 @@ function renderCalibration(rvSessions) {
   if (delta > 3) {
     if (arrowEl) { arrowEl.textContent = '↑'; arrowEl.className = 'trend-arrow up'; }
     if (labelEl) labelEl.textContent = `+${delta} vs earlier sessions`;
-    if (descEl)  descEl.textContent  = 'Your signal is getting stronger and more consistent.';
+    if (descEl)  descEl.textContent  = 'Your correspondence ratings are higher and more consistent within this judging method.';
   } else if (delta < -3) {
     if (arrowEl) { arrowEl.textContent = '↓'; arrowEl.className = 'trend-arrow down'; }
     if (labelEl) labelEl.textContent = `${delta} vs earlier sessions`;
@@ -16588,8 +16785,11 @@ function renderCalibration(rvSessions) {
   } else {
     if (arrowEl) { arrowEl.textContent = '→'; arrowEl.className = 'trend-arrow flat'; }
     if (labelEl) labelEl.textContent = 'Holding steady';
-    if (descEl)  descEl.textContent  = 'Your signal consistency is stable. Keep building your session count.';
+    if (descEl)  descEl.textContent  = 'Your correspondence ratings are stable within this judging method.';
   }
+
+  if (descEl) descEl.textContent += rvSessions.some(s => getBlindJudging(s))
+    ? ' Blind-judged sessions only; legacy scores are excluded.' : ' Legacy ratings only.';
 
   // Mini bar chart of all scores
   if (barsEl && sorted.length) {
@@ -17717,6 +17917,8 @@ function mapRVSessionRow(session, sessionType = 'personal') {
     category: session?.category || null,
     score: normalizedScore,
     dimension_scores: session?.dimension_scores || null,
+    blind_judging: session?.blind_judging || null,
+    blind_receipt_id: blindReceiptIdFor(session),
     hits: Array.isArray(session?.hits) ? session.hits : [],
     noise: Array.isArray(session?.noise) ? session.noise : [],
     aol: Array.isArray(session?.aol) ? session.aol : [],
@@ -17841,6 +18043,23 @@ async function syncSessionToSupabase(table, data, opts = {}) {
     // has confirmed it.
     writePendingSync(owner, items);
   }
+  await flushPendingSync(owner);
+}
+
+async function queueRetriedRVJudgment(session, owner) {
+  if (!owner || owner === DATA_OWNER_GUEST) return;
+  // Wait for the original failed-session insert before replacing its queue
+  // snapshot. A late insert response must not remove the completed judgment.
+  const pending = _syncFlushInFlight.get(owner);
+  if (pending) await pending;
+  const items = readPendingSync(owner);
+  const key = 'rv_sessions:' + String(session.id);
+  const item = { key, table: 'rv_sessions', row: mapRVSessionRow(session), attempts: 0, queuedAt: new Date().toISOString() };
+  const i = items.findIndex(it => it.key === key);
+  if (i >= 0) items[i] = item; else items.push(item);
+  readConfirmedSync(owner).delete(key);
+  try { localStorage.setItem(ownedKeyFor(owner, SYNC_CONFIRMED_KEY), JSON.stringify(Array.from(readConfirmedSync(owner)))); } catch (_) {}
+  writePendingSync(owner, items);
   await flushPendingSync(owner);
 }
 
@@ -18053,8 +18272,22 @@ async function flushPendingSync(owner = _dataOwner, opts = {}) {
         if (error && error.code === '23505') {
           const verdict = await cloudRowMatchesSubmission(item.table, item.row, owner);
           if (verdict === null) failure = { code: '23505', message: 'could not verify existing row' };
+          else if (verdict === 'other_owner' && item.row.blind_receipt_id
+            && /blind_receipt_id/.test(String(error.message || '') + ' ' + String(error.details || ''))) {
+            // The judging receipt already backs another saved session. A
+            // retry cannot change that; the result stays in local history.
+            unresolved = 'receipt_conflict'; failure = { code: 'receipt_conflict', message: 'judging receipt already linked to another session' };
+          }
           else if (verdict === 'other_owner') { unresolved = 'id_collision'; failure = { code: 'id_collision', message: 'id already used by another account' }; }
-          else if (verdict === 'mismatch') { unresolved = 'content_mismatch'; failure = { code: 'content_mismatch', message: 'a different result of this account already has this id' }; }
+          else if (verdict === 'mismatch') {
+            if (item.table === 'rv_sessions' && getBlindJudging(item.row)) {
+              // The RPC can only complete an ungraded row owned by this login
+              // with the exact original notes, sketch, TRN and session metadata.
+              const completed = await sb.rpc('rv_complete_blind_session', { p_row: item.row });
+              if (completed.error) failure = { code: 'judgment_sync', message: 'judgment upload not confirmed' };
+              else if (!completed.data) { unresolved = 'content_mismatch'; failure = { code: 'content_mismatch' }; }
+            } else { unresolved = 'content_mismatch'; failure = { code: 'content_mismatch', message: 'a different result of this account already has this id' }; }
+          }
           // 'match': an earlier attempt landed, nothing more to do.
         } else if (error) {
           failure = error;
@@ -18277,7 +18510,7 @@ async function loadAnalyticsFromCloud(userId, opts = {}) {
   try {
     const [rvRes, zeRes, tsRes] = await Promise.all([
       sb.from('rv_sessions')
-        .select('id, session_type, trn, target_id, target_src, target_label, category, score, dimension_scores, hits, noise, aol, summary, notes, duration, sketch_data, timestamp, tags')
+        .select('id, session_type, trn, target_id, target_src, target_label, category, score, dimension_scores, blind_judging, blind_receipt_id, hits, noise, aol, summary, notes, duration, sketch_data, timestamp, tags')
         .eq('user_id', userId)
         .order('timestamp', { ascending: false })
         .limit(200),
@@ -18320,6 +18553,9 @@ async function loadAnalyticsFromCloud(userId, opts = {}) {
           : (Number.isFinite(Number(r.score)) ? Number(r.score) : null),
         grading_failed: !!r.grading_failed || r.score === null || r.score === undefined,
         dimension_scores: r.dimension_scores || {},
+        blind_judging: r.blind_judging || null,
+        assignmentId: r.blind_receipt_id || r.blind_judging?.assignment_id || '',
+        judging_retryable: r.blind_judging?.retryable !== false,
         hits: Array.isArray(r.hits) ? r.hits : [],
         noise: Array.isArray(r.noise) ? r.noise : [],
         aol: Array.isArray(r.aol) ? r.aol : [],
@@ -19786,18 +20022,22 @@ function buildDimStrengths(rvSessions) {
   }
 
   const dims = ['geometric_form','spatial_impression','texture_surface','emotional_tone','movement_impression','color_light'];
+  if (sessionsWithDims.some(s => isRating(s.dimension_scores.sensory_impression))) dims.push('sensory_impression');
   const labels = {
     geometric_form: 'Geometric Form',
     spatial_impression: 'Spatial Impression',
     texture_surface: 'Texture / Surface',
     emotional_tone: 'Emotional Tone',
     movement_impression: 'Movement',
-    color_light: 'Color / Light'
+    color_light: 'Color / Light',
+    sensory_impression: 'Sensory Impression'
   };
 
   const avgs = {};
   dims.forEach(d => {
-    const vals = sessionsWithDims.map(s => s.dimension_scores[d] || 0);
+    // Older six-dimension sessions have no sensory rating, not a zero rating.
+    const rated = d === 'sensory_impression' ? sessionsWithDims.filter(s => isRating(s.dimension_scores[d])) : sessionsWithDims;
+    const vals = rated.map(s => s.dimension_scores[d] || 0);
     avgs[d] = Math.round(vals.reduce((a,b) => a+b,0) / vals.length);
   });
 
@@ -19924,7 +20164,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.10.13.2';
+const APP_VERSION = '2026.10.16.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 // What the last update check found, so Settings can tell "this is the
@@ -22958,7 +23198,7 @@ const ACAD = (() => {
           <div class="ob-num">01</div>
           <div class="ob-row-text">
             <div class="ob-row-label">Remote Viewing</div>
-            <div class="ob-row-sub">Sketch blind targets. AI grades your session across 6 dimensions. Track signal quality over time.</div>
+            <div class="ob-row-sub">Record impressions and optional sketches. AI compares each complete session with five candidate photos.</div>
           </div>
         </div>
         <div class="ob-row">

@@ -1,0 +1,52 @@
+name: RV blind judging
+
+on:
+  pull_request:
+    paths:
+      - 'ablty-worker.js'
+      - 'rv-*.js'
+      - 'app.html'
+      - 'targets/judging/**'
+      - 'supabase/migrations/20261015000001_rv_blind_judging.sql'
+      - 'tests/rv-blind*'
+      - 'tests/postgres-rv-blind-judging.sh'
+      - 'tests/helpers/blind-worker.js'
+      - '.github/workflows/rv-blind-judging.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  protocol-database-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Protocol, safe rendering, sync, syntax and links
+        run: |
+          node --test tests/rv-blind-judging.test.js
+          node tests/safe-text-rendering.test.js
+          node tests/cloud-sync-status.test.js
+          node tests/check-app-syntax.js
+          node tests/check-page-links.js
+      - name: Disposable PostgreSQL
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql postgresql-client
+          export PATH="$(pg_config --bindir):$PATH"
+          bash tests/postgres-rv-blind-judging.sh
+      - name: Install browser test tool outside checkout
+        run: |
+          npm install --prefix /tmp/ablty-blind-test --no-audit --no-fund playwright@1.62.1
+          /tmp/ablty-blind-test/node_modules/.bin/playwright install --with-deps chromium
+      - name: Full app in Chromium with local network fixtures
+        env:
+          NODE_PATH: /tmp/ablty-blind-test/node_modules
+          ABLTY_TEST_ARTIFACTS: /tmp/ablty-blind-artifacts
+        run: |
+          node tests/rv-blind-browser.test.js
+          node tests/browser-account-isolation.test.js

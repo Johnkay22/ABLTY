@@ -29,7 +29,7 @@ const DECLS = [
   'let currentScreen = "profile";',
   'let STATE = { sessions: [], settings: {} };',
 ];
-const FNS = ['safeParseArray', 'ownedKeyFor', 'ownedKey', 'isLoggedIn', 'isAuthGenCurrent', 'beginAuthContext', 'endAuthContext',
+const FNS = ['getBlindJudging', 'blindReceiptIdFor', 'linkBlindJudging', 'queueRetriedRVJudgment', 'safeParseArray', 'ownedKeyFor', 'ownedKey', 'isLoggedIn', 'isAuthGenCurrent', 'beginAuthContext', 'endAuthContext',
   'getTSTrialHit', 'mapRVSessionRow', 'mapZenerRunRow', 'mapTSTrialRow',
   'trimRecent', 'persistHistory', 'warnHistoryNotSaved', 'pruneRvForStorage', 'saveState', 'loadState', 'loadZenerSessions', 'saveZenerSession',
   'describePendingSync', 'updateSyncStatus', 'refreshSyncStatus', 'retryPendingSync',
@@ -1426,6 +1426,171 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     assert.strictEqual(t.log.inserts.length, 0);
     assert.strictEqual(t.log.existence.length, 0);
     assert.strictEqual(t.ls.size, 0);
+  });
+
+  const blindMetadata = {
+    protocol: 'blind-five-v1', target_rank: 1, tied: false,
+    candidates: ['A','B','C','D','E'].map((label, i) => ({ label, src: 'targets/judging/6047-5129.jpg',
+      rank: i + 1, score: 80 - i * 10, is_target: i === 0 })),
+  };
+
+  await test('BLIND: completed retry is queued and conditionally completes its saved ungraded row', async () => {
+    const t = makeCtx(); t.signIn('A');
+    const session = rvSession(991, { score: 80, blind_judging: blindMetadata });
+    t.cloud('rv_sessions', 991, 'A', t.ctx.mapRVSessionRow({ ...session, score: null, blind_judging: null }));
+    t.answers.push({ error: { code: '23505' } });
+    let calls = 0;
+    t.ctx.sb.rpc = async (name, args) => {
+      assert.strictEqual(name, 'rv_complete_blind_session'); calls++;
+      assert.strictEqual(args.p_row.notes, session.notes);
+      t.cloud('rv_sessions', 991, 'A', args.p_row);
+      return { data: true, error: null };
+    };
+    await t.ctx.queueRetriedRVJudgment(session, 'A');
+    assert.strictEqual(calls, 1); assert.strictEqual(t.queue('A').length, 0);
+    assert.strictEqual(t.cloudRows.get('rv_sessions:991').row.blind_judging.protocol, 'blind-five-v1');
+  });
+
+  await test('BLIND: failed conditional completion remains queued and visibly unsaved', async () => {
+    const t = makeCtx(); t.signIn('A');
+    const session = rvSession(992, { score: 80, blind_judging: blindMetadata });
+    t.cloud('rv_sessions', 992, 'A', t.ctx.mapRVSessionRow({ ...session, score: null, blind_judging: null }));
+    t.answers.push({ error: { code: '23505' } });
+    t.ctx.sb.rpc = async () => ({ data: null, error: { code: 'network' } });
+    await t.ctx.queueRetriedRVJudgment(session, 'A');
+    assert.strictEqual(t.queue('A').length, 1);
+    assert.strictEqual(t.queue('A')[0].lastError, 'judgment_sync');
+    assert.strictEqual(t.cloudRows.get('rv_sessions:992').row.score, null);
+  });
+
+  await test("BLIND: completing another account's colliding row never calls the RPC", async () => {
+    const t = makeCtx(); t.signIn('B');
+    const session = rvSession(993, { score: 80, blind_judging: blindMetadata });
+    t.cloud('rv_sessions', 993, 'A', t.ctx.mapRVSessionRow({ ...session, score: null }));
+    t.answers.push({ error: { code: '23505' } });
+    t.ctx.sb.rpc = async () => { throw new Error('must not be called'); };
+    await t.ctx.queueRetriedRVJudgment(session, 'B');
+    assert.strictEqual(t.queue('B')[0].unresolved, 'id_collision');
+    assert.strictEqual(t.cloudRows.get('rv_sessions:993').row.score, null);
+  });
+
+  await test('BLIND: original pending insert cannot remove a newer judgment; account switch keeps it with its owner', async () => {
+    const t = makeCtx(); t.signIn('A');
+    const session = rvSession(994, { score: 80, blind_judging: blindMetadata });
+    t.answers.push({ hold: true });
+    const first = t.ctx.syncSessionToSupabase('rv_sessions', t.ctx.mapRVSessionRow({ ...session, score: null, blind_judging: null }));
+    await tick();
+    const retry = t.ctx.queueRetriedRVJudgment(session, 'A');
+    t.signIn('B'); t.holds[0].resolve({ error: null });
+    await first; await retry;
+    assert.strictEqual(t.queue('A').length, 1);
+    assert.strictEqual(t.queue('A')[0].row.score, 80);
+    assert.strictEqual(t.queue('B').length, 0);
+    assert.strictEqual(t.log.inserts.length, 1);
+  });
+
+  const RECEIPT = 'b' + 'a'.repeat(32);
+  const OTHER_RECEIPT = 'b' + 'c'.repeat(32);
+  const receiptConflict = { error: { code: '23505', message: 'duplicate key value violates unique constraint "rv_sessions_blind_receipt_id_key"',
+    details: 'Key (blind_receipt_id)=(' + RECEIPT + ') already exists.' } };
+
+  await test('RECEIPT: a successful blind session uploads its receipt id; failed, legacy, older and replayed copies upload null', async () => {
+    const t = makeCtx(); t.signIn('A');
+    const linked = t.ctx.linkBlindJudging(blindMetadata, RECEIPT, false);
+    assert.strictEqual(linked.assignment_id, RECEIPT);
+    // The Worker's id wins over the submitted assignment when both exist.
+    assert.strictEqual(t.ctx.linkBlindJudging({ ...blindMetadata, assignment_id: RECEIPT }, OTHER_RECEIPT, false).assignment_id, RECEIPT);
+    const row = t.ctx.mapRVSessionRow(rvSession(1001, { assignmentId: RECEIPT, blind_judging: linked }));
+    assert.strictEqual(row.blind_receipt_id, RECEIPT);
+    await t.ctx.syncSessionToSupabase('rv_sessions', row);
+    assert.strictEqual(t.log.inserts[0].row.blind_receipt_id, RECEIPT);
+    assert.strictEqual(t.queue('A').length, 0);
+    const failedStub = { protocol: 'blind-five-v1', assignment_id: RECEIPT, retryable: true };
+    const nulls = {
+      failed: rvSession(1002, { score: null, grading_failed: true, assignmentId: RECEIPT, blind_judging: failedStub }),
+      legacy: rvSession(1003),
+      sixDimensionBeforeLinks: rvSession(1004, { blind_judging: { ...blindMetadata, rubric: 'six-dimensions-v1' } }),
+      replayedCopy: rvSession(1005, { assignmentId: RECEIPT, blind_judging: t.ctx.linkBlindJudging({ ...blindMetadata, assignment_id: RECEIPT }, RECEIPT, true) }),
+      malformed: rvSession(1006, { blind_judging: { ...blindMetadata, assignment_id: 'b123' } }),
+    };
+    for (const [name, session] of Object.entries(nulls)) {
+      assert.strictEqual(t.ctx.mapRVSessionRow(session).blind_receipt_id, null, name);
+      await t.ctx.syncSessionToSupabase('rv_sessions', t.ctx.mapRVSessionRow(session));
+    }
+    assert.strictEqual(t.queue('A').length, 0, 'older and unlinked sessions still upload normally');
+    // A replayed copy still shows its full ranking; only the link is absent.
+    assert.strictEqual(t.ctx.getBlindJudging(nulls.replayedCopy).candidates.length, 5);
+  });
+
+  await test('RECEIPT: the retry path carries the receipt id into the queued row and the completion RPC', async () => {
+    const t = makeCtx(); t.signIn('A');
+    const failedStub = { protocol: 'blind-five-v1', assignment_id: RECEIPT, retryable: true };
+    const failed = rvSession(1011, { score: null, grading_failed: true, assignmentId: RECEIPT, blind_judging: failedStub });
+    t.cloud('rv_sessions', 1011, 'A', t.ctx.mapRVSessionRow(failed));
+    assert.strictEqual(t.cloudRows.get('rv_sessions:1011').row.blind_receipt_id, null);
+    // retryGrading's graded fields: a Worker result without an id is linked
+    // to the session's own saved assignment.
+    const graded = { ...failed, score: 80, grading_failed: false, blind_judging: t.ctx.linkBlindJudging(blindMetadata, failed.assignmentId, false) };
+    t.answers.push({ error: { code: '23505' } });
+    let sent = null;
+    t.ctx.sb.rpc = async (name, args) => { sent = args.p_row; t.cloud('rv_sessions', 1011, 'A', args.p_row); return { data: true, error: null }; };
+    await t.ctx.queueRetriedRVJudgment(graded, 'A');
+    assert.strictEqual(t.log.inserts[0].row.blind_receipt_id, RECEIPT);
+    assert.strictEqual(sent.blind_receipt_id, RECEIPT);
+    assert.strictEqual(sent.blind_judging.assignment_id, RECEIPT);
+    assert.strictEqual(t.cloudRows.get('rv_sessions:1011').row.blind_receipt_id, RECEIPT);
+    assert.strictEqual(t.queue('A').length, 0);
+  });
+
+  await test('RECEIPT: a row the receipt index rejects stops retrying, stays on the phone, and other uploads continue', async () => {
+    const t = makeCtx(); t.signIn('A');
+    const dup = rvSession(1021, { assignmentId: RECEIPT, blind_judging: t.ctx.linkBlindJudging(blindMetadata, RECEIPT, false) });
+    const other = rvSession(1022);
+    t.ctx.STATE.sessions = [other, dup]; t.ctx.saveState();
+    t.answers.push(receiptConflict);
+    await t.ctx.syncSessionToSupabase('rv_sessions', t.ctx.mapRVSessionRow(dup));
+    await t.ctx.syncSessionToSupabase('rv_sessions', t.ctx.mapRVSessionRow(other));
+    const queue = t.queue('A');
+    assert.strictEqual(queue.length, 1);
+    assert.strictEqual(queue[0].row.id, 1021);
+    assert.strictEqual(queue[0].unresolved, 'receipt_conflict');
+    assert.strictEqual(queue[0].lastError, 'receipt_conflict');
+    assert.strictEqual(queue[0].attempts, t.ctx.MAX_SYNC_ATTEMPTS);
+    assert.ok(t.cloudRows.has('rv_sessions:1022'), 'the next result still uploaded');
+    assert.ok(!t.cloudRows.has('rv_sessions:1021'));
+    // A manual retry (Data Sync row) never sends it again.
+    const inserts = t.log.inserts.length;
+    t.ctx.retryPendingSync(); await t.settle();
+    assert.strictEqual(t.log.inserts.length, inserts);
+    // Kept in local history; Settings says so, and it is not an id collision.
+    assert.ok(JSON.parse(t.ls.get('ablty_owned:A:ablty_sessions')).some((s) => s.id === 1021));
+    assert.match(t.ctx.describePendingSync(t.queue('A')).text, /saved on this device/);
+    const state = t.ctx.describeSyncState('A').text;
+    assert.match(state, /judging receipt is already attached to another saved session/);
+    assert.ok(!/different account/.test(state));
+    assert.match(t.ctx.buildSyncDiagnostics('A'), /status=receipt_conflict/);
+  });
+
+  await test('RECEIPT: a completion RPC that returns false stops retrying, stays on the phone, and other uploads continue', async () => {
+    const t = makeCtx(); t.signIn('A');
+    const failedStub = { protocol: 'blind-five-v1', assignment_id: RECEIPT, retryable: true };
+    const failed = rvSession(1031, { score: null, grading_failed: true, assignmentId: RECEIPT, blind_judging: failedStub });
+    t.cloud('rv_sessions', 1031, 'A', t.ctx.mapRVSessionRow(failed));
+    const graded = { ...failed, score: 80, grading_failed: false, blind_judging: t.ctx.linkBlindJudging(blindMetadata, RECEIPT, false) };
+    t.ctx.STATE.sessions = [graded]; t.ctx.saveState();
+    let calls = 0;
+    t.ctx.sb.rpc = async () => { calls++; return { data: false, error: null }; };
+    t.answers.push({ error: { code: '23505' } });
+    await t.ctx.queueRetriedRVJudgment(graded, 'A');
+    assert.strictEqual(calls, 1);
+    assert.strictEqual(t.queue('A')[0].unresolved, 'content_mismatch');
+    assert.strictEqual(t.queue('A')[0].attempts, t.ctx.MAX_SYNC_ATTEMPTS);
+    await t.ctx.syncSessionToSupabase('rv_sessions', t.ctx.mapRVSessionRow(rvSession(1032)));
+    assert.ok(t.cloudRows.has('rv_sessions:1032'), 'the next result still uploaded');
+    t.ctx.retryPendingSync(); await t.settle();
+    assert.strictEqual(calls, 1, 'never retried automatically or by a manual retry');
+    assert.strictEqual(t.cloudRows.get('rv_sessions:1031').row.score, null, 'the saved ungraded cloud row is left alone');
+    assert.strictEqual(JSON.parse(t.ls.get('ablty_owned:A:ablty_sessions'))[0].score, 80, 'the graded result stays on the phone');
   });
 
   console.log(`\n${passed} passed, 0 failed`);

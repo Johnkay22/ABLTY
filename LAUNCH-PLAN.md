@@ -4,6 +4,12 @@
 
 **Exception, added 2026-10-03:** the private beta has its own step-by-step plan in `_internal/PRE-BETA-PLAN.md`, with a Status board and a work log in `_internal/WORK-LOG.md`. For pre-beta work, follow that plan and record progress there as well as here.
 
+**Current work, 2026-10-16:** Step 9 remains on `codex/rv-blind-judging` in draft PR #149, based on merged #148 (`8a8e416`). The approved audit follow-up adds sensory scoring, permanent finished numeric receipts and private comparisons of thinking settings and Gemini 2.5/3.8 Flash. Proposed release: `2026.10.16.1` / `ablty-v100`. See `_internal/BLIND-JUDGING-PLAN.md` for the protocol and evaluation details. Finished receipts are retained permanently; only expired unfinished receipts are pruned, with the two-hour claim/retry window unchanged. The migration is still a file only, not applied. Production model/settings are unchanged. Real Gemini evaluation and phone checks remain release gates. #140 and #145 remain open and untouched; step 8 follows step 9.
+
+**Receipt link, 2026-10-18:** PR #149 now saves each graded blind session's receipt id in a new nullable, unique `rv_sessions.blind_receipt_id` (migration file only, still not applied), so later cross-user features can recompute scores from `rv_blind_receipts` instead of trusting the device-written `rv_sessions.score`. No version bump; see `_internal/BLIND-JUDGING-PLAN.md`.
+
+**Five-rotation judging, 2026-10-19:** a private 15-case evaluation found the blind judge favors whichever photo sits in slot A. PR #149 now judges every session five times, rotating the photos so each one appears in each slot once, and averages the ratings. Any failed rotation fails the whole judgment as retryable (three attempts). Results, history and export show a match-strength label next to the rank ("Ranked 1 of 5 · Weak match": Strong 60 or more, Moderate 30 to 59, Weak under 30). About $0.0085 per session on Gemini 2.5 Flash. The migration file was edited in place (still never applied). No version bump; see `_internal/BLIND-JUDGING-PLAN.md`. Cloudflare Workers Paid is now active (item 4.3); Supabase Pro is not.
+
 **Created:** 2026-08-23, from a live audit of the repo, the deployed Worker, and the Supabase database.
 **Rewritten:** 2026-09-03, after a second live audit of `main` (`54ec92f`) plus Johnny's product decisions. The 2026-08-23 claims that were wrong are corrected here, not left as history.
 **Status synced:** 2026-10-13, using current GitHub main `3cecab9` and open PRs #140 and #145. This is repository evidence. Public website and Worker health requests were blocked by the cloud environment network policy (tunnel 403); deployment, email and physical-phone checks remain unverified. Historical production migration checks below keep their original dates.
@@ -88,7 +94,7 @@ The app is launch ready when all of the following are true:
 3. **It feels full, not beta.** Two psi test modules (Zener, Presentiment), a complete Academy Stage I, an 80-target RV pool with unique images, Dream Lab with enough reading content to last, and no screen that promises something that does not exist.
 4. **The front door matches reality.** The landing page sells installing a live app, not joining a waitlist.
 
-Launch does not require: Daily Community RV Challenge, Signal Scanner, PK Arena, Academy voiceover, Academy Stages II through VI, Ganzfeld, rank-order judging, CRV structured session mode, the typography migration, Capacitor, or Play Store. Those are post-launch. See the parking lot.
+Launch does not require: Daily Community RV Challenge, Signal Scanner, PK Arena, Academy voiceover, Academy Stages II through VI, Ganzfeld, CRV structured session mode, the typography migration, Capacitor, or Play Store. Those are post-launch. See the parking lot.
 
 ---
 
@@ -157,7 +163,7 @@ Do 2.2 and 2.3 before 2.1. Matching and storage have to work or the pricing PR c
 |---|---|---|---|---|---|
 | 4.1 | Triage and fix launch-blocking beta feedback. Survey rewards follow private-beta steps 17 and 18: one extra month through server-side beta expiry, not a manual permanent Premium grant. | The point of the beta. Non-blocking feedback goes to the parking lot, not the critical path. | [ ] | | |
 | 4.2 | Rebuild `index.html` for launch: replace the waitlist pitch and JOIN THE WAITLIST form with install-now, using the v5 landing brief. Rewrite `llms.txt` in the same PR. Email the existing waitlist (4 people plus any additions) their promised first-user bonus and install link. Describe only features that actually ship. If the Daily Community RV Challenge is not live on launch day, it must not be sold as live. Same for OBE. | The public site currently sells joining a waitlist. `llms.txt` tells AI crawlers ABLTY is pre-launch with a waitlist, and describes the daily community target and OBE training as existing features. | [ ] | | SEO pass can follow post-launch. |
-| 4.3 | Upgrade Supabase to Pro and add Cloudflare Workers Paid ($5/mo). | Free-tier ceilings (Supabase pausing, KV write quotas) are fine for beta and fatal with real traffic. Timed last so paid plans are not burning during build weeks. | [ ] | n/a | |
+| 4.3 | Upgrade Supabase to Pro and add Cloudflare Workers Paid ($5/mo). | Free-tier ceilings (Supabase pausing, KV write quotas) are fine for beta and fatal with real traffic. Timed last so paid plans are not burning during build weeks. | [ ] | n/a | Half done. **Cloudflare Workers Paid:** Johnny upgraded on 2026-10-19 (reported by Johnny; Claude did not check the Cloudflare account). Blind judging's five parallel Gemini requests per session fit comfortably within its limits. **Supabase Pro:** still not done. Leave this unchecked until both are done. |
 | 4.4 | Stripe LIVE sequence, in order: (a) confirm live product has both prices, $5.99/mo and $39.99/yr; (b) create both live Payment Links; (c) add the live webhook endpoint, copy the signing secret; (d) update Worker secret `STRIPE_WEBHOOK_SECRET` to the live secret; (e) swap both Payment Link URLs in `app.html`, keeping `client_reference_id` and `prefilled_email`, and set `PREMIUM_CHECKOUT_ENABLED` to `true` (pre-beta step 7 turned Upgrade into the message "Premium subscriptions open at launch."); (f) activate the live Customer Portal; (g) bump `APP_VERSION`, `version.json`, `CACHE_NAME`, deploy. | Sequenced so the webhook can receive before any live link exists, and links go into the app last. | [ ] | | |
 | 4.5 | Make one real purchase of each plan with a real card. Confirm tier flips and `stripe_*` columns populate. Cancel monthly via the portal, confirm revert. Refund the annual purchase via the Stripe dashboard as a rehearsal of the 14-day window. | The only proof that live mode works is live money. | [ ] | n/a | |
 | 4.6 | Final device pass: fresh install on both platforms via the public landing page, guest, signup, purchase path visible, every module opens. Then launch. | Last look through a brand-new user's eyes. | [ ] | n/a | |
@@ -174,7 +180,7 @@ In recommended order:
 5. PK Arena. Standalone prototype at `pk-arena-prototype.html` (Cascade, Drift, Emerge), merged in [#121](https://github.com/Johnkay22/ABLTY/pull/121). Zero references in `app.html`. Same class of work as Signal Scanner: do not treat the prototype as a shippable module. Johnny has not scoped it for launch.
 6. Academy voiceover via ElevenLabs (pre-generated files, never live API). Browser TTS was removed in 0.3 (#123).
 7. Ganzfeld Link paired telepathy protocol
-8. Rank-order blind judging rebuild
+8. Formal RV research/statistical validation beyond the five-candidate blind judging now requested for pre-beta step 9
 9. CRV structured session mode
 10. Pre-Session Warm-Up integration (Box Breathing plus Pink Noise, v3 spec drafted)
 11. Legal acceptance server-side write (move off the client). Not needed for the 2.1 price change.

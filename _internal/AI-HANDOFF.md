@@ -1,39 +1,56 @@
 # ABLTY: current beta handoff
 
-Updated 2026-10-13 (UTC). Inspected main: `3cecab9`, version `2026.10.11.5` / `ablty-v96`. Recheck GitHub before resuming; this dated checkpoint does not prove deployment or phone behavior.
+Draft review: [PR #149](https://github.com/Johnkay22/ABLTY/pull/149). Do not merge until the evaluation and migration prerequisites below are complete.
 
-## Current work and review
+Updated October 16, 2026 (Chicago). Inspected main `8a8e416`: #147 readiness/WBTB repair and #148 Settings polish are merged, version `2026.10.13.2` / `ablty-v98`. Recheck GitHub before resuming. Main status is not phone evidence.
 
-Johnny authorized the first item in the October 13 readiness work order: reconcile status and open PRs. This is separate from numbered pre-beta step 1, whose website exclusions already merged in #135.
+## Current authorized task
 
-Branch `codex/beta-readiness-reconcile` starts at inspected main and proposes version `2026.10.13.1` / `ablty-v97`. Replacement [draft PR #147](https://github.com/Johnkay22/ABLTY/pull/147) is open against main and was checked as mergeable on October 13. Automated GitHub checks run separately; inspect their current result before review. It contains the useful priorities and handoff from #140, updated to current facts, plus the WBTB timer repair and tests from #145. Both original PRs and branches remain untouched. After approving and merging the replacement, Johnny can close #140 and #145 as superseded without merging them. Do not retarget, force-push or merge Cursor's branches automatically.
+Johnny approved the plan and implementation of **step 9, blind judging**. It compares all written impressions and any sketch with five candidate photos without giving Gemini the answer key. The October 16 follow-up implements seven-dimension sensory scoring with older-result compatibility, permanent finished receipts and private thinking/model comparisons. This replaces the older single-target/model-upgrade plan. See [BLIND-JUDGING-PLAN.md](BLIND-JUDGING-PLAN.md).
 
-The WBTB fix keeps one countdown when an alarm opens the wake screen and its notification is then tapped. Closing stops that countdown; reopening after closing starts a fresh 25 minutes. No scheduling, push delivery, protocol length or Presentiment behavior changed. `sw.js` changes only the cache/header version.
+Branch `codex/rv-blind-judging` is a new isolated cloud branch at that main, proposing `2026.10.16.1` / `ablty-v100` after the approved audit follow-up. No Cursor branch was changed. #140 and #145 were checked and remain open; their useful work is already in #147. They overlap documentation and app files but do not contain competing blind-judging work. Johnny may close them as superseded; do not merge them.
 
-## What is established
+## Implementation boundary and release gates
 
-- Steps 1 to 7 are implemented. The step-6 entitlement migration was recorded applied and verified in production October 6. Preserve that evidence and do not reapply it.
-- Account isolation #130, Academy Lesson 01 #132, sync/update work #139/#141/#142, Settings gestures #143, notification handling #144 and Presentiment #146 are merged. Replacement reconciliation #147 has since merged at `dc9437d` (`2026.10.13.1` / `ablty-v97`).
-- A Settings pull-to-close polish follow-up is a draft PR from `claude/settings-pull-close-effects-y0g4pd` (`2026.10.13.2` / `ablty-v98`). It does not change the step 9 then step 8 priority. Its phone checklist is in the PR.
-- Johnny's October 9 phone report showed the sync recovery offer appearing and clearing after Move. Return to the original account and close/reopen remain unconfirmed. Preserve all distinct results and the guarded content comparison; never clear storage to remove a sync warning.
-- The two last #141 review issues (destination persistence and failed queue cleanup) are fixed in merged code. Do not reopen them because an older log calls them unresolved. The historical cause of pre-isolation mixed data is not established by the fix.
-- Before this repair, three of #145's six timer checks fail on current main. On this branch all six pass; notification browser checks 12, notification intent 22 and update checks 11 also pass. The browser uses local fixtures and simulated notification taps. Actual installed-phone notifications remain untested.
-- During the October 13 assessment, 226 existing account/sync/data-handling/update checks passed, plus app syntax and 48 local links. Those tests do not establish live database or phone readiness.
-- Public website and Worker health requests are blocked by the environment's network policy (tunnel 403), including the read-only elevated attempt. GitHub API reads work. This is an access limitation, not a finding that the live app is broken.
+- October 19: every session is now judged five times with the photos rotated through the five slots and the ratings averaged, after a private evaluation found the judge favors slot A. A match strength label ("Strong", "Moderate" or "Weak match") sits next to the rank in results, history and export. Protocol name unchanged (`blind-five-v1`); the never-applied migration was edited in place. Cloudflare Workers Paid is active as of October 19; Supabase Pro is not.
+- Code covers the five-photo protocol, metadata-free 768px derivatives with pinned hashes, complete-submission locking, server-calculated scores/ties, written-only submissions and rank display/history/export. Existing historical records stay intact and labelled legacy. Charts separate methods.
+- A new migration adds server-only numeric receipts and a conditional completion function for an owner's previously saved ungraded session. It stores no raw session content in receipts. Existing app-owned history stores rankings in a nullable JSON column.
+- Migration file only: **not applied**. An authorized operator must verify the live base schema, apply it separately and verify its permissions before the app/Worker release. No Supabase, Stripe or Cloudflare configuration has been changed.
+- Production Gemini 2.5 Flash, thinking budget 0 and dream tagging remain unchanged. Official Google documentation was checked on October 16; the private evaluator supports 2.5 Flash budgets and 3.8 Flash thinking levels. Actual compatibility, quality, latency and cost remain unverified by paid calls. The evaluator defaults to no API calls and requires `--run-paid`, a securely supplied `ABLTY_GEMINI_TEST_KEY` and owner-approved private cases. No environment or provider settings were changed in this follow-up.
+- Automated tests use local fixtures and disposable PostgreSQL/Chromium. They do not establish AI accuracy, production schema compatibility, deployment, billing or physical-phone readiness. Keep the PR draft until the evaluation and migration ordering are resolved.
+- Finished numeric receipts in state `done` are retained permanently with creation/completion timestamps and no user IDs or raw session content. Only expired unfinished receipts are pruned on subsequent assignment creation. The two-hour claim/retry window is unchanged; permanent retention does not allow late replay. An interrupted model request with uncertain outcome stays blocked rather than producing a second judgment. This beta implementation is not a tamper-proof research platform.
 
-## What Johnny needs to do for this checkpoint
+## Earlier checks and remaining phone work
 
-1. Review the replacement draft and its checks. Merging deploys through the existing integrations, so only Johnny decides when to merge. After it merges, close the older #140 and #145 proposals as superseded without deleting their branches.
-2. After the approved build, open Settings > About and confirm `2026.10.13.1` (or a later intentionally released version). Start a short WBTB timer and keep the app open until it ends. Tap its wake notification: the countdown should continue once per second without returning to 25:00. Close the wake screen; a later fresh wake should start one new countdown. Repeat on iPhone and Android before promising WBTB to beta testers.
-3. For sync recovery, return to the original account, inspect Settings > Data Sync, close/reopen and confirm recovered entries do not return as waiting. Keep the diagnostic report if anything remains; do not delete local data.
-4. To enable cloud read-only deployment checks, review/save the environment network draft adding `ablty.app` and `abltygrader.kayvideoproductions.workers.dev`, then publish the development environment. The saved addition preserves `api.github.com` and existing presets. It does not change application hosting or any production setting. Access must be retried afterward.
+The October 14 read-only checks reached `ablty.app/version.json` at `2026.10.13.2`; `/LAUNCH-PLAN.html` and `/CLAUDE.html` returned 404. The Worker `/ping` returned Cloudflare 403 / error 1010. Do not describe it as verified healthy or assume the website result verifies phone caches.
 
-Record device, version, action and pass/fail/not run in the work log. The full release/phone pilot remains step 15. Remaining known WBTB copy issues from #145 (the end-label element and later wake titles after a return prompt) were not changed or declared fixed by this timer repair.
+Steps 1 to 7 are implemented. Step 6's entitlement migration was recorded applied and verified October 6; do not reapply it. Johnny's October 9 sync report showed the recovery offer clearing after Move, but return to the original account and close/reopen are still unconfirmed. Preserve all distinct results and the guarded content comparison; never clear storage to remove a warning.
 
-## Next implementation priority
+Phone checks still required: WBTB alarm followed by its notification continues one countdown; sync recovery stays recovered after switching back/reopening; Reality Check cold/background notification; Settings gestures; Presentiment; signup/verification/reset; installed-app updates. The WBTB end-label and later wake-title copy issues were not included in #147.
 
-Step 9: let grading see the trusted target photo as well as the sketch. Preserve blind assignment, response format, rubric and retry behavior. Verify current Gemini model names, request fields and prices against official documentation before choosing a model. Compare matched, mismatched, vague and repeated submissions, including latency and usage. Keep private examples out of the public repo; missing API access or examples means quality evaluation is unrun, not passed.
+After blind-judging release approval, test a written-only and sketch-plus-impressions session, ties, missing-photo/service failure, retry, cloud restore and two-account isolation on iPhone and Android. Record device, version and pass/fail/not run. No new beta invitations until step 15's pilot gates pass.
 
-Then step 8: code-first signup, verification handling and 30-day beta Premium with server-enforced limits and expiry. Existing paid or manually granted Premium remains unchanged. No Stripe or card for the beta. Follow with steps 10, 11, 12 and 13; dashboard 14 is optional, pilot 15 precedes wider invites 16. Survey work waits for steps 17 and 18.
+## Next priority
 
-This reconciliation does not implement or authorize production rollout of those later steps. Read `CLAUDE.md`, both plans and the newest work-log entry; coordinate task ownership, use an isolated branch, and finish one task in a draft PR. No automatic merge, deployment, production migration, email or provider-setting changes.
+Complete the step 9 review/evaluation/release gates, then step 8: code-first signup, verification handling and 30-day beta Premium with server-enforced limits and expiry. Existing paid or manually granted Premium stays unchanged. No Stripe/card for beta. Steps 10, 11, 12 and 13 follow; dashboard 14 is optional; pilot 15 precedes wider invites 16.
+
+Keep one task per isolated branch and draft PR. No automatic merge, deployment, production migration, email or provider-settings change.
+
+## Upcoming features and their requirements
+
+Agents must judge every change against where ABLTY is going, not only where it is today. These features are planned. Any code that touches scores, sessions, or user data must stay compatible with them.
+
+Same-target sessions (next feature after blind judging, once the pre-beta steps are done): after an RV session, the results screen will offer a button to view other users' best sessions on the same target. It shows the top 3 to 5 highest-scored sessions, the viewer's place among people who viewed that target, and a "learn from the best" angle. Sharing is anonymous and on by default. Credited usernames and public profiles showing a user's best sessions may be added later as an opt-in.
+
+Later: leaderboards, a Daily Community RV Challenge, a live public stats page, an Ability Profile, and Ganzfeld Link (paired telepathy).
+
+Requirements these features create:
+
+1. Scores shown to other users must be recomputed from rv_blind_receipts on the server. rv_sessions.score is written by the user's device and is not trustworthy for ranking.
+2. Nothing shown to other users may include user_id, email, or any value that identifies the author, unless that author has opted in to credit.
+3. Other users' written impressions and sketches will be visible to strangers, so a report or moderation path is required before launch of any sharing feature.
+4. Whether beta tester sessions (profiles.is_tester) appear in other users' results is undecided. Do not hard-code either choice.
+5. The blind protocol is non-negotiable. Other users' sessions on a target may only be shown after the viewer's own session is submitted and the target is revealed.
+6. rv_sessions.dimension_scores, blind_judging, the target fields and summary are all written by the user's device, just like rv_sessions.score. Any feature shown to other users must recompute all of them, including the match strength label, from the receipt (rv_blind_receipts.rotation_matrices).
+
+Standing rule for every agent: if you notice a security, data integrity, privacy, or cheating risk outside your task, list it in your report under "Noticed but not touched." Never fix it without approval.

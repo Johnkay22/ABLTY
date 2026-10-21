@@ -7,7 +7,7 @@ const vm = require('vm');
 const assert = require('assert');
 const { html, extractFn } = require('./helpers/extract-app-source');
 
-const FNS = ['escapeHtml', 'renderHitListHtml', 'getRVSessionScore', 'isRVGradingFailed', 'setEl', 'renderResults', 'renderRVDetail'];
+const FNS = ['getBlindJudging', 'rvMatchStrength', 'blindMatchStrength', 'blindRankText', 'isRating', 'formatRating', 'renderBlindJudgingCard', 'escapeHtml', 'renderHitListHtml', 'getRVSessionScore', 'isRVGradingFailed', 'setEl', 'renderResults', 'renderRVDetail'];
 const source = FNS.map(extractFn).join('\n\n');
 new vm.Script(source);
 
