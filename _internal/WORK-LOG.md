@@ -19,6 +19,15 @@ Keep entries short and in plain English. Say what was actually done, not what wa
 
 ---
 
+## 2026-10-22: Step 9 hotfix, judging photos could not load on Cloudflare
+- **Who:** Claude chat
+- **Branch / PR:** `claude/fix-judging-photo-fetch` (hotfix PR after #149). Worker-only change, no version bump.
+- **What changed:** The first live blind session failed with "A candidate photo is unavailable." Cause: the Worker asked for the five photos with `redirect: 'error'`, which Cloudflare Workers do not support, so every photo request failed before it was sent. Node tests accepted it, so it was not caught. Now uses `redirect: 'manual'`; a redirect still counts as a failure because only a 200 JPEG with the pinned hash is accepted. The test fake now rejects `redirect: 'error'` the way Workers does, plus a new test for a redirected photo.
+- **Tests:** Blind protocol and evaluator 61 passed. The new test fails against the old code and passes with the fix. All 63 judging photos were confirmed live on ablty.app with the pinned hashes and JPEG type.
+- **Production:** Johnny applied migration `20261015000001_rv_blind_judging.sql` in the Supabase SQL editor on 2026-10-22 after PR #149 merged. Claude verified read-only: receipts table with RLS on, both new `rv_sessions` columns, both functions with the intended grants, 100 sessions unchanged. Applied through the editor, so it is not listed in `supabase_migrations.schema_migrations`.
+- **Johnny needs to:** Merge this PR, wait for the Workers build check, then retry the failed session from history and continue the phone checklist.
+- **Next:** Step 9 phone checks, then step 8.
+
 ## 2026-10-19: Step 9, five-rotation blind judging and match strength
 - **Who:** Claude Code
 - **Branch / PR:** `codex/rv-blind-judging`, existing [draft PR #149](https://github.com/Johnkay22/ABLTY/pull/149), started from `55c67b5`. No version bump (already bumped in this PR).

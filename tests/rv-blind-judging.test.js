@@ -14,7 +14,7 @@ function setup() {
     ABLTY_KV: { get: async () => null, put: async () => {}, delete: async () => {} } };
   // failAt limits the model failure controls to one call (by index); null applies them to every call.
   // judge(body) may return the five label-order candidates instead of the position-only default.
-  const controls = { badPhoto: false, changedPhoto: false, failCommit: false, modelStatus: 200, modelResponse: null, modelThrow: false,
+  const controls = { badPhoto: false, changedPhoto: false, redirectPhoto: false, failCommit: false, modelStatus: 200, modelResponse: null, modelThrow: false,
     hold: null, failAt: null, judge: null, usage: { promptTokenCount: 500, candidatesTokenCount: 200, thoughtsTokenCount: 0 } };
   const api = loadBlindWorker(async (url, opts = {}) => {
     outbound.push(url);
@@ -46,6 +46,9 @@ function setup() {
       throw new Error('unexpected RPC');
     }
     if (url.startsWith('https://ablty.app/targets/judging/')) {
+      // Cloudflare Workers reject redirect: 'error' before sending; mirror that here.
+      if (opts.redirect === 'error') throw new TypeError('Workers does not implement redirect mode error');
+      if (controls.redirectPhoto) return new Response(null, { status: 302, headers: { Location: 'https://example.com/x.jpg' } });
       if (controls.badPhoto) return new Response('not found', { status: 404 });
       if (controls.changedPhoto) return new Response('different image bytes', { headers: { 'Content-Type': 'image/jpeg' } });
       return new Response(fs.readFileSync(path.join(root, new URL(url).pathname)), { headers: { 'Content-Type': 'image/jpeg' } });
@@ -200,6 +203,15 @@ test('photo failure stays ungraded and hidden; retry uses identical set and writ
   const changed = await s.grade({ ...a, notes: 'now a ship' }); assert.equal(changed.body.grading_failed, true);
   const success = await s.grade({ ...a, notes: 'round' }); assert.equal(success.body.grading_failed, false);
   assert.deepEqual(s.receipts.get(a.assignment_id).candidate_ids, ids);
+});
+
+test('photo requests use a redirect mode Workers supports, and a redirect is refused', async () => {
+  const s = setup(); const a = await s.assign();
+  s.controls.redirectPhoto = true;
+  const redirected = await s.grade({ ...a, notes: 'round' });
+  assert.equal(redirected.body.grading_failed, true); assert.equal(redirected.body.target, null); assert.equal(s.calls.length, 0);
+  s.controls.redirectPhoto = false;
+  const success = await s.grade({ ...a, notes: 'round' }); assert.equal(success.body.grading_failed, false);
 });
 
 test('definite transient provider failure can retry, limited to three attempts', async () => {

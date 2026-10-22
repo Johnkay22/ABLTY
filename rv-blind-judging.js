@@ -105,7 +105,7 @@ async function readBounded(response, limit) {
 export async function fetchCandidateImage(id) {
   const asset = RV_JUDGING_IMAGES[id];
   if (!asset || !/^targets\/judging\/\d{4}-\d{4}\.jpg$/.test(asset.src)) throw new Error('Invalid candidate');
-  const response = await fetch('https://ablty.app/' + asset.src, { redirect: 'error', signal: AbortSignal.timeout(15000) });
+  const response = await fetch('https://ablty.app/' + asset.src, { redirect: 'manual', signal: AbortSignal.timeout(15000) });
   if (!response.ok || !/^image\/jpeg(?:;|$)/i.test(response.headers.get('Content-Type') || '')) throw new Error('Candidate photo unavailable');
   const bytes = await readBounded(response, 512 * 1024);
   if (await hashBytes(bytes) !== asset.sha256) throw new Error('Candidate photo changed');
