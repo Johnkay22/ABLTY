@@ -903,7 +903,65 @@ html, body {
 }
 .ring-pct { font-family: var(--font-display); font-size: 42px; letter-spacing: 1px; color: #fff; line-height: 1; }
 .ring-label { font-family: var(--font-mono); font-size: 8px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
-.ring-label.ring-strength { margin-top: 3px; }
+.ring-den { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+/* Blind judging: rank line, written feedback, collapsed sections, image viewer */
+.rv-rank-line {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: var(--font-body); font-size: 14px; color: #dfe9e7; text-align: center;
+  margin: 2px 0 6px;
+}
+.rv-score-info-btn {
+  width: 24px; height: 24px; min-width: 24px; border-radius: 50%; padding: 0;
+  border: 1px solid rgba(255,255,255,.22); background: transparent; color: var(--muted);
+  font-family: var(--font-mono); font-size: 11px; line-height: 1; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; position: relative;
+}
+.rv-score-info-btn::after { content: ""; position: absolute; inset: -10px; }
+.rv-feedback { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.rv-fb-card {
+  display: flex; gap: 12px; align-items: flex-start;
+  background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 13px 14px;
+}
+.rv-fb-icon { width: 28px; height: 28px; flex-shrink: 0; margin-top: 1px; }
+.rv-fb-head { font-family: var(--font-mono); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #e7f3f1; }
+.rv-fb-head span { letter-spacing: 0.5px; text-transform: none; color: var(--muted); margin-left: 6px; }
+.rv-fb-list { margin: 6px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; }
+.rv-fb-list li { font-family: var(--font-body); font-size: 14px; line-height: 1.45; color: #d5e3e1; }
+.rv-fb-empty { font-family: var(--font-body); font-size: 14px; line-height: 1.45; color: var(--muted); margin-top: 6px; }
+.rv-fb-note { font-family: var(--font-body); font-size: 13px; line-height: 1.5; color: var(--muted); padding: 2px 2px 0; }
+.rv-more { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.rv-more details { background: var(--card); border: 1px solid var(--border); border-radius: 12px; }
+.rv-more summary {
+  list-style: none; cursor: pointer; min-height: 44px; padding: 0 14px;
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: var(--font-body); font-size: 15px; color: #dfe9e7;
+}
+.rv-more summary::-webkit-details-marker { display: none; }
+.rv-more summary::after {
+  content: ""; width: 8px; height: 8px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted);
+  transform: rotate(45deg); margin-top: -4px; transition: transform .2s;
+}
+.rv-more details[open] summary::after { transform: rotate(225deg); margin-top: 4px; }
+.rv-more-body { padding: 0 14px 14px; font-family: var(--font-body); font-size: 14px; line-height: 1.55; color: #c3d2d0; }
+.rv-more-body p { margin: 0 0 8px; }
+.rv-rating-row { display: grid; grid-template-columns: minmax(0, 1fr) 64px max-content; gap: 10px; align-items: center; padding: 5px 0; }
+.rv-rating-bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,.08); overflow: hidden; }
+.rv-rating-bar i { display: block; height: 100%; background: var(--accent); }
+.rv-rating-val { font-family: var(--font-mono); font-size: 12px; color: var(--muted); text-align: right; white-space: nowrap; }
+.rv-thumb-empty { padding: 24px 12px; text-align: center; }
+.rv-zoomable { cursor: zoom-in; }
+.rv-zoomable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.rv-lightbox {
+  position: fixed; inset: 0; z-index: 10000; background: rgba(0,0,0,.92);
+  display: flex; align-items: center; justify-content: center; padding: 56px 16px calc(24px + var(--safe-bottom, 0px));
+}
+.rv-lightbox img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px; background: #111; }
+.rv-lightbox-close {
+  position: absolute; top: calc(12px + var(--safe-top, 0px)); right: 12px; width: 44px; height: 44px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.25); background: rgba(0,0,0,.5); color: #fff; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
 
 .result-target-row {
   display: grid; grid-template-columns: 1fr 1fr;
@@ -918,7 +976,7 @@ html, body {
   color: var(--muted); padding: 10px 12px 6px;
 }
 .result-thumb img, .result-thumb canvas {
-  width: 100%; aspect-ratio: 1; object-fit: cover; display: block;
+  width: 100%; aspect-ratio: 1; object-fit: contain; display: block;
 }
 .result-thumb .sketch-preview {
   width: 100%; aspect-ratio: 1; background: #111; display: block;
@@ -1520,7 +1578,7 @@ html, body {
   color: var(--muted); padding: 10px 12px 6px;
 }
 .detail-thumb-card img {
-  width: 100%; aspect-ratio: 1; object-fit: cover; display: block;
+  width: 100%; aspect-ratio: 1; object-fit: contain; display: block; background: #111214;
 }
 .dimension-grid {
   display: flex; flex-direction: column; gap: 8px;
@@ -4772,7 +4830,18 @@ html, body {
   font-family: var(--font-rv-body); font-weight: 500; font-size: 12px;
   letter-spacing: 3px; color: var(--rv9-teal); margin-top: 5px; text-transform: uppercase;
 }
-#screen-results .ring-label.ring-strength { font-size: 10px; letter-spacing: 2px; margin-top: 3px; color: var(--muted); }
+#screen-results .ring-den { font-family: var(--font-rv-mono); font-size: 14px; color: #9fb0ae; margin-top: 2px; }
+#screen-results .ring-label { font-size: 10px; letter-spacing: 1.6px; white-space: nowrap; }
+#detail-score-ring-wrap .ring-label { font-size: 7.5px; letter-spacing: 1.2px; white-space: nowrap; }
+#screen-results .rv-rank-line { font-family: var(--font-rv-body); font-size: 15px; }
+#screen-results .rv-fb-card, #screen-results .rv-more details {
+  border: none; border-radius: 16px;
+  background: linear-gradient(180deg, rgba(9,20,22,.6), rgba(3,8,11,.7));
+  box-shadow: 0 0 0 1px rgba(74,240,200,.16), inset 0 1px 0 rgba(170,250,235,.10);
+}
+#screen-results .rv-fb-head { font-family: var(--font-rv-display); font-weight: 600; font-size: 15px; letter-spacing: 3px; }
+#screen-results .rv-fb-head span { font-family: var(--font-rv-body); font-weight: 400; font-size: 12px; letter-spacing: .3px; }
+#screen-results .rv-fb-list li, #screen-results .rv-fb-empty, #screen-results .rv-more summary, #screen-results .rv-more-body { font-family: var(--font-rv-body); }
 
 #screen-results .result-target-row { gap: 12px; margin-top: 14px; }
 #screen-results .result-thumb {
@@ -6375,6 +6444,24 @@ html, body {
   </div>
 
   <!-- PROTOCOL MODAL (accessible via ⓘ anytime) -->
+  <div class="modal-overlay" id="rv-score-info-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="rv-score-info-title" onclick="closeRVScoreInfo(event)">
+    <div class="modal-box">
+      <div class="modal-tag">AI Blind Judging</div>
+      <div class="modal-title" id="rv-score-info-title">Score and rank</div>
+      <div class="modal-body" style="margin-bottom:12px;"><strong>AI match score.</strong> An AI rating, from 0 to 100, of how closely your sketch and written impressions correspond to your target across seven categories. It is not percentage accuracy, a probability, or proof of ability.</div>
+      <div class="modal-body" style="margin-bottom:12px;"><strong>Rank.</strong> The AI compared your session with your target and 4 other photos without knowing which was yours. By chance alone, the target ranks 1st about 1 time in 5. Ties stay ties.</div>
+      <div class="modal-body" style="margin-bottom:16px;">The written feedback is produced after the score is final and never changes it.</div>
+      <button type="button" class="modal-close-btn" onclick="closeRVScoreInfo()">Got It</button>
+    </div>
+  </div>
+
+  <div class="rv-lightbox" id="rv-image-viewer" style="display:none;" role="dialog" aria-modal="true" aria-label="Enlarged image" onclick="closeRVImage(event)">
+    <img id="rv-image-viewer-img" src="" alt="">
+    <button type="button" class="rv-lightbox-close" onclick="closeRVImage()" aria-label="Close enlarged image">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </div>
+
   <div class="modal-overlay" id="protocol-modal" style="display:none;" onclick="closeProtocolModal(event)">
     <div class="modal-box">
       <div class="modal-tag">RV Protocol</div>
@@ -6619,38 +6706,43 @@ html, body {
 
       <!-- Score ring -->
       <div class="result-score-ring card fade-in">
-        <svg class="ring-svg" viewBox="0 0 140 140">
+        <svg class="ring-svg" viewBox="0 0 140 140" aria-hidden="true">
           <circle class="ring-track" cx="70" cy="70" r="58"/>
           <circle class="ring-fill" id="score-ring" cx="70" cy="70" r="58" stroke-dasharray="364.4" stroke-dashoffset="364.4"/>
         </svg>
         <div class="ring-center">
-          <div class="ring-pct" id="score-pct">0%</div>
-          <div class="ring-label" id="result-score-label">Target rank</div>
-          <div class="ring-label ring-strength" id="result-match-strength" style="display:none;"></div>
+          <div class="ring-pct" id="score-pct">0</div>
+          <div class="ring-den" id="result-score-den" style="display:none;">/100</div>
+          <div class="ring-label" id="result-score-label">AI match score</div>
         </div>
+      </div>
+      <div class="rv-rank-line fade-in" id="result-rank-line" style="display:none;">
+        <span id="result-rank-text"></span>
+        <button type="button" class="rv-score-info-btn" onclick="openRVScoreInfo()" aria-label="What the match score and rank mean">i</button>
       </div>
 
       <!-- Target reveal -->
       <div class="result-target-row fade-in-delay-1">
         <div class="result-thumb">
           <div class="result-thumb-label">Your Sketch</div>
-          <img id="sketch-preview" src="" alt="Your sketch" style="width:100%;aspect-ratio:1;object-fit:cover;display:block;background:#111214;" />
-          <div id="result-sketch-empty" class="summary-text" style="display:none;padding:24px 12px;">Written-only session</div>
+          <img id="sketch-preview" src="" alt="Your sketch" class="rv-zoomable" tabindex="0" role="button" aria-label="Enlarge your sketch" onclick="openRVImage(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openRVImage(this);}" style="aspect-ratio:1;object-fit:contain;display:block;background:#111214;" />
+          <div id="result-sketch-empty" class="summary-text rv-thumb-empty" style="display:none;">Written-only session. No sketch was submitted.</div>
         </div>
         <div class="result-thumb">
           <div class="result-thumb-label">Target</div>
-          <img id="target-reveal" src="" alt="Target" style="width:100%;aspect-ratio:1;object-fit:cover;display:block;background:#111;" />
-          <div id="result-target-empty" class="summary-text" style="display:none;padding:24px 12px;">Hidden until judging succeeds</div>
+          <img id="target-reveal" src="" alt="Your target" class="rv-zoomable" tabindex="0" role="button" aria-label="Enlarge the target" onclick="openRVImage(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openRVImage(this);}" style="aspect-ratio:1;object-fit:contain;display:block;background:#111;" />
+          <div id="result-target-empty" class="summary-text rv-thumb-empty" style="display:none;">Hidden until judging succeeds</div>
         </div>
       </div>
 
-      <div id="result-blind-judging" class="summary-card" style="display:none;"></div>
-
-      <!-- AI Summary -->
-      <div class="summary-card fade-in-delay-2">
-        <div class="mono-label" style="margin-bottom:8px;">Analyst Summary</div>
+      <!-- Session summary -->
+      <div class="summary-card fade-in-delay-2" id="result-summary-card">
+        <div class="mono-label" style="margin-bottom:8px;" id="result-summary-label">Session Summary</div>
         <div class="summary-text" id="result-summary">Loading analysis...</div>
       </div>
+
+      <!-- Signal and noise (blind judging) -->
+      <div class="rv-feedback fade-in-delay-2" id="result-feedback" style="display:none;"></div>
 
       <div class="rv-grade-error card fade-in-delay-2" id="rv-grade-error" style="display:none;"></div>
 
@@ -6666,6 +6758,9 @@ html, body {
         <button type="button" class="rv9-info-btn" onclick="openDataPointsInfoModal()" aria-label="What are data points?">?</button>
       </div>
       <div class="hit-list fade-in-delay-3" id="hit-list"></div>
+
+      <!-- Secondary information -->
+      <div class="rv-more fade-in-delay-3" id="result-more" style="display:none;"></div>
 
       <!-- Actions -->
       <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px;" class="fade-in-delay-4 rv9-actions">
@@ -7339,37 +7434,41 @@ html, body {
 
       <!-- Score ring -->
       <div class="result-score-ring card fade-in" id="detail-score-ring-wrap">
-        <svg class="ring-svg" viewBox="0 0 140 140">
+        <svg class="ring-svg" viewBox="0 0 140 140" aria-hidden="true">
           <circle class="ring-track" cx="70" cy="70" r="58"/>
           <circle class="ring-fill" id="detail-score-ring" cx="70" cy="70" r="58" stroke-dasharray="364.4" stroke-dashoffset="364.4"/>
         </svg>
         <div class="ring-center">
           <div class="ring-pct" id="detail-score-pct">0%</div>
+          <div class="ring-den" id="detail-score-den" style="display:none;">/100</div>
           <div class="ring-label" id="detail-score-label">Gestalt Match</div>
-          <div class="ring-label ring-strength" id="detail-match-strength" style="display:none;"></div>
         </div>
+      </div>
+      <div class="rv-rank-line fade-in" id="detail-rank-line" style="display:none;">
+        <span id="detail-rank-text"></span>
+        <button type="button" class="rv-score-info-btn" onclick="openRVScoreInfo()" aria-label="What the match score and rank mean">i</button>
       </div>
 
       <!-- Images row (RV only) -->
       <div class="detail-images fade-in-delay-1" id="detail-images-row">
         <div class="detail-thumb-card">
-          <div class="detail-thumb-label">Sketch</div>
-          <img id="detail-sketch-img" src="" alt="sketch" />
-          <div id="detail-sketch-empty" class="summary-text" style="display:none;padding:24px 12px;">Written-only session</div>
+          <div class="detail-thumb-label">Your Sketch</div>
+          <img id="detail-sketch-img" src="" alt="Your sketch" class="rv-zoomable" tabindex="0" role="button" aria-label="Enlarge your sketch" onclick="openRVImage(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openRVImage(this);}" />
+          <div id="detail-sketch-empty" class="summary-text rv-thumb-empty" style="display:none;">Written-only session. No sketch was submitted.</div>
         </div>
         <div class="detail-thumb-card">
           <div class="detail-thumb-label">Target</div>
-          <img id="detail-target-img" src="" alt="target" />
-          <div id="detail-target-empty" class="summary-text" style="display:none;padding:24px 12px;">Target not revealed</div>
+          <img id="detail-target-img" src="" alt="Your target" class="rv-zoomable" tabindex="0" role="button" aria-label="Enlarge the target" onclick="openRVImage(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openRVImage(this);}" />
+          <div id="detail-target-empty" class="summary-text rv-thumb-empty" style="display:none;">Target not revealed</div>
         </div>
       </div>
 
       <!-- Summary -->
-      <div id="detail-blind-judging" class="summary-card" style="display:none;"></div>
       <div class="summary-card fade-in-delay-1" id="detail-summary-card">
-        <div class="mono-label" style="margin-bottom:8px;">Analyst Summary</div>
+        <div class="mono-label" style="margin-bottom:8px;" id="detail-summary-label">Analyst Summary</div>
         <div class="summary-text" id="detail-summary"></div>
       </div>
+      <div class="rv-feedback fade-in-delay-1" id="detail-feedback" style="display:none;"></div>
 
       <!-- Dimension scores (RV only) -->
       <div id="detail-dimensions-wrap" class="fade-in-delay-2">
@@ -7377,11 +7476,14 @@ html, body {
         <div class="dimension-grid" id="detail-dimensions"></div>
       </div>
 
-      <!-- Data points -->
-      <div class="fade-in-delay-2">
+      <!-- Data points (older scoring method only) -->
+      <div class="fade-in-delay-2" id="detail-data-points-wrap">
         <div class="section-label" style="margin-bottom:8px;">Data Points</div>
         <div class="hit-list" id="detail-hit-list"></div>
       </div>
+
+      <!-- Secondary information (blind judging) -->
+      <div class="rv-more fade-in-delay-2" id="detail-more" style="display:none;"></div>
 
       <!-- Zener symbol breakdown (Zener only) -->
       <div id="detail-zener-wrap" class="fade-in-delay-2" style="display:none;">
@@ -9680,9 +9782,8 @@ async function submitRVSession() {
   const sketchPreview = document.getElementById('sketch-preview');
   if (sketchPreview) {
     sketchPreview.src = sketchDataURL;
-    sketchPreview.style.width = '100%';
     sketchPreview.style.aspectRatio = '1';
-    sketchPreview.style.objectFit = 'cover';
+    sketchPreview.style.objectFit = 'contain';
     sketchPreview.style.display = sketchDataURL ? 'block' : 'none';
   }
   const sketchEmpty = document.getElementById('result-sketch-empty');
@@ -9805,6 +9906,9 @@ async function submitRVSession() {
     markResultsNotSavedLocally();
   }
   syncSessionToSupabase('rv_sessions', mapRVSessionRow(session, 'personal'), { localSaved: kept });
+  // Written feedback arrives a moment after the score; shown only while this
+  // same result is still on screen.
+  followRVFeedback(session, 'result', () => currentScreen === 'results' && isSessionCurrent());
   checkMilestones({ protocol: 'rv', score: session.score });
 }
 
@@ -9868,22 +9972,34 @@ function getBlindJudging(session) {
   return b;
 }
 
-// How strongly the target corresponded, from its 0-100 blind score. The rank
-// stays the main result; this label sits next to it. The Worker summary uses
-// the same thresholds.
-function rvMatchStrength(score) {
-  return score >= 60 ? 'Strong match' : score >= 30 ? 'Moderate match' : 'Weak match';
+function rvOrdinal(n) {
+  return n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
 }
 
-function blindMatchStrength(blind) {
-  const target = blind?.candidates?.find(c => c.is_target === true);
-  return target ? rvMatchStrength(target.score) : '';
+function blindTarget(blind) {
+  return blind?.candidates?.find(c => c.is_target === true) || null;
 }
 
-// "Ranked 1 of 5 · Weak match" or "Tied at rank 1 of 5 · Weak match".
-function blindRankText(blind) {
-  return `${blind.tied ? 'Tied at rank' : 'Ranked'} ${blind.target_rank} of 5 · ${blindMatchStrength(blind)}`;
+// "Target ranked 2nd out of 5 photos" or "Target tied for 1st out of 5 photos".
+function rvRankText(blind) {
+  return `Target ${blind.tied ? 'tied for' : 'ranked'} ${rvOrdinal(blind.target_rank)} out of 5 photos`;
 }
+
+// A factual summary from the saved score and rank alone. It is shown until the
+// written feedback arrives, and whenever that feedback is unavailable.
+function rvFactualSummary(blind) {
+  const score = blindTarget(blind)?.score ?? 0;
+  let text = `The target ${blind.tied ? 'tied for' : 'ranked'} ${rvOrdinal(blind.target_rank)} out of 5 photos with an AI match score of ${score}/100.`;
+  if (blind.target_rank === 1 && score < 30) text += ' The target ranked first, but overall correspondence was limited.';
+  else if (blind.target_rank >= 3 && score >= 50) text += ' Your session described this target fairly well, but another photo fit as well or better.';
+  return text;
+}
+
+const RV_CATEGORY_NAMES = {
+  geometric_form: 'Form and shape', spatial_impression: 'Space and scale', texture_surface: 'Texture',
+  emotional_tone: 'Atmosphere', movement_impression: 'Movement', color_light: 'Color and light',
+  sensory_impression: 'Sensory impressions',
+};
 
 // Ratings averaged over the five rotations have one decimal place; older
 // single-pass ratings are whole numbers.
@@ -9914,29 +10030,169 @@ function blindReceiptIdFor(session) {
   return typeof id === 'string' && /^b[0-9a-f]{32}$/.test(id) ? id : null;
 }
 
-function renderBlindJudgingCard(id, blind) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.style.display = blind ? 'block' : 'none';
-  if (!blind) { el.innerHTML = ''; return; }
-  const names = { geometric_form: 'Form', spatial_impression: 'Space', texture_surface: 'Texture',
-    emotional_tone: 'Atmosphere', movement_impression: 'Movement', color_light: 'Light' };
-  if (blind.rubric === 'seven-dimensions-v1') names.sensory_impression = 'Sensory impression';
-  el.innerHTML = `<div class="mono-label" style="margin-bottom:12px;">AI blind judging</div>
-    <div class="summary-text blind-rank-text" style="margin-bottom:4px;color:#fff;">${escapeHtml(blindRankText(blind))}</div>
-    <div class="summary-text" style="margin-bottom:16px;">Written impressions and sketches are judged together.${blind.rotations > 1 ? ` The judge compared all five photos ${blind.rotations} times, in a different order each time, and the ratings are averages.` : ''}</div>
-    ${[...blind.candidates].sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label)).map(c => `
-      <div class="blind-candidate" style="display:flex;gap:12px;padding:12px 0;border-top:1px solid var(--border);">
-        <img src="${escapeHtml(c.src)}" alt="Candidate ${c.label}" loading="lazy" style="width:72px;height:72px;object-fit:cover;border-radius:8px;flex-shrink:0;">
-        <div style="min-width:0;flex:1;">
-          <div class="mono-label" style="color:${c.is_target ? 'var(--accent)' : 'var(--muted)'};">${c.tied ? 'Tied ' : ''}#${c.rank} · ${c.label}${c.is_target ? ' · Your target' : ''}</div>
-          <div class="summary-text">${c.score}/100 correspondence</div>
-          <details style="font-size:12px;color:var(--muted);margin-top:5px;"><summary>Dimension ratings</summary>
-            ${Object.entries(names).map(([key, label]) => `<div>${label}: ${isRating(c.dimension_scores?.[key]) ? formatRating(c.dimension_scores[key], blind) : '-'} / 5</div>`).join('')}
-          </details>
-        </div>
-      </div>`).join('')}
-    <div class="summary-text" style="font-size:12px;margin-top:12px;">The AI did not know which photo was your target. Ratings are not probabilities or evidence of ability. Ties stay ties.</div>`;
+// ─── RESULTS DISPLAY (results screen and saved-session detail) ───
+// `view` is 'result' or 'detail'. Everything shown comes from the saved
+// judgment; written feedback is separate and never changes the score or rank.
+const RV_RING_IDS = {
+  result: { ring: 'score-ring', pct: 'score-pct', label: 'result-score-label', den: 'result-score-den', wrap: '#screen-results .result-score-ring' },
+  detail: { ring: 'detail-score-ring', pct: 'detail-score-pct', label: 'detail-score-label', den: 'detail-score-den', wrap: '#detail-score-ring-wrap' },
+};
+const RV_RING_CIRCUMFERENCE = 364.4;
+
+// mode: 'blind' (AI match score), 'legacy' (older method, its percentage) or
+// 'none' (no score: failed or pending grading shows no circle).
+function renderRVScoreRing(view, mode, score) {
+  const ids = RV_RING_IDS[view];
+  const wrap = document.querySelector(ids.wrap);
+  const ring = document.getElementById(ids.ring);
+  const pct = document.getElementById(ids.pct);
+  const den = document.getElementById(ids.den);
+  if (wrap) wrap.style.display = mode === 'none' ? 'none' : 'flex';
+  if (den) den.style.display = mode === 'blind' ? 'block' : 'none';
+  if (mode === 'none') { if (pct) pct.textContent = 'N/A'; return; }
+  const value = Math.max(0, Math.min(100, Number(score) || 0));
+  setEl(ids.label, mode === 'blind' ? 'AI match score' : 'Legacy match');
+  if (ring) {
+    ring.style.stroke = mode === 'blind' ? 'var(--accent)' : value >= 60 ? 'var(--accent)' : value >= 35 ? 'var(--warn)' : 'var(--danger)';
+    ring.style.strokeDashoffset = RV_RING_CIRCUMFERENCE;
+    setTimeout(() => { ring.style.strokeDashoffset = RV_RING_CIRCUMFERENCE - (value / 100) * RV_RING_CIRCUMFERENCE; }, 150);
+  }
+  if (pct) pct.textContent = mode === 'blind' ? String(value) : value + '%';
+}
+
+function renderRVRankLine(view, blind) {
+  const line = document.getElementById(view + '-rank-line');
+  if (!line) return;
+  line.style.display = blind ? 'flex' : 'none';
+  setEl(view + '-rank-text', blind ? rvRankText(blind) : '');
+}
+
+const RV_ICON_SIGNAL = '<svg class="rv-fb-icon" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="12.5" stroke="var(--accent)" stroke-width="1.6"/><path d="M8.5 14.5l3.6 3.6 7.4-7.6" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const RV_ICON_NOISE = '<svg class="rv-fb-icon" viewBox="0 0 28 28" fill="none" aria-hidden="true"><circle cx="14" cy="14" r="12.5" stroke="var(--noise)" stroke-width="1.6"/><path d="M9 14h10" stroke="var(--noise)" stroke-width="1.8" stroke-linecap="round"/></svg>';
+
+function rvFeedbackCard(icon, title, sub, items, emptyText) {
+  const list = Array.isArray(items) ? items.filter(t => typeof t === 'string' && t.trim()) : [];
+  return `<div class="rv-fb-card">${icon}<div style="min-width:0;flex:1;">
+    <div class="rv-fb-head">${title}<span>${sub}</span></div>
+    ${list.length ? `<ul class="rv-fb-list">${list.map(t => `<li>${escapeHtml(t)}</li>`).join('')}</ul>` : `<div class="rv-fb-empty">${emptyText}</div>`}
+  </div></div>`;
+}
+
+// Summary text plus the Signal and Noise rows for a blind result.
+// feedback: { status: 'ready' | 'pending' | 'unavailable', summary, signal, noise, missing }.
+function renderRVFeedback(view, blind, feedback) {
+  const box = document.getElementById(view + '-feedback');
+  if (!box) return;
+  if (!blind) { box.style.display = 'none'; box.innerHTML = ''; return; }
+  setEl(view + '-summary-label', 'Session Summary');
+  const ready = feedback?.status === 'ready';
+  setEl(view + '-summary', ready && feedback.summary ? feedback.summary : rvFactualSummary(blind));
+  box.style.display = 'flex';
+  if (ready) {
+    const missing = (Array.isArray(feedback.missing) ? feedback.missing : []).filter(t => typeof t === 'string' && t.trim());
+    box.innerHTML = rvFeedbackCard(RV_ICON_SIGNAL, 'Signal', 'Matching details', feedback.signal, 'No clear matching details identified.')
+      + rvFeedbackCard(RV_ICON_NOISE, 'Noise', 'Conflicting details', feedback.noise, 'No clear contradictions identified.')
+      + (missing.length ? `<div class="rv-fb-note">Not addressed in your session: ${missing.map(escapeHtml).join(' ')}</div>` : '');
+  } else if (feedback?.status === 'pending') {
+    box.innerHTML = '<div class="rv-fb-note" role="status">Writing detailed feedback...</div>';
+  } else {
+    box.innerHTML = '<div class="rv-fb-card"><div style="min-width:0;flex:1;"><div class="rv-fb-head">Detailed feedback</div><div class="rv-fb-empty">Detailed feedback unavailable.</div></div></div>';
+  }
+}
+
+// Collapsed secondary sections: category ratings (blind only), the session's
+// own impressions, and how it was scored.
+function renderRVMore(view, blind, notes, mode) {
+  const box = document.getElementById(view + '-more');
+  if (!box) return;
+  if (mode === 'hidden') { box.style.display = 'none'; box.innerHTML = ''; return; }
+  const target = blindTarget(blind);
+  const ratings = blind && target ? Object.keys(RV_CATEGORY_NAMES).filter(k => isRating(target.dimension_scores?.[k])) : [];
+  const ratingsHtml = ratings.length ? `<details><summary>Category ratings</summary><div class="rv-more-body">
+      ${ratings.map(k => { const v = target.dimension_scores[k]; return `<div class="rv-rating-row"><span>${RV_CATEGORY_NAMES[k]}</span><span class="rv-rating-bar"><i style="width:${Math.round(v / 5 * 100)}%"></i></span><span class="rv-rating-val">${formatRating(v, blind)} / 5</span></div>`; }).join('')}
+      <p style="margin-top:8px;color:var(--muted);font-size:13px;">How closely your session matched your target in each category, from 0 to 5${blind.rotations > 1 ? `, averaged over ${blind.rotations} comparisons` : ''}.</p>
+    </div></details>` : '';
+  const notesText = String(notes || '').trim();
+  const notesHtml = `<details id="${view}-notes-card"><summary>Your impressions</summary><div class="rv-more-body"><div style="white-space:pre-wrap;">${notesText ? escapeHtml(notesText) : 'No written impressions were submitted.'}</div></div></details>`;
+  const howHtml = mode === 'blind'
+    ? `<details><summary>How this was scored</summary><div class="rv-more-body">
+        <p>Before your session, five photos from the same category were set aside: your target and four others. After you submitted, an AI compared your sketch and written impressions with all five without knowing which was yours${blind.rotations > 1 ? `, ${blind.rotations} times with the photos in a different order each time` : ''}.</p>
+        <p>The AI match score rates how closely your session corresponds to your target, from 0 to 100. It is not percentage accuracy, a probability, or proof of ability. The rank says where your target placed among the five photos. By chance alone, the target ranks 1st about 1 time in 5.</p>
+        <p>Drawing skill earns nothing. The written feedback above is produced after the score is final and never changes it.</p>
+      </div></details>`
+    : mode === 'legacy'
+      ? '<details><summary>How this was scored</summary><div class="rv-more-body"><p>This session was scored with an older method that knew the target. Its score is not comparable with blind AI match scores and has no rank.</p></div></details>'
+      : '';
+  box.innerHTML = ratingsHtml + notesHtml + howHtml;
+  box.style.display = 'flex';
+}
+
+// ─── WRITTEN FEEDBACK (fetched after the result is shown) ───
+const RV_FEEDBACK_POLL_MS = 1500;
+const RV_FEEDBACK_TRIES = 10;
+const _rvFeedbackLoads = new Map();
+
+function rvFeedbackReceipt(session) {
+  const id = getBlindJudging(session)?.assignment_id || session?.assignmentId;
+  return typeof id === 'string' && /^b[0-9a-f]{32}$/.test(id) ? id : null;
+}
+
+function normalizeRVFeedback(raw) {
+  const list = (v, n) => (Array.isArray(v) ? v : []).filter(t => typeof t === 'string' && t.trim()).map(t => t.slice(0, 200)).slice(0, n);
+  if (!raw || typeof raw.summary !== 'string' || !raw.summary.trim()) return null;
+  return { status: 'ready', version: typeof raw.version === 'string' ? raw.version : '', summary: raw.summary.slice(0, 400),
+    signal: list(raw.signal, 4), noise: list(raw.noise, 4), missing: list(raw.missing, 2) };
+}
+
+// Polls the Worker until the feedback is ready, unavailable, or the tries run
+// out. One poll per receipt runs at a time. Resolves to a feedback state.
+function loadRVFeedback(receipt) {
+  if (_rvFeedbackLoads.has(receipt)) return _rvFeedbackLoads.get(receipt);
+  const job = (async () => {
+    for (let attempt = 0; attempt < RV_FEEDBACK_TRIES; attempt++) {
+      try {
+        const resp = await fetch(WORKER_URL + '/rv-feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ assignment_id: receipt }) });
+        const data = await resp.json().catch(() => ({}));
+        if (data?.status === 'ready') return normalizeRVFeedback(data.feedback) || { status: 'unavailable' };
+        if (data?.status !== 'pending') return { status: 'unavailable', final: resp.ok };
+      } catch (_) { /* offline or Worker unreachable: try again shortly */ }
+      await delay(RV_FEEDBACK_POLL_MS);
+    }
+    return { status: 'unavailable' };
+  })().finally(() => _rvFeedbackLoads.delete(receipt));
+  _rvFeedbackLoads.set(receipt, job);
+  return job;
+}
+
+// Keeps ready feedback (and a final "unavailable" answer) with this owner's
+// copy of the session, on this device only. The cloud row is not changed;
+// another device fetches the same feedback from the Worker.
+function storeRVFeedback(owner, sessionId, feedback) {
+  if (feedback?.status !== 'ready' && !(feedback?.status === 'unavailable' && feedback.final)) return;
+  const kept = feedback.status === 'ready' ? feedback : { status: 'unavailable' };
+  if (owner === _dataOwner) {
+    const saved = STATE.sessions.find(x => String(x?.id) === String(sessionId));
+    if (saved) { saved.feedback = kept; saveState(); }
+    return;
+  }
+  const key = ownedKeyFor(owner, 'ablty_sessions');
+  const list = safeParseArray(store.get(key));
+  const i = list.findIndex(x => String(x?.id) === String(sessionId));
+  if (i >= 0) { list[i] = { ...list[i], feedback: kept }; persistHistory(key, JSON.stringify(list)); }
+}
+
+// Fetches the written feedback for a saved blind session and shows it while
+// `isCurrent()` says the same view is still on screen.
+async function followRVFeedback(session, view, isCurrent) {
+  const blind = getBlindJudging(session);
+  const receipt = rvFeedbackReceipt(session);
+  if (!blind || isRVGradingFailed(session) || session.feedback?.status === 'ready' || session.feedback?.status === 'unavailable') return;
+  const owner = _dataOwner;
+  if (!receipt) { if (isCurrent()) renderRVFeedback(view, blind, { status: 'unavailable' }); return; }
+  const feedback = await loadRVFeedback(receipt);
+  storeRVFeedback(owner, session.id, feedback);
+  if (owner === _dataOwner && isCurrent()) renderRVFeedback(view, blind, feedback);
 }
 
 // Existing history remains available; charts compare only one judging method.
@@ -9946,74 +10202,40 @@ function comparableRVSessions(sessions) {
 }
 
 function renderResults(result, target, notes) {
-  const blind = getBlindJudging(result);
-  renderBlindJudgingCard('result-blind-judging', blind);
-  setEl('result-score-label', blind ? (blind.tied ? 'Tied rank' : 'Target rank') : 'Legacy match');
-  const resultStrength = document.getElementById('result-match-strength');
-  if (resultStrength) {
-    resultStrength.textContent = blind && !result?.grading_failed ? blindMatchStrength(blind) : '';
-    resultStrength.style.display = resultStrength.textContent ? 'block' : 'none';
-  }
+  const hasGradingFailure = !!result?.grading_failed;
+  const blind = hasGradingFailure ? null : getBlindJudging(result);
+  const gradingErrorMsg = (result?.grading_error || '').trim();
   const targetEmpty = document.getElementById('result-target-empty');
   if (targetEmpty) targetEmpty.style.display = target?.src ? 'none' : 'block';
-  const score   = Number(result.gestalt_score ?? result.overall_score ?? 0);
-  const ring    = document.getElementById('score-ring');
-  const scoreWrap = document.querySelector('#screen-results .result-score-ring');
+  const score = Number(result?.gestalt_score ?? result?.overall_score ?? 0);
   const dataPointsHeader = document.getElementById('rv-data-points-header');
-  const pctEl   = document.getElementById('score-pct');
-  const summary = document.getElementById('result-summary');
   const hitList = document.getElementById('hit-list');
-  const hasGradingFailure = !!result?.grading_failed;
-  const gradingErrorMsg = (result?.grading_error || '').trim();
 
-  // Toggle result views: normal scored UI vs honest grading-failed UI.
-  if (scoreWrap) scoreWrap.style.display = hasGradingFailure ? 'none' : 'flex';
+  // Blind: AI match score ring + rank line. Older method: its percentage.
+  // Failed grading: no circle at all.
+  renderRVScoreRing('result', hasGradingFailure ? 'none' : blind ? 'blind' : 'legacy', score);
+  renderRVRankLine('result', blind);
+
+  // Older-method data points stay as they were; blind results use Signal and Noise.
   if (dataPointsHeader) dataPointsHeader.style.display = (hasGradingFailure || blind) ? 'none' : 'flex';
   if (hitList) hitList.style.display = (hasGradingFailure || blind) ? 'none' : 'flex';
 
-  if (!hasGradingFailure && ring) {
-    const circumference = 364.4;
-    ring.style.stroke = blind ? 'var(--accent)' : score >= 60 ? 'var(--accent)' : score >= 35 ? 'var(--warn)' : 'var(--danger)';
-    setTimeout(() => {
-      ring.style.strokeDashoffset = blind ? 0 : circumference - (score / 100) * circumference;
-    }, 200);
-  }
-
-  if (blind && pctEl) pctEl.textContent = blind.target_rank + '/5';
-  if (!hasGradingFailure && !blind && pctEl) {
-    let count = 0;
-    const interval = setInterval(() => {
-      count += 2;
-      if (count >= score) { pctEl.textContent = score + '%'; clearInterval(interval); }
-      else pctEl.textContent = count + '%';
-    }, 20);
-  }
-
-  // Notes  -  shown between target images and analyst summary
-  let notesCard = document.getElementById('result-notes-card');
-  if (!notesCard) {
-    notesCard = document.createElement('div');
-    notesCard.id = 'result-notes-card';
-    notesCard.className = 'summary-card fade-in-delay-1';
-    // Insert before the summary card
-    const summaryCard = document.querySelector('#screen-results .summary-card');
-    if (summaryCard && summaryCard.parentNode) summaryCard.parentNode.insertBefore(notesCard, summaryCard);
-  }
-  if (notes && notes.trim()) {
-    notesCard.style.display = 'block';
-    notesCard.innerHTML = `<div class="mono-label" style="margin-bottom:8px;">Your Impressions</div><div class="summary-text" style="white-space:pre-wrap;">${escapeHtml(notes)}</div>`;
+  setEl('result-summary-label', hasGradingFailure || blind ? 'Session Summary' : 'Analyst Summary');
+  // A failed session has nothing to summarize; the error card explains it.
+  const summaryCard = document.getElementById('result-summary-card');
+  if (summaryCard) summaryCard.style.display = hasGradingFailure ? 'none' : '';
+  if (blind) {
+    renderRVFeedback('result', blind, result.feedback || { status: 'pending' });
   } else {
-    notesCard.style.display = 'none';
+    renderRVFeedback('result', null, null);
+    setEl('result-summary', result?.summary || '');
   }
+  renderRVMore('result', blind, notes, hasGradingFailure ? 'failed' : blind ? 'blind' : 'legacy');
 
-  if (summary) {
-    summary.textContent = result.summary || '';
-  }
-
-  // Show score reasoning tip
+  // The older method's next-session tip only.
   const reasoningCard = document.getElementById('score-reasoning-card');
   const reasoningText = document.getElementById('score-reasoning-text');
-  if (reasoningCard && reasoningText && result.score_reasoning) {
+  if (reasoningCard && reasoningText && result?.score_reasoning && !blind && !hasGradingFailure) {
     reasoningText.textContent = result.score_reasoning;
     reasoningCard.style.display = 'block';
   } else if (reasoningCard) {
@@ -10036,8 +10258,7 @@ function renderResults(result, target, notes) {
     }
   }
 
-  if (!hasGradingFailure && hitList) {
-    hitList.innerHTML = '';
+  if (!hasGradingFailure && !blind && hitList) {
     hitList.innerHTML = renderHitListHtml(result);
   }
 }
@@ -15830,7 +16051,6 @@ function collectExportRows(modules) {
         judging_protocol: getBlindJudging(s)?.protocol || '',
         target_rank: getBlindJudging(s)?.target_rank || '',
         tied: getBlindJudging(s) ? String(getBlindJudging(s).tied) : '',
-        match_strength: !gradingFailed && getBlindJudging(s) ? blindMatchStrength(getBlindJudging(s)) : '',
         target_id: rvSplit.target_id,
         category: rvSplit.category,
         label: s.targetLabel || (s.trn ? `TRN ${s.trn}` : 'RV Session'),
@@ -15931,7 +16151,6 @@ function downloadExportCSV() {
     'judging_protocol',
     'target_rank',
     'tied',
-    'match_strength',
     'target_id',
     'category',
     'label',
@@ -15952,7 +16171,6 @@ function downloadExportCSV() {
     judging_protocol: 'Judging method',
     target_rank: 'Target rank of 5',
     tied: 'Tied rank',
-    match_strength: 'Match strength',
     target_id: 'Target ID',
     category: 'Category',
     label: 'Label',
@@ -16278,7 +16496,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
   const TYPE_LABEL = {
     rv:    s => {
       const blind = getBlindJudging(s);
-      return (blind ? `Blind judged · ${blindMatchStrength(blind)} · ` : 'Legacy · ') + (s.targetLabel || '-');
+      return (blind && !isRVGradingFailed(s) ? `Blind judged · ${blind.tied ? 'Tied ' : ''}${rvOrdinal(blind.target_rank)} of 5 · ` : blind ? 'Blind judged · ' : 'Legacy · ') + (s.targetLabel || '-');
     },
     zener: s => `${s.hits}/25 hits`,
     ts:    s => {
@@ -16295,7 +16513,7 @@ function buildCombinedLog(rvSessions, zenerRuns) {
     rv:    s => {
       const score = getRVSessionScore(s);
       const blind = getBlindJudging(s);
-      return score === null ? 'Not graded' : blind ? `${blind.tied ? 'Tied ' : ''}${blind.target_rank}/5` : `${score}%`;
+      return score === null ? 'Not graded' : blind ? `${score}/100` : `${score}%`;
     },
     zener: s => s.score + '%',
     ts:    s => {
@@ -16318,12 +16536,10 @@ function buildCombinedLog(rvSessions, zenerRuns) {
     const isHitLike   = getTSTrialHit(s);
     const rvScore = s.type === 'rv' ? getRVSessionScore(s) : null;
     const rvBlind = s.type === 'rv' ? getBlindJudging(s) : null;
-    // A blind row's colour follows its match strength label, so they never disagree.
-    const strengthClass = { 'Strong match': 'high', 'Moderate match': 'mid', 'Weak match': 'low' };
     const cls = isHitMiss
       ? (isHitLike ? 'high' : 'low')
       : (s.type === 'rv' && rvScore === null ? 'na'
-        : rvBlind ? (strengthClass[blindMatchStrength(rvBlind)] || 'na')
+        : rvBlind ? 'high'
         : (s.score >= 60 ? 'high' : s.score >= 35 ? 'mid' : 'low'));
 
     return `<div class="session-card" onclick="openSessionDetail('${sessionType}','${sessionId}')" style="cursor:pointer;">
@@ -16400,7 +16616,7 @@ function openSessionDetail(type, id) {
 }
 
 function renderTSDetail(s) {
-  renderBlindJudgingCard('detail-blind-judging', null);
+  resetRVOnlyDetail();
   const d = new Date(s.timestamp);
   const dateStr = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
   const tsHit = getTSTrialHit(s);
@@ -16460,31 +16676,18 @@ function renderTSDetail(s) {
 
 
 function renderRVDetail(s) {
-  const blind = getBlindJudging(s);
-  renderBlindJudgingCard('detail-blind-judging', blind);
+  const failed = isRVGradingFailed(s);
+  const blind = failed ? null : getBlindJudging(s);
   const d = new Date(s.timestamp);
   const dateStr = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
 
   setEl('detail-type-label', 'RV SESSION');
   setEl('detail-date', dateStr);
 
-  // Score ring
-  const ring = document.getElementById('detail-score-ring');
-  const pctEl = document.getElementById('detail-score-pct');
+  // Same presentation as the results screen. No circle without a score.
   const score = getRVSessionScore(s);
-  const failed = isRVGradingFailed(s);
-  setEl('detail-score-label', blind ? (blind.tied ? 'Tied rank' : 'Target rank') : 'Legacy match');
-  const detailStrength = document.getElementById('detail-match-strength');
-  if (detailStrength) {
-    detailStrength.textContent = blind && !failed ? blindMatchStrength(blind) : '';
-    detailStrength.style.display = detailStrength.textContent ? 'block' : 'none';
-  }
-  if (ring) {
-    const ringScore = blind ? 100 : score ?? 0;
-    ring.style.stroke = failed ? 'var(--muted)' : (ringScore >= 60 ? 'var(--accent)' : ringScore >= 35 ? 'var(--warn)' : 'var(--danger)');
-    setTimeout(() => { ring.style.strokeDashoffset = failed ? 364.4 : (364.4 - (ringScore / 100) * 364.4); }, 100);
-  }
-  if (pctEl) pctEl.textContent = failed ? 'N/A' : blind ? blind.target_rank + '/5' : `${score}%`;
+  renderRVScoreRing('detail', failed ? 'none' : blind ? 'blind' : 'legacy', score);
+  renderRVRankLine('detail', blind);
 
   // Images
   const imagesRow = document.getElementById('detail-images-row');
@@ -16498,11 +16701,20 @@ function renderRVDetail(s) {
   const targetEmpty = document.getElementById('detail-target-empty');
   if (targetEmpty) targetEmpty.style.display = s.targetSrc ? 'none' : 'block';
 
-  // Summary
+  // Summary, Signal and Noise
+  const summaryCard = document.getElementById('detail-summary-card');
+  if (summaryCard) summaryCard.style.display = 'block';
   if (failed) {
-    setEl('detail-summary', 'AI grading failed for this session. Your sketch, target reveal, and notes were saved.');
+    setEl('detail-summary-label', 'Session Summary');
+    setEl('detail-summary', 'AI grading failed for this session. Your sketch and notes were saved. The target stays hidden until judging succeeds.');
+    renderRVFeedback('detail', null, null);
+  } else if (blind) {
+    const feedback = s.feedback?.status === 'ready' || s.feedback?.status === 'unavailable' ? s.feedback : { status: 'pending' };
+    renderRVFeedback('detail', blind, feedback);
   } else {
+    setEl('detail-summary-label', 'Analyst Summary');
     setEl('detail-summary', s.summary || 'No summary available.');
+    renderRVFeedback('detail', null, null);
   }
 
   // Retry grading button for failed sessions
@@ -16510,7 +16722,6 @@ function renderRVDetail(s) {
   if (!retryCard) {
     retryCard = document.createElement('div');
     retryCard.id = 'detail-retry-card';
-    const summaryCard = document.getElementById('detail-summary-card');
     if (summaryCard && summaryCard.parentNode) {
       summaryCard.parentNode.insertBefore(retryCard, summaryCard.nextSibling);
     }
@@ -16522,47 +16733,30 @@ function renderRVDetail(s) {
     retryCard.style.display = 'none';
   }
 
-  // Show score reasoning in detail view
+  // The older method's next-session tip only.
   let detailReasoningCard = document.getElementById('detail-reasoning-card');
   if (!detailReasoningCard) {
     detailReasoningCard = document.createElement('div');
     detailReasoningCard.id = 'detail-reasoning-card';
     detailReasoningCard.className = 'summary-card';
     detailReasoningCard.style.borderLeft = '2px solid var(--accent)';
-    const detailSummaryCard = document.getElementById('detail-summary-card');
-    if (detailSummaryCard && detailSummaryCard.parentNode) {
-      detailSummaryCard.parentNode.insertBefore(detailReasoningCard, detailSummaryCard.nextSibling);
+    if (summaryCard && summaryCard.parentNode) {
+      summaryCard.parentNode.insertBefore(detailReasoningCard, summaryCard.nextSibling);
     }
   }
-  if (s.score_reasoning) {
+  if (s.score_reasoning && !blind && !failed) {
     detailReasoningCard.style.display = 'block';
     detailReasoningCard.innerHTML = '<div class="mono-label" style="margin-bottom:8px;">Next Session Tip</div><div class="summary-text">' + escapeHtml(s.score_reasoning) + '</div>';
   } else {
     detailReasoningCard.style.display = 'none';
   }
 
-  // Notes
-  let detailNotesCard = document.getElementById('detail-notes-card');
-  if (!detailNotesCard) {
-    detailNotesCard = document.createElement('div');
-    detailNotesCard.id = 'detail-notes-card';
-    detailNotesCard.className = 'summary-card fade-in-delay-1';
-    const summaryCard = document.getElementById('detail-summary-card');
-    if (summaryCard && summaryCard.parentNode) summaryCard.parentNode.insertBefore(detailNotesCard, summaryCard.nextSibling);
-  }
-  if (s.notes && s.notes.trim()) {
-    detailNotesCard.style.display = 'block';
-    detailNotesCard.innerHTML = `<div class="mono-label" style="margin-bottom:8px;">Your Impressions</div><div class="summary-text" style="white-space:pre-wrap;">${escapeHtml(s.notes)}</div>`;
-  } else {
-    detailNotesCard.style.display = 'none';
-  }
-
-  // Dimension scores
+  // Older-method dimension scores and data points; blind sessions keep their
+  // category ratings in the collapsed sections instead.
   const dimWrap = document.getElementById('detail-dimensions-wrap');
   const dimGrid = document.getElementById('detail-dimensions');
-  if (s.dimension_scores && dimGrid) {
+  if (!blind && !failed && s.dimension_scores && dimGrid) {
     dimWrap.style.display = 'block';
-    const dims = s.dimension_scores;
     const labels = {
       geometric_form:    'Geometric Form',
       spatial_impression:'Spatial Impression',
@@ -16572,31 +16766,54 @@ function renderRVDetail(s) {
       color_light:       'Color / Light',
       sensory_impression:'Sensory Impression',
     };
-    dimGrid.innerHTML = Object.entries(dims).map(([key, val]) => `
+    dimGrid.innerHTML = Object.entries(s.dimension_scores).map(([key, val]) => `
       <div class="dimension-row">
         <div class="dimension-label">${escapeHtml(labels[key] || key)}</div>
         <div class="dimension-bar-wrap">
           <div class="dimension-bar-fill" style="width:${(val/5)*100}%;background:${val>=4?'var(--accent)':val>=2?'var(--warn)':'var(--danger)'}"></div>
         </div>
-        <div class="dimension-val">${escapeHtml(isRating(val) ? formatRating(val, blind) : val)}</div>
+        <div class="dimension-val">${escapeHtml(isRating(val) ? formatRating(val, null) : val)}</div>
       </div>`).join('');
   } else if (dimWrap) {
     dimWrap.style.display = 'none';
   }
-
-  // Data points
+  const dataPointsWrap = document.getElementById('detail-data-points-wrap');
   const hitList = document.getElementById('detail-hit-list');
-  if (hitList) {
-    hitList.innerHTML = renderHitListHtml(s);
-  }
+  const hitsHtml = !blind && !failed ? renderHitListHtml(s) : '';
+  if (hitList) hitList.innerHTML = hitsHtml;
+  if (dataPointsWrap) dataPointsWrap.style.display = hitsHtml ? 'block' : 'none';
+
+  renderRVMore('detail', blind, s.notes, failed ? 'failed' : blind ? 'blind' : 'legacy');
 
   // Hide Zener section
   const zWrap = document.getElementById('detail-zener-wrap');
   if (zWrap) zWrap.style.display = 'none';
+
+  if (blind) {
+    const viewSeq = detailViewSeq;
+    const authGen = _authGen;
+    const owner = _dataOwner;
+    followRVFeedback(s, 'detail', () => currentScreen === 'detail' && viewSeq === detailViewSeq
+      && isAuthGenCurrent(authGen) && owner === _dataOwner);
+  }
+}
+
+// The detail screen is shared with Zener and Presentiment: clear what only RV shows.
+function resetRVOnlyDetail() {
+  renderRVRankLine('detail', null);
+  renderRVFeedback('detail', null, null);
+  renderRVMore('detail', null, '', 'hidden');
+  const den = document.getElementById('detail-score-den');
+  if (den) den.style.display = 'none';
+  const wrap = document.getElementById('detail-score-ring-wrap');
+  if (wrap) wrap.style.display = 'flex';
+  const dataPointsWrap = document.getElementById('detail-data-points-wrap');
+  if (dataPointsWrap) dataPointsWrap.style.display = 'block';
+  setEl('detail-summary-label', 'Analyst Summary');
 }
 
 function renderZenerDetail(run) {
-  renderBlindJudgingCard('detail-blind-judging', null);
+  resetRVOnlyDetail();
   const d = new Date(run.timestamp);
   const dateStr = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes().toString().padStart(2,'0')}`;
 
@@ -17021,6 +17238,52 @@ async function rvAssignTarget() {
 function showProtocolModal() {
   const m = document.getElementById('protocol-modal');
   if (m) m.style.display = 'flex';
+}
+
+// ─── RV RESULTS: SCORE INFO AND IMAGE VIEWER ───
+let _rvModalReturnFocus = null;
+function rvModalKeydown(e) {
+  if (e.key !== 'Escape') return;
+  if (document.getElementById('rv-image-viewer')?.style.display === 'flex') closeRVImage();
+  else if (document.getElementById('rv-score-info-modal')?.style.display === 'flex') closeRVScoreInfo();
+}
+function openRVScoreInfo() {
+  const m = document.getElementById('rv-score-info-modal');
+  if (!m) return;
+  _rvModalReturnFocus = document.activeElement;
+  m.style.display = 'flex';
+  document.addEventListener('keydown', rvModalKeydown);
+  m.querySelector('.modal-close-btn')?.focus();
+}
+function closeRVScoreInfo(e) {
+  const m = document.getElementById('rv-score-info-modal');
+  if (!m || (e && e.target !== m)) return;
+  m.style.display = 'none';
+  document.removeEventListener('keydown', rvModalKeydown);
+  _rvModalReturnFocus?.focus?.();
+}
+// Shows the whole image, uncropped. Tap outside, the close button or Escape closes it.
+function openRVImage(img) {
+  const src = img?.getAttribute?.('src') || '';
+  if (!src) return;
+  const viewer = document.getElementById('rv-image-viewer');
+  const big = document.getElementById('rv-image-viewer-img');
+  if (!viewer || !big) return;
+  _rvModalReturnFocus = img;
+  big.src = src;
+  big.alt = img.getAttribute('alt') || '';
+  viewer.style.display = 'flex';
+  document.addEventListener('keydown', rvModalKeydown);
+  viewer.querySelector('.rv-lightbox-close')?.focus();
+}
+function closeRVImage(e) {
+  const viewer = document.getElementById('rv-image-viewer');
+  if (!viewer || (e && e.target.id === 'rv-image-viewer-img')) return;
+  viewer.style.display = 'none';
+  const big = document.getElementById('rv-image-viewer-img');
+  if (big) big.src = '';
+  document.removeEventListener('keydown', rvModalKeydown);
+  _rvModalReturnFocus?.focus?.();
 }
 
 function closeProtocolModal(e) {
@@ -20164,7 +20427,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.10.16.1';
+const APP_VERSION = '2026.11.01.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 // What the last update check found, so Settings can tell "this is the

@@ -1,4 +1,5 @@
 import { RV_JUDGING_IMAGES } from './rv-judging-images.js';
+import { generateSessionFeedback } from './rv-session-feedback.js';
 
 export const BLIND_PROTOCOL = 'blind-five-v1';
 export const BLIND_MODEL = 'gemini-2.5-flash';
@@ -118,6 +119,8 @@ export function rotationOrder(k) {
   return LABELS.map((_, p) => (p + k) % LABELS.length);
 }
 
+export const ordinal = n => n + (n === 1 ? 'st' : n === 2 ? 'nd' : n === 3 ? 'rd' : 'th');
+
 export function matchStrength(score) {
   return score >= 60 ? 'Strong match' : score >= 30 ? 'Moderate match' : 'Weak match';
 }
@@ -220,16 +223,15 @@ export function resultFromReceipt(record, pool) {
   });
   const selected = candidates[record.target_index];
   const target = pool.find(t => t.id === selected.target_id);
-  const rankText = `${selected.tied ? 'tied at rank' : 'ranked'} ${selected.rank} of 5 · ${matchStrength(selected.score)}`;
+  const rankText = `${selected.tied ? 'tied for' : 'ranked'} ${ordinal(selected.rank)} out of 5 photos`;
   // assignment_id names the receipt this result came from, so the saved
   // session can be linked back to it (rv_sessions.blind_receipt_id).
   const judging = { protocol: record.protocol || BLIND_PROTOCOL, rubric, model: record.model || BLIND_MODEL,
     assignment_id: record.id, rotations, target_rank: selected.rank, tied: selected.tied, unique_first: selected.rank === 1 && !selected.tied,
     candidates, token_counts: record.token_counts };
   return { overall_score: selected.score, dimension_scores: selected.dimension_scores,
-    summary: `Your target ${rankText}. The judge compared your complete submitted session with all five photos without knowing the target`
-      + (rotations > 1 ? `, ${rotations} times with the photos in a different order each time.` : '.'),
-    score_reasoning: 'Ratings describe correspondence, not probability or ability. Specific written impressions and drawn details both count; absent or contradictory evidence lowers the relevant rating.',
+    summary: `The target ${rankText}, with an AI match score of ${selected.score}/100.`,
+    score_reasoning: '',
     hits: [], noise: [], aol: [], grading_failed: false, blind_judging: judging,
     target: { id: target.id, src: target.src, label: target.label, category: target.category, trn: record.trn } };
 }
@@ -239,7 +241,7 @@ const failure = (message, retryable = true) => ({ grading_failed: true, grading_
   judging_protocol: BLIND_PROTOCOL, retryable,
   summary: 'Blind judging did not finish. Your target stays hidden. Retry the saved submission if offered.' });
 
-export async function judgeBlindSubmission(body, env, pool) {
+export async function judgeBlindSubmission(body, env, pool, ctx = null) {
   const id = body.assignment_id;
   const sketch = body.sketch ?? '';
   const notes = body.notes ?? '';
@@ -299,7 +301,14 @@ export async function judgeBlindSubmission(body, env, pool) {
   try {
     const saved = await blindRPC(env, id, 'finish', { lease, ...scores });
     if (saved.status !== 'done') throw new Error('Judgment not saved');
-    return { status: 200, body: resultFromReceipt(saved.record, pool) };
+    const result = resultFromReceipt(saved.record, pool);
+    // Written feedback is generated after the judgment is final, in the
+    // background, so the score is returned without waiting for it.
+    if (ctx?.waitUntil) {
+      ctx.waitUntil(generateSessionFeedback(env, id,
+        { notes, sketch, targetImage: images[saved.record.target_index], result }).catch(() => {}));
+    }
+    return { status: 200, body: result };
   } catch (_) {
     // Never release the claim or reveal on an ambiguous commit. A retry can
     // recover a committed result, but cannot spend on another model request.

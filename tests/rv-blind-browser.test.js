@@ -13,12 +13,18 @@ const receipt = { candidate_ids: ['T001','T002','T003','T004','T005'], target_in
   rotation_matrices: [0,1,2,3,4].map(k => single.map((row, i) => k === 4 && (i === 1 || i === 2) ? [...row.slice(0, 6), 3] : row)), trn: '1234-5678' };
 const result = JSON.parse(JSON.stringify(api.resultFromReceipt(receipt, api.RV_TARGET_POOL)));
 const oldResult = JSON.parse(JSON.stringify(api.resultFromReceipt({ ...receipt, rubric: 'six-dimensions-v1', score_matrix: single.map(row => row.slice(0, 6)) }, api.RV_TARGET_POOL)));
-// A blind result whose target scored the given 0-100 score.
-function withTargetScore(score) {
+// A blind result whose target has the given 0-100 score, rank and tie.
+function withTarget(score, rank = 1, tied = false) {
   const copy = structuredClone(result);
-  copy.blind_judging.candidates.find(c => c.is_target).score = score;
+  const t = copy.blind_judging.candidates.find(c => c.is_target);
+  Object.assign(t, { score, rank, tied });
+  Object.assign(copy.blind_judging, { target_rank: rank, tied, unique_first: rank === 1 && !tied });
+  copy.overall_score = score;
   return copy;
 }
+const FEEDBACK = { version: 'feedback-v1', summary: 'You described a curved arch and an open space; both appear in the target.',
+  signal: ['You wrote "curved arch"; the target has a large curved arch.', '<b>bold</b> stays text'],
+  noise: [], missing: ['The water below the arch.'] };
 let passed = 0;
 async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name); }
 
@@ -36,6 +42,7 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
     for (const width of [390, 412]) {
       const context = await browser.newContext({ viewport: { width, height: 844 }, serviceWorkers: 'block' });
       let calls = 0; let submitted; let fail = false; let assigned = 0; let gradeHold = null;
+      let feedbackMode = 'ready'; let feedbackCalls = 0;
       // Like the Worker: each assignment is its own receipt, results name it,
       // and the same assignment and writing again is a replay.
       const graded = new Map();
@@ -62,6 +69,11 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
           if (gradeHold) return gradeHold.then(() => route.fulfill({ json: answer() }));
           return route.fulfill({ json: answer() });
         }
+        if (url.endsWith('/rv-feedback')) {
+          feedbackCalls++;
+          if (feedbackMode === 'ready') return route.fulfill({ json: { status: 'ready', feedback: FEEDBACK } });
+          return route.fulfill({ json: { status: feedbackMode } });
+        }
         if (url.endsWith('.js')) return route.fulfill({ contentType: 'text/javascript', body: '' });
         return route.abort();
       });
@@ -70,7 +82,7 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
       await page.goto(base + '/app.html');
       await page.waitForFunction(() => typeof STATE !== 'undefined' && typeof startRVSession === 'function');
       await page.waitForFunction(() => document.getElementById('splash-screen').style.display === 'none');
-      await step(width + ': written-only submission, duplicate tap ignored, tied rank shown', async () => {
+      await step(width + ': written-only submission shows the score ring, rank line, feedback and no decoys', async () => {
         await page.evaluate(async () => {
           startRVSession(); await rvGoStep(2); openCanvas();
           await new Promise(r => setTimeout(r, 100));
@@ -80,74 +92,155 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
         });
         assert.equal(calls, 1); assert.equal(submitted.sketch, '');
         assert.match(submitted.notes, /Curved arch/); assert.match(submitted.notes, /Rough surface/);
-        assert.equal(await page.textContent('#score-pct'), '1/5');
-        assert.equal(await page.textContent('#result-score-label'), 'Tied rank');
-        assert.equal(await page.textContent('#result-match-strength'), 'Strong match');
-        assert.equal(await page.locator('#result-match-strength').isVisible(), true);
-        assert.equal(await page.locator('#result-blind-judging .blind-candidate').count(), 5);
-        assert.equal(await page.textContent('#result-blind-judging .blind-rank-text'), 'Tied at rank 1 of 5 · Strong match');
-        assert.match(await page.textContent('#result-blind-judging'), /compared all five photos 5 times/);
-        assert.match(await page.textContent('#result-blind-judging'), /Sensory impression: 3\.8 \/ 5/);
-        assert.match(await page.textContent('#result-blind-judging'), /Form: 4\.0 \/ 5/);
-        assert.equal(await page.locator('#result-blind-judging details').first().locator('div').count(), 7);
+        assert.equal(await page.textContent('#score-pct'), '80');
+        assert.equal(await page.locator('#result-score-den').isVisible(), true);
+        assert.equal(await page.textContent('#result-score-label'), 'AI match score');
+        await page.waitForTimeout(400);
+        const offset = await page.evaluate(() => parseFloat(document.getElementById('score-ring').style.strokeDashoffset));
+        assert.ok(Math.abs(offset - 364.4 * 0.2) < 0.5, 'ring filled 80%');
+        assert.equal(await page.textContent('#result-rank-text'), 'Target tied for 1st out of 5 photos');
+        assert.equal(await page.locator('#result-rank-line').isVisible(), true);
+        // No decoy photo appears anywhere on the results screen.
+        const judgingImgs = await page.evaluate(() => [...document.querySelectorAll('#screen-results img')].filter(i => (i.getAttribute('src') || '').includes('targets/judging/')).length);
+        assert.equal(judgingImgs, 0);
+        assert.equal(await page.locator('#screen-results .blind-candidate').count(), 0);
+        // Written feedback arrives after the score.
+        await page.waitForFunction(() => document.querySelectorAll('#result-feedback .rv-fb-card').length === 2);
+        assert.equal(await page.textContent('#result-summary'), FEEDBACK.summary);
+        assert.match(await page.textContent('#result-feedback'), /SignalMatching details/i);
+        assert.match(await page.textContent('#result-feedback'), /curved arch/);
+        assert.match(await page.textContent('#result-feedback'), /No clear contradictions identified\./);
+        assert.match(await page.textContent('#result-feedback'), /Not addressed in your session: The water below the arch\./);
+        assert.equal(await page.locator('#result-feedback b').count(), 0, 'feedback text is never HTML');
+        assert.equal(await page.evaluate(() => STATE.sessions[0].feedback.status), 'ready');
+        // Collapsed sections: the target's averaged ratings, the impressions, the method.
+        const more = await page.locator('#result-more details').count();
+        assert.equal(more, 3);
+        assert.equal(await page.locator('#result-more .rv-rating-row').count(), 7);
+        assert.match(await page.textContent('#result-more'), /Sensory impressions\s*3\.8 \/ 5/);
+        assert.match(await page.textContent('#result-more'), /Form and shape\s*4\.0 \/ 5/);
+        assert.match(await page.textContent('#result-notes-card'), /Rough surface/);
+        assert.match(await page.textContent('#result-more'), /1 time in 5/);
+        assert.equal(await page.locator('#rv-data-points-header').isVisible(), false);
+        assert.equal(await page.locator('#score-reasoning-card').isVisible(), false);
       });
-      await step(width + ': rankings survive local history reload and cloud row mapping', async () => {
+      await step(width + ': reopened history shows the same score, rank and saved feedback', async () => {
         const mapped = await page.evaluate(() => mapRVSessionRow(STATE.sessions[0]));
         const firstReceipt = 'b' + '1'.padStart(32, '0');
         assert.deepEqual(mapped.blind_judging, { ...result.blind_judging, assignment_id: firstReceipt });
         assert.equal(mapped.blind_receipt_id, firstReceipt, 'successful session saves its receipt id');
+        assert.equal(mapped.score, 80);
+        assert.equal('feedback' in mapped, false, 'feedback stays off the cloud row');
         await page.reload(); await page.waitForFunction(() => document.getElementById('splash-screen').style.display === 'none');
+        const before = feedbackCalls;
         await page.evaluate(() => openSessionDetail('rv', STATE.sessions[0].id));
-        assert.equal(await page.locator('#detail-blind-judging .blind-candidate').count(), 5);
-        assert.equal(await page.textContent('#detail-score-pct'), '1/5');
-        assert.equal(await page.textContent('#detail-match-strength'), 'Strong match');
-        assert.equal(await page.textContent('#detail-blind-judging .blind-rank-text'), 'Tied at rank 1 of 5 · Strong match');
+        assert.equal(await page.textContent('#detail-score-pct'), '80');
+        assert.equal(await page.textContent('#detail-score-label'), 'AI match score');
+        assert.equal(await page.textContent('#detail-rank-text'), 'Target tied for 1st out of 5 photos');
+        assert.equal(await page.textContent('#detail-summary'), FEEDBACK.summary);
+        assert.equal(await page.locator('#detail-feedback .rv-fb-card').count(), 2);
+        assert.equal(feedbackCalls, before, 'saved feedback is shown without asking again');
         assert.match(await page.textContent('#detail-notes-card'), /Rough surface/);
-        assert.match(await page.textContent('#detail-dimensions'), /Sensory Impression\s*3\.8/);
-        assert.equal(await page.locator('#detail-blind-judging details').first().locator('div').count(), 7);
+        assert.equal(await page.locator('#detail-more .rv-rating-row').count(), 7);
+        assert.equal(await page.locator('#detail-dimensions-wrap').isVisible(), false);
+        assert.equal(await page.locator('#detail-data-points-wrap').isVisible(), false);
+        assert.equal(await page.evaluate(() => [...document.querySelectorAll('#screen-detail img')].filter(i => (i.getAttribute('src') || '').includes('targets/judging/')).length), 0);
       });
       await step(width + ': older six-dimension history retains scores and has no invented sensory rating', async () => {
         await page.evaluate(old => {
-          renderResults(old, old.target, 'Synthetic older session');
-          renderRVDetail({ ...old, score: old.overall_score, timestamp: new Date().toISOString() });
+          renderResults({ ...old, feedback: { status: 'unavailable' } }, old.target, 'Synthetic older session');
+          renderRVDetail({ ...old, score: old.overall_score, feedback: { status: 'unavailable' }, timestamp: new Date().toISOString() });
         }, oldResult);
-        assert.match(await page.textContent('#result-blind-judging'), /80\/100 correspondence/);
-        assert.equal(await page.locator('#result-blind-judging details').first().locator('div').count(), 6);
-        assert.equal(await page.locator('#detail-blind-judging details').first().locator('div').count(), 6);
-        assert.ok(!(await page.textContent('#detail-dimensions')).includes('Sensory'));
-        assert.equal(await page.textContent('#detail-score-label'), 'Tied rank');
+        assert.equal(await page.textContent('#score-pct'), '80');
+        assert.equal(await page.locator('#result-more .rv-rating-row').count(), 6);
+        assert.equal(await page.locator('#detail-more .rv-rating-row').count(), 6);
+        assert.ok(!(await page.textContent('#detail-more')).includes('Sensory'));
+        assert.equal(await page.textContent('#detail-score-label'), 'AI match score');
         // Older single-pass ratings stay whole numbers.
-        assert.match(await page.textContent('#result-blind-judging'), /Form: 4 \/ 5/);
+        assert.match(await page.textContent('#result-more'), /Form and shape\s*4 \/ 5/);
       });
-      await step(width + ': match strength sits next to the rank in results, history, the history list and export', async () => {
-        const seen = await page.evaluate(({ cases }) => {
-          const saved = STATE.sessions;
-          const out = cases.map(({ score, judged }) => {
-            renderResults(judged, judged.target, 'Strength check');
-            const session = { ...judged, id: 900 + score, score: judged.overall_score, targetLabel: 'Synthetic target', timestamp: new Date().toISOString() };
-            renderRVDetail(session);
-            STATE.sessions = [session];
-            buildCombinedLog([session], []);
-            const card = document.querySelector('#combined-log-list .session-card');
-            const exported = collectExportRows(['rv'])[0];
-            return { score, ring: document.getElementById('result-match-strength').textContent,
-              card: document.querySelector('#result-blind-judging .blind-rank-text').textContent,
-              detail: document.getElementById('detail-match-strength').textContent,
-              list: card.textContent, colour: card.querySelector('.session-score').className, export: exported.match_strength };
-          });
-          STATE.sessions = saved;
+      await step(width + ': score, rank and summary follow the saved result in every case', async () => {
+        const cases = [
+          { name: 'first, high', score: 71, rank: 1, tied: false },
+          { name: 'first, low', score: 16, rank: 1, tied: false },
+          { name: 'second', score: 16, rank: 2, tied: false },
+          { name: 'last', score: 3, rank: 5, tied: false },
+          { name: 'tied first', score: 40, rank: 1, tied: true },
+          { name: 'zero', score: 0, rank: 4, tied: true },
+          { name: 'third, fairly high', score: 55, rank: 3, tied: false },
+        ];
+        const seen = await page.evaluate(async ({ cases, base }) => {
+          const out = [];
+          for (const c of cases) {
+            const judged = structuredClone(base);
+            const t = judged.blind_judging.candidates.find(x => x.is_target);
+            Object.assign(t, { score: c.score, rank: c.rank, tied: c.tied });
+            Object.assign(judged.blind_judging, { target_rank: c.rank, tied: c.tied });
+            judged.overall_score = c.score;
+            renderResults({ ...judged, feedback: { status: 'unavailable' } }, judged.target, 'Case check');
+            await new Promise(r => setTimeout(r, 300));
+            out.push({ pct: document.getElementById('score-pct').textContent,
+              offset: parseFloat(document.getElementById('score-ring').style.strokeDashoffset),
+              rank: document.getElementById('result-rank-text').textContent,
+              summary: document.getElementById('result-summary').textContent,
+              feedback: document.getElementById('result-feedback').textContent });
+          }
           return out;
-        }, { cases: [29, 30, 59, 60].map(score => ({ score, judged: withTargetScore(score) })) });
-        assert.deepEqual(seen.map(x => x.ring), ['Weak match', 'Moderate match', 'Moderate match', 'Strong match']);
-        assert.deepEqual(seen.map(x => x.detail), seen.map(x => x.ring));
-        assert.deepEqual(seen.map(x => x.card), seen.map(x => 'Tied at rank 1 of 5 · ' + x.ring));
-        for (const x of seen) assert.match(x.list, new RegExp('Blind judged · ' + x.ring + ' · Synthetic target'));
-        // Each history row's colour matches its label.
-        assert.deepEqual(seen.map(x => x.colour.split(' ').filter(c => ['high', 'mid', 'low', 'na'].includes(c))), [['low'], ['mid'], ['mid'], ['high']]);
-        assert.deepEqual(seen.map(x => x.export), seen.map(x => x.ring));
-        // A legacy result shows no strength line.
-        await page.evaluate(() => renderResults({ overall_score: 70, summary: 'old', hits: [], noise: [] }, null, 'old'));
-        assert.equal(await page.locator('#result-match-strength').isVisible(), false);
+        }, { cases, base: result });
+        assert.deepEqual(seen.map(x => x.pct), cases.map(c => String(c.score)));
+        seen.forEach((x, i) => assert.ok(Math.abs(x.offset - 364.4 * (1 - cases[i].score / 100)) < 0.5, cases[i].name + ' ring fill'));
+        assert.deepEqual(seen.map(x => x.rank), ['Target ranked 1st out of 5 photos', 'Target ranked 1st out of 5 photos',
+          'Target ranked 2nd out of 5 photos', 'Target ranked 5th out of 5 photos', 'Target tied for 1st out of 5 photos',
+          'Target tied for 4th out of 5 photos', 'Target ranked 3rd out of 5 photos']);
+        for (const x of seen) assert.doesNotMatch(x.rank + x.summary, /\d\/5\b/);
+        assert.match(seen[1].summary, /ranked first, but overall correspondence was limited/);
+        assert.doesNotMatch(seen[0].summary, /limited/);
+        assert.match(seen[6].summary, /another photo fit as well or better/);
+        // Unavailable feedback never claims there were no contradictions.
+        for (const x of seen) { assert.match(x.feedback, /Detailed feedback unavailable\./); assert.doesNotMatch(x.feedback, /No clear contradictions/); }
+      });
+      await step(width + ': history list and export show rank and score without strength labels', async () => {
+        const seen = await page.evaluate(judged => {
+          const saved = STATE.sessions;
+          const session = { ...judged, id: 916, score: judged.overall_score, targetLabel: 'Synthetic target', timestamp: new Date().toISOString() };
+          STATE.sessions = [session];
+          buildCombinedLog([session], []);
+          const card = document.querySelector('#combined-log-list .session-card');
+          const exported = collectExportRows(['rv'])[0];
+          STATE.sessions = saved;
+          return { list: card.textContent, cls: card.querySelector('.session-score').className, exported };
+        }, withTarget(16, 2));
+        assert.match(seen.list, /Blind judged · 2nd of 5 · Synthetic target/);
+        assert.match(seen.list, /16\/100/);
+        assert.doesNotMatch(seen.list, /Weak|Moderate|Strong/);
+        assert.ok(seen.cls.split(' ').includes('high'));
+        assert.equal('match_strength' in seen.exported, false);
+        assert.equal(seen.exported.target_rank, 2);
+        // A legacy result keeps its older look and has no rank line.
+        await page.evaluate(() => renderResults({ overall_score: 70, summary: 'old', hits: ['old hit'], noise: [] }, null, 'old'));
+        assert.equal(await page.textContent('#score-pct'), '70%');
+        assert.equal(await page.textContent('#result-score-label'), 'Legacy match');
+        assert.equal(await page.locator('#result-rank-line').isVisible(), false);
+        assert.equal(await page.locator('#result-score-den').isVisible(), false);
+        assert.equal(await page.locator('#result-feedback').isVisible(), false);
+        assert.equal(await page.locator('#hit-list .hit-item').count(), 1);
+        assert.match(await page.textContent('#result-more'), /older method that knew the target/);
+      });
+      await step(width + ': info button and image enlargement open and close', async () => {
+        await page.evaluate(judged => { renderResults({ ...judged, feedback: { status: 'unavailable' } }, judged.target, 'Viewer check'); showScreen('results', false); }, result);
+        await page.waitForTimeout(500);
+        await page.evaluate(() => { document.getElementById('target-reveal').src = 'targets/' + 'x.jpg'; });
+        await page.click('#result-rank-line .rv-score-info-btn');
+        assert.equal(await page.locator('#rv-score-info-modal').isVisible(), true);
+        assert.match(await page.textContent('#rv-score-info-modal'), /not percentage accuracy, a probability, or proof of ability/);
+        await page.keyboard.press('Escape');
+        assert.equal(await page.locator('#rv-score-info-modal').isVisible(), false);
+        await page.evaluate(() => openRVImage(document.getElementById('target-reveal')));
+        assert.equal(await page.locator('#rv-image-viewer').isVisible(), true);
+        assert.match(await page.getAttribute('#rv-image-viewer-img', 'src'), /targets\/x\.jpg$/);
+        await page.click('.rv-lightbox-close');
+        assert.equal(await page.locator('#rv-image-viewer').isVisible(), false);
+        assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('target-reveal')).objectFit), 'contain');
       });
       await step(width + ': sensory averages omit older unmeasured sessions instead of counting them as zero', async () => {
         const text = await page.evaluate(({ old, current }) => {
@@ -166,7 +259,9 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
         });
         assert.equal(compared.length, 1);
         assert.equal(await page.textContent('#detail-score-label'), 'Legacy match');
-        assert.equal(await page.locator('#detail-blind-judging').isVisible(), false);
+        assert.equal(await page.textContent('#detail-score-pct'), '99%');
+        assert.equal(await page.locator('#detail-rank-line').isVisible(), false);
+        assert.equal(await page.locator('#detail-feedback').isVisible(), false);
       });
       await step(width + ': HTML-like data and hostile image URLs never execute', async () => {
         await page.evaluate(result => {
@@ -176,8 +271,11 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
           renderResults(bad, bad.target, '<img src=x onerror="window.__injected=true">');
         }, result);
         assert.equal(await page.locator('#result-notes-card img').count(), 0);
+        await page.evaluate(result => renderResults({ ...result, feedback: { status: 'ready', summary: '<img src=x onerror="window.__injected=true">',
+          signal: ['<img src=x onerror="window.__injected=true">'], noise: [], missing: [] } }, result.target, 'x'), result);
+        assert.equal(await page.locator('#result-feedback img, #result-summary img').count(), 0);
+        await page.waitForTimeout(100);
         assert.equal(await page.evaluate(() => window.__injected), false);
-        assert.equal(await page.locator('#result-blind-judging .blind-candidate').count(), 0);
       });
       await step(width + ': failed written-only session retries and reveals target only after success', async () => {
         fail = true;
@@ -189,6 +287,9 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
         });
         assert.equal(await page.getAttribute('#detail-target-img', 'src'), '');
         assert.equal(await page.locator('#detail-retry-card button').isVisible(), true);
+        assert.equal(await page.locator('#detail-score-ring-wrap').isVisible(), false, 'no circle without a score');
+        assert.equal(await page.locator('#detail-rank-line').isVisible(), false);
+        assert.match(await page.textContent('#detail-summary'), /grading failed/i);
         fail = false;
         const failedRow = await page.evaluate(() => mapRVSessionRow(STATE.sessions[0]));
         assert.equal(failedRow.blind_receipt_id, null, 'failed session has no receipt link');
@@ -197,7 +298,9 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
         assert.equal(await page.evaluate(() => mapRVSessionRow(STATE.sessions[0]).blind_receipt_id), failedRow.blind_judging.assignment_id,
           'retry path saves the receipt id');
         assert.equal(await page.getAttribute('#detail-target-img', 'src'), result.target.src);
-        assert.equal(await page.locator('#detail-blind-judging .blind-candidate').count(), 5);
+        assert.equal(await page.locator('#detail-score-ring-wrap').isVisible(), true);
+        assert.equal(await page.textContent('#detail-score-pct'), '80');
+        await page.waitForFunction(() => document.querySelectorAll('#detail-feedback .rv-fb-card').length === 2);
         assert.equal(await page.locator('#detail-retry-card button').count(), 1);
         assert.equal(await page.locator('#detail-retry-card').isVisible(), false);
       });
@@ -207,9 +310,12 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
         const artifacts = process.env.ABLTY_TEST_ARTIFACTS || '/workspace/artifacts/blind-judging';
         fs.mkdirSync(artifacts, { recursive: true });
-        await page.screenshot({ path: `${artifacts}/results-${width}.png` });
+        await page.screenshot({ path: `${artifacts}/results-${width}.png`, fullPage: true });
         await page.evaluate(() => renderZenerDetail({ timestamp: new Date().toISOString(), hitPct: 20, hits: 5, symbolStats: {} }));
-        assert.equal(await page.locator('#detail-blind-judging').isVisible(), false);
+        assert.equal(await page.locator('#detail-rank-line').isVisible(), false);
+        assert.equal(await page.locator('#detail-feedback').isVisible(), false);
+        assert.equal(await page.locator('#detail-more').isVisible(), false);
+        assert.equal(await page.locator('#detail-score-den').isVisible(), false);
         assert.deepEqual(errors, []);
       });
       await step(width + ': real cloud-loading function restores rankings only for the active owner', async () => {
@@ -233,8 +339,10 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
         assert.equal(restored.list.length, 3, 'old sessions without a receipt id still load');
         assert.equal(restored.list[0].receipt, restored.receipt); assert.equal(restored.list[0].assignmentId, restored.receipt);
         assert.deepEqual(restored.list.slice(1).map(s => [s.id, s.receipt, s.score]), [[12, null, 80], [11, null, 70]]);
-        assert.equal(await page.textContent('#detail-score-pct'), '1/5');
-        assert.equal(await page.locator('#detail-blind-judging .blind-candidate').count(), 5);
+        assert.equal(await page.textContent('#detail-score-pct'), '80');
+        assert.equal(await page.textContent('#detail-rank-text'), 'Target tied for 1st out of 5 photos');
+        // Feedback is not on the cloud row; the restored session fetches it again.
+        await page.waitForFunction(() => document.querySelectorAll('#detail-feedback .rv-fb-card').length === 2);
         const count = await page.evaluate(async () => {
           const other = 'bbbbbbbb-0000-4000-8000-000000000002';
           localStorage.setItem('sb-ghjajyxcjfqidcmqdzdp-auth-token', JSON.stringify({ user: { id: other }, access_token: 'synthetic-test-only' }));
