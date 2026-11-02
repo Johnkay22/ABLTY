@@ -1,4 +1,5 @@
 import { createBlindAssignment, judgeBlindSubmission } from './rv-blind-judging.js';
+import { readSessionFeedback } from './rv-session-feedback.js';
 
 // ABLTY Cloudflare Worker
 // Routes:
@@ -260,7 +261,19 @@ export default {
         return json({ error: 'rate_limit', message: 'Too many requests. Try again tomorrow.' }, 429, origin);
       }
       await env.ABLTY_KV.put(rateLimitKey, String(current + 1), { expirationTtl: 86400 });
-      return handleGrade(request, env, origin);
+      return handleGrade(request, env, origin, ctx);
+    }
+
+    if (url.pathname === '/rv-feedback' && request.method === 'POST') {
+      const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+      const rateLimitKey = 'ratelimit:rvfeedback:' + ip + ':' + new Date().toISOString().slice(0, 10);
+      const current = parseInt(await env.ABLTY_KV.get(rateLimitKey) || '0', 10);
+      if (current >= 600) return json({ status: 'unavailable', error: 'rate_limit' }, 429, origin);
+      await env.ABLTY_KV.put(rateLimitKey, String(current + 1), { expirationTtl: 86400 });
+      let body;
+      try { body = await request.json(); } catch (_) { return json({ error: 'Invalid request' }, 400, origin); }
+      const result = await readSessionFeedback(env, String(body?.assignment_id || ''));
+      return json(result.body, result.status, origin);
     }
 
     if (url.pathname === '/tag-dream' && request.method === 'POST') {
@@ -902,7 +915,7 @@ function buildGradingFailure(target, message, trn) {
   };
 }
 
-async function handleGrade(request, env, origin = '') {
+async function handleGrade(request, env, origin = '', ctx = null) {
   let body;
   try {
     const text = await request.text();
@@ -910,7 +923,7 @@ async function handleGrade(request, env, origin = '') {
     body = JSON.parse(text);
   } catch (_) { return json({ error: 'Invalid submission' }, 400, origin); }
   if (/^b[0-9a-f]{32}$/.test(body?.assignment_id || '')) {
-    const result = await judgeBlindSubmission(body, env, RV_TARGET_POOL);
+    const result = await judgeBlindSubmission(body, env, RV_TARGET_POOL, ctx);
     return json(result.body, result.status, origin);
   }
   // Only assignments already issued by the old release can reach this path.

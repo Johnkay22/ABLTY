@@ -7,8 +7,14 @@ const vm = require('vm');
 const assert = require('assert');
 const { html, extractFn } = require('./helpers/extract-app-source');
 
-const FNS = ['getBlindJudging', 'rvMatchStrength', 'blindMatchStrength', 'blindRankText', 'isRating', 'formatRating', 'renderBlindJudgingCard', 'escapeHtml', 'renderHitListHtml', 'getRVSessionScore', 'isRVGradingFailed', 'setEl', 'renderResults', 'renderRVDetail'];
-const source = FNS.map(extractFn).join('\n\n');
+const { extractDecl, extractMultiDecl } = require('./helpers/extract-app-source');
+const FNS = ['getBlindJudging', 'rvOrdinal', 'blindTarget', 'rvRankText', 'rvFactualSummary', 'isRating', 'formatRating',
+  'renderRVScoreRing', 'renderRVRankLine', 'rvFeedbackCard', 'renderRVFeedback', 'renderRVMore',
+  'escapeHtml', 'renderHitListHtml', 'getRVSessionScore', 'isRVGradingFailed', 'setEl', 'renderResults', 'renderRVDetail'];
+const source = [extractMultiDecl('RV_CATEGORY_NAMES'), extractMultiDecl('RV_RING_IDS'), extractDecl('RV_RING_CIRCUMFERENCE'),
+  extractDecl('RV_ICON_SIGNAL'), extractDecl('RV_ICON_NOISE'),
+  'function followRVFeedback() {}', 'let currentScreen = "detail", detailViewSeq = 0, _authGen = 0, _dataOwner = null;',
+  'function isAuthGenCurrent() { return true; }', ...FNS.map(extractFn)].join('\n\n');
 new vm.Script(source);
 
 function makeEl(id) {
@@ -48,12 +54,12 @@ test('results screen shows viewer notes as text, keeps line breaks', () => {
   const { ctx, els } = makeCtx();
   const notes = 'line one\n' + HOSTILE + '\nline three';
   ctx.renderResults({ gestalt_score: 50, hits: [], noise: [], aol: [] }, {}, notes);
-  const out = els['result-notes-card'].innerHTML;
+  const out = els['result-more'].innerHTML;
   assert.ok(!out.includes('<img'), 'no raw <img> tag');
   assert.ok(!out.includes('<b>'), 'no raw <b> tag');
   assert.ok(out.includes('white-space:pre-wrap'), 'pre-wrap layout kept');
   assert.ok(out.includes('\n'), 'newlines kept');
-  assert.strictEqual(decode(textOf(out)), 'Your Impressions' + notes, 'text round-trips exactly');
+  assert.ok(decode(textOf(out)).includes('Your impressions' + notes), 'text round-trips exactly');
 });
 
 test('results screen shows grader data points and error reason as text', () => {
@@ -85,11 +91,11 @@ test('session detail shows notes, reasoning, data points and dimension labels as
     dimension_scores: { '<x>': '<y>', geometric_form: 4 },
   };
   ctx.renderRVDetail(s);
-  for (const id of ['detail-notes-card', 'detail-reasoning-card', 'detail-hit-list', 'detail-dimensions']) {
+  for (const id of ['detail-more', 'detail-reasoning-card', 'detail-hit-list', 'detail-dimensions']) {
     const out = els[id].innerHTML;
     assert.ok(!out.includes('<img') && !out.includes('<b>') && !out.includes('<x>') && !out.includes('<y>'), id + ' escaped');
   }
-  assert.strictEqual(decode(textOf(els['detail-notes-card'].innerHTML)), 'Your Impressions' + HOSTILE);
+  assert.ok(decode(textOf(els['detail-more'].innerHTML)).includes('Your impressions' + HOSTILE));
   assert.strictEqual(decode(textOf(els['detail-reasoning-card'].innerHTML)), 'Next Session Tip' + HOSTILE);
   assert.strictEqual(els['detail-summary'].textContent, HOSTILE, 'summary already used textContent');
   assert.ok(els['detail-dimensions'].innerHTML.includes('Geometric Form'), 'known dimension label kept');
@@ -99,7 +105,25 @@ test('plain text with ampersands and quotes is unchanged after rendering', () =>
   const { ctx, els } = makeCtx();
   const notes = 'Rock & water, "cold", it\'s moving > 2 m/s';
   ctx.renderResults({ gestalt_score: 40 }, {}, notes);
-  assert.strictEqual(decode(textOf(els['result-notes-card'].innerHTML)), 'Your Impressions' + notes);
+  assert.ok(decode(textOf(els['result-more'].innerHTML)).includes('Your impressions' + notes));
+});
+
+test('blind feedback, summary and rank are shown as text', () => {
+  const { ctx, els } = makeCtx();
+  const blind = { protocol: 'blind-five-v1', target_rank: 2, tied: false, rotations: 5,
+    candidates: ['A', 'B', 'C', 'D', 'E'].map((label, i) => ({ label, src: `targets/judging/0001-000${i}.jpg`,
+      is_target: i === 1, rank: i + 1, tied: false, score: i === 1 ? 16 : 10, dimension_scores: { geometric_form: 2 } })) };
+  ctx.renderResults({ overall_score: 16, blind_judging: blind,
+    feedback: { status: 'ready', summary: HOSTILE, signal: [HOSTILE], noise: ['<i>n</i>'], missing: [HOSTILE] } }, {}, '');
+  const fb = els['result-feedback'].innerHTML;
+  assert.ok(!fb.includes('<img') && !fb.includes('<b>') && !fb.includes('<i>n'), 'feedback escaped');
+  assert.ok(decode(textOf(fb)).includes(HOSTILE), 'feedback text round-trips');
+  assert.strictEqual(els['result-summary'].textContent, HOSTILE, 'summary uses textContent');
+  assert.strictEqual(els['result-rank-text'].textContent, 'Target ranked 2nd out of 5 photos');
+  assert.strictEqual(els['score-pct'].textContent, '16');
+  // Legacy keeps its own label.
+  ctx.renderResults({ gestalt_score: 40, summary: 'old' }, {}, '');
+  assert.strictEqual(els['result-summary-label'].textContent, 'Analyst Summary');
 });
 
 test('source safeguard: no raw interpolation of notes or grader text remains', () => {

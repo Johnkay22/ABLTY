@@ -19,6 +19,16 @@ Keep entries short and in plain English. Say what was actually done, not what wa
 
 ---
 
+## 2026-11-01: Step 9, RV results screen redesign and written feedback
+- **Who:** Claude chat
+- **Branch / PR:** `claude/rv-results-redesign`, draft PR (not merged). Version `2026.11.01.1`, cache `ablty-v101`.
+- **What changed:** Johnny approved a results redesign (ChatGPT second opinion plus mockup) and an extra feedback call. The ring now shows the target's AI match score out of 100, filled in proportion to the score, with the rank on a separate line ("Target ranked 2nd out of 5 photos", ties as "tied for") and an info button. Strength labels and the decoy list are gone from the screens; saved data and receipts are unchanged. Sketch and target are equal size, uncropped and tap to enlarge. After the score is saved, the Worker makes one more Gemini call that writes a summary plus Signal (matching details) and Noise (explicit contradictions), stored in KV by receipt id and fetched through a new `/rv-feedback` route. It never changes the score or rank. Category ratings, impressions and method are collapsed sections. Legacy, failed and pending states each have their own honest display. The history list shows "Blind judged · 2nd of 5 · target" and "16/100"; the CSV export drops the match-strength column.
+- **Tests:** Passed: blind protocol and evaluator 67 (6 new feedback tests), blind browser at 390px and 412px (rewritten for the new screen, including high and low first place, 2nd, last, ties, zero, failed, legacy, reopened history, cloud restore, lightbox, info modal and hostile text), safe rendering 7, account isolation browser, cloud sync, dream-save isolation, notifications, Settings gestures, updates, beta upgrade, username safeguards, WBTB, app syntax, 48 local links. Not run here: the two local-Supabase auth suites (need a local Supabase stack; they run in GitHub CI), the PostgreSQL suites (no database change), Presentiment video checks (known container limitation, also failing on main). No paid Gemini call was made; the feedback prompt has only been tested against a fake.
+- **Production:** Nothing changed.
+- **Johnny needs to:** Review the draft PR and screenshots. After merging, the Worker deploys automatically; then run one real session on the phone and confirm the feedback appears and reads sensibly.
+- **Review fix (same PR):** Codex review found a race: if the app asked for feedback before the background job wrote its pending marker, the Worker answered "unavailable" and the app saved that permanently, so the feedback never appeared. Now the pending marker is written before the score is returned, a missing record is reported as `missing` (not a failure), and the app only saves a failure the Worker actually stored. New tests cover it; the Worker test fails on the old code. Blind protocol tests 70, blind browser at 390 and 412px, safe rendering, account isolation and cloud sync pass.
+- **Next:** Step 9 phone checks, then step 8.
+
 ## 2026-10-22: Step 9 hotfix, judging photos could not load on Cloudflare
 - **Who:** Claude chat
 - **Branch / PR:** `claude/fix-judging-photo-fetch` (hotfix PR after #149). Worker-only change, no version bump.
