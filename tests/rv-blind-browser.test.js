@@ -71,6 +71,7 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
         }
         if (url.endsWith('/rv-feedback')) {
           feedbackCalls++;
+          if (feedbackMode === 'missing-then-ready') { feedbackMode = 'ready'; return route.fulfill({ json: { status: 'missing' } }); }
           if (feedbackMode === 'ready') return route.fulfill({ json: { status: 'ready', feedback: FEEDBACK } });
           return route.fulfill({ json: { status: feedbackMode } });
         }
@@ -225,6 +226,39 @@ async function step(name, fn) { await fn(); passed++; console.log('PASS ' + name
         assert.equal(await page.locator('#result-feedback').isVisible(), false);
         assert.equal(await page.locator('#hit-list .hit-item').count(), 1);
         assert.match(await page.textContent('#result-more'), /older method that knew the target/);
+      });
+      await step(width + ': feedback that is not started yet keeps polling instead of being saved as unavailable', async () => {
+        const id = await page.evaluate(judged => {
+          const s = { ...judged, id: 9301, score: judged.overall_score, notes: 'n', targetSrc: judged.target.src,
+            blind_judging: { ...judged.blind_judging, assignment_id: 'b' + '9'.repeat(32) }, timestamp: new Date().toISOString() };
+          STATE.sessions.unshift(s); return s.id;
+        }, result);
+        feedbackMode = 'missing-then-ready';
+        const before = feedbackCalls;
+        await page.evaluate(id => openSessionDetail('rv', id), id);
+        assert.match(await page.textContent('#detail-feedback'), /Writing detailed feedback/);
+        await page.waitForFunction(() => document.querySelectorAll('#detail-feedback .rv-fb-card').length === 2, null, { timeout: 8000 });
+        assert.equal(feedbackCalls - before, 2, 'asked again after "missing"');
+        assert.equal(await page.evaluate(id => STATE.sessions.find(s => s.id === id).feedback.status, id), 'ready');
+        // A missing record is never kept as a final answer.
+        feedbackMode = 'missing';
+        const old = await page.evaluate(judged => {
+          const s = { ...judged, id: 9302, score: judged.overall_score, notes: 'n', targetSrc: judged.target.src,
+            blind_judging: { ...judged.blind_judging, assignment_id: 'b' + '8'.repeat(32) }, timestamp: '2026-10-01T00:00:00.000Z' };
+          STATE.sessions.unshift(s); return s.id;
+        }, result);
+        const beforeOld = feedbackCalls;
+        await page.evaluate(id => openSessionDetail('rv', id), old);
+        await page.waitForFunction(() => /Detailed feedback unavailable/.test(document.getElementById('detail-feedback').textContent));
+        assert.equal(feedbackCalls - beforeOld, 1, 'an older session asks once');
+        assert.equal(await page.evaluate(id => STATE.sessions.find(s => s.id === id).feedback, old), undefined);
+        assert.doesNotMatch(await page.textContent('#detail-feedback'), /No clear contradictions/);
+        // A stored failure from the Worker is final and kept.
+        feedbackMode = 'unavailable';
+        await page.evaluate(id => openSessionDetail('rv', id), old);
+        await page.waitForFunction(id => STATE.sessions.find(s => s.id === id).feedback?.status === 'unavailable', old);
+        await page.evaluate(() => { STATE.sessions = STATE.sessions.filter(s => s.id !== 9301 && s.id !== 9302); saveState(); });
+        feedbackMode = 'ready';
       });
       await step(width + ': info button and image enlargement open and close', async () => {
         await page.evaluate(judged => { renderResults({ ...judged, feedback: { status: 'unavailable' } }, judged.target, 'Viewer check'); showScreen('results', false); }, result);

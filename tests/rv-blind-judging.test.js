@@ -701,6 +701,41 @@ test('feedback is generated in the background only after the judgment is saved, 
   assert.equal(replay.body.overall_score, r.body.overall_score);
 });
 
+test('the pending marker exists before the score is returned, even when the background job is slow to start', async () => {
+  const s = setup(); const a = await s.assign();
+  // Hold every feedback-key read made by the background job (not the one
+  // made while marking pending), the way a slow KV read would, and look at
+  // KV the moment the grade response arrives.
+  const get = s.env.ABLTY_KV.get; let release; const held = new Promise(r => { release = r; });
+  s.env.ABLTY_KV.get = async k => {
+    if (k.startsWith('rvfeedback:') && !new Error().stack.includes('markFeedbackPending')) await held;
+    return get(k);
+  };
+  const r = await s.grade({ ...a, notes: 'round' }, true);
+  assert.equal(r.body.grading_failed, false);
+  assert.equal(JSON.parse(s.kv.get('rvfeedback:' + a.assignment_id) || '{}').status, 'pending');
+  assert.equal((await s.api.readSessionFeedback({ ABLTY_KV: { get } }, a.assignment_id)).body.status, 'pending');
+  release(); await Promise.all(s.waiting);
+  assert.equal(JSON.parse(s.kv.get('rvfeedback:' + a.assignment_id)).status, 'ready');
+});
+
+test('marking pending never overwrites a finished record and never throws', async () => {
+  const s = setup(); const id = 'b' + 'f'.repeat(32);
+  s.kv.set('rvfeedback:' + id, JSON.stringify({ status: 'ready', summary: 'S', signal: [], noise: [] }));
+  assert.equal(await s.api.markFeedbackPending(s.env, id), false);
+  assert.equal(JSON.parse(s.kv.get('rvfeedback:' + id)).status, 'ready');
+  assert.equal(await s.api.markFeedbackPending({ ABLTY_KV: { get: async () => { throw new Error('kv down'); } } }, id), false);
+  assert.equal(await s.api.markFeedbackPending(s.env, 'nope'), false);
+});
+
+test('a KV failure while marking pending does not fail the judgment', async () => {
+  const s = setup(); const a = await s.assign();
+  const put = s.env.ABLTY_KV.put;
+  s.env.ABLTY_KV.put = async (k, v, o) => { if (k.startsWith('rvfeedback:')) throw new Error('kv down'); return put(k, v, o); };
+  const r = await s.grade({ ...a, notes: 'round' }, true);
+  assert.equal(r.status, 200); assert.equal(r.body.grading_failed, false);
+});
+
 test('no feedback job for failed, replayed or legacy judgments', async () => {
   const s = setup(); const a = await s.assign();
   s.controls.badPhoto = true;
@@ -742,6 +777,10 @@ test('feedback answers are cleaned, capped and rejected when incomplete', () => 
 test('reading feedback returns only stored fields, pending or unavailable, and calls no model', async () => {
   const s = setup(); const id = 'b' + 'e'.repeat(32);
   assert.equal((await s.api.readSessionFeedback(s.env, 'nope')).status, 400);
+  assert.equal((await s.api.readSessionFeedback(s.env, id)).body.status, 'missing', 'no record is not a final failure');
+  s.kv.set('rvfeedback:' + id, JSON.stringify({ status: 'something else' }));
+  assert.equal((await s.api.readSessionFeedback(s.env, id)).body.status, 'missing');
+  s.kv.set('rvfeedback:' + id, JSON.stringify({ status: 'unavailable' }));
   assert.equal((await s.api.readSessionFeedback(s.env, id)).body.status, 'unavailable');
   s.kv.set('rvfeedback:' + id, JSON.stringify({ status: 'pending' }));
   assert.equal((await s.api.readSessionFeedback(s.env, id)).body.status, 'pending');

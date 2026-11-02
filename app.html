@@ -10130,6 +10130,7 @@ function renderRVMore(view, blind, notes, mode) {
 // ─── WRITTEN FEEDBACK (fetched after the result is shown) ───
 const RV_FEEDBACK_POLL_MS = 1500;
 const RV_FEEDBACK_TRIES = 10;
+const RV_FEEDBACK_FRESH_MS = 10 * 60 * 1000;
 const _rvFeedbackLoads = new Map();
 
 function rvFeedbackReceipt(session) {
@@ -10146,18 +10147,25 @@ function normalizeRVFeedback(raw) {
 
 // Polls the Worker until the feedback is ready, unavailable, or the tries run
 // out. One poll per receipt runs at a time. Resolves to a feedback state.
-function loadRVFeedback(receipt) {
+// Only a stored failure ("unavailable" from the Worker) is final. Pending,
+// missing, errors and anything unexpected are temporary: they show as
+// unavailable for now but are not saved, so a later visit asks again.
+// A session older than RV_FEEDBACK_FRESH_MS asks once instead of polling.
+function loadRVFeedback(receipt, tries = RV_FEEDBACK_TRIES) {
   if (_rvFeedbackLoads.has(receipt)) return _rvFeedbackLoads.get(receipt);
   const job = (async () => {
-    for (let attempt = 0; attempt < RV_FEEDBACK_TRIES; attempt++) {
+    for (let attempt = 0; attempt < tries; attempt++) {
+      if (attempt) await delay(RV_FEEDBACK_POLL_MS);
       try {
         const resp = await fetch(WORKER_URL + '/rv-feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ assignment_id: receipt }) });
         const data = await resp.json().catch(() => ({}));
-        if (data?.status === 'ready') return normalizeRVFeedback(data.feedback) || { status: 'unavailable' };
-        if (data?.status !== 'pending') return { status: 'unavailable', final: resp.ok };
+        if (resp.ok && data?.status === 'ready') {
+          const ready = normalizeRVFeedback(data.feedback);
+          if (ready) return ready;
+        }
+        if (resp.ok && data?.status === 'unavailable') return { status: 'unavailable', final: true };
       } catch (_) { /* offline or Worker unreachable: try again shortly */ }
-      await delay(RV_FEEDBACK_POLL_MS);
     }
     return { status: 'unavailable' };
   })().finally(() => _rvFeedbackLoads.delete(receipt));
@@ -10190,7 +10198,9 @@ async function followRVFeedback(session, view, isCurrent) {
   if (!blind || isRVGradingFailed(session) || session.feedback?.status === 'ready' || session.feedback?.status === 'unavailable') return;
   const owner = _dataOwner;
   if (!receipt) { if (isCurrent()) renderRVFeedback(view, blind, { status: 'unavailable' }); return; }
-  const feedback = await loadRVFeedback(receipt);
+  const judgedAt = Date.parse(session.timestamp || '');
+  const fresh = !Number.isFinite(judgedAt) || Date.now() - judgedAt < RV_FEEDBACK_FRESH_MS;
+  const feedback = await loadRVFeedback(receipt, fresh ? RV_FEEDBACK_TRIES : 1);
   storeRVFeedback(owner, session.id, feedback);
   if (owner === _dataOwner && isCurrent()) renderRVFeedback(view, blind, feedback);
 }

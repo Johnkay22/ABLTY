@@ -11,6 +11,6 @@ function loadBlindWorker(fetch) {
     Uint8Array, Uint32Array, Request, Response, Headers, URL, AbortSignal, AbortController, btoa, atob,
     console, setTimeout, clearTimeout });
   vm.runInContext(source, context);
-  return vm.runInContext('({ worker, handleGrade, handleRVAssign, chooseBlindSet, buildBlindRequest, buildGradingPrompt, parseBlindResponse, resultFromReceipt, submissionHash, rotationOrder, toCandidateOrder, sumTokenCounts, matchStrength, ordinal, BLIND_ROTATIONS, buildFeedbackRequest, parseFeedbackResponse, generateSessionFeedback, readSessionFeedback, feedbackKey, FEEDBACK_RUBRIC, fetchCandidateImage, RV_TARGET_POOL, RV_JUDGING_IMAGES, BLIND_DIMENSIONS })', context);
+  return vm.runInContext('({ worker, handleGrade, handleRVAssign, chooseBlindSet, buildBlindRequest, buildGradingPrompt, parseBlindResponse, resultFromReceipt, submissionHash, rotationOrder, toCandidateOrder, sumTokenCounts, matchStrength, ordinal, BLIND_ROTATIONS, buildFeedbackRequest, parseFeedbackResponse, generateSessionFeedback, markFeedbackPending, readSessionFeedback, feedbackKey, FEEDBACK_RUBRIC, fetchCandidateImage, RV_TARGET_POOL, RV_JUDGING_IMAGES, BLIND_DIMENSIONS })', context);
 }
 module.exports = { loadBlindWorker, root };

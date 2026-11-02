@@ -1,5 +1,5 @@
 import { RV_JUDGING_IMAGES } from './rv-judging-images.js';
-import { generateSessionFeedback } from './rv-session-feedback.js';
+import { generateSessionFeedback, markFeedbackPending } from './rv-session-feedback.js';
 
 export const BLIND_PROTOCOL = 'blind-five-v1';
 export const BLIND_MODEL = 'gemini-2.5-flash';
@@ -304,7 +304,10 @@ export async function judgeBlindSubmission(body, env, pool, ctx = null) {
     const result = resultFromReceipt(saved.record, pool);
     // Written feedback is generated after the judgment is final, in the
     // background, so the score is returned without waiting for it.
+    // The pending marker is written before the score is returned so the
+    // app's first feedback request never sees an empty record.
     if (ctx?.waitUntil) {
+      await markFeedbackPending(env, id);
       ctx.waitUntil(generateSessionFeedback(env, id,
         { notes, sketch, targetImage: images[saved.record.target_index], result }).catch(() => {}));
     }

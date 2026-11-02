@@ -85,6 +85,21 @@ export function parseFeedbackResponse(data) {
     missing: cleanList(parsed.missing, LIMITS.missing) };
 }
 
+// Written before the score is returned, so the app's first request for
+// feedback finds "pending" instead of nothing. Never throws: a failure here
+// must not fail the judgment, and the app treats a missing record as
+// temporary anyway.
+export async function markFeedbackPending(env, id) {
+  if (!env.ABLTY_KV || !/^b[0-9a-f]{32}$/.test(id || '')) return false;
+  try {
+    const existing = await env.ABLTY_KV.get(feedbackKey(id));
+    const status = existing ? JSON.parse(existing)?.status : null;
+    if (status === 'ready' || status === 'unavailable') return false;
+    await env.ABLTY_KV.put(feedbackKey(id), JSON.stringify({ version: FEEDBACK_VERSION, status: 'pending' }), { expirationTtl: PENDING_TTL });
+    return true;
+  } catch (_) { return false; }
+}
+
 // Runs in the background after the judgment is saved. Any failure stores an
 // unavailable marker; the score and rank are already final either way.
 export async function generateSessionFeedback(env, id, input, fetchImpl = fetch) {
@@ -108,8 +123,11 @@ export async function generateSessionFeedback(env, id, input, fetchImpl = fetch)
   }
 }
 
-// What the app may read back: the stored feedback, a pending marker while it
-// is being written, or unavailable. Nothing here calls the model.
+// What the app may read back: the stored feedback, "pending" while it is
+// being written, "unavailable" only when a failure was actually stored, and
+// "missing" when there is no record (not started yet, an expired pending
+// marker, a KV copy that has not caught up, or a session judged before
+// feedback existed). Only "unavailable" is final. Nothing here calls the model.
 export async function readSessionFeedback(env, id) {
   if (!/^b[0-9a-f]{32}$/.test(id || '')) return { status: 400, body: { error: 'Invalid receipt' } };
   if (!env.ABLTY_KV) return { status: 200, body: { status: 'unavailable' } };
@@ -119,5 +137,6 @@ export async function readSessionFeedback(env, id) {
     return { status: 200, body: { status: 'ready', feedback: { version: stored.version, summary: stored.summary,
       signal: stored.signal || [], noise: stored.noise || [], missing: stored.missing || [] } } };
   }
-  return { status: 200, body: { status: stored?.status === 'pending' ? 'pending' : 'unavailable' } };
+  if (stored?.status === 'pending' || stored?.status === 'unavailable') return { status: 200, body: { status: stored.status } };
+  return { status: 200, body: { status: 'missing' } };
 }
