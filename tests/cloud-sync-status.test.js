@@ -17,7 +17,7 @@ const DECLS = [
   extractMultiDecl('store'), extractDecl('DATA_OWNER_GUEST'),
   extractDecl('_authGen'), extractDecl('_activeAuthUserId'), extractDecl('_enteredUserId'), extractDecl('_legalGate'),
   extractDecl('_passwordRecoveryPending'),
-  extractDecl('MAX_RV_LOCAL_SESSIONS'), extractDecl('RV_SKETCH_KEEP_RECENT'), extractDecl('MAX_ZENER_LOCAL_RUNS'), extractDecl('MAX_TS_LOCAL_TRIALS'),
+  extractDecl('MAX_RV_LOCAL_SESSIONS'), extractDecl('RV_SKETCH_KEEP_RECENT'), extractDecl('RV_SKETCH_KEEP_CLOUD'), extractDecl('_rvCloudSketchIds'), extractDecl('MAX_ZENER_LOCAL_RUNS'), extractDecl('MAX_TS_LOCAL_TRIALS'),
   extractDecl('SYNC_PENDING_KEY'), extractDecl('SYNC_CONFIRMED_KEY'), extractDecl('MAX_SYNC_ATTEMPTS'),
   extractDecl('SYNC_VERIFY_RECENT'), extractDecl('SYNC_CONFIRMED_KEEP'),
   extractDecl('_syncFlushInFlight'), extractDecl('_syncMemoryQueue'), extractDecl('_syncConfirmedMemory'),
@@ -31,7 +31,7 @@ const DECLS = [
 ];
 const FNS = ['getBlindJudging', 'blindReceiptIdFor', 'linkBlindJudging', 'queueRetriedRVJudgment', 'safeParseArray', 'ownedKeyFor', 'ownedKey', 'isLoggedIn', 'isAuthGenCurrent', 'beginAuthContext', 'endAuthContext',
   'getTSTrialHit', 'mapRVSessionRow', 'mapZenerRunRow', 'mapTSTrialRow',
-  'trimRecent', 'persistHistory', 'warnHistoryNotSaved', 'pruneRvForStorage', 'saveState', 'loadState', 'loadZenerSessions', 'saveZenerSession',
+  'trimRecent', 'persistHistory', 'warnHistoryNotSaved', 'getRVSessionScore', 'isRVGradingFailed', 'pruneRvForStorage', 'rvSketchesInCloud', 'saveState', 'loadState', 'loadZenerSessions', 'saveZenerSession',
   'describePendingSync', 'updateSyncStatus', 'refreshSyncStatus', 'retryPendingSync',
   'readPendingSync', 'writePendingSync', 'pendingSyncCount', 'syncSessionToSupabase',
   'readConfirmedSync', 'markConfirmedSync', 'recentLocalHistoryRows', 'unverifiedLocalRows', 'verifyRecentCloudCopies',
@@ -79,7 +79,14 @@ function makeCtx(opts = {}) {
     localStorage: {
       getItem: (k) => (ls.has(k) ? ls.get(k) : null),
       setItem: (k, v) => {
-        if (storage.refuse(k)) throw new DOMException('QuotaExceededError');
+        if (storage.refuse(k, String(v))) throw new DOMException('QuotaExceededError');
+        // Optional size limit, like the browser's per-site box (replacing a
+        // key frees its old size first).
+        if (storage.quota) {
+          let used = 0;
+          ls.forEach((val, key) => { if (key !== k) used += key.length + val.length; });
+          if (used + k.length + String(v).length > storage.quota) throw new DOMException('QuotaExceededError');
+        }
         ls.set(k, String(v));
       },
       removeItem: (k) => ls.delete(k),
@@ -481,6 +488,96 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     t.storage.refuse = (k) => k.includes(':ablty_sessions');
     assert.strictEqual(t.ctx.saveState(), false);
     assert.strictEqual(t.log.toasts.length, 0, 'saveState itself does not toast; the result-saving callers do');
+  });
+
+  // ── Sketches filling the phone's storage ──
+
+  const bigSketch = (n) => 'data:image/jpeg;base64,' + String(n % 10).repeat(130000);
+  const keptSketches = (t, owner) => JSON.parse(t.ls.get('ablty_owned:' + owner + ':ablty_sessions')).filter((s) => s.sketchData).map((s) => s.id);
+
+  await test('signed in: sketches already in the cloud are kept on the phone only for the newest few', async () => {
+    const t = makeCtx();
+    t.signIn('A');
+    // 40 graded sessions came back from the cloud, all with sketches (newest first).
+    for (let i = 0; i < 40; i++) t.ctx.STATE.sessions.push(rvSession(5000 - i, { sketchData: bigSketch(i) }));
+    t.ctx._rvCloudSketchIds.set('A', new Set(t.ctx.STATE.sessions.map((s) => String(s.id))));
+    assert.strictEqual(t.ctx.saveState(), true);
+    assert.deepStrictEqual(keptSketches(t, 'A'), [5000, 4999, 4998, 4997, 4996], 'only the newest 5 keep their sketch');
+    assert.strictEqual(JSON.parse(t.ls.get('ablty_owned:A:ablty_sessions')).length, 40, 'every result is still kept');
+    assert.strictEqual(t.ctx.STATE.sessions[20].sketchData, bigSketch(20), 'the sketches stay in memory for this app session');
+  });
+
+  await test('signed in, 5 MB limit: a new result saves instead of failing once the history holds many sketches', async () => {
+    const t = makeCtx();
+    t.signIn('A');
+    t.storage.quota = 5000000;
+    for (let i = 0; i < 40; i++) t.ctx.STATE.sessions.push(rvSession(5000 - i, { sketchData: bigSketch(i) }));
+    // Before this fix the phone kept 30 sketches: about 3.9 million characters.
+    assert.ok(JSON.stringify(t.ctx.pruneRvForStorage(t.ctx.STATE.sessions)).length > 3900000);
+    t.ctx._rvCloudSketchIds.set('A', new Set(t.ctx.STATE.sessions.map((s) => String(s.id))));
+    // Other app data already on the phone.
+    t.ls.set('ablty_owned:A:ablty_zener', 'z'.repeat(1500000));
+    t.ctx.STATE.sessions.unshift(rvSession(6000, { sketchData: bigSketch(7) }));
+    assert.strictEqual(t.ctx.saveState(), true, 'the new result is kept');
+    assert.strictEqual(keptSketches(t, 'A')[0], 6000, 'the new sketch is kept even though its upload is not confirmed yet');
+  });
+
+  await test('signed in, nearly full: falls back to keeping only sketches the cloud does not have, never drops results', async () => {
+    const t = makeCtx();
+    t.signIn('A');
+    for (let i = 0; i < 10; i++) t.ctx.STATE.sessions.push(rvSession(5000 - i, { sketchData: bigSketch(i) }));
+    t.ctx._rvCloudSketchIds.set('A', new Set(t.ctx.STATE.sessions.map((s) => String(s.id))));
+    t.ctx.STATE.sessions.unshift(rvSession(6000, { sketchData: bigSketch(3) }));
+    // Room for about two sketches only.
+    t.storage.quota = 300000;
+    assert.strictEqual(t.ctx.saveState(), true);
+    assert.deepStrictEqual(keptSketches(t, 'A'), [6000], 'only the sketch not yet in the cloud stays');
+    assert.strictEqual(JSON.parse(t.ls.get('ablty_owned:A:ablty_sessions')).length, 11);
+  });
+
+  await test('a sketch on a session whose judging failed is never dropped, since a retry needs it', async () => {
+    const t = makeCtx();
+    t.signIn('A');
+    for (let i = 0; i < 10; i++) t.ctx.STATE.sessions.push(rvSession(5000 - i, { sketchData: bigSketch(i) }));
+    t.ctx.STATE.sessions[8] = rvSession(4992, { sketchData: bigSketch(8), score: null, grading_failed: true });
+    t.ctx._rvCloudSketchIds.set('A', new Set(t.ctx.STATE.sessions.map((s) => String(s.id))));
+    assert.strictEqual(t.ctx.saveState(), true);
+    assert.deepStrictEqual(keptSketches(t, 'A'), [5000, 4999, 4998, 4997, 4996, 4992]);
+  });
+
+  await test('uploads the database confirmed count as in the cloud; unconfirmed ones keep their sketch', async () => {
+    const t = makeCtx();
+    t.signIn('A');
+    for (let i = 0; i < 10; i++) t.ctx.STATE.sessions.push(rvSession(5000 - i, { sketchData: bigSketch(i) }));
+    t.ctx.markConfirmedSync('A', 'rv_sessions', 4993);
+    t.ctx.markConfirmedSync('A', 'zener_runs', 4992);
+    assert.strictEqual(t.ctx.saveState(), true);
+    const kept = keptSketches(t, 'A');
+    assert.ok(!kept.includes(4993), 'confirmed rv upload past the newest 5: sketch dropped on the phone');
+    assert.ok(kept.includes(4992) && kept.includes(4991), 'not confirmed as an RV upload: sketch kept');
+  });
+
+  await test('guest: nothing is in the cloud, so no sketch is dropped beyond the old rule', async () => {
+    const t = makeCtx();
+    for (let i = 0; i < 10; i++) t.ctx.STATE.sessions.push(rvSession(5000 - i, { sketchData: bigSketch(i) }));
+    t.ctx._rvCloudSketchIds.set(t.ctx.DATA_OWNER_GUEST, new Set(t.ctx.STATE.sessions.map((s) => String(s.id))));
+    assert.strictEqual(t.ctx.rvSketchesInCloud(t.ctx.DATA_OWNER_GUEST).size, 0);
+    assert.strictEqual(t.ctx.saveState(), true);
+    assert.strictEqual(JSON.parse(t.ls.get(t.ctx.ownedKey('ablty_sessions'))).filter((s) => s.sketchData).length, 10);
+  });
+
+  await test('if even the smaller history does not fit, the previous saved history is put back, not lost', async () => {
+    const t = makeCtx();
+    t.signIn('A');
+    for (let i = 0; i < 3; i++) t.ctx.STATE.sessions.push(rvSession(5000 - i, { sketchData: bigSketch(i) }));
+    assert.strictEqual(t.ctx.saveState(), true);
+    const before = t.ls.get('ablty_owned:A:ablty_sessions');
+    t.ctx._rvCloudSketchIds.set('A', new Set(t.ctx.STATE.sessions.map((s) => String(s.id))));
+    t.ctx.STATE.sessions.unshift(rvSession(6000, { sketchData: bigSketch(5) }));
+    // Any history that includes the new result is refused.
+    t.storage.refuse = (k, v) => k.endsWith(':ablty_sessions') && v.includes('"id":6000');
+    assert.strictEqual(t.ctx.saveState(), false, 'reported as not saved, so the user is warned');
+    assert.strictEqual(t.ls.get('ablty_owned:A:ablty_sessions'), before, 'the earlier history is still on the phone');
   });
 
   // ── Duplicate keys ──

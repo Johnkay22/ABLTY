@@ -8791,6 +8791,16 @@ let rvAssignInFlight = null;
 
 const MAX_RV_LOCAL_SESSIONS = 120;
 const RV_SKETCH_KEEP_RECENT = 30;
+// A sketch whose cloud copy is known to exist is kept on the phone only on
+// the newest RV_SKETCH_KEEP_CLOUD sessions. The rest come back from the
+// cloud when history loads. Sketches are about 100 to 400 KB each, and the
+// browser gives the whole app only about 5 MB on the phone, so 30 of them
+// filled it and every later save failed.
+const RV_SKETCH_KEEP_CLOUD = 5;
+// Per owner: ids of RV sessions whose cloud row came back with its sketch
+// in the last history load. In memory only; the confirmed-upload list
+// covers sessions saved since.
+const _rvCloudSketchIds = new Map();
 const MAX_ZENER_LOCAL_RUNS = 600;
 const MAX_TS_LOCAL_TRIALS = 1200;
 const DREAM_EMOTION_OPTIONS = ['Calm', 'Anxious', 'Euphoric', 'Fearful', 'Curious', 'Confused', 'Sad', 'Neutral'];
@@ -9152,10 +9162,16 @@ function normalizePersistentCaches() {
 
 // The form in which the RV history is kept on the phone: the newest
 // MAX_RV_LOCAL_SESSIONS, with the sketch payload only on the newest
-// RV_SKETCH_KEEP_RECENT (localStorage quota).
-function pruneRvForStorage(sessions) {
+// RV_SKETCH_KEEP_RECENT (localStorage quota). A sketch the cloud already
+// holds (`cloudHeld`, a Set of session ids) is kept only on the newest
+// `keepCloud` sessions. A session whose judging failed always keeps its
+// sketch, because a retry needs it.
+function pruneRvForStorage(sessions, cloudHeld = null, keepCloud = RV_SKETCH_KEEP_RECENT) {
   return (Array.isArray(sessions) ? sessions : []).slice(0, MAX_RV_LOCAL_SESSIONS).map((s, idx) => {
-    if (idx >= RV_SKETCH_KEEP_RECENT && s && s.sketchData) {
+    if (!s || !s.sketchData) return s;
+    const drop = idx >= RV_SKETCH_KEEP_RECENT
+      || (idx >= keepCloud && cloudHeld && cloudHeld.has(String(s.id)) && !isRVGradingFailed(s));
+    if (drop) {
       const { sketchData, ...rest } = s;
       return rest;
     }
@@ -9163,8 +9179,44 @@ function pruneRvForStorage(sessions) {
   });
 }
 
+// Ids of `owner`'s RV sessions whose sketch is known to be in the cloud:
+// uploads the database confirmed, plus rows the last history load returned
+// with a sketch. Empty for a guest, whose sketches exist only on the phone.
+function rvSketchesInCloud(owner) {
+  const ids = new Set();
+  if (!owner || owner === DATA_OWNER_GUEST) return ids;
+  try {
+    readConfirmedSync(owner).forEach((k) => {
+      if (typeof k === 'string' && k.startsWith('rv_sessions:')) ids.add(k.slice('rv_sessions:'.length));
+    });
+  } catch (e) {}
+  try {
+    const fetched = _rvCloudSketchIds.get(owner);
+    if (fetched) fetched.forEach((id) => ids.add(String(id)));
+  } catch (e) {}
+  return ids;
+}
+
 function saveState() {
-  const saved = persistHistory(ownedKey('ablty_sessions'), JSON.stringify(pruneRvForStorage(STATE.sessions)));
+  const key = ownedKey('ablty_sessions');
+  const cloudHeld = rvSketchesInCloud(_dataOwner);
+  let saved = persistHistory(key, JSON.stringify(pruneRvForStorage(STATE.sessions, cloudHeld, RV_SKETCH_KEEP_CLOUD)));
+  if (!saved && cloudHeld.size) {
+    // Still full: keep on the phone only the sketches the cloud does not
+    // have. Some browsers count the old list against the limit while
+    // replacing it, so it is removed first and put back if the smaller
+    // list still does not fit.
+    const smaller = JSON.stringify(pruneRvForStorage(STATE.sessions, cloudHeld, 0));
+    saved = persistHistory(key, smaller);
+    if (!saved) {
+      let previous = null;
+      try { previous = localStorage.getItem(key); localStorage.removeItem(key); } catch (e) {}
+      saved = persistHistory(key, smaller);
+      if (!saved && previous !== null) {
+        try { localStorage.setItem(key, previous); } catch (e) {}
+      }
+    }
+  }
   store.set('ablty_settings', JSON.stringify(STATE.settings));
   return saved;
 }
@@ -18846,6 +18898,8 @@ async function loadAnalyticsFromCloud(userId, opts = {}) {
         rvLocal,
         (r) => String(r?.id || `${r?.trn || ''}-${r?.timestamp || ''}`)
       );
+      // These sketches are safe in the cloud, so the phone need not keep them all.
+      _rvCloudSketchIds.set(String(userId), new Set(rvRows.filter((r) => r && r.sketch_data).map((r) => String(r.id))));
       if (rvMerged.length) {
         STATE.sessions = rvMerged;
         saveState();
@@ -20437,7 +20491,7 @@ function saveEditModal() {
 // Paste your VAPID public key from vapidkeys.com here:
 const VAPID_PUBLIC_KEY = 'BGCwIkeYEqyONpanzw4gPj1ipQztWs8wvJa6AOMpI6tHpUdnLuvr6YIwQVB3F_BUC81_uFRifkR79fqXHwOKPKU';
 const APP_BOOT_LAST_MODIFIED = document.lastModified || '';
-const APP_VERSION = '2026.11.01.1';
+const APP_VERSION = '2026.11.04.1';
 const VERSION_MANIFEST_PATH = '/version.json';
 
 // What the last update check found, so Settings can tell "this is the
