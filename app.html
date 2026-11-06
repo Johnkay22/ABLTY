@@ -12209,7 +12209,16 @@ function moveLocalResult(fromOwner, owner, table, id) {
   const { keys, sid, same, entry, onScreenRv, destKey } = plan;
   const persisted = () => {
     const back = safeParseArray(store.get(destKey)).find(same);
-    return !!back && sameLocalValue(back, entry);
+    if (!back) return false;
+    if (sameLocalValue(back, entry)) return true;
+    // An RV session whose sketch the cloud already holds may be stored
+    // without that sketch (saveState keeps cloud-held sketches only on the
+    // newest RV_SKETCH_KEEP_CLOUD sessions). That copy still counts, as
+    // long as every other field is exactly the entry being moved.
+    if (table !== 'rv_sessions' || !entry || !('sketchData' in entry)) return false;
+    if (!rvSketchesInCloud(owner).has(sid)) return false;
+    const { sketchData, ...withoutSketch } = entry;
+    return sameLocalValue(back, withoutSketch);
   };
   if (entry && !persisted()) {
     const byTime = (a, b) => (Date.parse(b?.timestamp || '') || 0) - (Date.parse(a?.timestamp || '') || 0);

@@ -1302,6 +1302,93 @@ async function test(name, fn) { await fn(); passed += 1; console.log('PASS  ' + 
     assert.ok(r.confirmed('B').includes('rv_sessions:' + old.id));
   });
 
+  // ── Review of the sketch storage fix: the read-back must allow the stripped sketch ──
+
+  // B, the account on screen, holds `count` newer RV sessions on this device,
+  // and A has `old` parked for B. Returns the parked session.
+  function onScreenRvRecovery(t, count) {
+    const old = olderRv(1600000000000);
+    parkRv(t, 'A', old);
+    t.cloud('rv_sessions', old.id, 'B', t.ctx.mapRVSessionRow(old));
+    const newer = Array.from({ length: count }, (_, i) => rvSession(1790000100000 + i, { timestamp: new Date(1790000100000 + i).toISOString() }));
+    newer.sort((a, b) => b.id - a.id);
+    t.ls.set('ablty_owned:B:ablty_sessions', JSON.stringify(newer));
+    t.signIn('B');
+    t.ctx.loadState();
+    return old;
+  }
+  const storedRv = (t, owner, id) => JSON.parse(t.ls.get('ablty_owned:' + owner + ':ablty_sessions')).find((s) => s.id === id) || null;
+
+  await test('REGRESSION: on-screen RV recovery past the newest 5, sketch already in the cloud: moved, stored without the sketch, source and queue cleared', async () => {
+    const t = makeCtx();
+    const old = onScreenRvRecovery(t, 7);
+    // The cloud history load returned this session with its sketch.
+    t.ctx._rvCloudSketchIds.set('B', new Set([String(old.id)]));
+    assert.ok(t.ctx.rvSketchesInCloud('B').has(String(old.id)));
+    assert.strictEqual(t.ctx.moveLocalResult('A', 'B', 'rv_sessions', old.id), 'moved');
+    const stored = JSON.parse(t.ls.get('ablty_owned:B:ablty_sessions'));
+    const idx = stored.findIndex((s) => s.id === old.id);
+    assert.ok(idx > t.ctx.RV_SKETCH_KEEP_CLOUD - 1, 'the recovered session is older than the newest 5, index ' + idx);
+    assert.strictEqual('sketchData' in stored[idx], false, 'the stored destination copy has no sketch');
+    const { sketchData, ...withoutSketch } = old;
+    assert.deepStrictEqual(stored[idx], withoutSketch, 'every other field is the moved entry');
+    assert.strictEqual(stored.length, 8, 'no result dropped');
+    assert.deepStrictEqual(JSON.parse(t.ls.get('ablty_owned:A:ablty_sessions')), [], 'source copy gone');
+    assert.deepStrictEqual(t.queue('A'), [], 'parked queue item gone');
+    assert.ok(t.confirmed('B').includes('rv_sessions:' + old.id));
+    assert.strictEqual(t.ctx.foreignCollisionItems('B').length, 0);
+    assert.ok(t.ctx.STATE.sessions.some((s) => s.id === old.id), 'in memory for the owner on screen');
+    // A reload sees the same stored copy and nothing waiting.
+    const r = reload(t, 'B');
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(r.ctx.STATE.sessions.find((s) => s.id === old.id))), withoutSketch);
+    assert.deepStrictEqual(r.queue('A'), []);
+  });
+
+  await test('REGRESSION: same setup, sketch not in the cloud: moved and the stored copy keeps its sketch', async () => {
+    const t = makeCtx();
+    const old = onScreenRvRecovery(t, 7);
+    // The cloud is known to hold other sketches, not this one.
+    t.ctx._rvCloudSketchIds.set('B', new Set(['1790000100000', '1790000100001']));
+    assert.strictEqual(t.ctx.rvSketchesInCloud('B').has(String(old.id)), false);
+    assert.strictEqual(t.ctx.moveLocalResult('A', 'B', 'rv_sessions', old.id), 'moved');
+    const copy = storedRv(t, 'B', old.id);
+    assert.strictEqual(copy.sketchData, old.sketchData, 'the sketch is kept on the phone');
+    assert.deepStrictEqual(copy, old, 'the complete session');
+    assert.deepStrictEqual(JSON.parse(t.ls.get('ablty_owned:A:ablty_sessions')), []);
+    assert.deepStrictEqual(t.queue('A'), []);
+    assert.deepStrictEqual(JSON.parse(JSON.stringify(reload(t, 'B').ctx.STATE.sessions.find((s) => s.id === old.id))), old);
+  });
+
+  await test('REGRESSION: the stored copy lacks the sketch but also differs in another field: still refused, nothing removed', async () => {
+    const t = makeCtx();
+    const old = onScreenRvRecovery(t, 7);
+    t.ctx._rvCloudSketchIds.set('B', new Set([String(old.id)]));
+    const before = { a: t.ls.get('ablty_owned:A:ablty_sessions'), q: t.ls.get('ablty_owned:A:ablty_sync_pending'), b: t.ls.get('ablty_owned:B:ablty_sessions') };
+    // Another tab rewrites B's list between the save and its read-back: the
+    // recovered session comes back with different notes. The save's own
+    // read-back (the first read that includes it) is left alone.
+    const realGet = t.ctx.localStorage.getItem;
+    let reads = 0;
+    t.ctx.localStorage.getItem = (k) => {
+      const v = realGet(k);
+      if (k !== 'ablty_owned:B:ablty_sessions' || v === null) return v;
+      const list = JSON.parse(v);
+      if (!list.some((s) => s.id === old.id)) return v;
+      reads += 1;
+      if (reads === 1) return v;
+      return JSON.stringify(list.map((s) => (s.id === old.id ? { ...s, notes: 'edited elsewhere' } : s)));
+    };
+    assert.strictEqual(t.ctx.moveLocalResult('A', 'B', 'rv_sessions', old.id), 'refused');
+    assert.ok(reads >= 2, 'the read-back saw the differing copy');
+    t.ctx.localStorage.getItem = realGet;
+    assert.strictEqual(t.ls.get('ablty_owned:A:ablty_sessions'), before.a, 'source kept, sketch included');
+    assert.strictEqual(t.ls.get('ablty_owned:A:ablty_sync_pending'), before.q, 'queue kept');
+    assert.strictEqual(t.ls.get('ablty_owned:B:ablty_sessions'), before.b, 'destination storage rolled back');
+    assert.strictEqual(t.ctx.STATE.sessions.length, 7, 'memory rolled back');
+    assert.ok(!t.ctx.STATE.sessions.some((s) => s.id === old.id));
+    assert.ok(!t.confirmed('B').includes('rv_sessions:' + old.id), 'not marked confirmed');
+  });
+
   await test('REGRESSION: a failed queue cleanup keeps the unfinished item in the live queue, so Details can retry in the same session', async () => {
     const t = makeCtx();
     const { stuck } = twoAccountPhone(t, 'A');
